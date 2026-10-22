@@ -10,11 +10,21 @@
 //! the `download-intercepted` event. The window stays open so multi-part
 //! releases queue one download per part, and the session ends only when the
 //! window is closed (or `close_download_resolver` is called).
+//!
+//! ## Threading rule for cookies
+//!
+//! `Webview::cookies()` (and `cookies_for_url`) **deadlocks** when called from
+//! a synchronous command or a webview event handler on Windows: the handler
+//! runs on the UI thread and the WebView2 cookie fetch completes on that same
+//! UI thread. The navigation/download handlers therefore only enqueue a
+//! payload; the async session worker reads the live cookie jar afterwards (it
+//! runs on a tokio worker, so the UI thread stays free to complete the fetch)
+//! and attaches the `Cookie` header before queueing the download.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
-use tauri::webview::{DownloadEvent, NewWindowResponse};
+use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tokio::sync::mpsc;
 
@@ -62,6 +72,30 @@ fn sessions() -> &'static Mutex<HashMap<String, SessionState>> {
     SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Last committed page URL per resolver window. Filled from `on_page_load`
+/// (which receives the URL in its payload) so the navigation/download
+/// handlers can send a correct `Referer` without asking the webview for its
+/// current URL — `Webview::url()` is another cross-thread dispatcher call
+/// that event handlers must not make.
+static LAST_PAGE_URL: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn last_page_urls() -> &'static Mutex<HashMap<String, String>> {
+    LAST_PAGE_URL.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn remember_page_url(session_id: &str, url: &str) {
+    if let Ok(mut map) = last_page_urls().lock() {
+        map.insert(session_id.to_string(), url.to_string());
+    }
+}
+
+fn current_page_url(session_id: &str) -> Option<String> {
+    last_page_urls()
+        .lock()
+        .ok()
+        .and_then(|map| map.get(session_id).cloned())
+}
+
 /// Determine if a URL targets a downloadable archive, disk image, binary,
 /// torrent metadata, or magnet URI.
 pub fn is_downloadable_url(url_str: &str) -> bool {
@@ -101,6 +135,19 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
     // Check multi-part archive patterns (.001..999, .r00..r99, .z01..z99, .partX.rar)
     if is_multipart_ext_path(&path) {
         return true;
+    }
+
+    // Cloudflare Turnstile-gated file endpoints. Challenge-protected hosts
+    // mint a fresh token and append it to the file URL right before
+    // navigating (`/download-file/<hash>?cf-turnstile-response=<token>`), so
+    // the navigation itself is the download request. The URL carries no file
+    // extension, and the token is single-use: cancelling the navigation in
+    // `on_navigation` hands the untouched token to the download engine
+    // instead of burning it inside the webview.
+    if let Some(query) = parsed.query() {
+        if query.to_lowercase().contains("cf-turnstile-response=") {
+            return true;
+        }
     }
 
     // Check if query parameter explicitly ends with or specifies a file extension or download action
@@ -263,14 +310,14 @@ fn generate_init_script(game_name: &str) -> String {
   if (window.__gi_resolver_injected) return;
   window.__gi_resolver_injected = true;
 
-  function sendToGameIndex(url, filename) {{
+  function sendMarker(url, filename) {{
     if (!url) return;
     let cleanUrl = String(url).trim();
     if (!cleanUrl || cleanUrl.startsWith('javascript:') || cleanUrl === '#') return;
     try {{
       cleanUrl = new URL(cleanUrl, window.location.href).href;
     }} catch (_) {{}}
-    console.log('[GI-Resolver] Capturing download:', cleanUrl);
+    console.log('[GI-Resolver] Capturing download via marker:', cleanUrl);
     updateBannerStatus('Capturing download…', true);
     let cookieStr = '';
     try {{ cookieStr = document.cookie || ''; }} catch (_) {{}}
@@ -281,40 +328,109 @@ fn generate_init_script(game_name: &str) -> String {
     window.location.href = payloadStr;
   }}
 
+  // Hand a download URL to GameIndex. A plain navigation is the preferred
+  // route: Rust cancels it in `on_navigation`, reads this webview's live
+  // cookie jar (HttpOnly cookies included) and queues the transfer, so the
+  // page keeps its state. The marker navigation stays for URLs Rust would not
+  // recognise as a file (hoster pages, magnets); in-page blobs are saved by
+  // the browser itself.
+  function captureDownload(url, filename) {{
+    if (!url) return;
+    let cleanUrl = String(url).trim();
+    if (!cleanUrl || cleanUrl.startsWith('javascript:') || cleanUrl === '#') return;
+    try {{
+      cleanUrl = new URL(cleanUrl, window.location.href).href;
+    }} catch (_) {{}}
+
+    if (cleanUrl.startsWith('blob:') || cleanUrl.startsWith('data:')) {{
+      console.log('[GI-Resolver] Saving in-page blob via the webview');
+      updateBannerStatus('Saving in-page file…', true);
+      const a = document.createElement('a');
+      a.href = cleanUrl;
+      if (filename) a.download = String(filename);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }}
+
+    console.log('[GI-Resolver] Handing download to GameIndex:', cleanUrl);
+    updateBannerStatus('Capturing download…', true);
+
+    if (cleanUrl.startsWith('magnet:')) {{
+      sendMarker(cleanUrl, filename);
+      return;
+    }}
+
+    // Challenge-protected hosts resolve their token in page JS right before
+    // navigating. When the widget already holds one, carry it along so the
+    // engine gets a usable request instead of the challenge page.
+    const resolved = withTurnstileToken(cleanUrl);
+
+    // Anything that is not a transfer is a landing/countdown page: open it
+    // and let the site resolve the file. Downloading the page itself only
+    // ever produces an HTML error.
+    if (!isFileTransfer(resolved)) {{
+      console.log('[GI-Resolver] Not a file — opening in the browser instead:', resolved);
+      window.location.href = resolved;
+      return;
+    }}
+    window.location.href = resolved;
+  }}
+
+  // True for URLs whose path (or Turnstile token) marks them as a file
+  // transfer — the ones Rust's `is_downloadable_url` also recognises.
+  function isDirectFileUrl(url) {{
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase();
+    if (lower.indexOf('cf-turnstile-response=') !== -1) return true;
+    if (/\.(?:torrent|zip|rar|7z|iso|exe|bin|pkg|tar|gz|xz|zst|bz2|lzma|sz|lz4|tgz|dmg|apk|nsp|nsz|xci|xcz|cia|wua|rvz|chd|cso|gdi|cdi|vpk|wbfs|wad|wux|elf|dol|qcow2|vmdk|vhd|vhdx|img|wim|swm|esd|xiso|gcm|ciso|3ds|nds|gba|gbc|gb|sfc|smc|nes|z64|n64|v64|pbp|msi|appimage|rpm|deb)(?:[?&#]|$)/i.test(lower)) {{
+      return true;
+    }}
+    if (/\.(?:0\d\d|[1-9]\d\d|r\d\d|z\d\d)(?:[?&#]|$)/i.test(lower)) return true;
+    if (/\.part\d+\.(?:rar|exe|zip|7z)(?:[?&#]|$)/i.test(lower)) return true;
+    return false;
+  }}
+
+  // A URL is worth handing to the engine only when it *is* a transfer:
+  // an archive/disk-image path, a multi-part name, a Turnstile-tokenised
+  // file endpoint, or a known hoster/CDN file URL. A page whose path merely
+  // says "download" (a landing or countdown page) is deliberately excluded —
+  // hijacking it downloads HTML instead of letting the site resolve the real
+  // file and navigate to it (that navigation is captured in Rust).
   function isDownloadUrl(url) {{
     if (!url || typeof url !== 'string') return false;
-    const clean = url.trim().toLowerCase();
-    if (clean.startsWith('magnet:')) return true;
-    const exts = [
-      '.torrent', '.zip', '.rar', '.7z', '.iso', '.exe', '.bin', '.pkg',
-      '.tar', '.gz', '.xz', '.zst', '.tar.gz', '.tar.xz', '.tar.zst',
-      '.tar.bz2', '.tbz2', '.bz2', '.lzma', '.sz', '.lz4', '.tgz',
-      '.dmg', '.apk', '.nsp', '.nsz', '.xci', '.xcz', '.cia', '.wua',
-      '.rvz', '.chd', '.cso', '.gdi', '.cdi', '.vpk', '.wbfs', '.wad',
-      '.wux', '.elf', '.dol', '.qcow2', '.vmdk', '.vhd', '.vhdx',
-      '.img', '.wim', '.swm', '.esd', '.xiso', '.gcm', '.ciso',
-      '.3ds', '.nds', '.gba', '.gbc', '.gb', '.sfc', '.smc', '.nes',
-      '.z64', '.n64', '.v64', '.pbp', '.msi', '.appimage', '.rpm', '.deb'
-    ];
-    for (const ext of exts) {{
-      if (clean.endsWith(ext) || clean.includes(ext + '?') || clean.includes(ext + '&') || clean.includes(ext + '#')) {{
-        return true;
-      }}
-    }}
-    // Check multi-part patterns (.001-.999, .r00-.r99, .z01-.z99, .partX.rar)
-    if (/\.(?:0\d\d|[1-9]\d\d|r\d\d|z\d\d)(?:[?&#]|$)/i.test(clean)) {{
+    const clean = url.trim();
+    if (clean.toLowerCase().startsWith('magnet:')) return true;
+    return isFileTransfer(clean);
+  }}
+
+  function isFileTransfer(url) {{
+    return isDirectFileUrl(url) || isHosterTransfer(url);
+  }}
+
+  function isHosterTransfer(url) {{
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.toLowerCase();
+    if (/\b(?:dl=1|export=download|action=download|response-content-disposition)/i.test(clean)) {{
       return true;
     }}
-    if (/\.part\d+\.(?:rar|exe|zip|7z)(?:[?&#]|$)/i.test(clean)) {{
-      return true;
-    }}
-    if (/\b(?:download|dl=1|export=download|action=download|response-content-disposition)/i.test(clean)) {{
-      return true;
-    }}
-    if (/(?:download\d*\.mediafire\.com|srv-[^/]+\.gofile\.io\/download|gofilecdn\.com|pixeldrain\.com\/api\/file\/|ts\.buzzheavier\.com\/d\/|buzzheavier\.com\/d\/|s\d*\.datanodes\.to\/d\/|datanodes\.to\/dl\/|krakenfiles\.com\/dl\/|krakenfiles\.com\/view-file\/|fs\d*\.1fichier\.com|a-\d*\.1fichier\.com|qiwi\.gg\/file\/|qiwi\.gg\/download|qiwi\.to|download\d*\.megaup\.net|fuckingfast\.co\/dl\/|fuckingfast\.co\/d\/|rootz\.so\/dl\/|rootz\.so\/d\/|vikingfile\.com\/d\/|vik1ngfile\.site\/d\/|archive\.org\/download\/)/i.test(clean)) {{
-      return true;
-    }}
-    return false;
+    return /(?:download\d*\.mediafire\.com|srv-[^/]+\.gofile\.io\/download|gofilecdn\.com|pixeldrain\.com\/api\/file\/|ts\.buzzheavier\.com\/d\/|buzzheavier\.com\/d\/|s\d*\.datanodes\.to\/d\/|datanodes\.to\/dl\/|krakenfiles\.com\/dl\/|krakenfiles\.com\/view-file\/|fs\d*\.1fichier\.com|a-\d*\.1fichier\.com|qiwi\.gg\/file\/|qiwi\.gg\/download|qiwi\.to|download\d*\.megaup\.net|fuckingfast\.co\/dl\/|fuckingfast\.co\/d\/|rootz\.so\/dl\/|rootz\.so\/d\/|vikingfile\.com\/d\/|vik1ngfile\.site\/d\/|archive\.org\/download\/)/i.test(clean);
+  }}
+
+  // Carry a solved challenge token along when the page already holds one.
+  // Cloudflare's widget keeps it in a hidden `cf-turnstile-response` input;
+  // without it the file endpoint answers with an HTML error page.
+  function withTurnstileToken(url) {{
+    if (!url || typeof url !== 'string') return url;
+    if (url.toLowerCase().indexOf('cf-turnstile-response=') !== -1) return url;
+    let token = '';
+    try {{
+      const input = document.querySelector('input[name="cf-turnstile-response"]');
+      if (input && typeof input.value === 'string') token = input.value;
+    }} catch (_) {{}}
+    if (!token) return url;
+    return url + (url.indexOf('?') !== -1 ? '&' : '?') + 'cf-turnstile-response=' + encodeURIComponent(token);
   }}
 
   function findDownloadUrlInObject(obj, depth) {{
@@ -369,7 +485,7 @@ fn generate_init_script(game_name: &str) -> String {
       const label = (name ? String(name).trim() : 'Download');
       btn.innerHTML = '⚡ Download Ready — Click to Start (' + (label.length > 20 ? label.substring(0, 20) + '…' : label) + ')';
       btn.onclick = function() {{
-        sendToGameIndex(cleanUrl, name);
+        captureDownload(cleanUrl, name);
       }};
     }}
   }}
@@ -411,7 +527,7 @@ fn generate_init_script(game_name: &str) -> String {
     const manualBtn = document.getElementById('__gi_resolver_manual_btn');
     if (manualBtn) {{
       manualBtn.onclick = function() {{
-        sendToGameIndex(window.location.href, document.title);
+        sendMarker(window.location.href, document.title);
       }};
     }}
   }}
@@ -427,7 +543,7 @@ fn generate_init_script(game_name: &str) -> String {
   window.open = function(url) {{
     if (url && typeof url === 'string') {{
       if (isDownloadUrl(url)) {{
-        sendToGameIndex(url);
+        captureDownload(url);
         return null;
       }}
       window.location.href = url;
@@ -441,7 +557,7 @@ fn generate_init_script(game_name: &str) -> String {
   HTMLAnchorElement.prototype.click = function() {{
     const href = this.href;
     if (href && isDownloadUrl(href)) {{
-      sendToGameIndex(href, this.getAttribute('download') || this.innerText);
+      captureDownload(href, this.getAttribute('download') || this.innerText);
       return;
     }}
     return _origAnchorClick.apply(this, arguments);
@@ -467,7 +583,7 @@ fn generate_init_script(game_name: &str) -> String {
     if (href && typeof href === 'string' && isDownloadUrl(href)) {{
       e.preventDefault();
       e.stopPropagation();
-      sendToGameIndex(href, el.getAttribute('download') || el.innerText);
+      captureDownload(href, el.getAttribute('download') || el.innerText);
       return;
     }}
   }}, true);
@@ -483,7 +599,7 @@ fn generate_init_script(game_name: &str) -> String {
     if (action && isDownloadUrl(action) && (form.method || 'GET').toUpperCase() === 'GET') {{
       e.preventDefault();
       e.stopPropagation();
-      sendToGameIndex(action);
+      captureDownload(action);
     }}
   }}, true);
 
@@ -591,6 +707,9 @@ pub async fn open_download_resolver(
     let save_dir_dl = save_dir.clone();
     let session_id_dl = window_id.clone();
     let app_dl = app.clone();
+    let session_id_nav = window_id.clone();
+    let session_id_nw = window_id.clone();
+    let session_id_load = window_id.clone();
 
     let webview = WebviewWindowBuilder::new(
         &app,
@@ -603,7 +722,7 @@ pub async fn open_download_resolver(
     .resizable(true)
     .user_agent(RESOLVER_UA)
     .initialization_script(&init_script)
-    .on_download(move |webview, event| {
+    .on_download(move |_webview, event| {
         match event {
             DownloadEvent::Requested { url, destination } => {
                 let url_str = url.as_str().to_string();
@@ -626,16 +745,12 @@ pub async fn open_download_resolver(
                     return true;
                 }
 
-                // Capture the session NOW (G4): referer from the current page
-                // and cookies from the live webview, not after a wait.
-                let referer = webview.url().ok().map(|u| u.as_str().to_string());
-                let cookies = webview
-                    .cookies()
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|c| format!("{}={}", c.name(), c.value()))
-                    .collect::<Vec<_>>()
-                    .join("; ");
+                // Never read the cookie jar (or the current URL) here:
+                // `Webview::cookies()` deadlocks when called from a webview
+                // event handler on Windows. The session worker reads the live
+                // jar afterwards, off the UI thread, and attaches the Cookie
+                // header before queueing the transfer.
+                let referer = current_page_url(&session_id_dl);
                 let filename = destination
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
@@ -644,7 +759,7 @@ pub async fn open_download_resolver(
                     url: url_str,
                     filename,
                     referer,
-                    cookies: if cookies.is_empty() { None } else { Some(cookies) },
+                    cookies: None,
                 });
                 // Cancel the native webview download — GameIndex takes over.
                 false
@@ -725,7 +840,7 @@ pub async fn open_download_resolver(
             let _ = tx_nav.try_send(InterceptedPayload {
                 url: nav_str.to_string(),
                 filename,
-                referer: None,
+                referer: current_page_url(&session_id_nav),
                 cookies: None,
             });
             // Stop webview from downloading file into OS temp folder
@@ -741,11 +856,19 @@ pub async fn open_download_resolver(
             let _ = tx_nw.try_send(InterceptedPayload {
                 url: url_str,
                 filename,
-                referer: None,
+                referer: current_page_url(&session_id_nw),
                 cookies: None,
             });
         }
         NewWindowResponse::Deny
+    })
+    .on_page_load(move |_window, payload| {
+        // Remember the committed page so later captures can send it as the
+        // `Referer`. `Started` is skipped: it fires for cancelled download
+        // navigations too, which would replace the page with the file URL.
+        if matches!(payload.event(), PageLoadEvent::Finished) {
+            remember_page_url(&session_id_load, payload.url().as_str());
+        }
     })
     .build()
     .map_err(|e| format!("Failed to open browser resolver window: {e}"))?;
@@ -795,6 +918,10 @@ pub async fn open_download_resolver(
                 session.part_count
             };
 
+            // Attach the live cookie jar here, on a tokio worker, so the
+            // WebView2 UI thread stays free to complete the fetch.
+            let payload = with_webview_cookies(&worker_app, &worker_session_id, payload).await;
+
             dispatch_intercepted(
                 &worker_app,
                 &worker_session_id,
@@ -825,6 +952,9 @@ pub async fn open_download_resolver(
                 None => return, // already cleaned up (idempotent)
             }
         };
+        if let Ok(mut map) = last_page_urls().lock() {
+            map.remove(&close_session_id);
+        }
         let _ = close_app.emit(
             "resolver-session-ended",
             serde_json::json!({
@@ -866,6 +996,9 @@ pub fn close_download_resolver(app: AppHandle, session_id: String) -> Result<(),
             None => return Ok(()),
         }
     };
+    if let Ok(mut map) = last_page_urls().lock() {
+        map.remove(&session_id);
+    }
     let _ = app.emit(
         "resolver-session-ended",
         serde_json::json!({
@@ -875,6 +1008,41 @@ pub fn close_download_resolver(app: AppHandle, session_id: String) -> Result<(),
         }),
     );
     Ok(())
+}
+
+/// Attach the webview's live cookie jar for the target URL. This is the only
+/// place cookies are read: the navigation/download handlers must not call
+/// `cookies_for_url` (it blocks on the UI thread that raised the event), but
+/// a tokio worker can wait for it safely.
+async fn with_webview_cookies(
+    app: &AppHandle,
+    session_id: &str,
+    mut payload: InterceptedPayload,
+) -> InterceptedPayload {
+    if payload.url.starts_with("magnet:") {
+        return payload;
+    }
+    let Ok(url) = url::Url::parse(&payload.url) else {
+        return payload;
+    };
+    let Some(webview) = app.get_webview(session_id) else {
+        return payload;
+    };
+    let cookies = match tokio::task::spawn_blocking(move || webview.cookies_for_url(url)).await {
+        Ok(Ok(cookies)) => cookies,
+        _ => return payload,
+    };
+    if cookies.is_empty() {
+        return payload;
+    }
+    payload.cookies = Some(
+        cookies
+            .iter()
+            .map(|c| format!("{}={}", c.name(), c.value()))
+            .collect::<Vec<_>>()
+            .join("; "),
+    );
+    payload
 }
 
 /// Queue one intercepted payload through the download engine and notify the
@@ -1075,6 +1243,21 @@ mod tests {
         assert!(!is_downloadable_url("https://api.example.com/v1/files/123"));
         assert!(!is_downloadable_url(
             "https://api.example.com/v1/files.json"
+        ));
+    }
+
+    #[test]
+    fn is_downloadable_url_detects_turnstile_file_links() {
+        assert!(is_downloadable_url(
+            "https://ankergames.net/download-file/16a6307de8381a2d35c8edaf12e0bf41bd28fea9bc6cffd2?cf-turnstile-response=0.abc123"
+        ));
+        // Without a token the same path is only a page (the host answers with
+        // an HTML error), so a plain visit must not be hijacked.
+        assert!(!is_downloadable_url(
+            "https://ankergames.net/download-file/16a6307de8381a2d35c8edaf12e0bf41bd28fea9bc6cffd2"
+        ));
+        assert!(!is_downloadable_url(
+            "https://ankergames.net/download/eyJkb3dubG9hZF9pZCI6MTV9/abc"
         ));
     }
 
