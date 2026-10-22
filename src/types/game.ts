@@ -1196,11 +1196,19 @@ export interface AchievementLibraryStats {
  * Everything the frontend needs to render achievements without holding
  * the full per-game arrays. Built by `get_achievement_overview`.
  */
+/** One year of unlock activity (all-time; feeds the Wrapped page). */
+export interface AchievementYearlyPoint {
+  year: number;
+  count: number;
+  points: number;
+}
 
 export interface AchievementOverview {
   summaries: Record<string, AchievementSummary>;
   stats: AchievementLibraryStats;
   monthly: AchievementMonthlyPoint[];
+  /** All-time unlocks bucketed by local calendar year. */
+  yearly: AchievementYearlyPoint[];
   recentUnlocks: AchievementUnlockRecord[];
   rarestUnlocks: AchievementUnlockRecord[];
   perfectGames: AchievementCompletionEntry[];

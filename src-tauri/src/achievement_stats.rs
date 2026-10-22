@@ -16,6 +16,7 @@
 use serde::Serialize;
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager};
+use chrono::Datelike;
 
 use crate::achievements::{normalize_last_synced, Achievement};
 use crate::db;
@@ -151,6 +152,16 @@ pub struct MonthlyPoint {
     pub points: u32,
 }
 
+/// One calendar year of unlock activity (all-time, not windowed) —
+/// feeds the Wrapped page's per-year achievement counts.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YearlyPoint {
+    pub year: i32,
+    pub count: u32,
+    pub points: u32,
+}
+
 /// An unlocked achievement plus the game it belongs to.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -178,6 +189,7 @@ pub struct AchievementOverview {
     pub summaries: BTreeMap<String, AchievementSummary>,
     pub stats: LibraryStats,
     pub monthly: Vec<MonthlyPoint>,
+    pub yearly: Vec<YearlyPoint>,
     pub recent_unlocks: Vec<UnlockRecord>,
     pub rarest_unlocks: Vec<UnlockRecord>,
     pub perfect_games: Vec<CompletionEntry>,
@@ -225,6 +237,12 @@ fn month_key_of(secs: u64) -> Option<String> {
     Some(dt.format("%Y-%m").to_string())
 }
 
+/// Local calendar year for a unix-seconds timestamp.
+fn year_of(secs: u64) -> Option<i32> {
+    use chrono::{Local, TimeZone};
+    let dt = Local.timestamp_opt(secs as i64, 0).single()?;
+    Some(dt.year())
+}
 /// Build the cross-game overview from every cached row.
 pub fn build_overview(db: &db::Db) -> Result<AchievementOverview, String> {
     let conn = db.achievements().map_err(|e| format!("overview conn: {e}"))?;
@@ -272,6 +290,28 @@ pub fn build_overview(db: &db::Db) -> Result<AchievementOverview, String> {
                 entry.0 += 1;
                 entry.1 += points as u32;
             }
+        }
+    }
+
+    // All-time yearly buckets for the Wrapped page: same JSON iteration,
+    // but no cutoff and bucketed by the unlock's local calendar year.
+    let yearly_sql = format!("SELECT {ut}, {pts} FROM {entries} WHERE {ach} AND {ut} > 0");
+    let yearly_rows: Vec<(i64, i64)> = {
+        let mut stmt = conn
+            .prepare(&yearly_sql)
+            .map_err(|e| format!("overview yearly prepare: {e}"))?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(|e| format!("overview yearly query: {e}"))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("overview yearly row: {e}"))?
+    };
+    let mut yearly_counts: BTreeMap<i32, (u32, u32)> = BTreeMap::new();
+    for (unlock_time, points) in yearly_rows {
+        if let Some(year) = year_of(unlock_time as u64) {
+            let entry = yearly_counts.entry(year).or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += points as u32;
         }
     }
 
@@ -479,10 +519,16 @@ pub fn build_overview(db: &db::Db) -> Result<AchievementOverview, String> {
         .map(|(month_key, (count, points))| MonthlyPoint { month_key, count, points })
         .collect();
 
+    let yearly: Vec<YearlyPoint> = yearly_counts
+        .into_iter()
+        .map(|(year, (count, points))| YearlyPoint { year, count, points })
+        .collect();
+
     Ok(AchievementOverview {
         summaries,
         stats,
         monthly,
+        yearly,
         recent_unlocks: recent,
         rarest_unlocks: rarest,
         perfect_games,

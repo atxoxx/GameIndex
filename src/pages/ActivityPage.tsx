@@ -13,6 +13,7 @@ import { ActivityDashboard } from "./activity/ActivityDashboard";
 import { ActivityGantt } from "./activity/ActivityGantt";
 import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
+import WrappedView from "./activity/WrappedView";
 import * as Icons from "./activity/Icons";
 import { PageHeader, Button } from "../components/ui";
 import PageWidget from "../components/PageWidget";
@@ -23,7 +24,7 @@ import { usePersistedState } from "../hooks/usePersistedState";
 import "./activity/ActivityPage.css";
 import "../styles/activity.css";
 
-type TabType = "dashboard" | "timeline" | "sessions" | "performance";
+type TabType = "dashboard" | "timeline" | "sessions" | "performance" | "wrapped";
 type AggregationType = "day" | "week" | "month";
 type ChartType = "bar" | "line";
 
@@ -35,7 +36,7 @@ export default function ActivityPage() {
   const { getAllNotes } = useSessionNotes();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = usePersistedState<TabType>("gamelib.activity_page.tab_v1", "dashboard", ["dashboard", "timeline", "sessions", "performance"]);
+  const [activeTab, setActiveTab] = usePersistedState<TabType>("gamelib.activity_page.tab_v1", "dashboard", ["dashboard", "timeline", "sessions", "performance", "wrapped"]);
   const [dateRange, setDateRange] = useState<DateRangeKey>("7d");
   const [aggregation, setAggregation] = usePersistedState<AggregationType>("gamelib.activity_page.aggregation_v1", "day", ["day", "week", "month"]);
   const [chartType, setChartType] = usePersistedState<ChartType>("gamelib.activity_page.chart_type_v1", "bar", ["bar", "line"]);
@@ -69,6 +70,7 @@ export default function ActivityPage() {
       { value: "timeline" as const, label: <><Icons.GanttChart size={13} /> {t("activity.tab.timeline")}</> },
       { value: "sessions" as const, label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
       { value: "performance" as const, label: <><Icons.BarChart3 size={13} /> {t("activity.tab.performance")}</> },
+      { value: "wrapped" as const, label: <><Icons.Sparkles size={13} /> {t("activity.tab.wrapped")}</> },
     ];
     return isSimpleUi
       ? all.filter((opt) => opt.value === "dashboard" || opt.value === "sessions")
@@ -435,6 +437,8 @@ export default function ActivityPage() {
             sourceFilter={sourceFilter}
           />
         )}
+
+        {effectiveTab === "wrapped" && <WrappedView sessions={sessions} games={games} />}
       </main>
 
       <ManualSessionModal
