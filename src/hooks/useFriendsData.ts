@@ -489,11 +489,14 @@ export function useFriendsData(): UseFriendsDataResult {
             // Count messages that are genuinely new AND not authored by us → badge.
             let newIncoming = 0;
             remoteOutbox.dms.forEach((rt) => {
+              if (rt.deleted) return;
               const known = knownMessages.get(rt.id);
               if (!known) {
-                newIncoming += (rt.messages || []).filter((m) => m.author !== currProfile.name).length;
+                newIncoming += (rt.messages || []).filter((m) => !m.deleted && m.author !== currProfile.name).length;
               } else {
-                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== currProfile.name).length;
+                newIncoming += (rt.messages || []).filter(
+                  (m) => !m.deleted && !known.has(m.id) && m.author !== currProfile.name
+                ).length;
               }
             });
             if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
@@ -736,10 +739,11 @@ export function useFriendsData(): UseFriendsDataResult {
       let newDmMessages = 0;
       const localDms = loadDms();
       (remoteDb.dms || []).forEach((remoteThread) => {
+        if (remoteThread.deleted) return;
         const localThread = localDms.find((t) => t.id === remoteThread.id);
         const known = new Set((localThread?.messages || []).map((m) => m.id));
         (remoteThread.messages || []).forEach((m) => {
-          if (!known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
+          if (!m.deleted && !known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
         });
       });
 
@@ -829,6 +833,10 @@ export function useFriendsData(): UseFriendsDataResult {
   // Add a friend
   const handleAddFriend = () => {
     if (!decodedFriend) return;
+    if (decodedFriend.syncId === profile.syncId) {
+      showToast(t("friendsPage.cannotAddYourself"), "error");
+      return;
+    }
 
     const exists = friends.some((f) => f.syncId === decodedFriend.syncId);
     if (exists) {
@@ -893,12 +901,19 @@ export function useFriendsData(): UseFriendsDataResult {
       }
       const isGoing = rsvps[profile.name] === "going";
       const attendees = isGoing
-        ? Array.from(new Set([...s.attendees, profile.name]))
-        : s.attendees.filter((n) => n !== profile.name);
-      // Keep the participant record in sync with the RSVP.
+        ? Array.from(new Set([...(s.attendees || []), profile.name]))
+        : (s.attendees || []).filter((n) => n !== profile.name);
+      // Keep the participant record in sync with the RSVP without demoting us:
+      // an RSVP toggle must preserve the role/note already recorded.
+      const existingParticipant = (s.participants || []).find((p) => p.name === profile.name);
       const participants = (s.participants || []).filter((p) => p.name !== profile.name);
       if (isGoing) {
-        participants.unshift({ name: profile.name, role: "player", timezone: detectTimezone() });
+        participants.unshift({
+          ...(existingParticipant || {}),
+          name: profile.name,
+          role: existingParticipant?.role ?? "player",
+          timezone: existingParticipant?.timezone || detectTimezone(),
+        });
       }
       const label = rsvps[profile.name] ? t(`friendsPage.rsvp_${rsvps[profile.name]}`) : t("friendsPage.noResponse");
       showToast(t("friendsPage.rsvpSet", { status: label }), "info");

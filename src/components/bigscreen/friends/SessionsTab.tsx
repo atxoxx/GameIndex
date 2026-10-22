@@ -12,7 +12,7 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { useFocusable } from "../../../hooks/useFocusable";
 import { usePersistedState } from "../../../hooks/usePersistedState";
 import { useGames } from "../../../context/GameContext";
-import { type GameSession, type SessionParticipant, displayName } from "../../../pages/friendsStorage";
+import { type GameSession, type SessionParticipant, displayName, visibleMessages } from "../../../pages/friendsStorage";
 import type { UseFriendsSocialResult } from "../../../hooks/useFriendsSocial";
 import { FilterChip, Icons, countdownLabel, formatDateTime, useFocusableInput, useOverlayEscape } from "./friendsUtils";
 
@@ -654,8 +654,9 @@ function LobbyDetailModal({
 
   const myRsvp = session.rsvps?.[profileName] || "none";
   const isCreator = session.creatorName === profileName;
-  const pinned = (session.messages || []).filter((m) => m.pinned);
-  const regular = (session.messages || []).filter((m) => !m.pinned);
+  const visibleSessionMessages = visibleMessages(session.messages);
+  const pinned = visibleSessionMessages.filter((m) => m.pinned);
+  const regular = visibleSessionMessages.filter((m) => !m.pinned);
   const myParticipant = (session.participants || []).find((p) => p.name === profileName);
   const attendeesCount = Object.values(session.rsvps || {}).filter((v) => v === "going").length;
   const countdown =

@@ -66,7 +66,7 @@ import {
   saveUserProfile,
   getUnseenTabItems,
   clearUnseenTabItems,
-  dmThreadId,
+  startDmThreadId,
   displayName,
   isAppBlacklisted,
   safeCurrentlyPlaying,
@@ -690,7 +690,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
             ? {
                 ...s,
                 rsvps: { ...(s.rsvps || {}), [profile.name]: "declined" },
-                attendees: s.attendees.filter((n) => n !== profile.name),
+                attendees: (s.attendees || []).filter((n) => n !== profile.name),
                 updatedAt: Date.now(),
               }
             : s,
@@ -717,11 +717,17 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         }
         const isGoing = rsvps[profile.name] === "going";
         const attendees = isGoing
-          ? Array.from(new Set([...s.attendees, profile.name]))
-          : s.attendees.filter((n) => n !== profile.name);
+          ? Array.from(new Set([...(s.attendees || []), profile.name]))
+          : (s.attendees || []).filter((n) => n !== profile.name);
+        const existingParticipant = (s.participants || []).find((p) => p.name === profile.name);
         const participants = (s.participants || []).filter((p) => p.name !== profile.name);
         if (isGoing) {
-          participants.unshift({ name: profile.name, role: "player", timezone: detectTimezone() });
+          participants.unshift({
+            ...(existingParticipant || {}),
+            name: profile.name,
+            role: existingParticipant?.role ?? "player",
+            timezone: existingParticipant?.timezone || detectTimezone(),
+          });
         }
         const label = rsvps[profile.name]
           ? t(
@@ -794,7 +800,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         }
         const rsvps = { ...(s.rsvps || {}) };
         if (rsvps[trimmed] === undefined) rsvps[trimmed] = "going";
-        const attendees = Array.from(new Set([...s.attendees, trimmed]));
+        const attendees = Array.from(new Set([...(s.attendees || []), trimmed]));
         return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
       });
       await persistSessions(updated);
@@ -810,7 +816,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
         const participants = (s.participants || []).filter((p) => !(p.guest && p.name === guestName));
         const rsvps = { ...(s.rsvps || {}) };
         delete rsvps[guestName];
-        const attendees = s.attendees.filter((n) => n !== guestName);
+        const attendees = (s.attendees || []).filter((n) => n !== guestName);
         return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
       });
       await persistSessions(updated);
@@ -898,7 +904,12 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     async (friendName: string, text: string) => {
       const trimmed = text.trim();
       if (!friendName || !trimmed) return;
-      const threadId = dmThreadId(profile.name, friendName);
+      // Reuse the live thread with this friend, else start a fresh one (a
+      // tombstoned conversation must not swallow the new messages).
+      const existingThread = dmsRef.current.find(
+        (th) => !th.deleted && th.participants.includes(profile.name) && th.participants.includes(friendName),
+      );
+      const threadId = existingThread?.id ?? startDmThreadId(profile.name, friendName, dmsRef.current);
       const msg: SessionMessage = {
         id: `dm_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
         author: profile.name,

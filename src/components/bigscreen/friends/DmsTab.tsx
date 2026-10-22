@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useFocusable } from "../../../hooks/useFocusable";
-import { displayName, dmThreadId } from "../../../pages/friendsStorage";
+import { displayName, startDmThreadId, visibleMessages } from "../../../pages/friendsStorage";
 import type { UseFriendsSocialResult } from "../../../hooks/useFriendsSocial";
 import { FriendAvatar, Icons, isOnline, useFocusableInput } from "./friendsUtils";
 
@@ -24,7 +24,7 @@ export default function DmsTab({ social, profileName }: DmsTabProps) {
   const friendName =
     selectedDmFriendName || thread?.participants.find((p) => p !== profileName) || "";
   const friend = friends.find((f) => f.name === friendName);
-  const msgs = thread?.messages || [];
+  const msgs = visibleMessages(thread?.messages);
 
   return (
     <div className="bigscreen-dms-layout">
@@ -47,8 +47,8 @@ export default function DmsTab({ social, profileName }: DmsTabProps) {
                 const existing = dms.find(
                   (th) => !th.deleted && th.participants.includes(profileName) && th.participants.includes(f.name),
                 );
-                const threadId = existing?.id || dmThreadId(profileName, f.name);
-                const lastMsg = existing?.messages?.slice(-1)[0];
+                const threadId = existing?.id || startDmThreadId(profileName, f.name, dms);
+                const lastMsg = visibleMessages(existing?.messages).slice(-1)[0];
                 return (
                   <DmThreadRow
                     key={f.id}
