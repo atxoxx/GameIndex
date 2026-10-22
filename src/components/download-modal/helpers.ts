@@ -182,6 +182,15 @@ export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
     // Gofile folders (require webview solver or token derivation)
     if ((host.includes("gofile.io") || host.includes("gofilecdn")) && !path.includes("/download/")) return true;
 
+    // AnkerGames hands out a signed download page (countdown + Cloudflare
+    // Turnstile) instead of a file URL; only the in-app browser can solve it.
+    if (
+      host.includes("ankergames.net") &&
+      (path.startsWith("/download/") || path.startsWith("/download-file/"))
+    ) {
+      return true;
+    }
+
     // Known captcha-gated or browser-challenge hosters
     if (
       host.includes("rapidgator.net") ||
@@ -203,6 +212,33 @@ export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
       return true;
     }
 
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a direct URI is an HTML surface (challenge page, countdown page,
+ * link container) rather than a file the HTTP engine can fetch. Starting the
+ * engine on one of these always "succeeds" and then writes the error page to
+ * disk, so the download modal routes these straight to the browser resolver.
+ */
+export function browserOnlyHoster(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  try {
+    const urlObj = new URL(uri);
+    const host = urlObj.hostname.toLowerCase();
+    const path = urlObj.pathname.toLowerCase();
+
+    if (
+      host.includes("ankergames.net") &&
+      (path.startsWith("/download/") || path.startsWith("/download-file/"))
+    ) {
+      return true;
+    }
+    if (host.includes("filecrypt.cc") || host.includes("filecrypt.co")) return true;
+    if (host.includes("ouo.io") || host.includes("ouo.press")) return true;
     return false;
   } catch {
     return false;

@@ -36,6 +36,7 @@ import { Button } from "../ui";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { type OwnershipResult } from "../../types/download";
 import {
+  browserOnlyHoster,
   classifyUri,
   extractReleaseGroups,
   extractSourceFilters,
@@ -895,6 +896,12 @@ export default function DownloadModal({
       const debridActive = useDebrid && debridConfigured;
 
       if (isDirect) {
+        if (browserOnlyHoster(sourceUri)) {
+          setNeedsBrowserHint(true);
+          setError(t("downloadModal.resolverNeedsBrowser"));
+          setStep("results");
+          return;
+        }
         setStep("starting");
         const targetFileName = directFileName(match, sourceUri);
         const fullSavePath = `${finalSavePath}/${targetFileName}`.replace(/\\/g, "/");

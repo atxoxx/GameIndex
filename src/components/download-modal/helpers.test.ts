@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  browserOnlyHoster,
   filterMatches,
+  hosterNeedsBrowser,
   mergeDuplicateResults,
   sortMatches,
 } from "./helpers";
@@ -110,5 +112,31 @@ describe("mergeDuplicateResults", () => {
     expect(merged[0].seeds).toBe(42);
     expect(merged[0].peers).toBe(5);
     expect(merged[0].verified).toBe(true);
+  });
+});
+
+describe("browser-only hosters", () => {
+  const minted =
+    "https://ankergames.net/download/eyJkb3dubG9hZF9pZCI6MTV9/6be13e754329a6dd99ae92307f76ab22";
+
+  it("flags AnkerGames signed download pages", () => {
+    expect(browserOnlyHoster(minted)).toBe(true);
+    expect(
+      browserOnlyHoster("https://ankergames.net/download-file/abc?cf-turnstile-response=t"),
+    ).toBe(true);
+    expect(hosterNeedsBrowser(minted)).toBe(true);
+  });
+
+  it("leaves the AnkerGames catalogue page and plain files alone", () => {
+    expect(browserOnlyHoster("https://ankergames.net/game/elden-ring")).toBe(false);
+    expect(hosterNeedsBrowser("https://ankergames.net/game/elden-ring")).toBe(false);
+    expect(browserOnlyHoster("https://cdn.example.com/game.part1.rar")).toBe(false);
+  });
+
+  it("keeps the known challenge hosts browser-only", () => {
+    expect(browserOnlyHoster("https://filecrypt.cc/Container/ABC123.html")).toBe(true);
+    expect(browserOnlyHoster("https://ouo.io/abc")).toBe(true);
+    expect(browserOnlyHoster(null)).toBe(false);
+    expect(browserOnlyHoster("not a url")).toBe(false);
   });
 });
