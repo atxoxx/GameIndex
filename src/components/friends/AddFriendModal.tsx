@@ -94,16 +94,18 @@ export default function AddFriendModal({
               {decodedFriend && (
                 <div className="friend-preview-card">
                   <div className="friend-preview-header">
-                    {decodedFriend.avatar && decodedFriend.avatar.startsWith("data:") ? (
-                      <img src={decodedFriend.avatar} alt={decodedFriend.name} className="friend-avatar-img" />
-                    ) : (
-                      <div
-                        className="friend-avatar-procedural"
-                        style={getProceduralAvatarStyle(decodedFriend.name)}
-                      >
-                        {getInitials(decodedFriend.name)}
-                      </div>
-                    )}
+                    <div className="preview-avatar-wrapper">
+                      {decodedFriend.avatar && decodedFriend.avatar.startsWith("data:") ? (
+                        <img src={decodedFriend.avatar} alt={decodedFriend.name} className="preview-avatar-img" />
+                      ) : (
+                        <div
+                          className="preview-avatar-procedural"
+                          style={getProceduralAvatarStyle(decodedFriend.name)}
+                        >
+                          {getInitials(decodedFriend.name)}
+                        </div>
+                      )}
+                    </div>
                     <div className="friend-preview-info">
                       <span className="friend-preview-name">{decodedFriend.name}</span>
                       <span className="friend-preview-status">
