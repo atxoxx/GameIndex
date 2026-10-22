@@ -333,9 +333,11 @@
   opacity: 1;
 }
 
+/* Follow the active tab's text colour: every UI style paints the active pill
+   in the accent colour, so an accent-tinted icon would vanish into it. */
 .topnav-tab.active .topnav-tab-icon {
   opacity: 1;
-  color: var(--color-accent);
+  color: currentColor;
 }
 
 .topnav-tab-badge {
