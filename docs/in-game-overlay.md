@@ -175,7 +175,8 @@ any active recording/replay is stopped automatically.
 
 By default both screenshots and clips land in a per-game folder:
 
-- **Windows:** `%USERPROFILE%\Videos\Captures\<Game>`
+- **Windows:** your Videos folder's `Captures\<Game>` — read from the Explorer shell-folder
+  settings, so a redirected location (OneDrive, or a moved Videos library) is honoured
 - **Linux / macOS:** `$HOME/Videos/Captures/<Game>`
 
 Names follow `Capture_<date>_<time>.(png|jpg)`, `Record_<date>.mp4` and `Replay_<date>.mp4`. Override
