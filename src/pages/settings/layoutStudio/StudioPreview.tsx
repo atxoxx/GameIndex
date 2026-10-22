@@ -22,7 +22,6 @@ import {
   Wallpaper,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import type { HeroGridLayout } from "../../../context/heroGrid";
 import {
   SIDEBAR_SECTIONS,
   interfacePageDef,
@@ -169,16 +168,6 @@ export interface StudioPreviewProps {
   onToggleNowPlaying: () => void;
   /** Dock the app sidebar left or right. */
   onSetSidebarPosition: (side: "left" | "right") => void;
-  /** Authored hero grid for the active detail scope; null/undefined => flex. */
-  heroGridLayout?: HeroGridLayout | null;
-  /** Commit a hero grid edit from the detail mock. */
-  onHeroGridChange?: (next: HeroGridLayout) => void;
-  /** Repack the hero grid to the shipped layout. */
-  onHeroGridTidy?: () => void;
-  /** Drop the hero grid and go back to flex. */
-  onHeroGridReset?: () => void;
-  /** Seed a hero grid from the current flex order. */
-  onHeroGridConvert?: () => void;
   showHeroTilt?: boolean;
   onToggleHeroTilt?: () => void;
   showHeroBackdropControls?: boolean;
@@ -225,11 +214,6 @@ export function StudioPreview({
   onToggleCardBadgesMaster,
   onToggleNowPlaying,
   onSetSidebarPosition,
-  heroGridLayout,
-  onHeroGridChange,
-  onHeroGridTidy,
-  onHeroGridReset,
-  onHeroGridConvert,
   showHeroTilt = true,
   onToggleHeroTilt,
   showHeroBackdropControls = true,
@@ -817,11 +801,6 @@ export function StudioPreview({
                     onReorderDetailTopBar={onReorderDetailTopBar}
                     onToggleDetailTopBar={onToggleDetailTopBar}
                     onInspectElement={onInspectElement}
-                    heroPlacement={heroGridLayout ?? undefined}
-                    onHeroGridChange={onHeroGridChange}
-                    onHeroGridTidy={onHeroGridTidy}
-                    onHeroGridReset={onHeroGridReset}
-                    onHeroGridConvert={onHeroGridConvert}
                     showHeroTilt={showHeroTilt}
                     onToggleHeroTilt={onToggleHeroTilt}
                     showHeroBackdropControls={showHeroBackdropControls}

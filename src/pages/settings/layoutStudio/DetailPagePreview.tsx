@@ -1,8 +1,4 @@
 import {
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -10,29 +6,18 @@ import {
   Clock,
   Eye,
   EyeOff,
-  Grid2x2,
   GripVertical,
   HardDrive,
   Layers,
   Maximize2,
   MousePointerClick,
-  RotateCcw,
   ShieldCheck,
   Sparkles,
   Star,
-  TriangleAlert,
   Wallpaper,
-  WandSparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import {
-  HERO_GRID_ITEM_KEYS,
-  findHeroGridOverlaps,
-  sortHeroGridItems,
-  type HeroGridItemKey,
-  type HeroGridLayout,
-} from "../../../context/heroGrid";
 import {
   WIDGET_LABEL_KEY,
   type DetailTabScope,
@@ -42,12 +27,8 @@ import {
 import type { DetailSectionKey } from "../../../context/SettingsContext";
 import DetailSectionsHiddenNote from "../../../components/game/DetailSectionsHiddenNote";
 import { useOrderDrag } from "../useOrderDrag";
-import { useHeroGridDrag } from "./useHeroGridDrag";
 import { WIDGET_ICON } from "./widgetIcons";
 import type { OrderListItem } from "./types";
-
-/** Stable no-op so the grid hook always has a commit target, even read-only. */
-function noopGridChange() {}
 
 /**
  * DetailPagePreview — a faithful schematic of the Game / Store detail page.
@@ -152,11 +133,10 @@ const STORE_HIDDEN_NOTE_SECTIONS: DetailSectionKey[] = [
 ];
 
 /**
- * The resolved per-element grid layout for the scope, or `null`/`undefined`
- * when no grid has been authored (the hero renders its flex/`order` layout).
- * The mock uses it both as the render source and as the drag origin.
+ * The hero mock renders the flex/`order` layout only — the same model the
+ * real `GameHero` uses. Reordering and hiding are the two hero controls the
+ * Layout Studio owns.
  */
-export type HeroPlacement = HeroGridLayout;
 
 // ── Schematic building blocks ────────────────────────────────────────────────
 
@@ -551,19 +531,9 @@ interface HeroMockProps {
   highlightedId?: string | null;
   /** Disable the hero's own drag rows while a page-widget drag is in flight. */
   frozen: boolean;
-  /** Authored 12-column layout; null/undefined => the flex/`order` layout. */
-  placement?: HeroPlacement;
   onReorder: (from: number, to: number) => void;
   onToggle: (id: string, hidden: boolean) => void;
   onInspect?: (id: string) => void;
-  /** Commit an edited grid (drag release or keyboard nudge). */
-  onGridChange?: (next: HeroGridLayout) => void;
-  /** Repack the grid to the shipped layout. */
-  onGridTidy?: () => void;
-  /** Drop back to the flex/`order` layout. */
-  onGridReset?: () => void;
-  /** Seed a grid from the current flex order. */
-  onGridConvert?: () => void;
   showHeroTilt?: boolean;
   onToggleHeroTilt?: () => void;
   showHeroBackdropControls?: boolean;
@@ -574,35 +544,19 @@ interface HeroMockProps {
 
 /**
  * HeroMock — the editable stand-in for `GameHero`, kept as one self-contained
- * node.
- *
- * In **flex mode** (no authored grid) it mirrors the real hero's inline-`order`
- * model: the poster docks left or right relative to the content column, the
- * content blocks stack in the persisted order, and an adjacent trailing
- * kpis+actions pair collapses into a footer row pinned to the bottom.
- *
- * In **grid mode** the same elements become cells on a fixed 12-column track,
- * rendered from the authored rect and edited with pointer capture + keyboard:
- *   • drag the element body (or its grip) to move,
- *   • drag the right / bottom / corner handle to resize,
- *   • Arrow keys nudge by a cell, Alt+Arrow resizes,
- *   • overlap is allowed and only flagged.
- * The toolbar above the card offers guides, tidy, reset-to-flex and (from flex)
- * convert-to-grid.
+ * node. It mirrors the real hero's inline-`order` model: the poster docks left
+ * or right relative to the content column, the content blocks stack in the
+ * persisted order, and an adjacent trailing kpis+actions pair collapses into a
+ * footer row pinned to the bottom.
  */
 function HeroMock({
   items,
   inspectMode,
   highlightedId,
   frozen,
-  placement,
   onReorder,
   onToggle,
   onInspect,
-  onGridChange,
-  onGridTidy,
-  onGridReset,
-  onGridConvert,
   showHeroTilt = true,
   onToggleHeroTilt,
   showHeroBackdropControls = true,
@@ -612,17 +566,6 @@ function HeroMock({
 }: HeroMockProps) {
   const { t } = useLanguage();
   const drag = useOrderDrag(onReorder);
-  const [showGuides, setShowGuides] = useState(false);
-
-  const gridMode = !!placement;
-  const gridEditable = gridMode && !!onGridChange;
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const gridDrag = useHeroGridDrag({
-    layout: placement ?? null,
-    onChange: onGridChange ?? noopGridChange,
-    gridRef,
-  });
-  const renderedGrid = gridDrag.preview ?? placement ?? null;
 
   const byKey = new Map(items.map((item) => [item.id, item]));
   const index = (key: string) => items.findIndex((item) => item.id === key);
@@ -651,23 +594,6 @@ function HeroMock({
     : Number.POSITIVE_INFINITY;
   const posterOrder = index("poster");
 
-  // Grid mode: which cells exist, their reading order, and whether any pair
-  // intersects (flagged, never auto-corrected).
-  const gridKeysPresent = HERO_GRID_ITEM_KEYS.filter((key) => byKey.has(key));
-  const orderedGridKeys = renderedGrid
-    ? sortHeroGridItems(renderedGrid, gridKeysPresent)
-    : gridKeysPresent;
-  const overlapKeys = useMemo(() => {
-    const set = new Set<HeroGridItemKey>();
-    if (!renderedGrid) return set;
-    for (const [a, b] of findHeroGridOverlaps(renderedGrid)) {
-      set.add(a);
-      set.add(b);
-    }
-    return set;
-  }, [renderedGrid]);
-  const hasOverlap = overlapKeys.size > 0;
-
   const elementClass = (base: string, item: OrderListItem) => {
     const i = index(item.id);
     const isDragging = drag.dragIndex === i;
@@ -695,7 +621,7 @@ function HeroMock({
   };
 
   const interact = (id: string, toggle: () => void) => {
-    if (drag.movedRef.current || gridDrag.movedRef.current) return;
+    if (drag.movedRef.current) return;
     if (inspectMode && onInspect) onInspect(id);
     else toggle();
   };
@@ -770,134 +696,16 @@ function HeroMock({
     );
   };
 
-  /** Place a grid cell by its rect, expressed as CSS custom properties. */
-  const gridStyle = (key: HeroGridItemKey): CSSProperties => {
-    const p = renderedGrid![key];
-    return {
-      "--hero-col": p.col,
-      "--hero-col-span": p.colSpan,
-      "--hero-row": p.row,
-      "--hero-row-span": p.rowSpan,
-    } as CSSProperties;
-  };
-
-  const renderGridItem = (key: HeroGridItemKey) => {
-    const item = byKey.get(key);
-    if (!item) return null;
-    const className = [
-      `studio-hero-mock__item studio-hero-mock__grid-item studio-hero-mock__grid-item--${key}`,
-      item.hidden ? "is-off" : "",
-      gridDrag.activeKey === key ? "is-dragging" : "",
-      overlapKeys.has(key) ? "is-overlapping" : "",
-      highlightedId === item.id ? "is-preview-lit" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    const itemTitle = inspectMode
-      ? `${item.label} — ${t("settings.interface.inspectElementHint")}`
-      : gridEditable
-        ? `${title(item.label, item.hidden)} — ${t("settings.interface.heroGridMoveHint")}`
-        : title(item.label, item.hidden);
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!gridEditable) return;
-      // Only the cell itself owns the arrow keys — a key pressed on the nested
-      // eye button must not also nudge the cell.
-      if (e.target !== e.currentTarget) return;
-      const resize = e.altKey;
-      let dCol = 0;
-      let dRow = 0;
-      if (e.key === "ArrowLeft") dCol = -1;
-      else if (e.key === "ArrowRight") dCol = 1;
-      else if (e.key === "ArrowUp") dRow = -1;
-      else if (e.key === "ArrowDown") dRow = 1;
-      else return;
-      e.preventDefault();
-      e.stopPropagation();
-      gridDrag.nudge(key, dCol, dRow, resize);
-    };
-
-    return (
-      <div
-        key={key}
-        data-hero-grid-key={key}
-        role="group"
-        tabIndex={gridEditable ? 0 : -1}
-        className={className}
-        style={gridStyle(key)}
-        title={itemTitle}
-        aria-label={itemTitle}
-        onPointerDown={
-          gridEditable && !inspectMode ? gridDrag.startMove(key) : undefined
-        }
-        onClick={(e) => {
-          e.stopPropagation();
-          interact(item.id, () => onToggle(item.id, !item.hidden));
-        }}
-        onKeyDown={handleKeyDown}
-      >
-        {key === "poster" ? (
-          <>
-            <span className="studio-hero-mock__poster-art" aria-hidden="true" />
-            {showHeroTilt && (
-              <span className="studio-hero-mock__poster-sheen" aria-hidden="true" />
-            )}
-            <span className="studio-hero-mock__poster-badge" aria-hidden="true" />
-            {showHeroInteractiveControls && (
-              <span className="studio-hero-mock__poster-inspect" aria-hidden="true">
-                <Maximize2 size={8} />
-              </span>
-            )}
-          </>
-        ) : (
-          <HeroElementVisual element={item.id as HeroElementKey} />
-        )}
-
-        {gridEditable && (
-          <span className="studio-hero-mock__grid-grip" aria-hidden="true">
-            <GripVertical size={10} />
-          </span>
-        )}
-
-        {renderEye(item)}
-
-        {gridEditable && (
-          <>
-            <span
-              className="studio-hero-mock__grid-resize studio-hero-mock__grid-resize--e"
-              title={t("settings.interface.heroGridResize")}
-              aria-hidden="true"
-              onPointerDown={gridDrag.startResize(key, "e")}
-            />
-            <span
-              className="studio-hero-mock__grid-resize studio-hero-mock__grid-resize--s"
-              title={t("settings.interface.heroGridResize")}
-              aria-hidden="true"
-              onPointerDown={gridDrag.startResize(key, "s")}
-            />
-            <span
-              className="studio-hero-mock__grid-resize studio-hero-mock__grid-resize--se"
-              title={t("settings.interface.heroGridResize")}
-              aria-hidden="true"
-              onPointerDown={gridDrag.startResize(key, "se")}
-            />
-          </>
-        )}
-      </div>
-    );
-  };
-
   const mockClassName = [
     "studio-hero-mock",
     inspectMode ? "is-inspect" : "",
     frozen ? "is-frozen" : "",
-    gridMode ? "is-grid" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={`studio-hero-editor${gridMode ? " is-grid-mode" : ""}`}>
+    <div className="studio-hero-editor">
       <div
         className="studio-hero-editor__toolbar"
         role="group"
@@ -940,75 +748,12 @@ function HeroMock({
           <MousePointerClick size={11} aria-hidden="true" />
           <span>{t("settings.interface.heroInteractiveControlsChip")}</span>
         </button>
-
-        {(gridMode || onGridConvert) && (
-          <>
-            <span className="studio-hero-editor__divider" aria-hidden="true" />
-            {gridMode ? (
-              <>
-                <button
-                  type="button"
-                  className={`studio-hero-editor__chip${showGuides ? " is-active" : ""}`}
-                  aria-pressed={showGuides}
-                  title={t("settings.interface.heroGridShowGuides")}
-                  onClick={() => setShowGuides((v) => !v)}
-                >
-                  <Grid2x2 size={11} aria-hidden="true" />
-                  <span>{t("settings.interface.heroGridShowGuides")}</span>
-                </button>
-                {onGridTidy && (
-                  <button
-                    type="button"
-                    className="studio-hero-editor__chip"
-                    title={t("settings.interface.heroGridTidy")}
-                    onClick={onGridTidy}
-                  >
-                    <WandSparkles size={11} aria-hidden="true" />
-                    <span>{t("settings.interface.heroGridTidy")}</span>
-                  </button>
-                )}
-                {onGridReset && (
-                  <button
-                    type="button"
-                    className="studio-hero-editor__chip"
-                    title={t("settings.interface.heroGridReset")}
-                    onClick={onGridReset}
-                  >
-                    <RotateCcw size={11} aria-hidden="true" />
-                    <span>{t("settings.interface.heroGridReset")}</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                type="button"
-                className="studio-hero-editor__chip"
-                title={t("settings.interface.heroGridConvert")}
-                onClick={onGridConvert}
-              >
-                <Grid2x2 size={11} aria-hidden="true" />
-                <span>{t("settings.interface.heroGridConvert")}</span>
-              </button>
-            )}
-          </>
-        )}
-
-        {hasOverlap && (
-          <span className="studio-hero-editor__warning" role="status">
-            <TriangleAlert size={11} aria-hidden="true" />
-            {t("settings.interface.heroGridOverlapWarning")}
-          </span>
-        )}
-
-        <span className="studio-sr-only" aria-live="polite">
-          {gridDrag.statusMessage}
-        </span>
       </div>
 
       <div
         className={mockClassName}
         role="group"
-        ref={gridMode ? undefined : drag.containerRef}
+        ref={drag.containerRef}
         aria-label={t("settings.interface.studioHeroElementsTitle")}
       >
         {/* Backdrop Controls mockup in top-right */}
@@ -1078,46 +823,37 @@ function HeroMock({
           </>
         )}
 
-        {gridMode ? (
-          <div className="studio-hero-grid" ref={gridRef}>
-            {(showGuides || gridDrag.activeKey !== null) && (
-              <span className="studio-hero-grid__guides" aria-hidden="true" />
-            )}
-            {orderedGridKeys.map(renderGridItem)}
-          </div>
-        ) : (
-          <div className="studio-hero-mock__inner">
-            {renderPoster()}
+        <div className="studio-hero-mock__inner">
+          {renderPoster()}
 
-            <div className="studio-hero-mock__content" style={{ order: contentOrder }}>
-              {groupFooter ? (
-                <>
-                  <div
-                    key="footer"
-                    className="studio-hero-mock__footer"
-                    style={{
-                      order: Math.min(index("kpis"), index("actions")),
-                      marginTop:
-                        pinTrailingFooter && (boundaryKey === "kpis" || boundaryKey === "actions")
-                          ? "auto"
-                          : undefined,
-                    }}
-                  >
-                    {renderItem("kpis")}
-                    {renderItem("actions")}
-                  </div>
-                  {contentOrderKeys
-                    .filter((key) => key !== "kpis" && key !== "actions")
-                    .map((key) => renderItem(key, pinTrailingFooter && boundaryKey === key))}
-                </>
-              ) : (
-                contentOrderKeys.map((key) =>
-                  renderItem(key, pinTrailingFooter && boundaryKey === key),
-                )
-              )}
-            </div>
+          <div className="studio-hero-mock__content" style={{ order: contentOrder }}>
+            {groupFooter ? (
+              <>
+                <div
+                  key="footer"
+                  className="studio-hero-mock__footer"
+                  style={{
+                    order: Math.min(index("kpis"), index("actions")),
+                    marginTop:
+                      pinTrailingFooter && (boundaryKey === "kpis" || boundaryKey === "actions")
+                        ? "auto"
+                        : undefined,
+                  }}
+                >
+                  {renderItem("kpis")}
+                  {renderItem("actions")}
+                </div>
+                {contentOrderKeys
+                  .filter((key) => key !== "kpis" && key !== "actions")
+                  .map((key) => renderItem(key, pinTrailingFooter && boundaryKey === key))}
+              </>
+            ) : (
+              contentOrderKeys.map((key) =>
+                renderItem(key, pinTrailingFooter && boundaryKey === key),
+              )
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -1398,16 +1134,6 @@ export interface DetailPagePreviewProps {
   onReorderDetailTopBar: (from: number, to: number) => void;
   onToggleDetailTopBar: (id: string, hidden: boolean) => void;
   onInspectElement?: (id: string) => void;
-  /** Authored 12-column hero layout for the scope; null/undefined => flex. */
-  heroPlacement?: HeroPlacement;
-  /** Commit a hero grid edit (drag release or keyboard nudge). */
-  onHeroGridChange?: (next: HeroGridLayout) => void;
-  /** Repack the hero grid to the shipped layout. */
-  onHeroGridTidy?: () => void;
-  /** Drop the hero grid and go back to flex. */
-  onHeroGridReset?: () => void;
-  /** Seed a hero grid from the current flex order. */
-  onHeroGridConvert?: () => void;
   showHeroTilt?: boolean;
   onToggleHeroTilt?: () => void;
   showHeroBackdropControls?: boolean;
@@ -1433,11 +1159,6 @@ export function DetailPagePreview({
   onReorderDetailTopBar,
   onToggleDetailTopBar,
   onInspectElement,
-  heroPlacement,
-  onHeroGridChange,
-  onHeroGridTidy,
-  onHeroGridReset,
-  onHeroGridConvert,
   showHeroTilt = true,
   onToggleHeroTilt,
   showHeroBackdropControls = true,
@@ -1491,14 +1212,9 @@ export function DetailPagePreview({
       inspectMode={inspectMode}
       highlightedId={highlightedId}
       frozen={draggingWidgets}
-      placement={heroPlacement}
       onReorder={onReorderHeroElements}
       onToggle={onToggleHeroElement}
       onInspect={onInspectElement}
-      onGridChange={onHeroGridChange}
-      onGridTidy={onHeroGridTidy}
-      onGridReset={onHeroGridReset}
-      onGridConvert={onHeroGridConvert}
       showHeroTilt={showHeroTilt}
       onToggleHeroTilt={onToggleHeroTilt}
       showHeroBackdropControls={showHeroBackdropControls}
