@@ -196,6 +196,8 @@ pub const SAVES_DDL: &str = include_str!("schema_saves.sql");
 /// auto-updating rule queries over the library).
 pub const SHELVES_DDL: &str = include_str!("schema_shelves.sql");
 
+/// DDL for the `clips` domain: clip registry + highlight reels (playlists).
+pub const CLIPS_DDL: &str = include_str!("schema_clips.sql");
 
 /// Bootstrap the schema-meta table on a fresh domain DB. This table is
 /// itself part of v1, but we need to read `schema_version` *before*
@@ -288,5 +290,9 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "shelves",
         versions: &[("v1", SHELVES_DDL)],
+    },
+    DomainSchema {
+        label: "clips",
+        versions: &[("v1", CLIPS_DDL)],
     },
 ];

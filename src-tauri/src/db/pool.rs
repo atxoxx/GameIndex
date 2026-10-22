@@ -85,6 +85,8 @@ pub struct Db {
     pub compatibility: SqlitePool,
     pub saves: SqlitePool,
     pub shelves: SqlitePool,
+    /// Clip registry + highlight reels (playlists over clips).
+    pub clips: SqlitePool,
 }
 
 impl Db {
@@ -122,6 +124,7 @@ impl Db {
             compatibility: mk("compatibility", 4, 1)?,
             saves: mk("saves", 4, 1)?,
             shelves: mk("shelves", 4, 1)?,
+            clips: mk("clips", 4, 1)?,
         })
     }
 
@@ -202,6 +205,11 @@ impl Db {
         self.shelves.get().map_err(|e| format!("acquire shelves conn: {e}"))
     }
 
+    /// Borrow a connection from the `clips` pool.
+    pub fn clips(&self) -> Result<PooledConn, String> {
+        self.clips.get().map_err(|e| format!("acquire clips conn: {e}"))
+    }
+
     /// Return the pool backing a domain `label` (used by the migration
     /// runner). Returns `None` for unknown labels.
     pub fn pool(&self, label: &str) -> Option<&SqlitePool> {
@@ -222,6 +230,7 @@ impl Db {
             "compatibility" => Some(&self.compatibility),
             "saves" => Some(&self.saves),
             "shelves" => Some(&self.shelves),
+            "clips" => Some(&self.clips),
             _ => None,
         }
     }
@@ -349,6 +358,7 @@ mod tests {
             Db::compatibility,
             Db::saves,
             Db::shelves,
+            Db::clips,
         ] {
             let conn = acquire(&db).unwrap();
             let mode: String = conn

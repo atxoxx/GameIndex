@@ -68,6 +68,7 @@ pub mod achievement_links;
 pub mod artwork;
 pub mod achievements;
 pub mod atomic;
+pub mod clips;
 pub mod compatibility;
 pub mod download_history;
 pub mod emulators;

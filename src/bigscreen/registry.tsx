@@ -52,6 +52,7 @@ const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
 const EmulatorsPage = lazy(() => import("../pages/EmulatorsPage"));
 const ModsPage = lazy(() => import("../pages/mods/ModsPage"));
 const ModsDiscoverPage = lazy(() => import("../pages/mods/ModsDiscoverPage"));
+const ReelsPage = lazy(() => import("../pages/ReelsPage"));
 
 // Big Screen variants — bundled into the `bigscreen` chunk via
 // vite.config.ts manualChunks, but still lazy so desktop never pays
@@ -301,6 +302,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
   { path: "mods/discover", desktop: () => <ModsDiscoverPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="mods.discover.title" subtitleKey="mods.discover.subtitle"><ModsDiscoverPage /></BigScreenDesktopFallback> },
+  { path: "reels", desktop: () => <ReelsPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="reels.title" subtitleKey="reels.subtitle"><ReelsPage /></BigScreenDesktopFallback> },
   { path: "settings", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "settings/:tab", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "docs", desktop: () => <DocsPage />, bigscreen: () => <BigScreenDocsPage /> },

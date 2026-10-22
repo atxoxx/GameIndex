@@ -90,6 +90,7 @@ use system_screenshots::detect_system_screenshot_folders;
 mod games;
 mod game_notes;
 mod shelves;
+mod reels;
 mod saves;
 mod emulation;
 mod roms;
@@ -399,6 +400,16 @@ pub fn run() {
             roms::rom_launch_plan,
             roms::check_bios_status,
             roms::check_all_bios_status,
+            reels::reels_get_snapshot,
+            reels::register_clip,
+            reels::update_clip,
+            reels::delete_clip,
+            reels::create_reel,
+            reels::rename_reel,
+            reels::delete_reel,
+            reels::add_clip_to_reel,
+            reels::remove_clip_from_reel,
+            reels::reorder_reel,
             roms::discover_emulators,
             roms::discover_rom_folders,
             roms::find_duplicate_roms,
