@@ -161,7 +161,12 @@ struct SchemaRoot {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SchemaRecord {
-    #[serde(default)]
+    /// Epic returns `null` here for sandboxes that have no linked
+    /// product (games without achievements, demos, some bundles), so a
+    /// plain `String` + `default` is not enough: `default` only covers a
+    /// *missing* key. Null becomes an empty id, which the caller already
+    /// treats as "no product record".
+    #[serde(default, deserialize_with = "deserialize_string_or_empty")]
     product_id: String,
     #[serde(default)]
     achievements: Option<Vec<SchemaEntry>>,
@@ -216,6 +221,21 @@ where
         _ => Ok(0.0),
     }?;
     Ok(if n.is_finite() { n } else { 0.0 })
+}
+
+/// Tolerant string deserializer for fields Epic ships as `null` on some
+/// games (e.g. `productId`). Null / missing → empty string; numbers and
+/// booleans fall back to their JSON text so a type drift still parses.
+fn deserialize_string_or_empty<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v = Value::deserialize(deserializer)?;
+    Ok(match v {
+        Value::String(s) => s.trim().to_string(),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -1203,6 +1223,38 @@ mod tests {
 
     fn progress_fixture() -> Vec<ProgressAchievement> {
         parse_progress_response(PROGRESS_JSON).unwrap()
+    }
+
+    /// Exact shape that used to abort the whole sync: a sandbox with no
+    /// linked product reports `"productId": null` (column 78 of the
+    /// minified response), which `#[serde(default)]` does not cover.
+    const SCHEMA_NULL_PRODUCT_JSON: &str = r#"{"data":{"Achievement":{"productAchievementsRecordBySandbox":{"productId":null,"sandboxId":"abc","totalAchievements":0,"achievementSets":[],"achievements":[]}}}}"#;
+
+    #[test]
+    fn parse_schema_response_accepts_null_product_id() {
+        let parsed = parse_schema_response(SCHEMA_NULL_PRODUCT_JSON)
+            .expect("a null productId must not fail the parse");
+        assert_eq!(parsed.product_id, "");
+        assert!(parsed.achievements.is_empty());
+    }
+
+    #[test]
+    fn parse_schema_response_accepts_missing_product_id() {
+        const MISSING: &str = r#"{"data":{"Achievement":{"productAchievementsRecordBySandbox":{"achievements":[]}}}}"#;
+        let parsed = parse_schema_response(MISSING).unwrap();
+        assert_eq!(parsed.product_id, "");
+    }
+
+    #[test]
+    fn parse_schema_response_keeps_schema_when_product_id_is_null() {
+        // A null productId only costs the progress query: the schema
+        // itself still parses, and `fetch_game_achievements` then reports
+        // "no product record" instead of inventing an all-locked list.
+        const NULL_PRODUCT_WITH_ROWS: &str = r#"{"data":{"Achievement":{"productAchievementsRecordBySandbox":{"productId":null,"sandboxId":"abc","achievements":[{"achievement":{"name":"a1","unlockedDisplayName":"One","unlockedDescription":"First","unlockedIconLink":"u.png","lockedIconLink":"l.png","rarity":{"percent":3.5}}}]}}}}"#;
+        let parsed = parse_schema_response(NULL_PRODUCT_WITH_ROWS).unwrap();
+        assert_eq!(parsed.product_id, "");
+        assert_eq!(parsed.achievements.len(), 1);
+        assert_eq!(parsed.achievements[0].name, "a1");
     }
 
     #[test]
