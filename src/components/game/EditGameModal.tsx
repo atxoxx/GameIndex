@@ -17,6 +17,7 @@ import {
   type ReleaseDateInfo,
   type LanguageSupportInfo,
   formatSize,
+  formatCost,
   formatPlayTime,
   parsePlayTime,
   type PlayStatus,
@@ -78,6 +79,11 @@ const COMMON_LAUNCH_ARGS = [
 ];
 
 type CompatSubtab = "runner" | "graphics" | "tools" | "env" | "maintenance";
+
+/** Currency options for the purchase-cost field. Kept short: the value is a
+ *  free-text-backed select and any other ISO code can stay via manual edit
+ *  of the field's stored value. */
+const COST_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "BRL", "JPY", "INR", "RUB", "CNY"];
 
 /** Sections of the Media tab: the four artwork slots plus the three
  *  list-based media kinds. Each renders its own live/fetch UI. */
@@ -178,6 +184,9 @@ interface EditGameModalProps {
   onClose: () => void;
   /** Section to show on mount, so callers can deep-link into one tab. */
   initialTab?: EditGameTab;
+  /** Optional field to scroll to and focus once the modal is open
+   *  (the game page's empty value tile deep-links to the cost field). */
+  focusField?: "purchaseCost";
 }
 
 /**
@@ -209,7 +218,7 @@ export function EditGameModal(props: EditGameModalProps) {
   return <EditGameModalInner {...props} />;
 }
 
-function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameModalProps) {
+function EditGameModalInner({ game, onClose, initialTab = "details", focusField }: EditGameModalProps) {
   const { showToast } = useToast();
   const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
@@ -287,10 +296,98 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
     parsePlayTime(game.playTime) % 60
   );
 
+  // ── Purchase cost (v16) ──
+  const [editCost, setEditCost] = useState<string>(
+    game.purchaseCost != null ? String(game.purchaseCost) : ""
+  );
+  const [editCurrency, setEditCurrency] = useState<string>(
+    game.purchaseCurrency || "USD"
+  );
+  const [prefillingCost, setPrefillingCost] = useState(false);
+  /** How the current value got there: auto price lookup, or the user
+   *  pressing "look up price". Drives the inline hint. */
+  const [costSource, setCostSource] = useState<"auto" | "manual" | null>(null);
+  const autoPrefilledRef = useRef(false);
+  const parsedEditCost = parseFloat(editCost.replace(",", "."));
+  const validEditCost =
+    editCost.trim() !== "" && isFinite(parsedEditCost) && parsedEditCost >= 0;
+  const editCostPerHour = validEditCost
+    ? parsedEditCost / (parsePlayTime(game.playTime) / 60)
+    : null;
+
+  async function handlePrefillCost() {
+    if (prefillingCost) return;
+    setPrefillingCost(true);
+    try {
+      const res = await invoke<Record<string, { salePrice?: number | null; normalPrice?: number | null }>>(
+        "fetch_game_prices_batch",
+        { gameNames: [gameDisplayName(game) || game.name] }
+      );
+      const price = res && Object.values(res)[0];
+      const cents = price?.salePrice ?? price?.normalPrice;
+      if (cents == null || !isFinite(cents)) {
+        showToast(t("edit.cost.prefillUnavailable"), "info");
+      } else {
+        setEditCost(cents.toFixed(2));
+        if (!editCurrency) setEditCurrency("USD");
+        setCostSource("manual");
+        showToast(t("edit.cost.prefillDone"), "success");
+      }
+    } catch (err) {
+      showToast(t("edit.cost.prefillError", { error: String(err) }), "error");
+    } finally {
+      setPrefillingCost(false);
+    }
+  }
+
+  // Auto-fill from the price the app already knows for this title (the
+  // CheapShark cache behind `fetch_game_prices_batch` is usually warm —
+  // store cards request the same names). Runs once per modal open and
+  // only when the user has not set a cost: a stored value always wins,
+  // and a failed lookup is silent because the manual button remains.
+  useEffect(() => {
+    if (game.purchaseCost != null) return;
+    if (autoPrefilledRef.current) return;
+    autoPrefilledRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await invoke<Record<string, { salePrice?: number | null; normalPrice?: number | null }>>(
+          "fetch_game_prices_batch",
+          { gameNames: [gameDisplayName(game) || game.name] }
+        );
+        if (cancelled) return;
+        const price = res && Object.values(res)[0];
+        const cents = price?.salePrice ?? price?.normalPrice;
+        if (cents == null || !isFinite(cents) || cents < 0) return;
+        setEditCost(cents.toFixed(2));
+        if (!game.purchaseCurrency) setEditCurrency("USD");
+        setCostSource("auto");
+      } catch {
+        // Offline / no match: leave the field empty; the button retries.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [game.id, game.purchaseCost, game.purchaseCurrency, game.name, game.displayName]);
+
   function resetPlaytimeEdits() {
     setEditPlaytimeHours(0);
     setEditPlaytimeMinutes(0);
   }
+
+  // Deep link from the game page's empty value tile: scroll the cost
+  // field into view (and focus it) once the heavy form has painted.
+  useEffect(() => {
+    if (focusField !== "purchaseCost") return;
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById("edit-purchase-cost") as HTMLInputElement | null;
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus();
+    }, 140);
+    return () => window.clearTimeout(timer);
+  }, [focusField]);
 
   const lastSeenPlaytimeRef = useRef(game.playTime);
   useEffect(() => {
@@ -1322,6 +1419,12 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
         Math.max(0, Math.floor(editPlaytimeHours)) * 60 +
         Math.max(0, Math.min(59, Math.floor(editPlaytimeMinutes)))
       ),
+      // $/hour tracker: persist a cleared field as "unknown" rather than
+      // 0 — a zero cost reads as "free game" in the value stats.
+      purchaseCost: validEditCost ? parsedEditCost : undefined,
+      purchaseCurrency: validEditCost
+        ? editCurrency.trim().toUpperCase() || "USD"
+        : undefined,
       compatibility:
         compatEnabled ||
         compatRunnerType !== "default" ||
@@ -1836,6 +1939,58 @@ function EditGameModalInner({ game, onClose, initialTab = "details" }: EditGameM
                     </div>
                   </div>
                   <span className="size-edit-hint">{t("edit.playtime.hint")}</span>
+                </div>
+
+                <div className="edit-field full-width" data-storage-row style={{ marginTop: "var(--space-md)" }}>
+                  <label className="edit-label" htmlFor="edit-purchase-cost">{t("edit.label.purchaseCost")}</label>
+                  <div className="edit-form-grid" style={{ gridTemplateColumns: "1fr auto", alignItems: "end" }}>
+                    <div className="edit-field">
+                      <div className="edit-form-grid" style={{ gridTemplateColumns: "2fr 1fr", alignItems: "end" }}>
+                        <div className="edit-field">
+                          <input
+                            id="edit-purchase-cost"
+                            className="edit-input"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={editCost}
+                            onChange={(e) => {
+                              setEditCost(e.target.value);
+                              // A manual edit is the user's own number now:
+                              // drop the "auto-filled" note.
+                              if (costSource === "auto") setCostSource(null);
+                            }}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="edit-field">
+                          <select
+                            className="edit-input"
+                            value={editCurrency}
+                            onChange={(e) => setEditCurrency(e.target.value)}
+                            aria-label={t("edit.label.purchaseCurrency")}
+                          >
+                            {COST_CURRENCIES.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <span className="size-edit-hint">
+                        {costSource === "auto" ? t("edit.cost.autoHint") : t("edit.cost.hint")}
+                      </span>
+                    </div>
+                    <div className="edit-field">
+                      <Button variant="secondary" size="md" type="button" onClick={handlePrefillCost} disabled={prefillingCost}>
+                        {prefillingCost ? t("community.detecting") : t("edit.cost.prefill")}
+                      </Button>
+                      {editCostPerHour != null && (
+                        <span className="size-edit-hint">
+                          {t("edit.costPerHourPreview", { value: formatCost(editCostPerHour, editCurrency) })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </fieldset>
 

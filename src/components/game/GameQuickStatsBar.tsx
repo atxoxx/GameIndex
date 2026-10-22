@@ -1,7 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import type { Game, SizeUnit } from "../../types/game";
-import { formatSize, parsePlayTime } from "../../types/game";
+import {
+  costPerHour,
+  formatCost,
+  formatSize,
+  gameDisplayName,
+  parsePlayTime,
+  resolvePurchaseCost,
+} from "../../types/game";
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
+import { usePrice } from "../../context/PriceContext";
+import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar } from "./icons";
@@ -11,6 +20,9 @@ interface GameQuickStatsBarProps {
   steamAppId?: number | null;
   sizeUnit: SizeUnit;
   isStoreMode?: boolean;
+  /** Open the edit dialog on the Details tab (used by the empty value
+   *  tile so "Set cost" actually takes the user to the field). */
+  onSetCost?: () => void;
 }
 
 type Translate = (key: string, vars?: Record<string, unknown>) => string;
@@ -51,6 +63,7 @@ export default function GameQuickStatsBar({
   steamAppId: steamAppIdProp,
   sizeUnit,
   isStoreMode = false,
+  onSetCost,
 }: GameQuickStatsBarProps) {
   const { t } = useLanguage();
   const { showDeckVerified } = useSettings();
@@ -81,6 +94,37 @@ export default function GameQuickStatsBar({
   const sizeValue = game.sizeBytes ?? null;
   const formattedSize = sizeValue != null ? formatSize(sizeValue, sizeUnit) : null;
 
+  // 3b. Value for money — a saved purchase cost wins; otherwise the
+  // price the app already fetched for this title (the same CheapShark
+  // cache behind store price badges) is reused, so $/hour works without
+  // the user typing anything. Playtime still has to clear the noise
+  // threshold or the helper returns null.
+  const knownPrice = usePrice(gameDisplayName(game) || game.name);
+  const knownPriceValue = knownPrice?.salePrice ?? knownPrice?.normalPrice ?? null;
+  const resolvedCost = resolvePurchaseCost(game, knownPriceValue);
+  const valuePerHour =
+    resolvedCost != null
+      ? costPerHour({
+          purchaseCost: resolvedCost.cost,
+          purchaseCurrency: resolvedCost.currency,
+          playTime: game.playTime,
+        })
+      : null;
+  const costFromPrice = resolvedCost?.source === "price";
+
+  // Persist the known price once when the page opens and the user has no
+  // stored cost yet: the library, Activity dashboard and Wrapped all read
+  // the saved value, and a stored cost always wins from then on.
+  const { updateGame } = useGames();
+  const autoCostRef = useRef(false);
+  useEffect(() => {
+    if (game.purchaseCost != null) return;
+    if (knownPriceValue == null) return;
+    if (autoCostRef.current) return;
+    autoCostRef.current = true;
+    updateGame(game.id, { purchaseCost: knownPriceValue, purchaseCurrency: "USD" });
+  }, [game.id, game.purchaseCost, knownPriceValue, updateGame]);
+
   // 4. Last played
   const lastPlayedRelative = useMemo(() => {
     return formatRelativeTime(game.lastPlayed, t("game.quickStats.neverPlayed"), t);
@@ -99,6 +143,7 @@ export default function GameQuickStatsBar({
     storyHours != null ||
     completionistHours != null ||
     formattedSize != null ||
+    valuePerHour != null ||
     (showDeckVerified && effectiveSteamAppId != null) ||
     !isStoreMode;
 
@@ -193,7 +238,78 @@ export default function GameQuickStatsBar({
         </div>
       )}
 
-      {/* 4. Compatibility / Platform Readiness */}
+      {/* 4. Value for Money ($ / hour). Always rendered in library mode.
+          A saved cost wins; without one the already-fetched store price
+          is reused (marked "est.") so the feature works immediately. */}
+      {!isStoreMode && (() => {
+        const noCost = resolvedCost == null;
+        const noRate = valuePerHour == null;
+        const interactive = Boolean(onSetCost);
+        const title = noCost
+          ? t("game.quickStats.setCostHint")
+          : costFromPrice
+            ? t("game.quickStats.estimatedHint", {
+                price: formatCost(resolvedCost.cost, resolvedCost.currency),
+              })
+            : noRate
+              ? t("game.quickStats.needPlaytime")
+              : undefined;
+        const content = (
+          <>
+            <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--value">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-stats-tile__icon">
+                <path d="M3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                <circle cx="12" cy="15.5" r="1.5" />
+              </svg>
+            </div>
+            <div className="quick-stats-tile__content">
+              <div className="quick-stats-tile__label">{t("game.quickStats.value")}</div>
+              <div className="quick-stats-tile__value-row">
+                {noCost ? (
+                  <span className="quick-stats-tile__value quick-stats-tile__value--hint">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    {t("game.quickStats.setCost")}
+                  </span>
+                ) : (
+                  <>
+                    <span className="quick-stats-tile__value">
+                      {noRate
+                        ? formatCost(resolvedCost.cost, resolvedCost.currency)
+                        : formatCost(valuePerHour, resolvedCost.currency)}
+                    </span>
+                    {!noRate && (
+                      <span className="quick-stats-tile__per-hour">
+                        {t("game.quickStats.perHour")}
+                      </span>
+                    )}
+                    {costFromPrice && !noRate && (
+                      <span className="quick-stats-tile__est" aria-hidden>
+                        {t("game.quickStats.estimated")}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        );
+        const className = `quick-stats-tile${noCost ? " quick-stats-tile--hint" : ""}${interactive ? " quick-stats-tile--action" : ""}`;
+        return interactive ? (
+          <button type="button" className={className} title={title} onClick={onSetCost}>
+            {content}
+          </button>
+        ) : (
+          <div className={className} title={title}>
+            {content}
+          </div>
+        );
+      })()}
+
+      {/* 5. Compatibility / Platform Readiness */}
       {showDeckVerified && effectiveSteamAppId != null && (
         <div className="quick-stats-tile">
           <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--compat">
@@ -213,7 +329,7 @@ export default function GameQuickStatsBar({
         </div>
       )}
 
-      {/* 5. Last Played (Library Only) */}
+      {/* 6. Last Played (Library Only) */}
       {!isStoreMode && (
         <div className="quick-stats-tile">
           <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--session">

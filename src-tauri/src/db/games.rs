@@ -149,6 +149,16 @@ pub struct GameRow {
     /// `companion_apps` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extra_executables: Option<Vec<serde_json::Value>>,
+    // ── Purchase cost (v16 migration) ──
+    /// What the user paid (or estimates they paid) for this game, in
+    /// `purchase_currency`. `None` = unknown — the $/hour tracker skips
+    /// games without a cost instead of inventing a value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purchase_cost: Option<f64>,
+    /// ISO currency code for `purchase_cost` (e.g. "USD"). The DB stays
+    /// agnostic; the UI defaults to USD when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purchase_currency: Option<String>,
     // ── Emulation linkage (v2 migration) ──
     /// Id of the owning emulator instance. Lets `delete_emulator`
     /// cascade-remove its ROMs.
@@ -381,7 +391,9 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                   content_hash,
                   logo_source_url,
                   is_vr,
-                  extra_executables_json
+                  extra_executables_json,
+                  purchase_cost,
+                  purchase_currency
               ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -407,6 +419,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                   ?75,?76,
                   ?77,?78,?79
                  ,?80
+                 ,?81,?82
               )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -510,6 +523,9 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
             r.is_vr.map(|b| b as i32),
             // v15 extra-executables column (LAST in the column list).
             json_opt(&r.extra_executables),
+            // v16 purchase-cost columns (LAST in the column list).
+            r.purchase_cost,
+            r.purchase_currency,
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -580,7 +596,9 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             content_hash,
             logo_source_url,
             is_vr,
-            extra_executables_json
+            extra_executables_json,
+            purchase_cost,
+            purchase_currency
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -606,6 +624,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?75,?76,
             ?77,?78,?79
            ,?80
+           ,?81,?82
         )",
         params![
             r.id,
@@ -691,6 +710,9 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.is_vr.map(|b| b as i32),
             // v15 extra-executables column (LAST in the column list).
             json_opt(&r.extra_executables),
+            // v16 purchase-cost columns (LAST in the column list).
+            r.purchase_cost,
+            r.purchase_currency,
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -754,6 +776,45 @@ pub fn set_artwork_url(
         params![url, game_id],
     )
     .map_err(|e| format!("games set_artwork_url: {e}"))?;
+    Ok(())
+}
+
+/// Validate a user-entered purchase cost. `None` = cleared. `Some` must
+/// be a finite, non-negative number — JS `Number("")`/NaN payloads would
+/// otherwise poison every $/hour calculation downstream.
+fn validate_purchase_cost(cost: Option<f64>) -> Result<(), String> {
+    if let Some(v) = cost {
+        if !v.is_finite() {
+            return Err("purchase cost must be a finite number".into());
+        }
+        if v < 0.0 {
+            return Err("purchase cost cannot be negative".into());
+        }
+    }
+    Ok(())
+}
+
+/// Targeted write for the $/hour tracker: set or clear one game's
+/// purchase cost + currency without rewriting the rest of the row.
+/// Clearing the cost also clears the currency so "no cost" means
+/// "excluded from value stats", not "zero dollars".
+pub fn update_purchase_cost(
+    db: &Db,
+    game_id: &str,
+    cost: Option<f64>,
+    currency: Option<String>,
+) -> Result<(), String> {
+    validate_purchase_cost(cost)?;
+    let normalized = currency
+        .filter(|_| cost.is_some())
+        .map(|c| c.trim().to_uppercase())
+        .filter(|c| !c.is_empty() && c.len() <= 8);
+    let conn = db.games().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE games SET purchase_cost = ?1, purchase_currency = ?2 WHERE id = ?3",
+        params![cost, normalized, game_id],
+    )
+    .map_err(|e| format!("games update_purchase_cost: {e}"))?;
     Ok(())
 }
 
@@ -1048,7 +1109,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr, extra_executables_json FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr, extra_executables_json, purchase_cost, purchase_currency FROM games";
 
 /// The heavy summary columns (multi-MB JSON), in their `games` column
 /// positions. Must stay in sync with `crate::games::HEAVY_GAME_FIELDS`.
@@ -1202,6 +1263,10 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v15 extra-executables column — read after is_vr.
         // NULL rows (pre-v15) read back as `None`.
         extra_executables: json_opt_get(r, 80)?,
+        // v16 purchase-cost columns — read after extra_executables.
+        // NULL rows (pre-v16) read back as `None` (cost unknown).
+        purchase_cost: r.get(81)?,
+        purchase_currency: r.get(82)?,
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })
@@ -1284,6 +1349,8 @@ mod tests {
             "version": "1.0.4",
             "collectionId": 420u64,
             "isVr": true,
+            "purchaseCost": 59.99,
+            "purchaseCurrency": "USD",
         }))
         .unwrap()
     }
@@ -1324,6 +1391,34 @@ mod tests {
         assert_eq!(got.display_name.as_deref(), Some("My Custom Label"));
         assert_eq!(got.logo_source_url.as_deref(), Some("https://images.igdb.com/igdb/image/upload/t_original/logo.png"));
         assert_eq!(got.is_vr, Some(true));
+        assert_eq!(got.purchase_cost, Some(59.99));
+        assert_eq!(got.purchase_currency.as_deref(), Some("USD"));
+    }
+
+    /// Error path: a negative or non-finite cost must be rejected by the
+    /// targeted cost update instead of poisoning every $/hour calc.
+    #[test]
+    fn update_purchase_cost_rejects_invalid_and_accepts_clear() {
+        let (_dir, db) = test_db();
+        upsert_one(&db, &sample_row()).unwrap();
+
+        // Error path: negative cost.
+        assert!(update_purchase_cost(&db, "g1", Some(-1.0), Some("USD".into())).is_err());
+        // Error path: non-finite cost (NaN slips through as a float in JS).
+        assert!(update_purchase_cost(&db, "g1", Some(f64::NAN), None).is_err());
+
+        // Happy path: a fresh value and a currency swap both persist.
+        update_purchase_cost(&db, "g1", Some(19.5), Some("EUR".into())).unwrap();
+        let got = get(&db, "g1").unwrap().unwrap();
+        assert_eq!(got.purchase_cost, Some(19.5));
+        assert_eq!(got.purchase_currency.as_deref(), Some("EUR"));
+
+        // Clearing: cost back to `None` keeps the row alive and drops
+        // the currency too, so the game is excluded from value stats.
+        update_purchase_cost(&db, "g1", None, None).unwrap();
+        let got = get(&db, "g1").unwrap().unwrap();
+        assert_eq!(got.purchase_cost, None);
+        assert_eq!(got.purchase_currency, None);
     }
 
     /// Repro: the exact payload the edit modal sends after the user

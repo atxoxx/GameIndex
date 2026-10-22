@@ -784,3 +784,39 @@ describe("EditGameModal instant artwork save", () => {
     expect(updateGameMock).not.toHaveBeenCalled();
   });
 });
+
+describe("purchase cost", () => {
+  const invokeMockRef = vi.mocked(invoke);
+
+  beforeEach(() => {
+    invokeMockRef.mockReset();
+    invokeMockRef.mockImplementation(() => Promise.resolve([]));
+    updateGameMock.mockClear();
+  });
+
+  it("auto-fills the field from the known store price when no cost is set", async () => {
+    invokeMockRef.mockImplementation((cmd: string) => {
+      if (cmd === "fetch_game_prices_batch") {
+        return Promise.resolve({ "Test Game": { salePrice: 19.99, normalPrice: 39.99 } });
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    await waitFor(() =>
+      expect(document.getElementById("edit-purchase-cost")).toHaveValue(19.99)
+    );
+    expect(
+      screen.getByText(/Auto-filled from the current store price/i)
+    ).toBeInTheDocument();
+  });
+
+  it("never overrides a cost the user already set (no price lookup at all)", async () => {
+    render(<EditGameModal game={makeGame({ purchaseCost: 12.5, purchaseCurrency: "EUR" })} onClose={() => {}} />);
+
+    expect(document.getElementById("edit-purchase-cost")).toHaveValue(12.5);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(invokeMockRef).not.toHaveBeenCalledWith("fetch_game_prices_batch", expect.anything());
+  });
+});

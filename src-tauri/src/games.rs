@@ -207,6 +207,16 @@ pub(crate) struct GameData {
     pub(crate) last_played: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) play_status: Option<String>,
+    // ── Purchase cost (v16 games migration) ──
+    /// What the user paid (or estimates they paid) for this game.
+    /// `None` = unknown — the $/hour tracker skips games without a
+    /// cost. `default` keeps older payloads deserializing cleanly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) purchase_cost: Option<f64>,
+    /// ISO currency code for `purchase_cost` (e.g. "USD"); the UI
+    /// defaults to USD when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) purchase_currency: Option<String>,
     // ── Emulation linkage ──
     /// Id of the owning emulator instance when this row is a scanned
     /// ROM. Lets the backend cascade-delete ROMs when the emulator is
@@ -417,6 +427,8 @@ impl From<GameData> for db::games::GameRow {
             rom_profile: to_json_value(&g.rom_profile),
             last_played: g.last_played,
             play_status: g.play_status,
+            purchase_cost: g.purchase_cost,
+            purchase_currency: g.purchase_currency,
             genres: g.genres,
             themes: g.themes,
             game_modes: g.game_modes,
@@ -528,6 +540,8 @@ impl From<db::games::GameRow> for GameData {
             extra_executables: r.extra_executables,
             last_played: r.last_played,
             play_status: r.play_status,
+            purchase_cost: r.purchase_cost,
+            purchase_currency: r.purchase_currency,
             emulator_id: r.emulator_id,
             rom_path: r.rom_path,
             rom_hash: r.rom_hash,

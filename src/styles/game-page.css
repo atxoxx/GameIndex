@@ -3064,3 +3064,103 @@
 }
 
 
+
+/* Value for money — a teal derived from the info/success tokens so it
+ * reads as its own metric in the row (amber reception, blue time and
+ * last-played, green storage) without inventing a new palette entry. */
+.quick-stats-tile__icon-wrap--value {
+  --value-hue: color-mix(in srgb, var(--color-info) 55%, var(--color-success));
+  background: color-mix(in srgb, var(--value-hue) 14%, transparent);
+  border-color: color-mix(in srgb, var(--value-hue) 28%, transparent);
+  color: var(--value-hue);
+}
+
+.quick-stats-tile:hover .quick-stats-tile__icon-wrap--value {
+  border-color: var(--value-hue);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--value-hue) 30%, transparent);
+}
+
+/* Value tile with no cost set yet: a quiet "add a cost" affordance.
+ * Neutral icon, sentence-case link text, and the same neutral hover the
+ * other tiles use — the accent only appears on the text itself. The tile
+ * sizes to its content instead of stretching, so a library game with no
+ * other stats doesn't get one giant empty bar. */
+.quick-stats-tile--hint {
+  flex: 0 1 auto;
+  padding-block: var(--space-2xs);
+}
+
+.quick-stats-tile--hint .quick-stats-tile__icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+}
+
+.quick-stats-tile--hint .quick-stats-tile__icon-wrap--value {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-surface-hover) 55%, transparent);
+  border-color: var(--color-border-subtle);
+}
+
+.quick-stats-tile__value--hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  transition: color var(--transition-fast);
+}
+
+.quick-stats-tile--action:hover .quick-stats-tile__value--hint,
+.quick-stats-tile--action:focus-visible .quick-stats-tile__value--hint {
+  color: var(--color-accent);
+}
+
+/* Empty value tile is a real button. Native button chrome (grey fill,
+ * 1px border) must be reset or the tile looks pasted-in next to the
+ * plain-div tiles — only then does it match their layout and hover. */
+.quick-stats-tile--action {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-stats-tile--action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* A lone "set cost" hint shrinks the whole stats bar to a compact pill
+ * instead of leaving one small tile inside a full-width frame. */
+.game-quick-stats-bar:has(> .quick-stats-tile--hint:only-child) {
+  width: fit-content;
+  max-width: 100%;
+  padding-inline: var(--space-sm);
+}
+
+/* "est." marker on the value tile when the number is derived from the
+ * current store price rather than a saved purchase cost. */
+.quick-stats-tile__est {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* Rate suffix on the value tile ("2.20 USD/h") so the number can't be
+ * mistaken for the game's price. */
+.quick-stats-tile__per-hour {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}

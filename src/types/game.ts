@@ -256,7 +256,12 @@ export interface Game {
    * detected/decided — callers should fall back to `gameIsVr(game)`,
    * which also derives from `genres`/`name`.
    */
-  isVr?: boolean;
+   isVr?: boolean;
+  /** What the user paid for this game (user-entered, or prefilled from a
+   *  price lookup). `undefined` = unknown — excluded from $/hour stats. */
+  purchaseCost?: number;
+  /** ISO currency code for `purchaseCost` (e.g. "USD"); UI defaults to USD. */
+  purchaseCurrency?: string;
   launchArguments?: string;
   runAsAdmin?: boolean;
   /** When true, Steam games launch through Steam's own executable/action
@@ -1191,6 +1196,7 @@ export interface AchievementLibraryStats {
  * Everything the frontend needs to render achievements without holding
  * the full per-game arrays. Built by `get_achievement_overview`.
  */
+
 export interface AchievementOverview {
   summaries: Record<string, AchievementSummary>;
   stats: AchievementLibraryStats;
@@ -1876,6 +1882,122 @@ export function addSessionTime(playTime: string, elapsedSeconds: number): string
   const currentMinutes = parsePlayTime(playTime);
   const sessionMinutes = Math.round(elapsedSeconds / 60);
   return formatPlayTime(currentMinutes + sessionMinutes);
+}
+
+/** Minimum playtime (hours, fractional) before $/hour is considered
+ *  meaningful. Below this the number is dominated by tiny-session noise
+ *  (a 10-minute lunch session makes any price look absurd), so callers
+ *  should show the game as "not enough data" instead. */
+export const COST_PER_HOUR_MIN_HOURS = 0.5;
+
+/** Effective $/hour for one game, or `null` when it has no usable data:
+ *  no cost set, cost invalid/non-finite, or under the minimum-playtime
+ *  threshold. Cost 0 is legal (free / gifted games — returns 0, not null). */
+export function costPerHour(game: Pick<Game, "purchaseCost" | "purchaseCurrency" | "playTime"> | undefined): number | null {
+  if (!game || typeof game.purchaseCost !== "number" || !isFinite(game.purchaseCost) || game.purchaseCost < 0) return null;
+  const hours = parsePlayTime(game.playTime) / 60;
+  if (hours < COST_PER_HOUR_MIN_HOURS) return null;
+  return game.purchaseCost / hours;
+}
+
+/** Where a game's effective cost came from. `stored` = the user's saved
+ *  purchase cost (DB); `price` = the current store price the app already
+ *  fetched for its price badges (CheapShark, USD), reused as a fallback
+ *  so the $/hour tracker works before anything is typed in. */
+export type PurchaseCostSource = "stored" | "price";
+
+export interface ResolvedPurchaseCost {
+  cost: number;
+  currency: string;
+  source: PurchaseCostSource;
+}
+
+/** Pick the cost the $/hour feature should use for a game: a saved
+ *  purchase cost always wins; otherwise the already-known store price
+ *  (USD) is reused. Returns `null` when neither is available. */
+export function resolvePurchaseCost(
+  game: Pick<Game, "purchaseCost" | "purchaseCurrency"> | undefined,
+  knownPrice?: number | null
+): ResolvedPurchaseCost | null {
+  const stored = game?.purchaseCost;
+  if (typeof stored === "number" && isFinite(stored) && stored >= 0) {
+    return {
+      cost: stored,
+      currency: (game?.purchaseCurrency || "USD").toUpperCase(),
+      source: "stored",
+    };
+  }
+  if (typeof knownPrice === "number" && isFinite(knownPrice) && knownPrice >= 0) {
+    return { cost: knownPrice, currency: "USD", source: "price" };
+  }
+  return null;
+}
+
+/** Format a cost with a currency code the way the tracker shows it
+ *  (`59.99 USD`), falling back to `USD` when the game has no currency
+ *  recorded yet (pre-v16 rows). Always two decimals: cost values live in
+ *  cents, and rounding away cents would lie about what the user paid. */
+export function formatCost(cost: number, currency?: string): string {
+  const code = (currency || "USD").toUpperCase();
+  return `${cost.toFixed(2)} ${code}`;
+}
+
+/** Lifetime value-for-money aggregates across the priced library.
+ *  Currencies are never mixed — each currency is reported separately
+ *  ( CheapShark prefill is USD, but manual entries can be anything), and
+ *  the returned stanzas are ordered by total spent descending so the UI
+ *  can show the dominant one first. `games` with no cost are skipped;
+ *  `null` when no priced game qualifies. */
+export interface CurrencyValueStats {
+  currency: string;
+  /** Games with a cost set in this currency. */
+  priced: number;
+  /** Sum of their purchase costs. */
+  spent: number;
+  /** Sum of their playtime minutes. */
+  minutes: number;
+  /** Weighted average cost per hour (spent over total hours). */
+  avgPerHour: number;
+}
+
+export interface LibraryValueStats {
+  byCurrency: CurrencyValueStats[];
+  /** Highest cost-per-hour priced game (worst value) and lowest */
+  bestValue: { game: Game; perHour: number } | null;
+  worstValue: { game: Game; perHour: number } | null;
+}
+
+export function libraryValueStats(games: Game[]): LibraryValueStats | null {
+  // Group by currency
+  const groups = new Map<string, CurrencyValueStats>();
+  for (const game of games) {
+    if (typeof game.purchaseCost !== "number" || !isFinite(game.purchaseCost) || game.purchaseCost < 0) continue;
+    const currency = (game.purchaseCurrency || "USD").toUpperCase();
+    let group = groups.get(currency);
+    if (!group) {
+      group = { currency, priced: 0, spent: 0, minutes: 0, avgPerHour: 0 };
+      groups.set(currency, group);
+    }
+    group.priced += 1;
+    group.spent += game.purchaseCost;
+    group.minutes += parsePlayTime(game.playTime);
+  }
+  const byCurrency = [...groups.values()].sort((a, b) => b.spent - a.spent);
+  for (const group of byCurrency) {
+    group.avgPerHour = group.minutes > 0 ? group.spent / (group.minutes / 60) : 0;
+  }
+
+  // Best/worst value (independent of currency for ranking)
+  let bestValue: { game: Game; perHour: number } | null = null;
+  let worstValue: { game: Game; perHour: number } | null = null;
+  for (const game of games) {
+    const perHour = costPerHour(game);
+    if (perHour == null) continue;
+    if (!bestValue || perHour < bestValue.perHour) bestValue = { game, perHour };
+    if (!worstValue || perHour > worstValue.perHour) worstValue = { game, perHour };
+  }
+  if (byCurrency.length === 0) return null;
+  return { byCurrency, bestValue, worstValue };
 }
 
 /**

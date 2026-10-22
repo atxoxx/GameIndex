@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { formatPlayTime, gameDisplayName, type Game, type GameSession } from "../../types/game";
+import { useEffect, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { formatPlayTime, formatCost, gameDisplayName, libraryValueStats, resolvePurchaseCost, type Game, type GameSession } from "../../types/game";
 import BarChart from "../../components/charts/BarChart";
 import LineChart from "../../components/charts/LineChart";
 import DonutChart from "../../components/charts/DonutChart";
@@ -75,6 +76,64 @@ export function ActivityDashboard({
   const [pendingDeleteGameId, setPendingDeleteGameId] = useState<string | null>(null);
   const [linkModalTarget, setLinkModalTarget] = useState<{ id: string; title: string } | null>(null);
   const [addModalTarget, setAddModalTarget] = useState<{ id: string; title: string } | null>(null);
+
+  // ── Value for money ────────────────────────────────────────────────
+  // Games with a saved purchase cost use it; the rest reuse the prices
+  // the app already knows (same CheapShark lookup as store badges) so
+  // the $/hour KPIs aren't stuck on "—" until every game is edited.
+  // This is read-only: nothing is persisted from the dashboard.
+  const [knownPrices, setKnownPrices] = useState<Record<string, number>>({});
+  const unpricedNames = useMemo(
+    () =>
+      games
+        .filter((g) => g.purchaseCost == null)
+        .map((g) => gameDisplayName(g) || g.name)
+        .slice(0, 200),
+    [games]
+  );
+  const unpricedKey = unpricedNames.join("\u0000");
+
+  useEffect(() => {
+    if (!unpricedKey) return;
+    let cancelled = false;
+    invoke<Record<string, { salePrice?: number | null; normalPrice?: number | null }>>(
+      "fetch_game_prices_batch",
+      { gameNames: unpricedKey.split("\u0000") }
+    )
+      .then((res) => {
+        if (cancelled || !res) return;
+        const map: Record<string, number> = {};
+        for (const [name, price] of Object.entries(res)) {
+          const value = price?.salePrice ?? price?.normalPrice;
+          if (typeof value === "number" && isFinite(value) && value >= 0) map[name] = value;
+        }
+        setKnownPrices(map);
+      })
+      .catch(() => {
+        // Offline / no results: the KPIs simply keep their "—" hint.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [unpricedKey]);
+
+  const gamesForValue = useMemo(() => {
+    if (Object.keys(knownPrices).length === 0) return games;
+    return games.map((game) => {
+      const resolved = resolvePurchaseCost(
+        game,
+        knownPrices[gameDisplayName(game) || game.name]
+      );
+      if (!resolved || resolved.source === "stored") return game;
+      return {
+        ...game,
+        purchaseCost: resolved.cost,
+        purchaseCurrency: resolved.currency,
+      };
+    });
+  }, [games, knownPrices]);
+
+  const valueStats = useMemo(() => libraryValueStats(gamesForValue), [gamesForValue]);
 
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
@@ -383,6 +442,38 @@ export function ActivityDashboard({
             label={t("activityDash.longestStreak")}
             value={stats.longestStreak}
           />
+          {games.length > 0 && (
+            <>
+              <StatCell
+                icon={<Icons.Zap size={15} />}
+                label={t("activityDash.totalSpend")}
+                value={
+                  valueStats?.byCurrency[0]
+                    ? formatCost(valueStats.byCurrency[0].spent, valueStats.byCurrency[0].currency)
+                    : "—"
+                }
+                sub={
+                  valueStats?.byCurrency[0]
+                    ? t("activityDash.pricedGames", { n: valueStats.byCurrency[0].priced })
+                    : t("activityDash.setCostHint")
+                }
+              />
+              <StatCell
+                icon={<Icons.Clock size={15} />}
+                label={t("activityDash.costPerHourAvg")}
+                value={
+                  valueStats?.byCurrency[0]
+                    ? formatCost(valueStats.byCurrency[0].avgPerHour, valueStats.byCurrency[0].currency)
+                    : "—"
+                }
+                sub={
+                  valueStats?.worstValue
+                    ? t("activityDash.worstValue", { name: gameDisplayName(valueStats.worstValue.game) })
+                    : undefined
+                }
+              />
+            </>
+          )}
         </StatBand>
       </div>
       </PageWidget>

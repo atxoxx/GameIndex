@@ -197,6 +197,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   // Which edit-modal section to open, or null while the modal is closed.
   const [editTab, setEditTab] = useState<EditGameTab | null>(null);
+  const [editFocus, setEditFocus] = useState<"purchaseCost" | null>(null);
   const editing = editTab !== null;
   const [wineLogsOpen, setWineLogsOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -545,6 +546,10 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                 game={game}
                 steamAppId={heroSteamAppId}
                 sizeUnit={sizeUnit}
+                onSetCost={() => {
+                  setEditFocus("purchaseCost");
+                  setEditTab("details");
+                }}
               />
             </div>
           </PageWidget>
@@ -804,7 +809,11 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
           key={editTab}
           game={game}
           initialTab={editTab}
-          onClose={() => setEditTab(null)}
+          focusField={editFocus ?? undefined}
+          onClose={() => {
+            setEditTab(null);
+            setEditFocus(null);
+          }}
         />
       )}
 
