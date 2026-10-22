@@ -123,6 +123,7 @@ export type PageWidgetKey =
   // Emulators
   | "emuHeader"
   | "emuStats"
+  | "emuBiosBoard"
   | "emuSidebar"
   | "emuDetail"
   // Mods
@@ -242,6 +243,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   // Emulators
   "emuHeader",
   "emuStats",
+  "emuBiosBoard",
   "emuSidebar",
   "emuDetail",
   // Mods
@@ -363,6 +365,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   // Emulators
   emuHeader: "ui-item-emuHeader",
   emuStats: "ui-item-emuStats",
+  emuBiosBoard: "ui-item-emuBiosBoard",
   emuSidebar: "ui-item-emuSidebar",
   emuDetail: "ui-item-emuDetail",
   // Mods
@@ -484,6 +487,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   // Emulators
   emuHeader: "settings.interface.widgetEmuHeader",
   emuStats: "settings.interface.widgetEmuStats",
+  emuBiosBoard: "settings.interface.widgetEmuBiosBoard",
   emuSidebar: "settings.interface.widgetEmuSidebar",
   emuDetail: "settings.interface.widgetEmuDetail",
   // Mods

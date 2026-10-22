@@ -106,6 +106,17 @@ export interface BiosCheckResult {
   missing: string[];
 }
 
+/** One row of `check_all_bios_status` — readiness verdict for one
+ *  emulator's firmware requirements (BIOS status board). */
+export interface BiosBoardEntry {
+  emulatorId: string;
+  emulatorName: string;
+  platform: string;
+  check: BiosCheckResult;
+  /** Every mandatory file found, no known-good dump failing its hash. */
+  ready: boolean;
+}
+
 /** An emulator executable discovered on disk. */
 export interface DiscoveredEmulator {
   key: string;

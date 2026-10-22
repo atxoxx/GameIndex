@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Emulator } from "../../types/emulator";
 import type { Game } from "../../types/game";
 import {
+  biosBoardStatus,
+  biosBoardTotals,
   computeEmulatorKpis,
   emulatorSetupSteps,
   filterAndSortRoms,
@@ -9,6 +11,7 @@ import {
   matchesStatusFilter,
   setupProgress,
 } from "./emulatorUi";
+import type { BiosBoardEntry } from "../../types/emulator";
 
 function makeEmulator(overrides: Partial<Emulator> = {}): Emulator {
   return {
@@ -166,5 +169,47 @@ describe("filterAndSortRoms", () => {
     expect(filterAndSortRoms(games, { search: "nope" }, "name", "asc")).toEqual(
       []
     );
+  });
+});
+
+describe("biosBoardStatus / biosBoardTotals", () => {
+  const entry = (over: Partial<BiosBoardEntry> = {}): BiosBoardEntry => ({
+    emulatorId: "e1",
+    emulatorName: "PPSSPP",
+    platform: "PSP",
+    ready: true,
+    check: {
+      platform: "PSP",
+      configured: true,
+      requirements: [{ name: "ppsspp.zip", found: true, mandatory: true }],
+      missing: [],
+    },
+    ...over,
+  });
+
+  it("classifies configured+ready as ready", () => {
+    expect(biosBoardStatus(entry())).toBe("ready");
+  });
+
+  it("classifies configured but incomplete as missing", () => {
+    const e = entry({ ready: false });
+    e.check.missing = ["dc_boot.bin"];
+    expect(biosBoardStatus(e)).toBe("missing");
+  });
+
+  it("classifies no BIOS folder as unconfigured", () => {
+    const e = entry();
+    e.check.configured = false;
+    expect(biosBoardStatus(e)).toBe("unconfigured");
+  });
+
+  it("totals each verdict", () => {
+    const missingEntry = entry({ emulatorId: "e3", ready: false });
+    missingEntry.check.missing = ["a.bin"];
+    const unconfiguredEntry = entry({ emulatorId: "e4" });
+    unconfiguredEntry.check.configured = false;
+    expect(
+      biosBoardTotals([entry(), entry({ emulatorId: "e2" }), missingEntry, unconfiguredEntry])
+    ).toEqual({ ready: 2, missing: 1, unconfigured: 1 });
   });
 });

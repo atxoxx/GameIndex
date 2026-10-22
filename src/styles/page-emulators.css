@@ -3548,3 +3548,147 @@
   flex-direction: column;
   gap: var(--space-xs);
 }
+
+/* ── BIOS status board ────────────────────────────────────────────── */
+
+.emu-bios-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.emu-bios-board__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.emu-bios-board__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.emu-bios-board__subtitle {
+  margin: var(--space-3xs) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.emu-bios-board__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.emu-bios-board__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.emu-bios-board__pill--ok {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.emu-bios-board__pill--warn {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+.emu-bios-board__pill--muted {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+}
+
+.emu-bios-board__empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.emu-bios-board__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.emu-bios-board__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  flex-wrap: wrap;
+}
+
+.emu-bios-board__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.emu-bios-board__name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emu-bios-board__platform {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.emu-bios-board__status {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+}
+
+.emu-bios-board__status--ready {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.emu-bios-board__status--missing {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+.emu-bios-board__status--unconfigured {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+}
+
+.emu-bios-board__hash-warn {
+  font-size: var(--text-2xs);
+  color: var(--color-danger);
+}
+
+.emu-bios-board__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  margin-left: auto;
+}

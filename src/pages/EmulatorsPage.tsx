@@ -40,6 +40,7 @@ import PageWidget from "../components/PageWidget";
 import "../styles/page-emulators.css";
 
 import EmulatorStatsHeader from "../components/emulators/EmulatorStatsHeader";
+import EmulatorBiosBoard from "../components/emulators/EmulatorBiosBoard";
 import EmulatorSidebarList from "../components/emulators/EmulatorSidebarList";
 import EmulatorDetailHero from "../components/emulators/EmulatorDetailHero";
 import EmulatorRomManager from "../components/emulators/EmulatorRomManager";
@@ -752,6 +753,16 @@ export default function EmulatorsPage() {
             kpis={kpis}
             activeFilter={statusFilter}
             onFilterChange={setStatusFilter}
+          />
+        </div>
+      </PageWidget>
+
+      <PageWidget page="emulators" widget="emuBiosBoard">
+        <div className="ui-item-emuBiosBoard">
+          <EmulatorBiosBoard
+            emulators={emulators}
+            onCheck={handleCheckBios}
+            onFix={openEdit}
           />
         </div>
       </PageWidget>

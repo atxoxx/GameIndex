@@ -398,6 +398,7 @@ pub fn run() {
             roms::rom_profile_save,
             roms::rom_launch_plan,
             roms::check_bios_status,
+            roms::check_all_bios_status,
             roms::discover_emulators,
             roms::discover_rom_folders,
             roms::find_duplicate_roms,

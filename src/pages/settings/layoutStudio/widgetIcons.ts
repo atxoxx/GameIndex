@@ -153,6 +153,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   // Emulators
   emuHeader: Gamepad2,
   emuStats: BarChart2,
+  emuBiosBoard: ShieldCheck,
   emuSidebar: PanelLeft,
   emuDetail: Terminal,
   // Mods

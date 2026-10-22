@@ -1,5 +1,5 @@
 import type { Game } from "../../types/game";
-import type { Emulator } from "../../types/emulator";
+import type { Emulator, BiosBoardEntry } from "../../types/emulator";
 import {
   accentForPlatform,
   matchKnownEmulator,
@@ -52,6 +52,35 @@ export function computeEmulatorKpis(
     games += romCounts[emu.id] ?? 0;
   }
   return { systems: emulators.length, ready, games, totalSizeBytes };
+}
+
+// ── BIOS status board ─────────────────────────────────────────────
+// Verdicts for the batch firmware check (`check_all_bios_status`).
+
+export type BiosBoardStatus = "ready" | "missing" | "unconfigured";
+
+export interface BiosBoardTotals {
+  ready: number;
+  missing: number;
+  unconfigured: number;
+}
+
+/** Board verdict for one entry: `ready` (all mandatory firmware ok),
+ *  `unconfigured` (no BIOS folder pointed at anything) or `missing`
+ *  (configured but at least one mandatory dump absent/hash-bad). */
+export function biosBoardStatus(entry: BiosBoardEntry): BiosBoardStatus {
+  if (!entry.check.configured) return "unconfigured";
+  if (entry.ready) return "ready";
+  return "missing";
+}
+
+/** Count each verdict across the board rows. */
+export function biosBoardTotals(entries: BiosBoardEntry[]): BiosBoardTotals {
+  const totals: BiosBoardTotals = { ready: 0, missing: 0, unconfigured: 0 };
+  for (const entry of entries) {
+    totals[biosBoardStatus(entry)] += 1;
+  }
+  return totals;
 }
 
 export type SetupStepKey = "executable" | "romFolder" | "scan";

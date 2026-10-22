@@ -975,6 +975,67 @@ pub struct BiosCheckResult {
     pub missing: Vec<String>,
 }
 
+/// One row of the BIOS status board (`check_all_bios_status`): the
+/// readiness verdict for a single emulator's firmware requirements.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BiosBoardEntry {
+    pub emulator_id: String,
+    pub emulator_name: String,
+    pub platform: String,
+    pub check: BiosCheckResult,
+    /// `true` when every mandatory requirement is found and no known
+    /// check failed a hash comparison — "ready to launch" without
+    /// re-deriving anything from `requirements` in the UI.
+    pub ready: bool,
+}
+
+/// Shared body of the BIOS check, used by the single-emulator command
+/// and the batch board command. Pure filesystem work — call inside
+/// `spawn_blocking`.
+fn bios_check_blocking(emu: &db::emulators::EmulatorRow) -> BiosCheckResult {
+    let reqs = bios_requirements(&emu.platform);
+    let folder = emu.bios_folder.clone().filter(|f| !f.trim().is_empty());
+    let configured = folder.is_some();
+
+    let mut statuses: Vec<BiosStatus> = Vec::new();
+    let mut missing: Vec<String> = Vec::new();
+    for req in reqs {
+        let mut found = false;
+        let mut found_path: Option<String> = None;
+        let mut hash_ok: Option<bool> = None;
+        if let Some(f) = &folder {
+            if let Some(hit) = find_bios_file(Path::new(f), &req.name) {
+                let meta = std::fs::metadata(&hit).ok();
+                found = meta.map(|m| m.len() > 0).unwrap_or(false);
+                found_path = Some(hit.to_string_lossy().to_string());
+                if let Some(expected) = &req.expected_sha1 {
+                    let actual = sha1_file(&hit);
+                    hash_ok = Some(actual.as_deref() == Some(expected.as_str()));
+                }
+            }
+        }
+        if !found {
+            missing.push(req.name.clone());
+        }
+        statuses.push(BiosStatus {
+            name: req.name,
+            description: req.description,
+            found,
+            path: found_path,
+            hash_ok,
+            mandatory: req.mandatory,
+        });
+    }
+    BiosCheckResult {
+        platform: emu.platform.clone(),
+        bios_folder: folder,
+        configured,
+        requirements: statuses,
+        missing,
+    }
+}
+
 /// Curated BIOS requirements per platform. Only file NAMES + the
 /// well-known PS1 dumps' SHA-1s are shipped — never the firmware itself.
 fn bios_requirements(platform: &str) -> Vec<BiosRequirement> {
@@ -1085,50 +1146,53 @@ pub async fn check_bios_status(app: tauri::AppHandle, emulator_id: String) -> Re
         let emu = db::emulators::get(&db, &emulator_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
-
-        let reqs = bios_requirements(&emu.platform);
-        let folder = emu.bios_folder.filter(|f| !f.trim().is_empty());
-        let configured = folder.is_some();
-
-        let mut statuses: Vec<BiosStatus> = Vec::new();
-        let mut missing: Vec<String> = Vec::new();
-        for req in reqs {
-            let mut found = false;
-            let mut found_path: Option<String> = None;
-            let mut hash_ok: Option<bool> = None;
-            if let Some(f) = &folder {
-                if let Some(hit) = find_bios_file(Path::new(f), &req.name) {
-                    let meta = std::fs::metadata(&hit).ok();
-                    found = meta.map(|m| m.len() > 0).unwrap_or(false);
-                    found_path = Some(hit.to_string_lossy().to_string());
-                    if let Some(expected) = &req.expected_sha1 {
-                        let actual = sha1_file(&hit);
-                        hash_ok = Some(actual.as_deref() == Some(expected.as_str()));
-                    }
-                }
-            }
-            if !found {
-                missing.push(req.name.clone());
-            }
-            statuses.push(BiosStatus {
-                name: req.name,
-                description: req.description,
-                found,
-                path: found_path,
-                hash_ok,
-                mandatory: req.mandatory,
-            });
-        }
-        Ok(BiosCheckResult {
-            platform: emu.platform,
-            bios_folder: folder,
-            configured,
-            requirements: statuses,
-            missing,
-        })
+        Ok(bios_check_blocking(&emu))
     })
     .await
     .map_err(|e| format!("check_bios_status task: {e}"))?
+}
+
+/// Readiness verdict for one check: every mandatory file found and no
+/// known-good dump failing its SHA-1 comparison.
+fn bios_board_ready(check: &BiosCheckResult) -> bool {
+    check.configured && check.requirements.iter().all(|r| {
+        if !r.mandatory && !r.found {
+            // Optional boot ROMs that are absent don't block readiness.
+            return true;
+        }
+        r.found && r.hash_ok != Some(false)
+    })
+}
+
+/// BIOS readiness for every configured emulator at once — the status
+/// board on the Emulators page. Emulators whose platform has no curated
+/// requirement table are skipped (nothing to check), and the walk +
+/// hashing run off the event loop so a folder on a dead network drive
+/// can't freeze the IPC loop.
+#[tauri::command]
+pub async fn check_all_bios_status(app: tauri::AppHandle) -> Result<Vec<BiosBoardEntry>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let emulators = db::emulators::list_all(&db)?;
+        let mut out = Vec::new();
+        for emu in emulators {
+            if bios_requirements(&emu.platform).is_empty() {
+                continue;
+            }
+            let check = bios_check_blocking(&emu);
+            let ready = bios_board_ready(&check);
+            out.push(BiosBoardEntry {
+                emulator_id: emu.id,
+                emulator_name: emu.name,
+                platform: emu.platform,
+                check,
+                ready,
+            });
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("check_all_bios_status task: {e}"))?
 }
 
 /// Case-insensitive recursive lookup of a BIOS file name in a folder
@@ -1870,6 +1934,66 @@ mod tests {
         std::fs::write(&path, b"123456789").unwrap();
         // CRC-32 of "123456789" is 0xCBF43926.
         assert_eq!(crc32_file(&path).unwrap(), "cbf43926");
+    }
+
+    fn bios_status(name: &str, found: bool, hash_ok: Option<bool>, mandatory: bool) -> BiosStatus {
+        BiosStatus {
+            name: name.into(),
+            description: None,
+            found,
+            path: None,
+            hash_ok,
+            mandatory,
+        }
+    }
+
+    #[test]
+    fn bios_board_ready_requires_configured_folder_and_all_mandatory_files() {
+        let ready = BiosCheckResult {
+            platform: "PlayStation".into(),
+            bios_folder: Some("C:\\bios".into()),
+            configured: true,
+            requirements: vec![
+                bios_status("scph5501.bin", true, Some(true), true),
+                // Absent optional file must not block readiness.
+                bios_status("scph5502.bin", false, None, false),
+            ],
+            missing: vec!["scph5502.bin".into()],
+        };
+        assert!(bios_board_ready(&ready));
+    }
+
+    #[test]
+    fn bios_board_rejects_unconfigured_and_incomplete_boards() {
+        // Error path: no BIOS folder pointed at anything.
+        let unconfigured = BiosCheckResult {
+            platform: "PlayStation".into(),
+            bios_folder: None,
+            configured: false,
+            requirements: vec![bios_status("scph5501.bin", true, Some(true), true)],
+            missing: vec![],
+        };
+        assert!(!bios_board_ready(&unconfigured));
+
+        // Error path: a mandatory file is missing.
+        let missing = BiosCheckResult {
+            platform: "PlayStation".into(),
+            bios_folder: Some("C:\\bios".into()),
+            configured: true,
+            requirements: vec![bios_status("scph5501.bin", false, None, true)],
+            missing: vec!["scph5501.bin".into()],
+        };
+        assert!(!bios_board_ready(&missing));
+
+        // Error path: present but the SHA-1 does not match the known dump.
+        let bad_hash = BiosCheckResult {
+            platform: "PlayStation".into(),
+            bios_folder: Some("C:\\bios".into()),
+            configured: true,
+            requirements: vec![bios_status("scph5501.bin", true, Some(false), true)],
+            missing: vec![],
+        };
+        assert!(!bios_board_ready(&bad_hash));
     }
 
     #[test]
