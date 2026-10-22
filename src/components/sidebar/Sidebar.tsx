@@ -346,10 +346,13 @@ export default function Sidebar() {
   }, [processedFilteredGames]);
 
   // The alphabet rail (and the list gutter reserved for it) only appear
-  // when the section is enabled, the sidebar is expanded, and there are
-  // enough distinct letters to be worth indexing.
+  // when the section is enabled, the list is on screen, the sidebar is
+  // expanded, and there are enough distinct letters to be worth indexing.
   const showAlphabetRail =
-    alphabetRailVisible && !isIconRail && availableLetters.length > 3;
+    gameListVisible &&
+    alphabetRailVisible &&
+    !isIconRail &&
+    availableLetters.length > 3;
 
   const handleSelectLetter = useCallback(
     (letter: string) => {
@@ -913,249 +916,253 @@ export default function Sidebar() {
       <hr className="sidebar-divider" />
 
       {/* Main scrollable game list */}
-      {gameListVisible && <div
-        className={
-          "sidebar-list" + (showAlphabetRail ? " sidebar-list--with-rail" : "")
-        }
-        onClick={handleListClick}
-        onContextMenu={handleListContextMenu}
-        onKeyDown={handleListKeyDown}
-        role="listbox"
-        aria-label={t("bigscreen.friends.games")}
-      >
-        {/* Pinned Section (shown when not grouping or when pinned games match filter) */}
-        {groupBy === "none" && pinnedGames.length > 0 && (
-          <>
-            <SidebarSectionHeader
-              title={t("friendsPage.pinned")}
-              count={pinnedGames.length}
-              collapsible
-              isCollapsed={!!collapsedSections.pinned}
-              onToggleCollapse={() => toggleSectionCollapse("pinned")}
-              icon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                  style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
-                >
-                  <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
-                </svg>
-              }
-            />
-            {!collapsedSections.pinned && (
-              <div className="sidebar-pinned-list">
-                {pinnedGames.map((game) => (
-                  <SidebarGameItem
-                    key={`pinned-${game.id}`}
-                    game={game}
-                    isSelected={selectedGameId === game.id}
-                    isRunning={runningGameIds.includes(game.id)}
-                    isPinned={true}
-                    bulkSelected={bulkSelectedIds.has(game.id)}
-                    isRandomHighlight={randomPickedGameId === game.id}
-                    density={viewOptions.density}
-                    viewOptions={viewOptions}
-                    searchQuery={filterState.search}
-                    onPointerEnter={handlePointerEnter}
-                    onPointerLeave={handlePointerLeave}
-                    onQuickPlay={handleQuickPlay}
-                    onTogglePin={togglePin}
-                  />
-                ))}
-              </div>
-            )}
-            <hr className="sidebar-divider sidebar-divider--thin" />
-          </>
-        )}
-
-        {/* Recently played section (standard view only) */}
-        {groupBy === "none" && recentlyPlayedGames.length > 0 && (
-          <>
-            <SidebarSectionHeader
-              title={t("community.recentlyPlayed")}
-              count={recentlyPlayedGames.length}
-              collapsible
-              isCollapsed={!!collapsedSections.recent}
-              onToggleCollapse={() => toggleSectionCollapse("recent")}
-              icon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              }
-            />
-            {!collapsedSections.recent && (
-              <div className="sidebar-recent-list">
-                {recentlyPlayedGames.map((game) => (
-                  <SidebarGameItem
-                    key={`recent-${game.id}`}
-                    game={game}
-                    isSelected={selectedGameId === game.id}
-                    isRunning={runningGameIds.includes(game.id)}
-                    isPinned={pinnedIds.has(game.id)}
-                    bulkSelected={bulkSelectedIds.has(game.id)}
-                    isRandomHighlight={randomPickedGameId === game.id}
-                    density={viewOptions.density}
-                    viewOptions={viewOptions}
-                    searchQuery={filterState.search}
-                    onPointerEnter={handlePointerEnter}
-                    onPointerLeave={handlePointerLeave}
-                    onQuickPlay={handleQuickPlay}
-                    onTogglePin={togglePin}
-                  />
-                ))}
-              </div>
-            )}
-            <hr className="sidebar-divider sidebar-divider--thin" />
-          </>
-        )}
-
-        {/* Custom Dynamic Groups (when groupBy !== "none") */}
-        {groupBy !== "none" && dynamicGroups.length > 0 && (
-          <div className="sidebar-groups-container">
-            {dynamicGroups.map((group) => {
-              const isCollapsed = !!collapsedSections[group.key];
-              return (
-                <div key={group.key} className="sidebar-group-section">
-                  <SidebarSectionHeader
-                    title={group.title}
-                    count={group.count}
-                    collapsible
-                    isCollapsed={isCollapsed}
-                    onToggleCollapse={() => toggleSectionCollapse(group.key)}
-                    badgeColor={group.badgeColor}
-                  />
-                  {!isCollapsed && (
-                    <div className="sidebar-group-list">
-                      {group.games.map((game) => (
-                        <SidebarGameItem
-                          key={`${group.key}-${game.id}`}
-                          game={game}
-                          isSelected={selectedGameId === game.id}
-                          isRunning={runningGameIds.includes(game.id)}
-                          isPinned={pinnedIds.has(game.id)}
-                          bulkSelected={bulkSelectedIds.has(game.id)}
-                          isRandomHighlight={randomPickedGameId === game.id}
-                          density={viewOptions.density}
-                          viewOptions={viewOptions}
-                          searchQuery={filterState.search}
-                          onPointerEnter={handlePointerEnter}
-                          onPointerLeave={handlePointerLeave}
-                          onQuickPlay={handleQuickPlay}
-                          onTogglePin={togglePin}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Standard All Games section (when groupBy === "none") */}
-        {groupBy === "none" && (
-          <>
-            <SidebarSectionHeader
-              title={t("bigscreen.friends.games")}
-              count={mainListGames.length}
-              resultLabel={
-                isFilteringActive
-                  ? t("sidebar.resultOfTotal", {
-                      count: processedFilteredGames.length,
-                      total: games.length,
-                    })
-                  : undefined
-              }
-              icon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
-                >
-                  <rect x="2" y="6" width="20" height="12" rx="2" />
-                  <path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01" />
-                </svg>
-              }
-            />
-
-            {mainListGames.length === 0 ? (
-              filteredNonPinned.length === 0 ? (
-                <SidebarEmptyState
-                  hasZeroLibraryGames={games.length === 0}
-                  isFilteringActive={isFilteringActive}
-                  onImportClick={(e) => {
-                    e.stopPropagation();
-                    setImportMenuAnchor(e.currentTarget);
-                    setShowImportMenu(true);
-                  }}
-                  onClearFilters={reset}
-                />
-              ) : null
-            ) : (
-              mainListGames.map((game) => (
-                <SidebarGameItem
-                  key={game.id}
-                  game={game}
-                  isSelected={selectedGameId === game.id}
-                  isRunning={runningGameIds.includes(game.id)}
-                  isPinned={pinnedIds.has(game.id)}
-                  bulkSelected={bulkSelectedIds.has(game.id)}
-                  isRandomHighlight={randomPickedGameId === game.id}
-                  density={viewOptions.density}
-                  viewOptions={viewOptions}
-                  searchQuery={filterState.search}
-                  onPointerEnter={handlePointerEnter}
-                  onPointerLeave={handlePointerLeave}
-                  onQuickPlay={handleQuickPlay}
-                  onTogglePin={togglePin}
-                />
-              ))
-            )}
-          </>
-        )}
-
-        {/* Bulk Action Sticky Bar */}
-        {bulkSelectedIds.size > 0 && (
-          <SidebarBulkActionBar
-            count={bulkSelectedIds.size}
-            totalVisible={combinedVisibleGames.length}
-            allPinned={
-              pinnedIds.size > 0 &&
-              Array.from(bulkSelectedIds).every((id) => pinnedIds.has(id))
+      {gameListVisible && (
+        <div className="sidebar-list-region">
+          <div
+            className={
+              "sidebar-list" + (showAlphabetRail ? " sidebar-list--with-rail" : "")
             }
-            allSelected={bulkSelectedIds.size === combinedVisibleGames.length}
-            onSelectAll={handleSelectAllVisible}
-            onPin={bulkPin}
-            onUnpin={bulkUnpin}
-            onSetStatus={bulkSetPlayStatus}
-            onRemove={bulkRemove}
-            onCancel={() => setBulkSelectedIds(new Set())}
-          />
-        )}
-      </div>}
+            onClick={handleListClick}
+            onContextMenu={handleListContextMenu}
+            onKeyDown={handleListKeyDown}
+            role="listbox"
+            aria-label={t("bigscreen.friends.games")}
+          >
+            {/* Pinned Section (shown when not grouping or when pinned games match filter) */}
+            {groupBy === "none" && pinnedGames.length > 0 && (
+              <>
+                <SidebarSectionHeader
+                  title={t("friendsPage.pinned")}
+                  count={pinnedGames.length}
+                  collapsible
+                  isCollapsed={!!collapsedSections.pinned}
+                  onToggleCollapse={() => toggleSectionCollapse("pinned")}
+                  icon={
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                      style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
+                    >
+                      <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
+                    </svg>
+                  }
+                />
+                {!collapsedSections.pinned && (
+                  <div className="sidebar-pinned-list">
+                    {pinnedGames.map((game) => (
+                      <SidebarGameItem
+                        key={`pinned-${game.id}`}
+                        game={game}
+                        isSelected={selectedGameId === game.id}
+                        isRunning={runningGameIds.includes(game.id)}
+                        isPinned={true}
+                        bulkSelected={bulkSelectedIds.has(game.id)}
+                        isRandomHighlight={randomPickedGameId === game.id}
+                        density={viewOptions.density}
+                        viewOptions={viewOptions}
+                        searchQuery={filterState.search}
+                        onPointerEnter={handlePointerEnter}
+                        onPointerLeave={handlePointerLeave}
+                        onQuickPlay={handleQuickPlay}
+                        onTogglePin={togglePin}
+                      />
+                    ))}
+                  </div>
+                )}
+                <hr className="sidebar-divider sidebar-divider--thin" />
+              </>
+            )}
 
-      {/* Alphabet Scrubber Rail (when sorted alphabetically or grouped by letter) */}
-      {showAlphabetRail && (
-        <SidebarAlphabetScrubber
-          availableLetters={availableLetters}
-          onSelectLetter={handleSelectLetter}
-        />
+            {/* Recently played section (standard view only) */}
+            {groupBy === "none" && recentlyPlayedGames.length > 0 && (
+              <>
+                <SidebarSectionHeader
+                  title={t("community.recentlyPlayed")}
+                  count={recentlyPlayedGames.length}
+                  collapsible
+                  isCollapsed={!!collapsedSections.recent}
+                  onToggleCollapse={() => toggleSectionCollapse("recent")}
+                  icon={
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
+                    >
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                  }
+                />
+                {!collapsedSections.recent && (
+                  <div className="sidebar-recent-list">
+                    {recentlyPlayedGames.map((game) => (
+                      <SidebarGameItem
+                        key={`recent-${game.id}`}
+                        game={game}
+                        isSelected={selectedGameId === game.id}
+                        isRunning={runningGameIds.includes(game.id)}
+                        isPinned={pinnedIds.has(game.id)}
+                        bulkSelected={bulkSelectedIds.has(game.id)}
+                        isRandomHighlight={randomPickedGameId === game.id}
+                        density={viewOptions.density}
+                        viewOptions={viewOptions}
+                        searchQuery={filterState.search}
+                        onPointerEnter={handlePointerEnter}
+                        onPointerLeave={handlePointerLeave}
+                        onQuickPlay={handleQuickPlay}
+                        onTogglePin={togglePin}
+                      />
+                    ))}
+                  </div>
+                )}
+                <hr className="sidebar-divider sidebar-divider--thin" />
+              </>
+            )}
+
+            {/* Custom Dynamic Groups (when groupBy !== "none") */}
+            {groupBy !== "none" && dynamicGroups.length > 0 && (
+              <div className="sidebar-groups-container">
+                {dynamicGroups.map((group) => {
+                  const isCollapsed = !!collapsedSections[group.key];
+                  return (
+                    <div key={group.key} className="sidebar-group-section">
+                      <SidebarSectionHeader
+                        title={group.title}
+                        count={group.count}
+                        collapsible
+                        isCollapsed={isCollapsed}
+                        onToggleCollapse={() => toggleSectionCollapse(group.key)}
+                        badgeColor={group.badgeColor}
+                      />
+                      {!isCollapsed && (
+                        <div className="sidebar-group-list">
+                          {group.games.map((game) => (
+                            <SidebarGameItem
+                              key={`${group.key}-${game.id}`}
+                              game={game}
+                              isSelected={selectedGameId === game.id}
+                              isRunning={runningGameIds.includes(game.id)}
+                              isPinned={pinnedIds.has(game.id)}
+                              bulkSelected={bulkSelectedIds.has(game.id)}
+                              isRandomHighlight={randomPickedGameId === game.id}
+                              density={viewOptions.density}
+                              viewOptions={viewOptions}
+                              searchQuery={filterState.search}
+                              onPointerEnter={handlePointerEnter}
+                              onPointerLeave={handlePointerLeave}
+                              onQuickPlay={handleQuickPlay}
+                              onTogglePin={togglePin}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Standard All Games section (when groupBy === "none") */}
+            {groupBy === "none" && (
+              <>
+                <SidebarSectionHeader
+                  title={t("bigscreen.friends.games")}
+                  count={mainListGames.length}
+                  resultLabel={
+                    isFilteringActive
+                      ? t("sidebar.resultOfTotal", {
+                          count: processedFilteredGames.length,
+                          total: games.length,
+                        })
+                      : undefined
+                  }
+                  icon={
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      style={{ width: 14, height: 14, display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
+                    >
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                      <path d="M6 12h4m-2-2v4m7-2h.01m3 0h.01" />
+                    </svg>
+                  }
+                />
+
+                {mainListGames.length === 0 ? (
+                  filteredNonPinned.length === 0 ? (
+                    <SidebarEmptyState
+                      hasZeroLibraryGames={games.length === 0}
+                      isFilteringActive={isFilteringActive}
+                      onImportClick={(e) => {
+                        e.stopPropagation();
+                        setImportMenuAnchor(e.currentTarget);
+                        setShowImportMenu(true);
+                      }}
+                      onClearFilters={reset}
+                    />
+                  ) : null
+                ) : (
+                  mainListGames.map((game) => (
+                    <SidebarGameItem
+                      key={game.id}
+                      game={game}
+                      isSelected={selectedGameId === game.id}
+                      isRunning={runningGameIds.includes(game.id)}
+                      isPinned={pinnedIds.has(game.id)}
+                      bulkSelected={bulkSelectedIds.has(game.id)}
+                      isRandomHighlight={randomPickedGameId === game.id}
+                      density={viewOptions.density}
+                      viewOptions={viewOptions}
+                      searchQuery={filterState.search}
+                      onPointerEnter={handlePointerEnter}
+                      onPointerLeave={handlePointerLeave}
+                      onQuickPlay={handleQuickPlay}
+                      onTogglePin={togglePin}
+                    />
+                  ))
+                )}
+              </>
+            )}
+
+            {/* Bulk Action Sticky Bar */}
+            {bulkSelectedIds.size > 0 && (
+              <SidebarBulkActionBar
+                count={bulkSelectedIds.size}
+                totalVisible={combinedVisibleGames.length}
+                allPinned={
+                  pinnedIds.size > 0 &&
+                  Array.from(bulkSelectedIds).every((id) => pinnedIds.has(id))
+                }
+                allSelected={bulkSelectedIds.size === combinedVisibleGames.length}
+                onSelectAll={handleSelectAllVisible}
+                onPin={bulkPin}
+                onUnpin={bulkUnpin}
+                onSetStatus={bulkSetPlayStatus}
+                onRemove={bulkRemove}
+                onCancel={() => setBulkSelectedIds(new Set())}
+              />
+            )}
+          </div>
+
+          {/* Alphabet Scrubber Rail (when sorted alphabetically or grouped by letter) */}
+          {showAlphabetRail && (
+            <SidebarAlphabetScrubber
+              availableLetters={availableLetters}
+              onSelectLetter={handleSelectLetter}
+            />
+          )}
+        </div>
       )}
 
       {/* Library Stats Footer */}

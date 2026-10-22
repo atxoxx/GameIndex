@@ -2581,30 +2581,47 @@ html[data-game-accent] .sidebar {
 }
 
 /* ── Alphabet Quick Scrubber Rail ──
- * Vertically centred over the game list, so it never collides with the
- * (variable-height) header or the stats footer. It stays faint until
- * the sidebar is hovered, then reveals a quiet surface when the rail
- * itself is hovered.
+ * The rail is positioned against `.sidebar-list-region` — the box that
+ * wraps the scrollable game list — instead of the whole sidebar, so it is
+ * centred on the list viewport. Anchoring it to the sidebar made it drift
+ * up over the shelves whenever the header grew (search + filters + filled
+ * shelves) and pushed it past the footer whenever the list got short.
+ *
+ * Row height comes from `SidebarAlphabetScrubber`, which measures the list
+ * viewport and divides it by the number of letters: every letter stays
+ * visible, evenly spaced, and legible however many shelves are open.
+ * It stays faint until the sidebar is hovered, then reveals a quiet
+ * surface when the rail itself is hovered.
  *
  * The hover states deliberately use ONLY colour/opacity/shadow — never
  * `transform` or `backdrop-filter`. The previous letter `scale()` made
  * the browser scroll the rail's own overflow container to keep the
  * enlarged glyph in view, which read as the whole rail jumping. */
+.sidebar-list-region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-list-region > .sidebar-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .sidebar-alphabet-scrubber {
   position: absolute;
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  max-height: calc(100% - 210px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4xs);
-  padding: var(--space-2xs) var(--space-4xs);
+  gap: 0;
+  padding: var(--space-2xs) var(--space-3xs);
   border-radius: var(--radius-full);
   z-index: 3;
   pointer-events: auto;
@@ -2613,6 +2630,12 @@ html[data-game-accent] .sidebar {
   transition: opacity var(--duration-normal) var(--ease-standard),
     background var(--duration-normal) var(--ease-standard),
     box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+/* Hidden by the component when the list viewport is too short to fit
+ * every letter at a legible size. */
+.sidebar-alphabet-scrubber[hidden] {
+  display: none;
 }
 
 .sidebar:hover .sidebar-alphabet-scrubber {
@@ -2629,8 +2652,9 @@ html[data-game-accent] .sidebar {
   align-items: center;
   justify-content: center;
   width: 16px;
-  height: 11px;
-  font-size: var(--text-2xs);
+  height: var(--rail-row, 12px);
+  font-size: min(var(--text-2xs), calc(var(--rail-row, 12px) * 0.82));
+  line-height: 1;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   border: none;
@@ -2657,7 +2681,7 @@ html[data-game-accent] .sidebar {
  * move the reserved gutter with it. */
 html[data-sidebar-position="right"] .sidebar-alphabet-scrubber {
   right: auto;
-  left: 8px;
+  left: 6px;
 }
 
 html[data-sidebar-position="right"] .sidebar-list--with-rail {
@@ -2716,6 +2740,7 @@ html[data-sidebar-position="right"] .sidebar-resize-handle {
  * stable DOM shape and hidden sections retain their internal state. */
 .sidebar[data-sidebar-hidden~="search"] .sidebar-header,
 .sidebar[data-sidebar-hidden~="activeFilters"] .sidebar-active-filters,
+.sidebar[data-sidebar-hidden~="gameList"] .sidebar-list-region,
 .sidebar[data-sidebar-hidden~="gameList"] .sidebar-list,
 .sidebar[data-sidebar-hidden~="alphabetRail"] .sidebar-alphabet-scrubber,
 .sidebar[data-sidebar-hidden~="statsFooter"] .sidebar-stats-footer {
