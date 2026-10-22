@@ -119,7 +119,34 @@ pub(crate) fn finalize_session(
             remaining_game_name: remaining_name,
         },
     );
+
+    // Watchdog healing: surface the two "launch went nowhere" shapes to
+    // the frontend. A launch the watcher never saw attached means the
+    // chain broke before the game window showed (missing exe, Steam
+    // relaunch never matched, launcher died); a process that attached
+    // and died inside HEAL_SHORT_RUN_SECS is a crash-class exit. Both
+    // are actionable healing candidates — the user force-close path
+    // (`force_close_game`) does NOT route through here, so deliberate
+    // quits never trigger the heal dialog.
+    let attached = session.last_pid != 0;
+    if elapsed < HEAL_SHORT_RUN_SECS {
+        let _ = app_handle.emit(
+            "game-failed",
+            GameFailurePayload {
+                game_id: session.game_id.clone(),
+                game_name: session.game_name.clone(),
+                elapsed_seconds: elapsed,
+                attached,
+            },
+        );
+    }
 }
+
+/// A session that attached and ran shorter than this is treated as a
+/// doomed launch (instant crash), not a real play session. Manual
+/// quits inside this window are a rare false positive — the heal
+/// dialog is dismissible and mute-able, so the noise cost is low.
+pub(crate) const HEAL_SHORT_RUN_SECS: u64 = 15;
 
 /// `true` when the tracked PID is alive AND still resolves to the
 /// tracked exe. Liveness by PID alone is not enough: between 5 s polls

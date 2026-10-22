@@ -103,6 +103,27 @@ impl ActiveSession {
     }
 }
 
+/// Watchdog healing signal: a launch that went nowhere. Emitted for the
+/// two doom shapes a session can take — the launch never materialized
+/// (`attached == false`: exe missing/renamed, launcher chain broke, or
+/// the watcher never saw the process) and launches whose process
+/// attached but died within [`session::HEAL_SHORT_RUN_SECS`] (instant
+/// crash). NOT emitted for user-initiated force closes — those take
+/// their own finalize path in `launcher.rs` and are deliberate quits.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameFailurePayload {
+    #[serde(rename = "gameId")]
+    pub game_id: String,
+    #[serde(rename = "gameName")]
+    pub game_name: String,
+    #[serde(rename = "elapsedSeconds")]
+    pub elapsed_seconds: u64,
+    /// `true` when the watcher actually saw the game process run (and it
+    /// died immediately); `false` when no process ever appeared.
+    pub attached: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameExitPayload {
