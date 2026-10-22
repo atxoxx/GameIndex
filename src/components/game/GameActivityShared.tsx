@@ -19,7 +19,14 @@ export interface Stats {
 
 export interface HwAverages {
   avgFps: number;
+  /** Lowest measured session minimum (0 when no session reported one). */
+  minFps: number;
   maxFps: number;
+  /**
+   * 1st-percentile FPS pooled across the sessions' real samples, falling back
+   * to the lowest measured minimum. 0 when there is nothing to measure.
+   */
+  onePercentLowFps: number;
   avgCpu: number;
   maxCpu: number;
   avgGpu: number;

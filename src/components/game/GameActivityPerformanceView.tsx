@@ -8,7 +8,7 @@ import type { TempUnit } from "../../context/SettingsContext";
 import { Badge, Button } from "../ui";
 import { SectionPanel, EmptyState, SessionComparisonModal } from "../activity";
 import { useFocusProps, useFocusableNative } from "../activity/focusable";
-import { calculateFpsStability, calculateTelemetryInsights } from "../activity/insights";
+import { calculateFpsStability } from "../activity/insights";
 import type { HwAverages, PerfTimelineData } from "./GameActivityShared";
 import * as Icons from "../activity/Icons";
 
@@ -36,7 +36,6 @@ export function GameActivityPerformanceView({
   const { t, language } = useLanguage();
   const { selectedGpu, totalRamGb } = useActivity();
 
-  const [resolutionFilter, setResolutionFilter] = useState<string>("all");
   const [showCompareModal, setShowCompareModal] = useState(false);
 
   const compareFocus = useFocusProps(() => setShowCompareModal(true));
@@ -46,37 +45,19 @@ export function GameActivityPerformanceView({
     isolatedSessionIndex !== null ? sessionsWithHw[isolatedSessionIndex] : null;
 
   const fpsStability = useMemo(() => {
-    if (!hwAverages || hwAverages.avgFps <= 0) return null;
-    return calculateFpsStability(hwAverages.avgFps, Math.round(hwAverages.avgFps * 0.75));
+    if (!hwAverages || hwAverages.avgFps <= 0 || hwAverages.onePercentLowFps <= 0) return null;
+    return calculateFpsStability(hwAverages.avgFps, hwAverages.onePercentLowFps);
   }, [hwAverages]);
 
-  const telemetryInsights = useMemo(() => {
-    if (selectedSession?.metrics) {
-      return calculateTelemetryInsights(selectedSession.metrics);
-    }
-    if (hwAverages) {
-      return calculateTelemetryInsights({
-        avgFps: hwAverages.avgFps,
-        minFps: Math.round(hwAverages.avgFps * 0.75),
-        maxFps: hwAverages.maxFps,
-        avgCpuUsage: hwAverages.avgCpu,
-        avgGpuUsage: hwAverages.avgGpu,
-        avgRamUsage: hwAverages.avgRamPct,
-        avgCpuTemp: hwAverages.avgCpuT,
-        avgGpuTemp: hwAverages.avgGpuT,
-        resolution: "",
-        samples: [],
-      });
-    }
-    return null;
-  }, [selectedSession, hwAverages]);
-
-  const resolutionsList = useMemo(() => {
+  const resolutions = useMemo(() => {
     const set = new Set<string>();
     filteredSessions.forEach((s) => {
-      if (s.metrics?.resolution) set.add(s.metrics.resolution);
+      const value = s.metrics?.resolution?.trim();
+      // Older captures stored a placeholder instead of a real mode.
+      if (!value || /^(unknown|undefined|null|n\/?a|-|0x0)$/i.test(value)) return;
+      set.add(value);
     });
-    return Array.from(set);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [filteredSessions]);
 
   return (
@@ -117,12 +98,15 @@ export function GameActivityPerformanceView({
             tools={
               <div className="act-panel-tools-row">
                 {fpsStability && fpsStability.ratio > 0 && (
-                  <div className="act-perf-stability-pill">
+                  <div
+                    className="act-perf-stability-pill"
+                    title={`${t("overlay.performance.low1")}: ${hwAverages.onePercentLowFps} FPS`}
+                  >
                     <span className="act-perf-stability-pill__label">{t("activityPerf.columnStability")}:</span>
                     <span
                       className={`performance-stability-badge performance-stability-badge--${fpsStability.rating}`}
                     >
-                      {fpsStability.ratio}% ({fpsStability.rating.toUpperCase()})
+                      {fpsStability.ratio}% ({t(`activityPerf.stability.${fpsStability.rating}`).toUpperCase()})
                     </span>
                   </div>
                 )}
@@ -141,35 +125,45 @@ export function GameActivityPerformanceView({
             <div className="act-perf-grid">
               <PerfMiniCard
                 label={t("activityPerf.avgFps")}
-                avg={`${hwAverages.avgFps}`}
-                max={`MAX: ${hwAverages.maxFps}`}
-                low={telemetryInsights ? `1% LOW: ${telemetryInsights.onePercentLowFps}` : undefined}
+                value={`${hwAverages.avgFps}`}
+                stats={[
+                  { label: t("charts.max"), value: `${hwAverages.maxFps}` },
+                  ...(hwAverages.onePercentLowFps > 0
+                    ? [
+                        {
+                          label: t("overlay.performance.low1"),
+                          value: `${hwAverages.onePercentLowFps}`,
+                          emphasis: true,
+                        },
+                      ]
+                    : []),
+                ]}
                 tone={hwAverages.avgFps >= 60 ? "good" : "warn"}
               />
               <PerfMiniCard
                 label={t("activityPerf.cpuUsage")}
-                avg={`${hwAverages.avgCpu}%`}
-                max={`MAX: ${hwAverages.maxCpu}%`}
+                value={`${hwAverages.avgCpu}%`}
+                stats={[{ label: t("charts.max"), value: `${hwAverages.maxCpu}%` }]}
                 tone={hwAverages.avgCpu >= 90 ? "hot" : hwAverages.avgCpu >= 70 ? "warn" : "good"}
               />
               <PerfMiniCard
                 label={t("activityPerf.gpuUsage")}
-                avg={`${hwAverages.avgGpu}%`}
-                max={`MAX: ${hwAverages.maxGpu}%`}
+                value={`${hwAverages.avgGpu}%`}
+                stats={[{ label: t("charts.max"), value: `${hwAverages.maxGpu}%` }]}
                 tone={hwAverages.avgGpu >= 90 ? "hot" : hwAverages.avgGpu >= 70 ? "warn" : "good"}
               />
               <PerfMiniCard
                 label={t("activityPerf.ramUsage")}
-                avg={`${hwAverages.avgRamPct}%`}
-                max={`MAX: ${hwAverages.maxRamPct}%`}
+                value={`${hwAverages.avgRamPct}%`}
+                stats={[{ label: t("charts.max"), value: `${hwAverages.maxRamPct}%` }]}
                 tone={hwAverages.avgRamPct >= 90 ? "hot" : hwAverages.avgRamPct >= 70 ? "warn" : "good"}
               />
               {hasTemps && (
                 <>
                   <PerfMiniCard
                     label={t("activityPerf.cpuTemp")}
-                    avg={formatTemp(hwAverages.avgCpuT, tempUnit)}
-                    max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`}
+                    value={formatTemp(hwAverages.avgCpuT, tempUnit)}
+                    stats={[{ label: t("charts.max"), value: formatTemp(hwAverages.maxCpuT, tempUnit) }]}
                     tone={
                       hwAverages.avgCpuT >= tempThreshold(85, tempUnit)
                         ? "hot"
@@ -180,8 +174,8 @@ export function GameActivityPerformanceView({
                   />
                   <PerfMiniCard
                     label={t("activityPerf.gpuTemp")}
-                    avg={formatTemp(hwAverages.avgGpuT, tempUnit)}
-                    max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`}
+                    value={formatTemp(hwAverages.avgGpuT, tempUnit)}
+                    stats={[{ label: t("charts.max"), value: formatTemp(hwAverages.maxGpuT, tempUnit) }]}
                     tone={
                       hwAverages.avgGpuT >= tempThreshold(85, tempUnit)
                         ? "hot"
@@ -194,22 +188,16 @@ export function GameActivityPerformanceView({
               )}
             </div>
 
-            {resolutionsList.length > 0 && (
+            {resolutions.length > 0 && (
               <div className="act-perf-resolutions-row">
-                <span className="act-perf-resolutions-label">{t("activityGantt.resolution")}:</span>
+                <span className="act-perf-resolutions-label">
+                  <Icons.Monitor size={12} /> {t("activityGantt.resolution")}
+                </span>
                 <div className="act-perf-resolutions-chips">
-                  <ResolutionChip
-                    label={t("activity.sourceAll")}
-                    active={resolutionFilter === "all"}
-                    onSelect={() => setResolutionFilter("all")}
-                  />
-                  {resolutionsList.map((res) => (
-                    <ResolutionChip
-                      key={res}
-                      label={res}
-                      active={resolutionFilter === res}
-                      onSelect={() => setResolutionFilter(res)}
-                    />
+                  {resolutions.map((res) => (
+                    <span key={res} className="act-perf-res-chip">
+                      {res}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -383,26 +371,30 @@ export function GameActivityPerformanceView({
 
 function PerfMiniCard({
   label,
-  avg,
-  max,
-  low,
+  value,
+  stats,
   tone,
 }: {
   label: string;
-  avg: string;
-  max: string;
-  low?: string;
+  value: string;
+  stats: { label: string; value: string; emphasis?: boolean }[];
   tone?: "good" | "warn" | "hot";
 }) {
   return (
     <div className={`act-perf-card${tone ? ` act-perf-card--${tone}` : ""}`}>
       {tone && <span className="act-perf-card__dot" aria-hidden="true" />}
       <span className="act-perf-card__label">{label}</span>
-      <span className="act-perf-card__value">{avg}</span>
-      <div className="act-perf-card__footer-metrics">
-        <span className="act-perf-card__max">{max}</span>
-        {low && <span className="act-perf-card__low">{low}</span>}
-      </div>
+      <span className="act-perf-card__value">{value}</span>
+      {stats.length > 0 && (
+        <dl className="act-perf-card__metrics">
+          {stats.map((stat) => (
+            <div key={stat.label} className="act-perf-card__metric">
+              <dt>{stat.label}</dt>
+              <dd className={stat.emphasis ? "act-perf-card__metric--low" : undefined}>{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }
@@ -412,28 +404,5 @@ function ChartPanel({ icon, title, children }: { icon: ReactNode; title: string;
     <SectionPanel icon={icon} title={title}>
       {children}
     </SectionPanel>
-  );
-}
-
-function ResolutionChip({
-  label,
-  active,
-  onSelect,
-}: {
-  label: string;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  const focus = useFocusProps(onSelect);
-  return (
-    <button
-      ref={focus.ref}
-      tabIndex={focus.tabIndex}
-      type="button"
-      className={`act-perf-res-chip ${active ? "act-perf-res-chip--active" : ""}`}
-      onClick={focus.onClick}
-    >
-      {label}
-    </button>
   );
 }

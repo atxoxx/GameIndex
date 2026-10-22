@@ -11,8 +11,9 @@ import {
   calculateTelemetryInsights,
   buildResolutionBreakdown,
   compareSessions,
+  pooledOnePercentLowFps,
 } from "./insights";
-import type { Game, GameSession } from "../../types/game";
+import type { Game, GameSession, SessionMetrics } from "../../types/game";
 
 describe("activity insights", () => {
   const dummyGames: Game[] = [
@@ -276,5 +277,52 @@ describe("activity insights", () => {
       expect(diff.avgFpsDelta).toBe(35); // 95 - 60
       expect(diff.avgGpuDelta).toBe(18); // 88 - 70
     });
+  });
+});
+
+describe("pooledOnePercentLowFps", () => {
+  function metrics(overrides: Partial<SessionMetrics> = {}): SessionMetrics {
+    return {
+      avgFps: 60,
+      avgCpuUsage: 0,
+      avgGpuUsage: 0,
+      avgRamUsage: 0,
+      avgCpuTemp: 0,
+      avgGpuTemp: 0,
+      minFps: 0,
+      maxFps: 0,
+      resolution: "",
+      ...overrides,
+    };
+  }
+
+  function sample(fps: number) {
+    return { t: 0, cpu: 0, gpu: 0, ram: 0, cpuTemp: 0, gpuTemp: 0, fps };
+  }
+
+  it("uses real per-sample FPS readings when present", () => {
+    const low = pooledOnePercentLowFps([
+      metrics({ samples: [sample(30), sample(58), sample(59), sample(60), sample(61)] }),
+    ]);
+
+    expect(low).toBe(30);
+  });
+
+  it("falls back to each session's measured minimum without samples", () => {
+    expect(pooledOnePercentLowFps([metrics({ minFps: 55 }), metrics({ minFps: 40 })])).toBe(40);
+  });
+
+  it("returns 0 when nothing was measured instead of guessing", () => {
+    expect(pooledOnePercentLowFps([metrics({ avgFps: 90 })])).toBe(0);
+  });
+
+  it("ignores impossible FPS values", () => {
+    const low = pooledOnePercentLowFps([
+      metrics({ minFps: 48 }),
+      metrics({ minFps: 4_294_967_295 }),
+      metrics({ samples: [sample(Number.NaN), sample(52)] }),
+    ]);
+
+    expect(low).toBe(48);
   });
 });

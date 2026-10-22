@@ -1331,13 +1331,8 @@
 .act-perf-card__value {
   font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
+  line-height: 1.1;
   color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.act-perf-card__max {
-  font-size: var(--text-2xs);
-  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1353,16 +1348,35 @@
 .act-perf-card--warn .act-perf-card__dot { background: var(--color-warning); }
 .act-perf-card--hot .act-perf-card__dot { background: var(--color-danger); }
 
-.act-perf-card__footer-metrics {
+.act-perf-card__metrics {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-  margin-top: auto;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: auto 0 0;
 }
 
-.act-perf-card__low {
+.act-perf-card__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-perf-card__metric dt {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.act-perf-card__metric dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.act-perf-card__metric--low {
   color: var(--color-warning);
 }
 
@@ -5020,6 +5034,9 @@
 }
 
 .act-perf-resolutions-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);

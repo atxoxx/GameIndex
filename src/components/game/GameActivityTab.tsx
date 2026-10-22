@@ -24,6 +24,7 @@ import {
   buildRecords,
   buildMilestoneLadders,
 } from "../activity";
+import { pooledOnePercentLowFps } from "../activity/insights";
 import { useFocusProps } from "../activity/focusable";
 import {
   type Timeframe,
@@ -336,6 +337,13 @@ export function GameActivityTab({ game }: { game: Game }) {
     const fpsLen = fpsSessions.length || 1;
     const avgFps = Math.round(fpsSessions.reduce((sum, s) => sum + clampFps(s.metrics!.avgFps), 0) / fpsLen);
     const maxFps = fpsSessions.reduce((max, s) => Math.max(max, clampFps(s.metrics!.maxFps)), 0);
+    const minFps = fpsSessions.reduce((min, s) => {
+      const value = clampFps(s.metrics!.minFps);
+      return value > 0 && (min === 0 || value < min) ? value : min;
+    }, 0);
+    // Pool real FPS samples (or each session's measured minimum) so the 1% low
+    // reflects captured frames instead of a percentage of the average.
+    const onePercentLowFps = pooledOnePercentLowFps(fpsSessions.map((s) => s.metrics!));
     const avgCpu = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgCpuUsage, 0) / len);
     const maxCpu = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgCpuUsage), 0);
     const avgGpu = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgGpuUsage, 0) / len);
@@ -348,7 +356,7 @@ export function GameActivityTab({ game }: { game: Game }) {
     const maxRamPct = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgRamUsage), 0);
 
     return {
-      avgFps, maxFps,
+      avgFps, minFps, maxFps, onePercentLowFps,
       avgCpu, maxCpu: Math.max(avgCpu, maxCpu),
       avgGpu, maxGpu: Math.max(avgGpu, maxGpu),
       avgCpuT, maxCpuT: Math.max(avgCpuT, maxCpuT),

@@ -1,5 +1,5 @@
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
-import { formatPlayTime } from "../../types/game";
+import { SANE_MAX_FPS, formatPlayTime } from "../../types/game";
 
 /** Date-range presets shared by both activity surfaces. */
 export type DateRangeKey = "7d" | "30d" | "90d" | "all";
@@ -1034,6 +1034,35 @@ export function calculateFpsStability(
   if (ratio >= 80) return { ratio, rating: "exceptional" };
   if (ratio >= 60) return { ratio, rating: "smooth" };
   return { ratio, rating: "unstable" };
+}
+
+const saneFps = (value: number): number =>
+  Number.isFinite(value) && value > 0 && value <= SANE_MAX_FPS ? Math.round(value) : 0;
+
+/**
+ * 1st-percentile FPS pooled across sessions, for aggregate cards. Uses the real
+ * per-sample FPS readings when a session captured them, otherwise that
+ * session's measured minimum. Returns 0 when nothing was measured — callers
+ * hide the stat rather than fabricating a value.
+ */
+export function pooledOnePercentLowFps(metricsList: SessionMetrics[]): number {
+  const pool: number[] = [];
+  for (const metrics of metricsList) {
+    const samples = (metrics.samples ?? [])
+      .map((sample) => sample.fps)
+      .filter((value): value is number => value != null)
+      .map(saneFps)
+      .filter((value) => value > 0);
+    if (samples.length > 0) {
+      pool.push(...samples);
+      continue;
+    }
+    const min = saneFps(metrics.minFps);
+    if (min > 0) pool.push(min);
+  }
+  if (pool.length === 0) return 0;
+  pool.sort((a, b) => a - b);
+  return pool[Math.max(0, Math.floor(pool.length * 0.01))];
 }
 
 // ─── Completion Forecasting ───────────────────────────────────────────────────
