@@ -12,6 +12,8 @@
  * Runtime guarantees (see docs/plugins/README.md):
  *   - A fresh sandbox per search: no state survives between calls.
  *   - HTTP is GET-only by default; only http:// and https:// are allowed.
+ *   - The host HTTP client keeps a cookie jar (scoped per host), so
+ *     session/CSRF flows work across the requests of one search.
  *   - 20 s wall clock, 64 MiB memory and an instruction budget per search.
  *   - No setTimeout, fetch, filesystem, require or DOM.
  */

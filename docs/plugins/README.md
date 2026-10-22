@@ -67,10 +67,16 @@ minimal:
 - **Fresh runtime per search.** No state is shared between calls, so one
   plugin can never observe another plugin's data or a previous query.
 - **GET-by-default networking.** `httpGet`/`httpGetJson`/`httpGetXml`/`httpGetAll`
-  issue GET requests only, and only to `http://` or `https://` URLs —
+  issue GET requests only, and only to `http://` or `https://` URLs -
   `file://`, `ftp://` and friends are rejected up front. Transport errors and
   HTTP 5xx are retried twice; 4xx fails fast. `httpRequest` can carry a body
   when a source genuinely needs it.
+- **Host-scoped session cookies.** The HTTP client keeps a cookie jar for the
+  life of the app, so a session a site establishes with one response is reused
+  by later requests. A cookie is only ever sent back to the host that set it,
+  so plugins cannot observe each other's sessions. This is what makes
+  session/CSRF flows possible: `GET /csrf-token`, then the gated `POST` with
+  that token (a client without the cookie answers 419).
 - **20-second wall clock.** The whole evaluation is wrapped in a timeout, so a
   plugin stuck in a busy loop can stall only its own worker thread.
 - **64 MiB memory cap.** QuickJS counts all JS heap allocations; a runaway

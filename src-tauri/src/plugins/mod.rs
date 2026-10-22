@@ -271,10 +271,18 @@ impl PluginManager {
         // answer every request with a 403 "managed challenge", while curl and
         // rustls pass. rustls over HTTP/2 is the combination those sites
         // accept, so the plugin client opts into rustls explicitly.
+        //
+        // `cookie_store(true)` is what makes session-based flows possible:
+        // sites like ankergames bind their CSRF token to a session cookie
+        // minted by GET /csrf-token, and their mint POST answers 419 without
+        // it. The jar is shared by every plugin (one client per app), but a
+        // cookie is only sent back to the host that set it, so plugins never
+        // see each other's sessions.
         let http = reqwest::blocking::Client::builder()
             .user_agent(PLUGIN_HTTP_UA)
             .timeout(Duration::from_secs(15))
             .use_rustls_tls()
+            .cookie_store(true)
             .build()
             .expect("blocking client build is infallible with these settings");
         Self {
@@ -309,41 +317,65 @@ impl PluginManager {
         };
         for row in rows.into_iter().filter(|r| r.enabled) {
             match std::fs::read_to_string(&row.file_path) {
-                Ok(source) => match runtime::evaluate_plugin(&source, &self.http) {
-                    Ok(descriptor) => {
-                        if let Ok(mut map) = self.sources.lock() {
-                            map.insert(row.id.clone(), source);
-                        }
-                        // Backfill the platform category for rows that
-                        // predate the v2 column.
-                        let category = normalize_platform_category(
-                            &descriptor.manifest.platform_category,
-                        );
-                        if category != row.platform_category {
-                            let _ = db::plugins::set_plugin_category(
-                                &self.db,
-                                &row.id,
-                                &category,
+                Ok(source) => {
+                    let file_hash = sha256_hex(source.as_bytes());
+                    match runtime::evaluate_plugin(&source, &self.http) {
+                        Ok(descriptor) => {
+                            if let Ok(mut map) = self.sources.lock() {
+                                map.insert(row.id.clone(), source);
+                            }
+                            // Backfill the platform category for rows that
+                            // predate the v2 column.
+                            let category = normalize_platform_category(
+                                &descriptor.manifest.platform_category,
                             );
+                            if category != row.platform_category {
+                                let _ = db::plugins::set_plugin_category(
+                                    &self.db,
+                                    &row.id,
+                                    &category,
+                                );
+                            }
+                            // Keep the stored manifest current (new fields
+                            // appear as plugins are upgraded) without a write
+                            // when nothing changed.
+                            let manifest_json =
+                                serde_json::to_string(&descriptor.manifest).unwrap_or_default();
+                            if manifest_json != row.manifest_json {
+                                let _ = db::plugins::set_plugin_manifest(
+                                    &self.db,
+                                    &row.id,
+                                    &manifest_json,
+                                );
+                            }
+                            // A plugin file replaced on disk (a manual update
+                            // or a newer bundled copy) keeps its row in step,
+                            // so the sources UI shows the version that runs.
+                            if file_hash != row.file_hash
+                                || descriptor.manifest.name != row.name
+                                || descriptor.manifest.version != row.version
+                                || descriptor.manifest.author != row.author
+                                || descriptor.manifest.description != row.description
+                                || descriptor.manifest.source_url != row.source_url
+                            {
+                                let _ = db::plugins::set_plugin_metadata(
+                                    &self.db,
+                                    &row.id,
+                                    &descriptor.manifest.name,
+                                    &descriptor.manifest.version,
+                                    &descriptor.manifest.author,
+                                    &descriptor.manifest.description,
+                                    &descriptor.manifest.source_url,
+                                    &file_hash,
+                                );
+                            }
                         }
-                        // Keep the stored manifest current (new fields
-                        // appear as plugins are upgraded) without a write
-                        // when nothing changed.
-                        let manifest_json =
-                            serde_json::to_string(&descriptor.manifest).unwrap_or_default();
-                        if manifest_json != row.manifest_json {
-                            let _ = db::plugins::set_plugin_manifest(
-                                &self.db,
-                                &row.id,
-                                &manifest_json,
-                            );
+                        Err(e) => {
+                            eprintln!("[plugins] {} failed validation: {e}", row.id);
+                            let _ = db::plugins::set_plugin_error(&self.db, &row.id, Some(&e));
                         }
                     }
-                    Err(e) => {
-                        eprintln!("[plugins] {} failed validation: {e}", row.id);
-                        let _ = db::plugins::set_plugin_error(&self.db, &row.id, Some(&e));
-                    }
-                },
+                }
                 Err(e) => {
                     eprintln!("[plugins] read {} failed: {e}", row.file_path);
                     let _ = db::plugins::set_plugin_error(
@@ -1500,6 +1532,7 @@ mod tests {
                     .user_agent(PLUGIN_HTTP_UA)
                     .timeout(Duration::from_secs(20))
                     .use_rustls_tls()
+                    .cookie_store(true)
                     .build()
                     .expect("client");
 
@@ -1656,6 +1689,54 @@ mod tests {
         assert!(has_direct, "expected at least one direct download result");
         assert!(has_magnet, "expected at least one magnet result");
         assert!(has_torrent, "expected at least one torrent result");
+    }
+
+    /// Live check of the AnkerGames plugin: the catalog search must return
+    /// hits AND the CSRF-gated mint must produce at least one signed
+    /// `https://ankergames.net/download/<token>` page. That mint is the part
+    /// that regressed silently when the sandbox HTTP client had no cookie
+    /// jar (the POST answers 419 without the session the token belongs to).
+    #[tokio::test]
+    #[ignore]
+    async fn ankergames_plugin_live_search() {
+        let plugins_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../plugins");
+        let plugin_path = std::path::Path::new(plugins_dir).join("ankergames.js");
+        let source = std::fs::read_to_string(&plugin_path).expect("read ankergames.js");
+
+        let (descriptor, results) = tokio::task::spawn_blocking(move || {
+            let http = reqwest::blocking::Client::builder()
+                .user_agent(PLUGIN_HTTP_UA)
+                .timeout(Duration::from_secs(20))
+                .use_rustls_tls()
+                .cookie_store(true)
+                .build()
+                .expect("client");
+
+            let descriptor = runtime::evaluate_plugin(&source, &http).expect("evaluate_plugin");
+            let results =
+                runtime::run_search(&descriptor, "elden ring", "{}", &http).expect("run_search");
+            (descriptor, results)
+        })
+        .await
+        .expect("spawn_blocking");
+
+        assert_eq!(descriptor.manifest.id, "ankergames");
+        assert!(
+            results.iter().any(|r| r.title.to_lowercase().contains("elden ring")),
+            "ankergames search returned no Elden Ring hit"
+        );
+
+        let minted: Vec<&str> = results
+            .iter()
+            .filter_map(|r| r.direct_urls.as_ref())
+            .flat_map(|urls| urls.iter())
+            .map(String::as_str)
+            .collect();
+        eprintln!("[plugins] ankergames minted: {minted:?}");
+        assert!(
+            minted.iter().any(|u| u.starts_with("https://ankergames.net/download/")),
+            "expected at least one minted download page, got none (cookie jar / CSRF regression?)"
+        );
     }
 
     /// Minimal `DownloadSearchResult` for the merge helper tests.

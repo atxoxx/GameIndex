@@ -194,3 +194,30 @@ pub fn set_plugin_manifest(db: &Db, id: &str, manifest_json: &str) -> Result<(),
     .map_err(|e| format!("plugins manifest {id}: {e}"))?;
     Ok(())
 }
+
+/// Refresh a row's identity fields from the manifest the sandbox evaluated
+/// and the current sha256 of the installed file. Used when the file on disk
+/// was replaced (manual update / newer bundled copy) so the sources UI shows
+/// the version that actually runs instead of the imported one.
+#[allow(clippy::too_many_arguments)]
+pub fn set_plugin_metadata(
+    db: &Db,
+    id: &str,
+    name: &str,
+    version: &str,
+    author: &str,
+    description: &str,
+    source_url: &str,
+    file_hash: &str,
+) -> Result<(), String> {
+    let conn = db.plugins().map_err(|e| format!("plugins conn: {e}"))?;
+    conn.execute(
+        "UPDATE plugins
+            SET name = ?1, version = ?2, author = ?3, description = ?4,
+                source_url = ?5, file_hash = ?6
+          WHERE id = ?7",
+        params![name, version, author, description, source_url, file_hash, id],
+    )
+    .map_err(|e| format!("plugins metadata {id}: {e}"))?;
+    Ok(())
+}
