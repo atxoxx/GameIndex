@@ -3115,6 +3115,163 @@
   aspect-ratio: 21 / 9;
 }
 
+/* ── Hero element editor chrome (Layout Studio → Game/Store hero) ──────────
+ * The toolbar above the hero mock: a label plus the feature chips that mirror
+ * the Appearance toggles (3D tilt, backdrop controls, interactive links), and
+ * the stand-ins for the bits of the real hero the schematic draws on top of
+ * the art. All colours come from theme vars. */
+.studio-hero-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.studio-hero-editor__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.studio-hero-editor__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+/* Two-class selector so it beats the shared `.studio-preview button` reset. */
+.studio-preview .studio-hero-editor__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.studio-preview .studio-hero-editor__chip svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.studio-preview .studio-hero-editor__chip:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.studio-preview .studio-hero-editor__chip.is-active {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+}
+
+/* Stand-in for the backdrop controls toolbar in top-right of HeroMock */
+.studio-hero-mock__backdrop-ctrls {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--elevation-1);
+  transition: all var(--transition-fast);
+}
+
+.studio-hero-mock__backdrop-ctrls:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+
+.studio-hero-mock__backdrop-ctrls.is-off {
+  opacity: 0.35;
+  border-style: dashed;
+}
+
+.studio-hero-mock__ctrl-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-hero-mock__ctrl-eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast);
+}
+
+.studio-hero-mock__ctrl-eye:hover {
+  color: var(--color-accent);
+}
+
+/* Poster sheen and inspect pill stand-ins in HeroMock */
+.studio-hero-mock__poster-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 70%
+  );
+  mix-blend-mode: overlay;
+}
+
+.studio-hero-mock__poster-inspect {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 80%, rgba(0, 0, 0, 0.85));
+  color: var(--color-accent-contrast);
+  pointer-events: none;
+}
+
 /* =============================================================================
  * Real Page Previews (Home, Library, Store, Wishlist)
  * ========================================================================== */
