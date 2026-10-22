@@ -5,7 +5,7 @@ import {
   buildWrappedYear,
   yearHeatmapCells,
 } from "./wrapped";
-import type { GameSession } from "../../types/game";
+import type { Game, GameSession } from "../../types/game";
 
 function session(gameId: string, date: string, durationMin: number, avgFps?: number): GameSession {
   return {
@@ -16,6 +16,18 @@ function session(gameId: string, date: string, durationMin: number, avgFps?: num
     durationMin,
     metrics: avgFps ? { avgFps } : undefined,
   } as GameSession;
+}
+
+function libraryGame(id: string, name: string): Game {
+  return {
+    id,
+    name,
+    path: "",
+    platform: "Steam",
+    installed: true,
+    playTime: "0h",
+    addedAt: 1,
+  } as Game;
 }
 
 describe("wrappedYears", () => {
@@ -87,6 +99,53 @@ describe("buildWrappedYear", () => {
     expect(y.topDay).toBeNull();
     expect(y.avgFps).toBeNull();
     expect(y.longestStreakDays).toBe(0);
+  });
+});
+
+describe("buildWrappedYear library resolution", () => {
+  it("resolves a stale session id to the library entry with the same name", () => {
+    const y = buildWrappedYear(
+      2025,
+      [session("old-id", "2025-03-01T19:00:00", 60)],
+      [libraryGame("new-id", "Game old-id")],
+    );
+
+    expect(y.topGames[0]).toMatchObject({
+      gameId: "new-id",
+      gameName: "Game old-id",
+      minutes: 60,
+    });
+  });
+
+  it("merges stale ids that resolve to the same library game", () => {
+    const first = { ...session("old-a", "2025-03-01T19:00:00", 30), gameName: "Minecraft" };
+    const second = { ...session("old-b", "2025-03-02T19:00:00", 45), gameName: "Minecraft" };
+
+    const y = buildWrappedYear(2025, [first, second], [libraryGame("minecraft", "Minecraft")]);
+
+    expect(y.topGames).toHaveLength(1);
+    expect(y.topGames[0]).toMatchObject({ gameId: "minecraft", minutes: 75, sessions: 2 });
+    expect(y.distinctGames).toBe(1);
+  });
+
+  it("prefers the duplicate-name entry that has artwork and merges its sessions", () => {
+    const first = { ...session("old-a", "2025-03-01T19:00:00", 30), gameName: "Minecraft" };
+    const second = { ...session("old-b", "2025-03-02T19:00:00", 45), gameName: "Minecraft" };
+    const games = [
+      libraryGame("no-art", "Minecraft"),
+      { ...libraryGame("with-art", "Minecraft"), coverArtUrl: "data:image/png;base64,AA" } as Game,
+    ];
+
+    const y = buildWrappedYear(2025, [first, second], games);
+
+    expect(y.topGames).toHaveLength(1);
+    expect(y.topGames[0]).toMatchObject({ gameId: "with-art", minutes: 75, sessions: 2 });
+  });
+
+  it("keeps an unmatched session under its own id", () => {
+    const y = buildWrappedYear(2025, [session("gone", "2025-03-01T19:00:00", 30)], []);
+
+    expect(y.topGames[0]).toMatchObject({ gameId: "gone", gameName: "Game gone" });
   });
 });
 

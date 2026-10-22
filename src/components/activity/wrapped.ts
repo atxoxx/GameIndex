@@ -8,7 +8,6 @@
 import type { Game, GameSession } from "../../types/game";
 import {
   libraryValueStats,
-  parsePlayTime,
   type LibraryValueStats,
 } from "../../types/game";
 
@@ -35,6 +34,51 @@ export interface WrappedYear {
   /** Per-weekday total minutes, indices 0–6 (0 = Sun) — fun-fact tiles. */
   weekdayMinutes: number[];
   achievements: number;
+}
+
+/** Normalised key for matching a session's game name to the library. */
+function gameNameKey(name?: string | null): string {
+  return (name || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+interface LibraryIndex {
+  byId: Map<string, Game>;
+  /** Best available entry per normalised name. */
+  byName: Map<string, Game>;
+}
+
+/** Prefer a duplicate name entry that can actually render artwork, then newest. */
+function preferLibraryEntry(a: Game, b: Game): Game {
+  const aArt = a.coverArtUrl || a.iconUrl ? 1 : 0;
+  const bArt = b.coverArtUrl || b.iconUrl ? 1 : 0;
+  if (aArt !== bArt) return aArt > bArt ? a : b;
+  return (a.addedAt || 0) >= (b.addedAt || 0) ? a : b;
+}
+
+/**
+ * Resolves session rows onto the current library. Re-importing a library mints
+ * new game ids, which leaves older sessions pointing at ids that no longer
+ * exist — their artwork and names still live on the entry with the same name.
+ */
+function buildLibraryIndex(games: Game[]): LibraryIndex {
+  const byId = new Map<string, Game>();
+  const byName = new Map<string, Game>();
+  for (const g of games) {
+    byId.set(g.id, g);
+    const key = gameNameKey(g.name);
+    if (!key) continue;
+    const existing = byName.get(key);
+    byName.set(key, existing ? preferLibraryEntry(existing, g) : g);
+  }
+  return { byId, byName };
+}
+
+function resolveSessionGame(index: LibraryIndex, session: GameSession): Game | undefined {
+  const direct = session.gameId ? index.byId.get(session.gameId) : undefined;
+  if (direct) return direct;
+  const key = gameNameKey(session.gameName);
+  if (!key) return undefined;
+  return index.byName.get(key);
 }
 
 /** Years with sessions, newest first. */
@@ -71,6 +115,7 @@ export function buildWrappedYear(
   let fpsSessions = 0;
   const perGame = new Map<string, { name: string; minutes: number; sessions: number }>();
   const dayMinutes = new Map<string, number>();
+  const library = buildLibraryIndex(games);
 
   for (const s of inYear) {
     const minutes = Math.max(0, s.durationMin || 0);
@@ -83,8 +128,13 @@ export function buildWrappedYear(
       fpsSessions += 1;
     }
 
-    const key = s.gameId || s.gameName;
-    const entry = perGame.get(key) || { name: s.gameName || key, minutes: 0, sessions: 0 };
+    // Group by the library entry when the session can be matched (by id, or by
+    // name for sessions recorded under an id that no longer exists), so
+    // re-imported games keep their artwork and don't appear twice.
+    const game = resolveSessionGame(library, s);
+    const key = game ? game.id : s.gameId || s.gameName;
+    const entry =
+      perGame.get(key) || { name: game?.name || s.gameName || key, minutes: 0, sessions: 0 };
     entry.minutes += minutes;
     entry.sessions += 1;
     perGame.set(key, entry);
@@ -121,11 +171,6 @@ export function buildWrappedYear(
       currentStreak = 1;
     }
   }
-
-  const thisYearsGames = games.filter(
-    (g) => parsePlayTime(g.playTime) > 0 || true // metadata just for names
-  );
-  void thisYearsGames;
 
   const topGames = [...perGame.entries()]
     .sort((a, b) => b[1].minutes - a[1].minutes)
