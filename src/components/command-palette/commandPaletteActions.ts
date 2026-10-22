@@ -49,6 +49,9 @@ export interface CreateActionsParams {
   t: (key: string, vars?: Record<string, unknown>) => string;
   isBigScreen: boolean;
   setBigScreen: (val: boolean) => void;
+  /** Effective handheld (Steam Deck) shell state + its toggle. */
+  isHandheld?: boolean;
+  toggleHandheldMode?: () => void;
   uiSoundEnabled: boolean;
   setUiSoundEnabled: (val: boolean) => void;
   uiSoundVolume: number;
@@ -83,6 +86,8 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     t,
     isBigScreen,
     setBigScreen,
+    isHandheld = false,
+    toggleHandheldMode,
     uiSoundEnabled,
     setUiSoundEnabled,
     uiSoundVolume,
@@ -197,6 +202,31 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
       setBigScreen(!isBigScreen);
     },
   });
+
+  // Handheld mode (Steam Deck shell): Big Screen + compact handheld layout.
+  if (toggleHandheldMode) {
+    items.push({
+      id: "act-toggle-handheld",
+      category: "actions",
+      title: isHandheld
+        ? t("commandPalette.actHandheldDisable")
+        : t("commandPalette.actHandheldEnable"),
+      subtitle: t("commandPalette.actHandheldDesc"),
+      badge: isHandheld ? "Active" : undefined,
+      badgeType: isHandheld ? "success" : undefined,
+      icon: createElement(Gamepad2, { size: 16 }),
+      description: t("commandPalette.actHandheldDesc"),
+      actionText: t("commandPalette.hintSelect"),
+      onSelect: () => {
+        onClose();
+        toggleHandheldMode();
+        showToast(
+          t(isHandheld ? "commandPalette.toastHandheldOff" : "commandPalette.toastHandheldOn"),
+          "success"
+        );
+      },
+    });
+  }
 
   items.push({
     id: "act-toggle-sound",

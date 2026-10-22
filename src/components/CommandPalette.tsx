@@ -13,6 +13,7 @@ import { Search, Loader2 } from "lucide-react";
 import { useGames } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
 import { useBigScreen } from "../context/BigScreenContext";
+import { useHandheldMode } from "../hooks/useHandheldMode";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { useToast } from "../context/ToastContext";
@@ -65,6 +66,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   } = useGames();
   const { themes, currentTheme, setTheme } = useTheme();
   const { isBigScreen, setBigScreen } = useBigScreen();
+  const { enabled: handheldEnabled, toggle: toggleHandheld } = useHandheldMode();
   const {
     uiSoundEnabled,
     setUiSoundEnabled,
@@ -239,6 +241,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       t,
       isBigScreen,
       setBigScreen,
+      isHandheld: handheldEnabled,
+      toggleHandheldMode: toggleHandheld,
       uiSoundEnabled,
       setUiSoundEnabled,
       uiSoundVolume,
@@ -276,6 +280,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     t,
     isBigScreen,
     setBigScreen,
+    handheldEnabled,
+    toggleHandheld,
     uiSoundEnabled,
     setUiSoundEnabled,
     uiSoundVolume,

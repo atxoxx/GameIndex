@@ -179,3 +179,89 @@ a:focus-visible {
   color: var(--color-text-secondary);
   vertical-align: -2px;
 }
+
+/* ── Handheld (Steam Deck / SteamOS) layout mode ─────────────────────
+ * Set by HandheldModeBridge via the `data-handheld` attribute on <html>.
+ * The shell is Big Screen, so this only tightens the chrome for a
+ * 7" 1280x800 display and makes touch targets comfortable. Everything
+ * is token-based; no new palettes. */
+html[data-handheld] {
+  --handheld-page-pad: var(--space-sm);
+}
+
+html[data-handheld] .app-content,
+html[data-handheld] .main-content,
+html[data-handheld] .activity__content {
+  padding-left: var(--handheld-page-pad);
+  padding-right: var(--handheld-page-pad);
+}
+
+html[data-handheld] .topnav {
+  padding-left: var(--handheld-page-pad);
+  padding-right: var(--handheld-page-pad);
+}
+
+html[data-handheld] .topnav-btn,
+html[data-handheld] .ui-btn {
+  min-height: 34px;
+}
+
+html[data-handheld] .activity__container,
+html[data-handheld] .emulators-page {
+  padding: 0;
+}
+
+/* Cards scroll on a small screen: hide desktop-only hover affordances
+ * that need a mouse and keep focus outlines prominent for the pad. */
+@media (hover: none) {
+  html[data-handheld] .game-card:hover {
+    transform: none;
+  }
+}
+
+html[data-handheld] :focus-visible {
+  outline-width: 3px;
+  outline-offset: 2px;
+}
+
+/* Handheld readiness strip (Big Screen game page) — the Deck verdict
+ * carried over from ProtonDB. Tier colours are declared once here as
+ * local custom properties, mirroring ProtonDBCard's single source of
+ * truth for the medal palette. */
+.bigscreen-handheld-readiness {
+  --readiness-color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--readiness-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--readiness-color) 28%, transparent);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  width: fit-content;
+}
+
+.bigscreen-handheld-readiness[data-tier="platinum"] { --readiness-color: var(--proton-platinum, var(--color-text-primary)); }
+.bigscreen-handheld-readiness[data-tier="gold"] { --readiness-color: var(--proton-gold, var(--color-warning)); }
+.bigscreen-handheld-readiness[data-tier="silver"] { --readiness-color: var(--proton-silver, var(--color-text-secondary)); }
+.bigscreen-handheld-readiness[data-tier="bronze"] { --readiness-color: var(--proton-bronze, var(--color-warning)); }
+.bigscreen-handheld-readiness[data-tier="borked"] { --readiness-color: var(--color-danger); }
+
+.bigscreen-handheld-readiness__icon {
+  display: inline-flex;
+  color: var(--readiness-color);
+}
+
+.bigscreen-handheld-readiness__label {
+  color: var(--color-text-muted);
+}
+
+.bigscreen-handheld-readiness__tier {
+  font-weight: var(--font-weight-bold);
+  color: var(--readiness-color);
+}
+
+.bigscreen-handheld-readiness__verdict {
+  color: var(--color-text-secondary);
+}

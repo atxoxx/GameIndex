@@ -11,6 +11,7 @@ import ResizeHandles from "./components/ResizeHandles";
 const BigScreenLayout = lazy(() => import("./components/BigScreenLayout"));
 import { BIGSCREEN_ROUTE_PAIRS, ShellSwitch } from "./bigscreen/registry";
 import WatchdogHealBridge from "./components/WatchdogHealBridge";
+import HandheldModeBridge from "./components/HandheldModeBridge";
 import { GameProvider, useRunningIds } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
@@ -186,6 +187,7 @@ function AppShell() {
       <PageLayoutBridge />
       <ResizeHandles />
       {!isBigScreen && <AppContextMenu />}
+      <HandheldModeBridge />
       <WatchdogHealBridge />
       <Suspense fallback={<PageLoadingFallback />}>
         <Routes>

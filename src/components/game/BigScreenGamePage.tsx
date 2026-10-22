@@ -62,6 +62,7 @@ import ScreenshotsSection from "./ScreenshotsSection";
 import VideosSection from "./VideosSection";
 import StorylineSection from "./StorylineSection";
 import AboutSection from "./AboutSection";
+import HandheldReadinessStrip from "./HandheldReadinessStrip";
 import SystemRequirementsCard from "./SystemRequirementsCard";
 import RatingsKpiCard from "./RatingsKpiCard";
 import TimeToBeatCard from "./TimeToBeatCard";
@@ -661,6 +662,7 @@ function BigScreenGamePageOverview({
             <StorylineSection game={game} />
           </BigScreenBlock>
           <AboutSection game={game} />
+          <HandheldReadinessStrip game={game} />
           <BigScreenGamePageStats game={game} />
         </div>
         <BigScreenGamePageRail game={game} />
