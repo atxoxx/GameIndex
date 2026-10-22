@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import type { Friend, FriendCircle, FriendInvitation } from "./friendsTypes";
@@ -138,6 +138,14 @@ export default function FriendsListTab({
   const toggleSelectFriend = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
+
+  // A circle can be deleted from the manager while it is the active filter;
+  // fall back to "all" so the list doesn't look empty for no reason.
+  useEffect(() => {
+    if (selectedCircleId !== "all" && !circles.some((c) => c.id === selectedCircleId)) {
+      setSelectedCircleId("all");
+    }
+  }, [circles, selectedCircleId]);
 
   const handleSelectAll = () => {
     if (selectedIds.length === filteredFriends.length) {
@@ -298,7 +306,9 @@ export default function FriendsListTab({
               setSelectedIds([]);
             }}
             title={selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")}
-           className={`batch-toggle-btnselectMode ? " active" : ""}`}> {selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")} </Button>
+            active={selectMode}
+            className="batch-toggle-btn"
+          > {selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")} </Button>
 
           <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
             type="button"
@@ -344,7 +354,7 @@ export default function FriendsListTab({
         <div className="friends-batch-controls-bar">
           <div className="batch-count-info">
             <span className="bulk-count">
-              {selectedIds.length} / {filteredFriends.length} {t("friendsPage.selectedCount", { count: selectedIds.length }) || "selected"}
+              {selectedIds.length} / {filteredFriends.length} {t("friendsPage.selectedCount", { count: selectedIds.length })}
             </span>
           </div>
 

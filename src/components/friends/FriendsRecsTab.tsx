@@ -24,6 +24,8 @@ interface FriendsRecsTabProps {
   wishlistGames?: any[];
   onReact: (recId: string, kind: ReactionKind) => void;
   onToggleWantToPlay: (recId: string) => void;
+  /** Applies one backlog state to several recommendations in a single write. */
+  onSetWantToPlay?: (recIds: string[], wantToPlay: boolean) => void;
   onAddComment: (recId: string, text: string) => void;
   onCreateRec: (rec: Omit<GameRecommendation, "id" | "comments" | "createdAt" | "updatedAt">) => void;
   onDeleteRec: (recId: string) => void;
@@ -38,6 +40,7 @@ export default function FriendsRecsTab({
   wishlistGames = [],
   onReact,
   onToggleWantToPlay,
+  onSetWantToPlay,
   onAddComment,
   onCreateRec,
   onDeleteRec,
@@ -104,9 +107,9 @@ export default function FriendsRecsTab({
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (r) =>
-          r.gameName.toLowerCase().includes(q) ||
-          r.recommendedBy.toLowerCase().includes(q) ||
-          r.reason.toLowerCase().includes(q)
+          (r.gameName || "").toLowerCase().includes(q) ||
+          (r.recommendedBy || "").toLowerCase().includes(q) ||
+          (r.reason || "").toLowerCase().includes(q)
       );
     }
 
@@ -349,12 +352,17 @@ export default function FriendsRecsTab({
                     <Button variant="secondary" size="sm" leftIcon={<StarIcon />}
                       type="button"
                       onClick={() => {
-                        const target = !pick.wantToPlay;
-                        pick.recs.forEach((r) => {
-                          if (r.wantToPlay !== target) onToggleWantToPlay(r.id);
-                        });
+                        const next = !pick.wantToPlay;
+                        if (onSetWantToPlay) {
+                          onSetWantToPlay(pick.recs.map((r) => r.id), next);
+                        } else {
+                          pick.recs
+                            .filter((r) => !!r.wantToPlay !== next)
+                            .forEach((r) => onToggleWantToPlay(r.id));
+                        }
                       }}
-                     className={`pick.wantToPlay ? " active" : ""}`}> {pick.wantToPlay ? t("friendsPage.backlog") : t("friendsPage.wantToPlayAdd")} </Button>
+                      active={pick.wantToPlay}
+                    > {pick.wantToPlay ? t("friendsPage.backlog") : t("friendsPage.wantToPlayAdd")} </Button>
                   </div>
                 </div>
               </div>

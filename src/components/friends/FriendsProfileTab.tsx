@@ -171,9 +171,8 @@ export default function FriendsProfileTab({
                 <Button variant="secondary" size="sm"
                   type="button"
                   onClick={handleUseProceduralAvatar}
-                 className={`
-                    profile.avatar === "procedural" ? " active" : ""
-                  }`}> {t("friendsPage.proceduralAvatar")} </Button>
+                  active={profile.avatar === "procedural"}
+                > {t("friendsPage.proceduralAvatar")} </Button>
 
                 <label className="ui-btn ui-btn--secondary ui-btn--sm file-upload-label">
                   <span>{t("friendsPage.uploadCustomImage")}</span>

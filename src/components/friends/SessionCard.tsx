@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameSession, UserProfile, Friend, SessionRole, RsvpStatus } from "./friendsTypes";
+import { visibleMessages } from "../../pages/friendsStorage";
 import {
   formatDateTime,
   tzAbbrev,
@@ -111,7 +112,9 @@ export default function SessionCard({
 
   const playerList = Array.from(allUserNames).map((name) => {
     const participant = session.participants?.find((p) => p.name === name);
-    const rsvpStatus: RsvpStatus | "invited" = session.rsvps?.[name]
+    const rsvpStatus: RsvpStatus | "invited" = participant?.guest
+      ? "going"
+      : session.rsvps?.[name]
       ? session.rsvps[name]
       : (session.attendees || []).includes(name) || name === session.creatorName
       ? "going"
@@ -142,7 +145,7 @@ export default function SessionCard({
     return a.name.localeCompare(b.name);
   });
 
-  const messages = session.messages || [];
+  const messages = visibleMessages(session.messages);
   const pinned = messages.filter((m) => m.pinned);
   const thread = messages.filter((m) => !m.pinned);
 
@@ -184,7 +187,7 @@ export default function SessionCard({
             />
           ) : (
             <div className="session-card-cover-placeholder">
-              {session.gameName.slice(0, 2).toUpperCase()}
+              {(session.gameName || "").slice(0, 2).toUpperCase()}
             </div>
           )}
         </div>
@@ -285,7 +288,7 @@ export default function SessionCard({
           </div>
           <div className="session-poll-options">
             {session.poll.options.map((opt) => {
-              const voters = session.poll?.votes[opt.id] || [];
+              const voters = session.poll?.votes?.[opt.id] || [];
               const voted = voters.includes(profile.name);
               return (
                 <div key={opt.id} className={`session-poll-option${voted ? " voted" : ""}`}>
@@ -299,7 +302,7 @@ export default function SessionCard({
                     <Button variant="secondary" size="sm"
                       type="button"
                       onClick={() => onVotePoll?.(session.id, opt.id)}
-                     className={`voted ? " active" : ""}`}> {voted ? t("friendsPage.voted") : t("friendsPage.vote")} </Button>
+                      active={voted}> {voted ? t("friendsPage.voted") : t("friendsPage.vote")} </Button>
                     {canManage && (
                       <Button variant="primary" size="sm" leftIcon={<CheckIcon />}
                         type="button"

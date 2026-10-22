@@ -11,6 +11,7 @@ import type {
 } from "./friendsTypes";
 import SessionCard from "./SessionCard";
 import {
+  displayName,
   formatDateTime,
   sessionsConflict,
   detectTimezone,
@@ -140,9 +141,9 @@ export default function FriendsSessionsTab({
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (s) =>
-          s.gameName.toLowerCase().includes(q) ||
-          s.creatorName.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q)
+          (s.gameName || "").toLowerCase().includes(q) ||
+          (s.creatorName || "").toLowerCase().includes(q) ||
+          (s.description || "").toLowerCase().includes(q)
       );
     }
 
@@ -174,11 +175,24 @@ export default function FriendsSessionsTab({
     return { upcomingSessions: upcoming, pastSessions: past };
   }, [effectiveSessions, searchQuery, filterMode, profile.name, nowTick]);
 
+  // Overlapping upcoming sessions, so each card can warn about the clash.
+  const conflictingById = useMemo(() => {
+    const map = new Map<string, GameSession>();
+    upcomingSessions.forEach((s) => {
+      const other = upcomingSessions.find((o) => o.id !== s.id && sessionsConflict(o, s));
+      if (other) map.set(s.id, other);
+    });
+    return map;
+  }, [upcomingSessions]);
+
   // Agenda Day grouping
   const agendaDays = useMemo(() => {
     const map = new Map<string, GameSession[]>();
     upcomingSessions.forEach((s) => {
       const d = new Date(s.scheduledAt);
+      // A poll has no fixed time yet — keep it out of the calendar grid rather
+      // than grouping it under "Invalid Date".
+      if (Number.isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
         d.getDate()
       ).padStart(2, "0")}`;
@@ -225,8 +239,10 @@ export default function FriendsSessionsTab({
     setInvitedFriends(session.invited || []);
     setRecurrenceFreq(session.recurrence?.frequency || "none");
     setRecurrenceUntil(session.recurrence?.until || "");
-    setPollMode(false);
-    setPollOptions([]);
+    // Keep an open poll editable instead of silently dropping it (and its
+    // votes) the moment the session is edited.
+    setPollMode(!!session.poll?.options?.length);
+    setPollOptions((session.poll?.options || []).map((o) => o.label));
     setShowCreateModal(true);
   };
 
@@ -248,6 +264,29 @@ export default function FriendsSessionsTab({
       ? { frequency: recurrenceFreq, ...(recurrenceUntil ? { until: recurrenceUntil } : {}) }
       : undefined;
 
+  /**
+   * Builds the poll payload from the form. When editing, the option ids and
+   * votes of the existing poll are preserved for unchanged slots, so editing a
+   * session never wipes the scheduling poll.
+   */
+  const buildPoll = (existing?: GameSession["poll"]): GameSession["poll"] => {
+    if (!pollMode) return undefined;
+    const slots = pollOptions.filter(Boolean);
+    if (slots.length === 0) return existing;
+    const used = new Set<string>();
+    const votes = { ...(existing?.votes || {}) };
+    return {
+      options: slots.map((label) => {
+        const match = existing?.options.find((o) => o.label === label && !used.has(o.id));
+        const id = match?.id ?? `opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        used.add(id);
+        if (!votes[id]) votes[id] = [];
+        return { id, label };
+      }),
+      votes,
+    };
+  };
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingSession) {
@@ -257,7 +296,9 @@ export default function FriendsSessionsTab({
     if (!gameName.trim()) return;
     if (!pollMode && !dateTime) return;
 
-    const slots = pollOptions.filter(Boolean);
+    const poll = buildPoll();
+    if (pollMode && !poll) return;
+
     onCreateSession({
       gameId: gameId || `custom_${Date.now()}`,
       gameName: gameName.trim(),
@@ -272,16 +313,7 @@ export default function FriendsSessionsTab({
       rsvps: { [profile.name]: "going" },
       participants: [{ name: profile.name, role: "host", timezone: viewerTimezone }],
       messages: [],
-      poll:
-        pollMode && slots.length > 0
-          ? {
-              options: slots.map((label) => ({
-                id: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                label,
-              })),
-              votes: {},
-            }
-          : undefined,
+      poll,
       recurrence: recurrenceRule(),
     });
 
@@ -291,24 +323,25 @@ export default function FriendsSessionsTab({
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSession || !gameName.trim() || !dateTime) return;
+    if (!editingSession || !gameName.trim()) return;
+    if (!pollMode && !dateTime) return;
 
     onEditSession(editingSession.id, {
       gameId: gameId || `custom_${Date.now()}`,
       gameName: gameName.trim(),
-      scheduledAt: dateTime,
+      scheduledAt: pollMode ? editingSession.scheduledAt || "" : dateTime,
       durationMin,
       maxPlayers,
       description: description.trim(),
       creatorName: editingSession.creatorName,
-      creatorTimezone: viewerTimezone,
+      creatorTimezone: editingSession.creatorTimezone || viewerTimezone,
       invited: invitedFriends,
       // Attendee state is preserved — editing only touches the scheduled fields.
       attendees: editingSession.attendees || [profile.name],
       rsvps: editingSession.rsvps || { [profile.name]: "going" },
       participants: editingSession.participants || [],
       messages: editingSession.messages || [],
-      poll: undefined,
+      poll: buildPoll(editingSession.poll),
       recurrence: recurrenceRule(),
     });
 
@@ -413,6 +446,7 @@ export default function FriendsSessionsTab({
                   profile={profile}
                   friends={friends}
                   viewerTimezone={viewerTimezone}
+                  conflicting={conflictingById.get(session.id)}
                   gameCover={getCoverForSession(session)}
                   onRsvp={onRsvp}
                   onEdit={openEdit}
@@ -439,11 +473,11 @@ export default function FriendsSessionsTab({
             <Button variant="secondary" size="sm"
               type="button"
               onClick={() => setAgendaMode("grid")}
-             className={`agendaMode === "grid" ? " active" : ""}`}> {t("friendsPage.calendarGrid")} </Button>
+              active={agendaMode === "grid"}> {t("friendsPage.calendarGrid")} </Button>
             <Button variant="secondary" size="sm"
               type="button"
               onClick={() => setAgendaMode("list")}
-             className={`agendaMode === "list" ? " active" : ""}`}> {t("friendsPage.timelineList")} </Button>
+              active={agendaMode === "list"}> {t("friendsPage.timelineList")} </Button>
           </div>
 
           {agendaDays.length === 0 ? (
@@ -571,16 +605,14 @@ export default function FriendsSessionsTab({
 
                 <div className="form-row-grid">
                   <div className="form-group">
-                    {!editingSession && (
-                      <label className="invitee-check-pill session-poll-toggle">
-                        <input
-                          type="checkbox"
-                          checked={pollMode}
-                          onChange={(e) => setPollMode(e.target.checked)}
-                        />
-                        <span>{t("friendsPage.pollPropose")}</span>
-                      </label>
-                    )}
+                    <label className="invitee-check-pill session-poll-toggle">
+                      <input
+                        type="checkbox"
+                        checked={pollMode}
+                        onChange={(e) => setPollMode(e.target.checked)}
+                      />
+                      <span>{t("friendsPage.pollPropose")}</span>
+                    </label>
                     {!pollMode ? (
                       <>
                         <label className="form-label">{t("friendsPage.dateAndTime")}</label>
@@ -708,7 +740,7 @@ export default function FriendsSessionsTab({
                           checked={invitedFriends.includes(f.name)}
                           onChange={() => toggleInviteFriend(f.name)}
                         />
-                        <span>{f.name}</span>
+                        <span>{displayName(f)}</span>
                       </label>
                     ))}
                   </div>
