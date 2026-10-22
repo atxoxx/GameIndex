@@ -65,9 +65,11 @@ const MAX_OVERLAY_DIM: f64 = 4000.0;
 const OVERLAY_MARGIN: f64 = 16.0;
 
 /// Ceiling on the recent-captures list returned to the frontend. The gallery
-/// only ever renders the newest handful, so an unbounded folder (hundreds of
-/// captures) must not ship its whole listing over IPC on every poll.
-const MAX_RECENT_CAPTURES: usize = 500;
+/// only ever renders the newest handful (page size 40, limit 60), so a large
+/// folder must not ship its whole listing over IPC on every poll — this cap
+/// keeps the payload bounded even for a capture folder with thousands of
+/// files, while still backing the wider `Captures`-style gallery grids.
+const MAX_RECENT_CAPTURES: usize = 100;
 
 /// Events (kept as consts so the frontend contract has one source of truth).
 pub const EVENT_METRICS: &str = "overlay:metrics";
@@ -396,11 +398,27 @@ fn lock(state: &OverlayState) -> MutexGuard<'_, OverlayRuntime> {
     state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Clear the session-scoped flags that must never survive a restart. They sit
+/// inside the settings blob only so the frontend can mirror them; the actual
+/// recorder state lives in `capture::CaptureState` and starts idle on boot, so
+/// loading a persisted `video_recording: true` would leave the settings
+/// mirror claiming a recording is running when nothing is.
+pub fn clear_session_scoped_flags(settings: &mut OverlaySettings) {
+    settings.video_recording = false;
+    settings.replay_buffer_active = false;
+}
+
 /// Read persisted settings from kv, falling back cleanly when the row is
 /// absent, unreadable or written by an older schema.
 pub fn load_settings(db: &db::Db) -> OverlaySettings {
     match db::kv::get(db, SETTINGS_KEY) {
-        Ok(Some(raw)) => serde_json::from_str(&raw).unwrap_or_default(),
+        Ok(Some(raw)) => {
+            let mut settings: OverlaySettings = serde_json::from_str(&raw).unwrap_or_default();
+            // A quit/crash mid-recording persisted the session-scoped flags;
+            // the recorder itself starts idle, so reset them on every boot.
+            clear_session_scoped_flags(&mut settings);
+            settings
+        }
         _ => OverlaySettings::default(),
     }
 }
@@ -411,10 +429,14 @@ fn persist_settings(app: &AppHandle, settings: &OverlaySettings) -> Result<(), S
     db::kv::set(&db, SETTINGS_KEY, &json)
 }
 
-/// Mirror the current settings to the overlay window so a live HUD picks up
-/// edits made in the main window (or from its own controls) without a reopen.
+/// Mirror the current settings to every window so a live HUD picks up edits
+/// made in the main window (or from its own controls) without a reopen, AND
+/// the Settings → Overlay tab can rebase its snapshot on edits made from the
+/// HUD itself (`OverlayTab` holds a full-settings snapshot that otherwise
+/// goes stale the moment the HUD's own settings widget saves).
 fn emit_settings(app: &AppHandle, settings: &OverlaySettings) {
-    let _ = app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_SETTINGS, settings);
+    // `emit` broadcasts to every window/webview, including `main`.
+    let _ = app.emit(EVENT_SETTINGS, settings);
 }
 
 /// Parse a user-supplied accelerator into a `Shortcut`, surfacing a readable
@@ -482,6 +504,29 @@ fn now_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+/// Whether the overlay window is currently visible. `false` when there is no
+/// window, so a capture taken while the HUD is hidden never re-shows it.
+fn overlay_visible(app: &AppHandle) -> bool {
+    app.get_webview_window(OVERLAY_WINDOW_LABEL)
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+/// Resolve the active game's display title for capture commands: the live
+/// session's library-game name, or `GameIndex` when idle / untracked.
+fn current_game_title(app: &AppHandle) -> String {
+    if let Some(state) = app.try_state::<OverlayState>() {
+        let rt = lock(state.inner());
+        if let Some(ref session) = rt.session {
+            let db = app.state::<db::Db>().inner().clone();
+            if let Ok(Some(g)) = db::games::get(&db, &session.game_id) {
+                return g.name;
+            }
+        }
+    }
+    "GameIndex".to_string()
 }
 
 /// Center of the foreground window in physical pixels, or `None` when there is
@@ -880,8 +925,7 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     apply_native_effect(&window, effect);
 
     // Replay the current session so a freshly built overlay renders the
-    // session widget without waiting for the next game lifecycle event, and
-    // spin up telemetry for the running game.
+    // session widget without waiting for the next game lifecycle event.
     let session = lock(state.inner()).session.clone();
     let _ = app.emit_to(OVERLAY_WINDOW_LABEL, EVENT_SESSION, session.clone());
     // Tell the frontend which presentation to render; the listener may not be
@@ -892,16 +936,17 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
         EVENT_TOGGLE,
         serde_json::json!({ "collapsed": collapsed }),
     );
-    if let Some(session) = session {
-        let pid = resolve_pid(app, &session);
-        if pid != 0 {
-            let _ = start_live(app, pid, None, None, None);
-        }
-    }
     // Keep following the display the game lives on: a fullscreen game moved to
     // another monitor (or a second session starting there) re-anchors the HUD
     // to it, as long as the user hasn't dragged the HUD to a manual position.
     spawn_monitor_follow(app);
+    // Telemetry is kicked off by a spawned task (same contract as
+    // `spawn_live_refresh`): `present` is also called from `run_on_main_thread`
+    // on the global-hotkey path, and `resolve_pid`/`start_live` lock the
+    // GameWatcher mutex — `apply_poll` can hold that lock for a full PID
+    // liveness sweep, and running it inline on the main thread stalled the
+    // whole UI ("GameIndex Overlay — Ne répond pas").
+    spawn_live_refresh(app);
     Ok(())
 }
 
@@ -1085,16 +1130,41 @@ pub fn overlay_save_bounds(
         // the same move/resize events as a manual drag. Keep the overlay
         // corner-anchored while it still sits exactly where the corner math puts
         // it, so those events can't silently pin an absolute position.
+        //
+        // The comparison runs against the monitor the window is ON, never the
+        // monitor `target_monitor` picks (foreground window / cursor): if the
+        // game hops to another display during the frontend's debounced save,
+        // the target's corner rect no longer matches the window anywhere and a
+        // programmatic resize would be misread as a user drag — pinning the HUD
+        // and permanently killing monitor-follow (`spawn_monitor_follow` exits
+        // on `manual_pos` until the user re-picks a corner).
         let keep_anchored = match (rt.settings.pos_x, rt.settings.pos_y) {
             (None, None) => {
+                let on_screen = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .map(|monitor| {
+                        let mpos = monitor.position();
+                        let msize = monitor.size();
+                        (
+                            (
+                                mpos.x as f64,
+                                mpos.y as f64,
+                                msize.width as f64,
+                                msize.height as f64,
+                            ),
+                            monitor.scale_factor(),
+                        )
+                    })
+                    .unwrap_or_else(|| monitor_geometry(&app));
                 let size = overlay_size(&rt.settings, collapsed);
-                let (work_area, monitor_scale) = monitor_geometry(&app);
-                let phys = (size.0 * monitor_scale, size.1 * monitor_scale);
+                let phys = (size.0 * on_screen.1, size.1 * on_screen.1);
                 corner_rect(
                     &rt.settings.corner,
-                    work_area,
+                    on_screen.0,
                     phys,
-                    OVERLAY_MARGIN * monitor_scale,
+                    OVERLAY_MARGIN * on_screen.1,
                 )
                 .map(|(ax, ay)| {
                     ((pos.x as f64) - ax).abs() < 2.0 && ((pos.y as f64) - ay).abs() < 2.0
@@ -1137,9 +1207,13 @@ pub fn overlay_fit_ticker(
         }
         let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
         let h = height.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM);
-        // Ignore sub-pixel churn so the ResizeObserver can't ping-pong.
-        if (rt.settings.ticker_width - w).abs() < 1.0
-            && (rt.settings.ticker_height - h).abs() < 1.0
+        // Ignore sub-pixel churn so the ResizeObserver can't ping-pong. The
+        // frontend adds a 2 px content kernel per measurement, so a 1 px
+        // tolerance re-triggers a resize on every mixed-DPI layout pass
+        // (resize → fit → resize loop); the window must lag content growth
+        // slightly instead of chasing it.
+        if (rt.settings.ticker_width - w).abs() < 3.0
+            && (rt.settings.ticker_height - h).abs() < 3.0
         {
             return Ok(());
         }
@@ -1260,6 +1334,13 @@ pub fn overlay_set_corner(
     if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
         apply_geometry(&window, &app, &settings, collapsed)?;
     }
+    // Clearing the dragged position re-arms corner anchoring, but the
+    // monitor-follow loop exits as soon as a manual position exists and
+    // nothing respawns it — so respawn it here or the HUD stops following the
+    // game's monitor until the next hotkey toggle.
+    if settings.pos_x.is_none() && settings.pos_y.is_none() {
+        spawn_monitor_follow(&app);
+    }
     Ok(())
 }
 
@@ -1310,9 +1391,17 @@ pub fn overlay_save_settings(
         return Err(format!("invalid overlay corner: {}", settings.corner));
     }
 
-    // Surfaces an invalid/conflicting binding as an error and keeps the
-    // previous one, so a bad save never leaves the overlay unreachable.
-    register_hotkey(&app, state.inner(), &settings.hotkey)?;
+    // The overlay is disabled: every global binding must be dropped, right
+    // now and from here on. Rebinding on every save (previously unconditional)
+    // meant nudging any other field while the master switch was off brought
+    // Shift+F1 / F12 / Shift+F2 / Shift+F3 back to life.
+    if !settings.enabled {
+        unregister_all_hotkeys(&app, state.inner());
+    } else {
+        // Surfaces an invalid/conflicting binding as an error and keeps the
+        // previous one, so a bad save never leaves the overlay unreachable.
+        register_hotkey(&app, state.inner(), &settings.hotkey)?;
+    }
 
     {
         let mut rt = lock(state.inner());
@@ -1321,11 +1410,13 @@ pub fn overlay_save_settings(
         // auto-fit take over again even if the user had resized manually.
         rt.ticker_auto_fit = true;
     }
-    // Capture bindings are best-effort; a conflict there is logged, not fatal.
-    // Registered after the settings swap so the video_enabled gate inside
-    // reads the NEW value — disabling video capture unbinds the record/replay
-    // hotkeys immediately instead of on the next boot.
-    register_capture_hotkeys(&app, state.inner());
+    if settings.enabled {
+        // Capture bindings are best-effort; a conflict there is logged, not
+        // fatal. Registered after the settings swap so the video_enabled gate
+        // inside reads the NEW value — disabling video capture unbinds the
+        // record/replay hotkeys immediately instead of on the next boot.
+        register_capture_hotkeys(&app, state.inner());
+    }
 
     persist_settings(&app, &settings)?;
     emit_settings(&app, &settings);
@@ -1349,9 +1440,13 @@ pub fn overlay_set_hotkey(
     state: tauri::State<'_, OverlayState>,
     accelerator: String,
 ) -> Result<OverlaySettings, String> {
-    // `register_hotkey` restores the previous binding itself when the new one
-    // fails, so we simply propagate the error.
-    register_hotkey(&app, state.inner(), &accelerator)?;
+    // While the overlay is disabled the accelerator is recorded but NOT bound:
+    // every global binding stays down (see `overlay_save_settings`).
+    if lock(state.inner()).settings.enabled {
+        // `register_hotkey` restores the previous binding itself when the new
+        // one fails, so we simply propagate the error.
+        register_hotkey(&app, state.inner(), &accelerator)?;
+    }
 
     let settings = {
         let mut rt = lock(state.inner());
@@ -1540,18 +1635,28 @@ fn register_binding(
     }
 
     let global = app.global_shortcut();
+    // Validate BEFORE unregistering the previous binding: a parse failure at
+    // this point must leave the old accelerator registered (the Wayland
+    // branch above has always validated in this order — this path used to
+    // unregister first, so a rejected string killed the working hotkey while
+    // the UI kept showing it).
+    let shortcut = if trimmed.is_empty() {
+        None
+    } else {
+        Some(parse_accelerator(&trimmed)?)
+    };
+
     if let Some(ref previous) = previous {
         if let Ok(old) = Shortcut::from_str(previous) {
             let _ = global.unregister(old);
         }
     }
 
-    if trimmed.is_empty() {
+    let Some(shortcut) = shortcut else {
         which.set(&mut lock(state), None);
         return Ok(());
-    }
+    };
 
-    let shortcut = parse_accelerator(&trimmed)?;
     if let Err(e) = global.register(shortcut) {
         // Roll back to the binding that was working before.
         if let Some(ref previous) = previous {
@@ -1574,6 +1679,24 @@ fn register_hotkey(
     accelerator: &str,
 ) -> Result<(), String> {
     register_binding(app, state, Binding::Toggle, accelerator)
+}
+
+/// Drop every global binding (toggle + all capture bindings) and clear the
+/// runtime mirrors. Called when the overlay is disabled so a stray
+/// Shift+F1 / F12 / Shift+F2 / Shift+F3 can never pop or act on a HUD the
+/// user turned off.
+fn unregister_all_hotkeys(app: &AppHandle, state: &OverlayState) {
+    for which in [
+        Binding::Toggle,
+        Binding::Screenshot,
+        Binding::Record,
+        Binding::Replay,
+    ] {
+        // An empty accelerator takes the unregister path through
+        // `register_binding`, so the portal reconciliation (Wayland) and the
+        // runtime mirror are kept in step with the bound state.
+        let _ = register_binding(app, state, which, "");
+    }
 }
 
 /// (Re)register every global capture binding (screenshot / record / replay).
@@ -1726,15 +1849,23 @@ pub fn handle_hotkey(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent)
             .unwrap_or(false)
     };
 
-    let (is_toggle, is_shot, is_rec, is_replay) = {
+    let (enabled, is_toggle, is_shot, is_rec, is_replay) = {
         let rt = lock(state.inner());
         (
+            rt.settings.enabled,
             matches(&rt.accelerator),
             matches(&rt.screenshot_accelerator),
             matches(&rt.record_accelerator),
             matches(&rt.replay_accelerator),
         )
     };
+
+    // Every dispatch is gated on the master switch: bindings can only exist
+    // while the overlay is enabled, but this belt-and-braces check keeps a
+    // stale/binding conflict from acting on a HUD the user turned off.
+    if !enabled {
+        return;
+    }
 
     if is_shot {
         let handle = app.clone();
@@ -1818,6 +1949,11 @@ fn show_or_toggle(app: &AppHandle) -> Result<(), String> {
     let Some(state) = app.try_state::<OverlayState>() else {
         return Ok(());
     };
+    // The hotkey must never pop a HUD the user turned off (binds are gated on
+    // `enabled`; this covers a stale mirror too).
+    if !lock(state.inner()).settings.enabled {
+        return Ok(());
+    }
     let visible = app
         .get_webview_window(OVERLAY_WINDOW_LABEL)
         .and_then(|w| w.is_visible().ok())
@@ -1918,25 +2054,119 @@ pub fn register_listeners(app: &AppHandle) {
     let exited = app.clone();
     app.listen("game-exited", move |event| {
         // Only clear the overlay session once the last game has quit; if
-        // another session remains, keep showing it.
-        let clear = serde_json::from_str::<serde_json::Value>(event.payload())
+        // another session remains, keep showing it. `remainingGameName` comes
+        // from the launch/watcher bookkeeping, but the force-close path admits
+        // it cannot always recover the value — it emits `null` even while
+        // other sessions are alive. So `null` alone must never tear the HUD
+        // down: the spawned check below asks the watcher (the source of truth)
+        // instead, and `Some(name)` short-circuits without touching it.
+        let remaining = serde_json::from_str::<serde_json::Value>(event.payload())
             .ok()
-            .and_then(|v| v.get("remainingGameName").map(|name| name.is_null()))
-            .unwrap_or(true);
-        if clear {
-            set_session(&exited, None);
-            // A recording/replay buffer makes no sense once the game is gone.
-            crate::capture::stop_all(&exited);
-            // Tear the HUD down when the last game exits; the Destroyed
-            // handler stops telemetry and emits `overlay:closed`.
-            if let Some(window) = exited.get_webview_window(OVERLAY_WINDOW_LABEL) {
-                let _ = window.close();
+            .and_then(|v| {
+                v.get("remainingGameName")
+                    .and_then(|name| name.as_str())
+                    .map(str::to_string)
+            });
+        if remaining.is_some() {
+            return;
+        }
+        spawn_exit_teardown(exited.clone());
+    });
+}
+
+/// Verify with the GameWatcher that no session is left, then stop the HUD
+/// telemetry/capture and close the overlay window.
+///
+/// CONTRACT — must be **spawned**, never called inline on the emitting thread:
+/// the poll loop emits `game-exited` while holding the GameWatcher mutex (the
+/// same shape `launch_game`'s `game-started` emit is, see
+/// `spawn_live_refresh`), so `has_active_sessions` inline would deadlock. The
+/// re-check loop tidies the racy window where the exited session has not been
+/// reaped from the watcher yet.
+fn spawn_exit_teardown(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut still_tracked = false;
+        for delay_ms in [0u64, 1500] {
+            if delay_ms > 0 {
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             }
+            still_tracked = app
+                .try_state::<Arc<Mutex<GameWatcher>>>()
+                .and_then(|watcher| watcher.lock().ok().map(|w| w.has_active_sessions()))
+                .unwrap_or(false);
+            if !still_tracked {
+                break;
+            }
+        }
+        // A session is still being tracked (another game runs, or the
+        // re-check timing lost a race): leave the HUD exactly as it is.
+        if still_tracked {
+            return;
+        }
+        set_session(&app, None);
+        // A recording/replay buffer makes no sense once the game is gone.
+        crate::capture::stop_all(&app);
+        // Tear the HUD down; the Destroyed handler stops telemetry and emits
+        // `overlay:closed`.
+        if let Some(window) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+            let _ = window.close();
         }
     });
 }
 
 pub const EVENT_SCREENSHOT: &str = "overlay:screenshot-captured";
+
+/// Serialized capture flag. Every capture hides the HUD, waits and restores
+/// it, so two overlapping captures (a rapid F12 double-press, or the hotkey
+/// firing while the panel button is already capturing — the frontend's
+/// `isCapturing` guard can't see backend-driven captures) interleave their
+/// hide/show cycles and duplicate gallery events. Backend-side serialization
+/// makes the second press a no-op instead.
+static CAPTURE_IN_FLIGHT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// RAII reset for [`CAPTURE_IN_FLIGHT`] so every error return re-arms it.
+struct CaptureGuard;
+
+impl CaptureGuard {
+    /// `Err` when a capture is already running.
+    fn acquire() -> Result<Self, String> {
+        use std::sync::atomic::Ordering;
+        CAPTURE_IN_FLIGHT
+            .compare_exchange(
+                false,
+                true,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .map(|_| CaptureGuard)
+            .map_err(|_| "another screen capture is already in progress".to_string())
+    }
+}
+
+impl Drop for CaptureGuard {
+    fn drop(&mut self) {
+        CAPTURE_IN_FLIGHT.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// Re-show the HUD after a capture with the presentation invariants intact.
+/// The hide/show round-trip must not regress click-through or the
+/// non-activating style, and a window destroyed mid-capture must not be
+/// resurrected (`win.show()` on a `None` lookup is skipped naturally).
+fn restore_overlay_after_capture(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
+        let (collapsed, click_through) = app
+            .try_state::<OverlayState>()
+            .map(|state| {
+                let rt = lock(state.inner());
+                (rt.collapsed, rt.settings.ticker_click_through)
+            })
+            .unwrap_or((true, false));
+        let _ = win.set_ignore_cursor_events(click_through && collapsed);
+        set_activation_style(&win, !collapsed);
+        let _ = win.show();
+    }
+}
 
 /// Result of an in-game screen capture.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2283,6 +2513,33 @@ mod gdi_capture {
     }
 }
 
+/// The user's Videos shell folder, honouring library redirection (OneDrive /
+/// "Move" folder changes store the real location in the Explorer Shell Folders
+/// key) — a plain `%USERPROFILE%\Videos` join would silently miss it and the
+/// i18n promise "captures go to your Videos folder" would be wrong.
+#[cfg(windows)]
+fn videos_dir() -> Option<std::path::PathBuf> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+
+    // `{374DE290-123F-4565-9164-39C4925E467B}` is the "My Video" shell folder
+    // GUID.
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let key = hkcu
+        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders")
+        .ok()?;
+    key.get_value("{374DE290-123F-4565-9164-39C4925E467B}")
+        .ok()
+        .map(|value: String| std::path::PathBuf::from(value).join("Captures"))
+}
+
+#[cfg(not(windows))]
+fn videos_dir() -> Option<std::path::PathBuf> {
+    std::env::var("HOME")
+        .ok()
+        .map(|home| std::path::PathBuf::from(home).join("Videos").join("Captures"))
+}
+
 pub fn get_captures_dir(game_title: &str) -> std::path::PathBuf {
     let sanitized: String = game_title
         .chars()
@@ -2297,6 +2554,10 @@ pub fn get_captures_dir(game_title: &str) -> std::path::PathBuf {
     } else {
         sanitized
     };
+
+    if let Some(captures) = videos_dir() {
+        return captures.join(folder_name);
+    }
 
     #[cfg(windows)]
     {
@@ -2374,41 +2635,54 @@ pub async fn overlay_capture_screenshot(
     game_title: Option<String>,
 ) -> Result<ScreenshotResult, String> {
     // Snapshot the capture-relevant settings up front so the hot path doesn't
-    // hold the runtime lock while the capture runs.
-    let (hide_overlay, delay_ms, format, folder) = match app.try_state::<OverlayState>() {
+    // hold the runtime lock while the capture runs. The active game's title is
+    // resolved in the same pass (session + DB) — `current_game_title` would
+    // re-lock the runtime and hit the games table again further down, and the
+    // capture delay between the two passes could observe a different session.
+    let (title, hide_overlay, delay_ms, format, folder) = match app.try_state::<OverlayState>() {
         Some(state) => {
             let rt = lock(state.inner());
+            let game_title = rt
+                .session
+                .as_ref()
+                .map(|session| {
+                    let db = app.state::<db::Db>().inner().clone();
+                    db::games::get(&db, &session.game_id)
+                        .ok()
+                        .flatten()
+                        .map(|g| g.name)
+                })
+                .unwrap_or(None);
             (
+                game_title,
                 !rt.settings.screenshot_include_overlay,
                 rt.settings.screenshot_delay_ms,
                 rt.settings.screenshot_format.clone(),
                 rt.settings.screenshot_folder.clone(),
             )
         }
-        None => (true, 60, "png".to_string(), None),
+        None => (None, true, 60, "png".to_string(), None),
     };
+    let title = game_title.or(title);
+
+    // Serialize overlapping captures before anything touches the window.
+    let _capture_guard = CaptureGuard::acquire()?;
+
+    // Remember whether the HUD was on screen before this capture. A snapshot
+    // taken while it is hidden (or auto-hidden after idle) must leave it
+    // hidden: re-showing here would pop the ticker back up mid-game.
+    let was_visible = overlay_visible(&app);
 
     // 1. Temporarily hide the overlay so it doesn't photograph itself, unless
     //    the user asked for the HUD to appear in their captures.
-    if hide_overlay {
+    if hide_overlay && was_visible {
         if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
             let _ = win.hide();
         }
         tokio::time::sleep(Duration::from_millis(delay_ms.max(20))).await;
     }
 
-    let title = game_title.unwrap_or_else(|| {
-        if let Some(state) = app.try_state::<OverlayState>() {
-            let rt = lock(state.inner());
-            if let Some(ref session) = rt.session {
-                let db = app.state::<db::Db>().inner().clone();
-                if let Ok(Some(g)) = db::games::get(&db, &session.game_id) {
-                    return g.name;
-                }
-            }
-        }
-        "GameIndex".to_string()
-    });
+    let title = title.unwrap_or_else(|| current_game_title(&app));
 
     let dir = resolve_capture_dir(folder.as_deref(), &title);
     if !dir.exists() {
@@ -2430,10 +2704,8 @@ pub async fn overlay_capture_screenshot(
     let (width, height, rgba) = match capture_result {
         Ok(frame) => frame,
         Err(e) => {
-            if hide_overlay {
-                if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-                    let _ = win.show();
-                }
+            if hide_overlay && was_visible {
+                restore_overlay_after_capture(&app);
             }
             return Err(e);
         }
@@ -2443,19 +2715,16 @@ pub async fn overlay_capture_screenshot(
     let file_name = format!("{stem}.{ext}");
     let dest_path = dir.join(&file_name);
     if let Err(e) = std::fs::write(&dest_path, bytes) {
-        if hide_overlay {
-            if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-                let _ = win.show();
-            }
+        if hide_overlay && was_visible {
+            restore_overlay_after_capture(&app);
         }
         return Err(format!("Failed to write screenshot file: {e}"));
     }
 
-    // 2. Restore overlay window
-    if hide_overlay {
-        if let Some(win) = app.get_webview_window(OVERLAY_WINDOW_LABEL) {
-            let _ = win.show();
-        }
+    // 2. Restore overlay window (only if the HUD was visible before the
+    //    capture; a hidden/auto-hidden HUD stays hidden).
+    if hide_overlay && was_visible {
+        restore_overlay_after_capture(&app);
     }
 
     let result = ScreenshotResult {
@@ -2481,18 +2750,7 @@ pub fn overlay_get_recent_screenshots(
     state: tauri::State<'_, OverlayState>,
     game_title: Option<String>,
 ) -> Result<Vec<String>, String> {
-    let title = game_title.unwrap_or_else(|| {
-        if let Some(state) = app.try_state::<OverlayState>() {
-            let rt = lock(state.inner());
-            if let Some(ref session) = rt.session {
-                let db = app.state::<db::Db>().inner().clone();
-                if let Ok(Some(g)) = db::games::get(&db, &session.game_id) {
-                    return g.name;
-                }
-            }
-        }
-        "GameIndex".to_string()
-    });
+    let title = game_title.unwrap_or_else(|| current_game_title(&app));
 
     // Honour a custom screenshot folder, matching where `capture_screenshot`
     // actually wrote the files; otherwise fall back to the per-game tree.
@@ -2545,8 +2803,10 @@ pub fn overlay_open_screenshot_folder(
         // Open the configured folder rather than the default tree, so the
         // button lands where the captures actually are.
         std::path::PathBuf::from(folder)
-    } else if let Ok(profile) = std::env::var("USERPROFILE") {
-        std::path::PathBuf::from(profile).join("Videos").join("Captures")
+    } else if let Some(captures) = videos_dir() {
+        // Same resolution as `get_captures_dir` (registry/OneDrive aware), just
+        // without the per-game leaf.
+        captures
     } else {
         std::path::PathBuf::from(".")
     };
@@ -2717,6 +2977,21 @@ mod tests {
         assert_eq!(parsed.screenshot_format, "png");
         assert_eq!(parsed.video_bitrate_kbps, 12_000);
         assert!(parsed.video_enabled);
+    }
+
+    #[test]
+    fn session_scoped_flags_never_survive_a_load() {
+        // A quit/crash mid-recording persists the session-scoped flags inside
+        // the settings blob; clearing them must leave everything else intact.
+        let parsed: OverlaySettings =
+            serde_json::from_str(r#"{"videoRecording":true,"replayBufferActive":true}"#).unwrap();
+        assert!(parsed.video_recording && parsed.replay_buffer_active);
+        let mut cleared = parsed;
+        clear_session_scoped_flags(&mut cleared);
+        assert!(!cleared.video_recording);
+        assert!(!cleared.replay_buffer_active);
+        assert_eq!(cleared.video_fps, 60);
+        assert!(cleared.video_enabled);
     }
 
     #[test]
