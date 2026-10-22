@@ -58,12 +58,17 @@ function noopGridChange() {}
  * themselves use:
  *
  *   Full   gameHero · gameTabs · gameQuickStats
- *   Main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
+ *   Main   gameMedia · gameAbout · gameStoryline · gameSysReq · gameRelations
  *   Side   gamePulse (library only), then the sidebar cards:
  *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameValue (library
  *          only) · gameSaveBackup (library only) · gameRatings ·
  *          gameTimeToBeat · gameSpecsCard · gameProtonDb · gameCrackwatch ·
  *          gameReleases · gameLanguages
+ *
+ *   The live side column groups those cards into collapsible panels
+ *   (`DetailRail` + `detailRailGroups`); the preview lists them flat because
+ *   each card is a drag target here, and grouping would hide cards behind a
+ *   panel the user is also trying to reorder.
  *
  *   `game` (library detail) is fully widget-addressable. `storeGame` (store
  *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`

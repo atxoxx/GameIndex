@@ -815,12 +815,12 @@
    and ordered inline by SettingsContext's hero element layout. */
 
 .game-hero {
-  --hero-h: 370px;
+  --hero-h: 330px;
   position: relative;
   display: flex;
   flex-direction: column;
   height: auto;
-  min-height: clamp(260px, 42vh, var(--hero-h));
+  min-height: clamp(240px, 38vh, var(--hero-h));
   border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: var(--space-xl);
@@ -986,7 +986,7 @@
 .game-hero__poster {
   position: relative;
   flex: 0 0 auto;
-  height: calc(clamp(260px, 42vh, var(--hero-h)) - var(--space-2xl));
+  height: calc(clamp(240px, 38vh, var(--hero-h)) - var(--space-2xl));
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-lg);
   overflow: hidden;

@@ -3380,3 +3380,205 @@
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
+
+/* ── Grouped detail rail ──────────────────────────────────────────────
+   The side column used to stack every card as its own floating panel, which
+   made thirteen cards compete at the same visual weight. The rail now groups
+   them into a few sections: one panel per section, and the cards inside drop
+   their own chrome and read as rows. Layout Studio visibility/order is
+   untouched — `DetailRail` still positions each card and its section from the
+   stored per-widget order. */
+.game-rail {
+  gap: var(--space-md);
+}
+
+.rail-group {
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-3);
+  overflow: hidden;
+}
+
+.rail-group__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.rail-group__head:hover {
+  background: var(--color-bg-hover);
+}
+
+.rail-group__head:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.rail-group__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.rail-group__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.rail-group[data-open="true"] .rail-group__title {
+  color: var(--color-text-primary);
+}
+
+.rail-group__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.rail-group__chevron--open {
+  transform: rotate(180deg);
+}
+
+.rail-group__body {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-faint);
+}
+
+.rail-group__item + .rail-group__item {
+  border-top: 1px solid var(--color-border-faint);
+}
+
+/* Flatten the nested card: the panel owns the chrome now, but each card keeps
+   its own padding so its content can breathe. */
+.rail-group__body .game-section {
+  margin: 0;
+  padding: var(--space-lg);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: none;
+}
+
+.rail-group__body .game-section:hover {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Each card is a labelled section: its header gets a full-bleed band inside
+   the panel, so the eye gets a hard boundary where one card ends and the next
+   begins even though the cards no longer carry their own borders. The pulse
+   and save cards wrap the title in their own header row with a trailing
+   action, so that row carries the band instead of the title. */
+.rail-group__body .game-section-title,
+.rail-group__body .activity-pulse__header,
+.rail-group__body .game-save-backup-card__header {
+  margin: calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.rail-group__body .game-section-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+}
+
+.rail-group__body .activity-pulse__header .game-section-title,
+.rail-group__body .game-save-backup-card__header .game-section-title {
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* These cards already space their children with a flex gap, so the header
+   keeps only its rule and lets the gap do the separating. */
+.rail-group__body .game-value-card > .game-section-title,
+.rail-group__body .game-dlc-card > .game-section-title,
+.rail-group__body .game-save-backup-card > .game-save-backup-card__header {
+  margin-bottom: 0;
+}
+
+.rail-group__body .game-section-title__text {
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+
+/* Accented glyph chip: something the eye can lock onto when scanning for the
+   start of a card. */
+.rail-group__body .game-section-title__icon,
+.rail-group__body .game-save-backup-card__title-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.rail-group__body .game-section-title svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Secondary blocks inside a single card get a rule and top padding, so the
+   headline, its tiles and its detail rows never blur into one list. The rule
+   sits at the same weight as the header so a card reads as one set of
+   sections; the rows *inside* those sections stay quieter. */
+.rail-group__body .info-dl,
+.rail-group__body .info-exe-path-container,
+.rail-group__body .info-genres,
+.rail-group__body .game-value-card__compare,
+.rail-group__body .game-value-card__rows {
+  margin: 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Inside a section, row separators step down a weight so they don't compete
+   with the section rules above them. */
+.rail-group__body .info-dl-row {
+  border-bottom-color: var(--color-border-faint);
+}
+
+/* The facts block already opens with its own top rule; drop its bottom rule so
+   the next section's rule isn't doubled up a flex gap away. */
+.rail-group__body .game-value-card__facts {
+  border-bottom: 0;
+}
+
+/* The exe footer keeps its own button but not the shipped block margins —
+   the rule above supplies the gap now. */
+.rail-group__body .info-exe-path-container {
+  margin-block: 0;
+}
+

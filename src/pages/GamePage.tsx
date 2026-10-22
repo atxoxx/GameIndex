@@ -17,7 +17,7 @@ import {
 import { useActivity } from "../context/ActivityContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";
-import PageWidget, { PageWidgetSlot } from "../components/PageWidget";
+import PageWidget from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game, gameDisplayName } from "../types/game";
@@ -53,6 +53,8 @@ import {
   GameDlcTab,
   GameSaveBackupCard,
   GameFamilyShareBanner,
+  DetailRail,
+  GAME_RAIL_GROUPS,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
@@ -559,43 +561,31 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
             </div>
           </PageWidget>
 
+          <DetailSectionsHiddenNote
+            sections={[
+              "dlc",
+              "steamFeatures",
+              "systemRequirements",
+              "gameRelations",
+              "timeToBeat",
+              "protonDb",
+              "releases",
+              "reviews",
+              "activity",
+              "notes",
+              "achievements",
+              "mods",
+              "saves",
+              "weblinks",
+              "news",
+              "map",
+            ]}
+          />
+
           <div className="game-content-grid">
             <div className="game-main-col">
-              <DetailSectionsHiddenNote
-                sections={[
-                  "dlc",
-                  "steamFeatures",
-                  "systemRequirements",
-                  "gameRelations",
-                  "timeToBeat",
-                  "protonDb",
-                  "releases",
-                  "reviews",
-                  "activity",
-                  "notes",
-                  "achievements",
-                  "mods",
-                  "saves",
-                  "weblinks",
-                  "news",
-                  "map",
-                ]}
-              />
-
-              {/* 1. About & Story Synopsis */}
-              <PageWidget page="game" widget="gameAbout">
-                <div className="ui-item-gameAbout">
-                  <AboutSection game={game} />
-                </div>
-              </PageWidget>
-              
-              <PageWidget page="game" widget="gameStoryline">
-                <div className="ui-complete-only ui-item-gameStoryline">
-                  <StorylineSection game={game} />
-                </div>
-              </PageWidget>
-
-              {/* 2. Interactive Media Showcase */}
+              {/* Media leads the reading column: a moving preview says more
+                  about the game than its first paragraph does. */}
               <PageWidget page="game" widget="gameMedia">
                 <div className="ui-item-gameMedia">
                   <GameMediaSpotlight
@@ -606,7 +596,19 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                 </div>
               </PageWidget>
 
-              {/* 3. Hardware & System Requirements */}
+              <PageWidget page="game" widget="gameAbout">
+                <div className="ui-item-gameAbout">
+                  <AboutSection game={game} />
+                </div>
+              </PageWidget>
+
+              <PageWidget page="game" widget="gameStoryline">
+                <div className="ui-complete-only ui-item-gameStoryline">
+                  <StorylineSection game={game} />
+                </div>
+              </PageWidget>
+
+              {/* Hardware & System Requirements */}
               {detailSectionVisible.systemRequirements && (
                 <PageWidget page="game" widget="gameSysReq">
                   <div className="ui-item-gameSysReq">
@@ -615,7 +617,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                 </PageWidget>
               )}
 
-              {/* 4. Franchise & Similar Games */}
+              {/* Franchise & Similar Games */}
               <PageWidget page="game" widget="gameRelations">
                 <div className="ui-complete-only ui-item-gameRelations">
                   {detailSectionVisible.gameRelations && (
@@ -633,119 +635,74 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
               </PageWidget>
             </div>
 
-            <div className="game-side-col">
-              {/* Personal Play Pulse */}
-              {detailSectionVisible.activity && (
-                <PageWidget page="game" widget="gamePulse">
-                  <div className="ui-item-gamePulse">
-                    <GameActivityPulseCard
-                      game={game}
-                      onNavigateTab={(tab) => handleTabChange(tab)}
-                    />
-                  </div>
-                </PageWidget>
-              )}
-
-              <PageWidgetSlot page="game" widget="gameInfoKpi" className="ui-item-gameInfoKpi">
-                <InfoKpiCard
-                  game={game}
-                  sizeUnit={sizeUnit}
-                  onEditSize={() => setEditTab("details")}
-                />
-              </PageWidgetSlot>
-              {detailSectionVisible.dlc && heroSteamAppId && (
-                <PageWidgetSlot
-                  page="game"
-                  widget="gameDlcCard"
-                  className="ui-item-gameDlcCard"
-                >
-                  <GameDlcCard
-                    game={game}
-                    storeAppId={heroSteamAppId}
-                    onViewAllDlcs={() => handleTabChange("dlc")}
-                  />
-                </PageWidgetSlot>
-              )}
-              {detailSectionVisible.steamFeatures && (
-                <PageWidgetSlot
-                  page="game"
-                  widget="gameSteamFeatures"
-                  className="ui-item-gameSteamFeatures"
-                >
-                  <SteamFeaturesCard
-                    steamAppId={game.steamAppId ?? heroSteamAppId}
-                    gameName={gameDisplayName(game)}
-                  />
-                </PageWidgetSlot>
-              )}
-
-              <PageWidgetSlot page="game" widget="gameValue" className="ui-item-gameValue">
-                <GameValueCard game={game} onSetCost={openCostEditor} />
-              </PageWidgetSlot>
-
-              <PageWidgetSlot
-                page="game"
-                widget="gameSaveBackup"
-                className="ui-item-gameSaveBackup"
-              >
-                <GameSaveBackupCard
-                  gameId={game.id}
-                  gameName={gameDisplayName(game)}
-                  onManage={() => handleTabChange("saves")}
-                />
-              </PageWidgetSlot>
-              <PageWidgetSlot page="game" widget="gameRatings" className="ui-item-gameRatings">
-                <RatingsKpiCard game={game} />
-              </PageWidgetSlot>
-              {detailSectionVisible.timeToBeat && (
-                <PageWidgetSlot
-                  page="game"
-                  widget="gameTimeToBeat"
-                  className="ui-item-gameTimeToBeat"
-                >
-                  <TimeToBeatCard game={game} />
-                </PageWidgetSlot>
-              )}
-              <PageWidgetSlot
-                page="game"
-                widget="gameSpecsCard"
-                className="ui-complete-only ui-item-gameSpecsCard"
-              >
-                <SpecsCard game={game} />
-              </PageWidgetSlot>
-              {showDeckVerified && detailSectionVisible.protonDb && (
-                <PageWidgetSlot
-                  page="game"
-                  widget="gameProtonDb"
-                  className="ui-complete-only ui-item-gameProtonDb"
-                >
-                  <ProtonDBCard steamAppId={game.steamAppId} />
-                </PageWidgetSlot>
-              )}
-              <PageWidgetSlot
-                page="game"
-                widget="gameCrackwatch"
-                className="ui-complete-only ui-item-gameCrackwatch"
-              >
-                <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
-              </PageWidgetSlot>
-              {detailSectionVisible.releases && (
-                <PageWidgetSlot
-                  page="game"
-                  widget="gameReleases"
-                  className="ui-complete-only ui-item-gameReleases"
-                >
-                  <ReleasesCard game={game} />
-                </PageWidgetSlot>
-              )}
-              <PageWidgetSlot
-                page="game"
-                widget="gameLanguages"
-                className="ui-complete-only ui-item-gameLanguages"
-              >
-                <LanguagesSection game={game} />
-              </PageWidgetSlot>
-            </div>
+            <DetailRail
+              page="game"
+              groups={GAME_RAIL_GROUPS}
+              renderWidget={(widget) => {
+                switch (widget) {
+                  case "gamePulse":
+                    return detailSectionVisible.activity ? (
+                      <GameActivityPulseCard
+                        game={game}
+                        onNavigateTab={(tab) => handleTabChange(tab)}
+                      />
+                    ) : null;
+                  case "gameSaveBackup":
+                    return (
+                      <GameSaveBackupCard
+                        gameId={game.id}
+                        gameName={gameDisplayName(game)}
+                        onManage={() => handleTabChange("saves")}
+                      />
+                    );
+                  case "gameInfoKpi":
+                    return (
+                      <InfoKpiCard
+                        game={game}
+                        sizeUnit={sizeUnit}
+                        onEditSize={() => setEditTab("details")}
+                      />
+                    );
+                  case "gameDlcCard":
+                    return detailSectionVisible.dlc && heroSteamAppId ? (
+                      <GameDlcCard
+                        game={game}
+                        storeAppId={heroSteamAppId}
+                        onViewAllDlcs={() => handleTabChange("dlc")}
+                      />
+                    ) : null;
+                  case "gameValue":
+                    return <GameValueCard game={game} onSetCost={openCostEditor} />;
+                  case "gameSpecsCard":
+                    return <SpecsCard game={game} />;
+                  case "gameSteamFeatures":
+                    return detailSectionVisible.steamFeatures ? (
+                      <SteamFeaturesCard
+                        steamAppId={game.steamAppId ?? heroSteamAppId}
+                        gameName={gameDisplayName(game)}
+                      />
+                    ) : null;
+                  case "gameRatings":
+                    return <RatingsKpiCard game={game} />;
+                  case "gameTimeToBeat":
+                    return detailSectionVisible.timeToBeat ? (
+                      <TimeToBeatCard game={game} />
+                    ) : null;
+                  case "gameProtonDb":
+                    return showDeckVerified && detailSectionVisible.protonDb ? (
+                      <ProtonDBCard steamAppId={game.steamAppId} />
+                    ) : null;
+                  case "gameCrackwatch":
+                    return <CrackWatchCard gameName={game.name} appId={game.steamAppId} />;
+                  case "gameReleases":
+                    return detailSectionVisible.releases ? <ReleasesCard game={game} /> : null;
+                  case "gameLanguages":
+                    return <LanguagesSection game={game} />;
+                  default:
+                    return null;
+                }
+              }}
+            />
           </div>
         </>
       )}

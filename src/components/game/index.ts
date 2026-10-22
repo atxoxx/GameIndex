@@ -39,6 +39,13 @@ export { default as GameDlcTab } from "./GameDlcTab";
 export { default as GameSaveBackupCard } from "./GameSaveBackupCard";
 export { default as GameFamilyShareBanner } from "./GameFamilyShareBanner";
 export { default as DetailSectionsHiddenNote } from "./DetailSectionsHiddenNote";
+export { default as DetailRail } from "./DetailRail";
+export {
+  GAME_RAIL_GROUPS,
+  STORE_RAIL_GROUPS,
+  SIMPLE_UI_HIDDEN_WIDGETS,
+  type DetailRailGroupDef,
+} from "./detailRailGroups";
 
 export { SectionTitle, StatusDot, formatPlayTimeCompact } from "./shared";
 export { getVideoEmbedUrl, getVideoThumbnail } from "./video";

@@ -39,6 +39,7 @@ import {
   DETAIL_TABS,
   DETAIL_TOP_BAR,
   HERO_ELEMENTS,
+  interfacePageDef,
   normalizeDetailTabOrder,
   normalizeDetailTabOrderMap,
   normalizeDetailTopBarOrder,
@@ -2233,6 +2234,36 @@ export function useWidgetVisible(
   const globalKey = GENERIC_WIDGET_INTERFACE_KEY[widget];
   if (globalKey && ctx.interfaceVisibility[globalKey] === false) return false;
   return ctx.pageItemVisible[page]?.[widget] !== false;
+}
+
+/**
+ * Visibility + ordering accessors for every widget on a page, read once for the
+ * whole page. The detail pages group their side rail into sections, so they
+ * need to know which widgets survive AND where each one sits in the stored
+ * order before they can decide a group's position and whether it has content.
+ * Calling `useWidgetVisible` per item inside a loop would break the rules of
+ * hooks, hence this accessor pair.
+ */
+export function usePageWidgetLayout(page: InterfacePageKey): {
+  isVisible: (widget: PageWidgetKey) => boolean;
+  orderOf: (widget: PageWidgetKey) => number;
+} {
+  const ctx = useContext(LayoutSettingsContext);
+  const shipped = interfacePageDef(page)?.items ?? [];
+  return {
+    isVisible: (widget) => {
+      if (!ctx) return true;
+      const globalKey = GENERIC_WIDGET_INTERFACE_KEY[widget];
+      if (globalKey && ctx.interfaceVisibility[globalKey] === false) return false;
+      return ctx.pageItemVisible[page]?.[widget] !== false;
+    },
+    orderOf: (widget) => {
+      const stored = ctx?.pageItemOrder[page]?.indexOf(widget) ?? -1;
+      if (stored >= 0) return stored;
+      const fallback = shipped.indexOf(widget);
+      return fallback >= 0 ? fallback : Number.MAX_SAFE_INTEGER;
+    },
+  };
 }
 
 /** Position of a widget within the page's stored order, or `undefined` when it
