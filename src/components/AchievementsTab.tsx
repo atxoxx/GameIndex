@@ -302,12 +302,19 @@ export default function AchievementsTab({ game }: { game: Game }) {
         await syncManualAchievements(game.id);
         return;
       case "gog": {
-        const [result] = await syncGogAchievements([game.id]);
+        const [result] = await syncGogAchievements([
+          { gameId: game.id, storeId: game.gogGameId ?? null },
+        ]);
         if (!result?.data) throw new Error(result?.error ?? "GOG sync failed");
         return;
       }
       case "epic": {
-        const [result] = await syncEpicAchievements([game.id]);
+        const [result] = await syncEpicAchievements([
+          {
+            gameId: game.id,
+            namespace: game.epicNamespace ?? null,
+          },
+        ]);
         if (!result?.data) throw new Error(result?.error ?? "Epic sync failed");
         return;
       }

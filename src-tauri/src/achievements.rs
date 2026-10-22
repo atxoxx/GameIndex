@@ -65,6 +65,42 @@ fn default_source() -> String {
     "steam".to_string()
 }
 
+/// One game in a batch source sync (GOG / Epic).
+///
+/// `game_id` is GameIndex's own id and the `achievements_cache` key the
+/// frontend looks the payload up by — it is NOT what the store APIs
+/// want. `store_id` carries the provider-side id (GOG numeric product
+/// id, Epic AppName). Epic's `namespace` is the sandbox id its GraphQL
+/// queries actually need; when present it spares the AppName →
+/// namespace round trip.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AchievementSyncTarget {
+    pub game_id: String,
+    #[serde(default)]
+    pub store_id: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<String>,
+}
+
+impl AchievementSyncTarget {
+    /// Trimmed, non-empty provider id, if one was supplied.
+    pub fn store_id(&self) -> Option<&str> {
+        self.store_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    }
+
+    /// Trimmed, non-empty Epic namespace, if one was supplied.
+    pub fn namespace(&self) -> Option<&str> {
+        self.namespace
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    }
+}
+
 // ── Steam API response types (private, for deserialization only) ─────
 
 #[derive(Debug, Deserialize)]

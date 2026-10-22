@@ -13,15 +13,24 @@
 //!   3. Probe `menu.gog.com/v1/account/basic` once for the numeric
 //!      `user_id` used in the achievements URL.
 //!   4. Per game: GET
-//!      `https://gameplay.gog.com/clients/{gameId}/users/{userId}/achievements`
-//!      (first page only; 401 / access_denied → 5s sleep + one retry),
-//!      map items to the shared `Achievement` shape, persist a cache row
-//!      (`source="gog"`, `provider_id=gameId`, `steam_app_id=0`).
-//!      Per-game failures are tolerated — the batch keeps going.
+//!      `https://gameplay.gog.com/clients/{productId}/users/{userId}/achievements`
+//!      (401 / access_denied → 5s sleep + one retry), following the
+//!      response `page_token` until the list is exhausted (bounded by
+//!      `MAX_PAGES`; a failure after the first page keeps the rows
+//!      already collected instead of failing the game), map items to
+//!      the shared `Achievement` shape, persist a cache row keyed by
+//!      the GameIndex game id (`source="gog"`,
+//!      `provider_id=productId`, `steam_app_id=0`). Per-game failures
+//!      are tolerated — the batch keeps going.
+//!
+//! Callers pass `AchievementSyncTarget`s: the GOG numeric product id
+//! (e.g. `"1207658925"`) goes in `store_id`, GameIndex's own `gog-{id}`
+//! game id in `game_id`.
 //!
 //! Endpoint + response shape are verbatim from the CommonPluginsStores
 //! plugin. Counts derive from the item list, never from `total_count`.
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -31,7 +40,7 @@ use tauri::{AppHandle, Manager};
 use super::auth;
 use super::client::GogClient;
 use super::cookies;
-use crate::achievements::{Achievement, GameAchievementData};
+use crate::achievements::{Achievement, AchievementSyncTarget, GameAchievementData};
 use crate::db;
 
 /// Browser UA for the achievements endpoint — verbatim from the
@@ -42,6 +51,10 @@ const GOG_ACHIEVEMENTS_USER_AGENT: &str =
 
 /// How long to wait before the single retry after a 401 / access_denied.
 const RETRY_DELAY: Duration = Duration::from_secs(5);
+
+/// Page budget per game. The endpoint returns 100 rows per page, so this
+/// caps a sync at 2000 achievements — far above any real title.
+const MAX_PAGES: u32 = 20;
 
 // ── Serializable types ──────────────────────────────────────────────────
 
@@ -68,6 +81,9 @@ pub struct GogAchievementResult {
 struct GogAchievementsResponse {
     /// Gate: we only consume the response when this is > 0.
     total_count: u32,
+    /// Opaque cursor for the next page; `null` / absent on the last one.
+    #[serde(default)]
+    page_token: Option<String>,
     #[serde(default)]
     items: Vec<GogAchievementItem>,
 }
@@ -98,10 +114,21 @@ struct GogAchievementItem {
 
 // ── Pure parse helpers (unit-tested, no network) ────────────────────────
 
-/// Parse the achievements endpoint response into the shared `Achievement`
-/// shape. Gates on `total_count > 0` — a valid response with zero
-/// achievements yields an empty list (the caller still persists a
-/// "no achievements" row instead of failing the batch).
+/// One parsed page of the achievements endpoint.
+#[derive(Debug)]
+struct GogAchievementsPage {
+    /// Provider row count across all pages.
+    total_count: u32,
+    /// Cursor for the next page, when the response carries one.
+    page_token: Option<String>,
+    /// Mapped rows, already gated on `total_count > 0`.
+    achievements: Vec<Achievement>,
+}
+
+/// Parse one achievements page into the shared `Achievement` shape.
+/// Gates on `total_count > 0` — a valid response with zero achievements
+/// yields an empty list (the caller still persists a "no achievements"
+/// row instead of failing the batch).
 ///
 /// Mapping (verbatim from the plugin):
 /// `api_name=achievement_key`, `display_name=name.trim()`,
@@ -109,13 +136,21 @@ struct GogAchievementItem {
 /// `icon_gray=image_url_locked`, `achieved=date_unlocked.is_some()`,
 /// `unlock_time=epoch(date_unlocked)` (0 when locked),
 /// `percent=rarity`. Empty-string icons are stored as-is.
-fn parse_achievements_response(json: &str) -> Result<Vec<Achievement>, String> {
+fn parse_achievements_page(json: &str) -> Result<GogAchievementsPage, String> {
     let response: GogAchievementsResponse = serde_json::from_str(json)
         .map_err(|e| format!("Failed to parse GOG achievements response: {e}"))?;
+    let page_token = response
+        .page_token
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty());
     if response.total_count == 0 {
-        return Ok(Vec::new());
+        return Ok(GogAchievementsPage {
+            total_count: 0,
+            page_token,
+            achievements: Vec::new(),
+        });
     }
-    Ok(response
+    let achievements = response
         .items
         .into_iter()
         .map(|item| {
@@ -139,12 +174,65 @@ fn parse_achievements_response(json: &str) -> Result<Vec<Achievement>, String> {
                 percent: item.rarity,
             }
         })
-        .collect())
+        .collect();
+    Ok(GogAchievementsPage {
+        total_count: response.total_count,
+        page_token,
+        achievements,
+    })
+}
+
+/// Append a page to the accumulated list, skipping achievement keys that
+/// already appeared (page boundaries have been known to repeat a row).
+/// Rows without a key are always kept — there is nothing to compare them
+/// by.
+fn append_page(
+    acc: &mut Vec<Achievement>,
+    seen_keys: &mut HashSet<String>,
+    page: Vec<Achievement>,
+) -> usize {
+    let before = acc.len();
+    for achievement in page {
+        if !achievement.api_name.is_empty() && !seen_keys.insert(achievement.api_name.clone()) {
+            continue;
+        }
+        acc.push(achievement);
+    }
+    acc.len() - before
+}
+
+/// Next cursor to request, or `None` when paging must stop: no cursor, a
+/// cursor already used, an empty page, the reported total reached, or
+/// the page budget spent.
+fn next_page_token(
+    page_token: Option<&str>,
+    page_rows: usize,
+    collected: usize,
+    total_count: u32,
+    pages_fetched: u32,
+    seen_tokens: &HashSet<String>,
+) -> Option<String> {
+    let token = page_token?.trim();
+    if token.is_empty()
+        || page_rows == 0
+        || pages_fetched >= MAX_PAGES
+        || seen_tokens.contains(token)
+    {
+        return None;
+    }
+    if total_count > 0 && collected as u32 >= total_count {
+        return None;
+    }
+    Some(token.to_string())
 }
 
 /// Assemble the `GameAchievementData` cache payload for one game.
 /// Counts are derived from the item list (never `total_count`).
-fn build_data(game_id: &str, mut achievements: Vec<Achievement>, now: u64) -> GameAchievementData {
+fn build_data(
+    provider_id: &str,
+    mut achievements: Vec<Achievement>,
+    now: u64,
+) -> GameAchievementData {
     sort_achievements(&mut achievements);
     let total = achievements.len() as u32;
     let unlocked = achievements.iter().filter(|a| a.achieved).count() as u32;
@@ -156,7 +244,7 @@ fn build_data(game_id: &str, mut achievements: Vec<Achievement>, now: u64) -> Ga
         locked: total - unlocked,
         last_synced: Some(now),
         source: "gog".to_string(),
-        provider_id: Some(game_id.to_string()),
+        provider_id: Some(provider_id.to_string()),
     }
 }
 
@@ -312,38 +400,26 @@ fn now_secs() -> u64 {
 
 // ── Per-game orchestration ─────────────────────────────────────────────
 
-/// Fetch + persist achievements for a single GOG game.
-///
-/// First page only (no pagination). 401 / access_denied → sleep 5s and
-/// retry once — still failing becomes a per-game error. Delisted games
-/// return 404 (often with an HTML error page); deserialization fails
-/// and the batch stays alive via the per-game error. A valid response
-/// with `total_count == 0` yields empty data (persisted as a "no
-/// achievements" row), not an error.
-async fn fetch_game_achievements(
+/// GET one achievements URL, retrying once after a 401 /
+/// `access_denied` body (the session cookie can be a beat behind the
+/// bearer token). Any other non-2xx is an error for this page.
+async fn get_achievements_page(
     client: &GogClient,
-    app: &AppHandle,
-    user_id: &str,
+    url: &str,
     game_id: &str,
-) -> Result<GameAchievementData, String> {
-    let url = format!(
-        "https://gameplay.gog.com/clients/{}/users/{}/achievements",
-        urlencoding::encode(game_id),
-        urlencoding::encode(user_id),
-    );
-
+) -> Result<String, String> {
     let mut attempts = 0u32;
-    let body = loop {
+    loop {
         let resp = client
-            .get(&url)
+            .get(url)
             .header(reqwest::header::USER_AGENT, GOG_ACHIEVEMENTS_USER_AGENT)
             .send()
             .await
             .map_err(|e| format!("GET {url}: {e}"))?;
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        let auth_issue = status == reqwest::StatusCode::UNAUTHORIZED
-            || body.contains("access_denied");
+        let auth_issue =
+            status == reqwest::StatusCode::UNAUTHORIZED || body.contains("access_denied");
         if auth_issue && attempts == 0 {
             eprintln!(
                 "[gog-achievements] game {game_id}: HTTP {} / access_denied — sleeping 5s and retrying once",
@@ -361,12 +437,110 @@ async fn fetch_game_achievements(
                 body_preview(&body)
             ));
         }
-        break body;
-    };
+        return Ok(body);
+    }
+}
 
-    let data = build_data(game_id, parse_achievements_response(&body)?, now_secs());
+/// Walk every page of one game's achievements, accumulating rows.
+///
+/// The first page is authoritative: a failure there fails the game. A
+/// later page that errors (or parses badly) is logged and the rows
+/// already collected are kept — a truncated list beats no list. A
+/// repeated cursor also stops the walk so a misbehaving API can't loop.
+async fn fetch_all_achievements(
+    client: &GogClient,
+    user_id: &str,
+    store_id: &str,
+    game_id: &str,
+) -> Result<Vec<Achievement>, String> {
+    let base = format!(
+        "https://gameplay.gog.com/clients/{}/users/{}/achievements",
+        urlencoding::encode(store_id),
+        urlencoding::encode(user_id),
+    );
 
-    // Persist the cache row: source="gog", provider_id=gameId, steam_app_id=0.
+    let mut achievements: Vec<Achievement> = Vec::new();
+    let mut seen_keys: HashSet<String> = HashSet::new();
+    let mut seen_tokens: HashSet<String> = HashSet::new();
+    let mut token: Option<String> = None;
+
+    for page in 1..=MAX_PAGES {
+        let url = match &token {
+            Some(t) => format!("{base}?page_token={}", urlencoding::encode(t)),
+            None => base.clone(),
+        };
+
+        let body = match get_achievements_page(client, &url, game_id).await {
+            Ok(body) => body,
+            Err(e) if page > 1 => {
+                eprintln!(
+                    "[gog-achievements] game {game_id}: page {page} failed ({e}) — keeping {} row(s)",
+                    achievements.len()
+                );
+                break;
+            }
+            Err(e) => return Err(e),
+        };
+
+        let parsed = match parse_achievements_page(&body) {
+            Ok(parsed) => parsed,
+            Err(e) if page > 1 => {
+                eprintln!(
+                    "[gog-achievements] game {game_id}: page {page} unparseable ({e}) — keeping {} row(s)",
+                    achievements.len()
+                );
+                break;
+            }
+            Err(e) => return Err(e),
+        };
+
+        let appended = append_page(&mut achievements, &mut seen_keys, parsed.achievements);
+
+        match next_page_token(
+            parsed.page_token.as_deref(),
+            appended,
+            achievements.len(),
+            parsed.total_count,
+            page,
+            &seen_tokens,
+        ) {
+            Some(next) => {
+                seen_tokens.insert(next.clone());
+                token = Some(next);
+            }
+            None => break,
+        }
+    }
+
+    Ok(achievements)
+}
+
+/// Fetch + persist achievements for a single GOG game.
+///
+/// `target.store_id` is the GOG numeric product id the API needs;
+/// `target.game_id` is the GameIndex id the cache row is keyed by. A
+/// delisted game returns 404 (often with an HTML error page) — that
+/// fails this game only, and the batch stays alive. A valid response
+/// with `total_count == 0` yields empty data (persisted as a "no
+/// achievements" row), not an error.
+async fn fetch_game_achievements(
+    client: &GogClient,
+    app: &AppHandle,
+    user_id: &str,
+    target: &AchievementSyncTarget,
+) -> Result<GameAchievementData, String> {
+    let store_id = target.store_id().ok_or_else(|| {
+        format!(
+            "No GOG product id for game '{}' — re-sync the GOG library to fill it in",
+            target.game_id
+        )
+    })?;
+
+    let achievements = fetch_all_achievements(client, user_id, store_id, &target.game_id).await?;
+    let data = build_data(store_id, achievements, now_secs());
+
+    // Persist the cache row: source="gog", provider_id=<product id>,
+    // steam_app_id=0, keyed by the GameIndex game id.
     let payload =
         serde_json::to_string(&data).map_err(|e| format!("serialize achievements: {e}"))?;
     let db_state = app
@@ -374,12 +548,12 @@ async fn fetch_game_achievements(
         .ok_or_else(|| "Database not initialized".to_string())?;
     db::achievements::upsert(
         db_state.inner(),
-        game_id,
+        &target.game_id,
         0,
         &payload,
         now_secs(),
         "gog",
-        Some(game_id),
+        Some(store_id),
     )?;
 
     Ok(data)
@@ -407,25 +581,25 @@ fn result_from_outcome(
     }
 }
 
-/// Every game id gets the same error — used for auth / client failures
+/// Every target gets the same error — used for auth / client failures
 /// so a broken session surfaces consistently across the whole batch.
-fn error_for_all(game_ids: Vec<String>, error: String) -> Vec<GogAchievementResult> {
-    game_ids
+fn error_for_all(games: Vec<AchievementSyncTarget>, error: String) -> Vec<GogAchievementResult> {
+    games
         .into_iter()
-        .map(|game_id| result_from_outcome(game_id, Err(error.clone())))
+        .map(|target| result_from_outcome(target.game_id, Err(error.clone())))
         .collect()
 }
 
-/// Fetch GOG achievements for one or more games (game ids are GOG
-/// numeric product ids). Auth is assembled once for the whole batch
-/// (load tokens → build `GogClient` → probe account/basic for the
-/// user id), mirroring `gog_sync_library`. Auth failure fails every
-/// game with the same error; per-game failures are tolerated and
-/// reported individually.
+/// Fetch GOG achievements for one or more games. Each target pairs the
+/// GameIndex game id (cache key) with the GOG numeric product id
+/// (`store_id`). Auth is assembled once for the whole batch (load tokens
+/// → build `GogClient` → probe account/basic for the user id), mirroring
+/// `gog_sync_library`. Auth failure fails every game with the same
+/// error; per-game failures are tolerated and reported individually.
 #[tauri::command]
 pub async fn gog_fetch_achievements(
     app: AppHandle,
-    game_ids: Vec<String>,
+    games: Vec<AchievementSyncTarget>,
 ) -> Vec<GogAchievementResult> {
     // 1. Load OAuth tokens. No refresh flow — an expired token is a
     //    clear "reconnect" error.
@@ -435,12 +609,12 @@ pub async fn gog_fetch_achievements(
             let msg = format!(
                 "Not authenticated with GOG — reconnect your GOG account in Settings. Detail: {e}"
             );
-            return error_for_all(game_ids, msg);
+            return error_for_all(games, msg);
         }
     };
     if tokens.expires_at <= now_secs() {
         return error_for_all(
-            game_ids,
+            games,
             "GOG access token has expired — reconnect your GOG account in Settings".to_string(),
         );
     }
@@ -450,7 +624,7 @@ pub async fn gog_fetch_achievements(
     let cookie_jar = load_cookie_jar(&app);
     let client = match GogClient::from_token(&tokens.access_token, cookie_jar) {
         Ok(c) => c,
-        Err(e) => return error_for_all(game_ids, format!("build GOG HTTP client: {e}")),
+        Err(e) => return error_for_all(games, format!("build GOG HTTP client: {e}")),
     };
 
     // 3. Probe account/basic once for the numeric user id.
@@ -458,30 +632,30 @@ pub async fn gog_fetch_achievements(
         Ok(p) => p,
         Err(e) => {
             return error_for_all(
-                game_ids,
+                games,
                 format!("GOG session expired — reconnect your GOG account. Detail: {e}"),
             )
         }
     };
     if !probe.is_logged_in {
         return error_for_all(
-            game_ids,
+            games,
             "GOG session expired — reconnect your GOG account".to_string(),
         );
     }
     let user_id = probe.user_id;
     if user_id.is_empty() {
         return error_for_all(
-            game_ids,
+            games,
             "GOG account probe returned no user id — reconnect your GOG account".to_string(),
         );
     }
 
     // 4. Per-game fetch — failures are tolerated individually.
-    let mut results = Vec::with_capacity(game_ids.len());
-    for game_id in &game_ids {
-        let outcome = fetch_game_achievements(&client, &app, &user_id, game_id).await;
-        results.push(result_from_outcome(game_id.clone(), outcome));
+    let mut results = Vec::with_capacity(games.len());
+    for target in &games {
+        let outcome = fetch_game_achievements(&client, &app, &user_id, target).await;
+        results.push(result_from_outcome(target.game_id.clone(), outcome));
     }
     results
 }
@@ -570,7 +744,7 @@ mod tests {
 
     #[test]
     fn parse_maps_unlocked_vs_locked_items() {
-        let parsed = parse_achievements_response(RESPONSE_JSON).unwrap();
+        let parsed = parse_achievements_page(RESPONSE_JSON).unwrap().achievements;
         assert_eq!(parsed.len(), 2);
 
         let unlocked = &parsed[0];
@@ -592,7 +766,7 @@ mod tests {
 
     #[test]
     fn parse_keeps_empty_string_icons_as_is() {
-        let parsed = parse_achievements_response(RESPONSE_JSON).unwrap();
+        let parsed = parse_achievements_page(RESPONSE_JSON).unwrap().achievements;
         let locked = &parsed[1];
         assert_eq!(locked.icon, "");
         assert_eq!(locked.icon_gray, "");
@@ -600,30 +774,100 @@ mod tests {
 
     #[test]
     fn parse_gates_on_total_count_zero() {
-        let parsed = parse_achievements_response(ZERO_COUNT_JSON).unwrap();
+        let parsed = parse_achievements_page(ZERO_COUNT_JSON).unwrap();
         assert!(
-            parsed.is_empty(),
+            parsed.achievements.is_empty(),
             "total_count == 0 must gate the response out"
         );
     }
 
     #[test]
     fn parse_returns_err_on_malformed_json() {
-        assert!(parse_achievements_response("not json").is_err());
-        assert!(parse_achievements_response("<html>404</html>").is_err());
-        assert!(parse_achievements_response("").is_err());
+        assert!(parse_achievements_page("not json").is_err());
+        assert!(parse_achievements_page("<html>404</html>").is_err());
+        assert!(parse_achievements_page("").is_err());
     }
 
     #[test]
     fn parse_coerces_null_rarity_to_zero() {
-        let parsed = parse_achievements_response(NULL_RARITY_JSON).unwrap();
+        let parsed = parse_achievements_page(NULL_RARITY_JSON).unwrap().achievements;
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].percent, 0.0);
     }
 
     #[test]
+    fn parse_reads_the_page_token() {
+        const PAGED_JSON: &str = r#"{
+          "total_count": 150,
+          "limit": 100,
+          "page_token": "  cursor-2  ",
+          "items": []
+        }"#;
+        let parsed = parse_achievements_page(PAGED_JSON).unwrap();
+        assert_eq!(parsed.total_count, 150);
+        assert_eq!(parsed.page_token.as_deref(), Some("cursor-2"));
+
+        let last = parse_achievements_page(RESPONSE_JSON).unwrap();
+        assert_eq!(last.page_token, None);
+    }
+
+    #[test]
+    fn append_page_dedupes_repeated_keys_and_keeps_keyless_rows() {
+        let mut acc = Vec::new();
+        let mut seen = HashSet::new();
+        let repeated = parse_achievements_page(RESPONSE_JSON).unwrap().achievements;
+
+        assert_eq!(append_page(&mut acc, &mut seen, repeated.clone()), 2);
+        // Same page again → every key is already known.
+        assert_eq!(append_page(&mut acc, &mut seen, repeated), 0);
+
+        let keyless = vec![Achievement {
+            api_name: String::new(),
+            display_name: "Keyless".to_string(),
+            description: String::new(),
+            icon: String::new(),
+            icon_gray: String::new(),
+            achieved: false,
+            unlock_time: 0,
+            percent: 0.0,
+        }];
+        assert_eq!(
+            append_page(&mut acc, &mut seen, keyless.clone()),
+            1,
+            "rows without an achievement key cannot be deduped"
+        );
+        assert_eq!(append_page(&mut acc, &mut seen, keyless), 1);
+        assert_eq!(acc.len(), 4);
+    }
+
+    #[test]
+    fn next_page_token_stops_at_the_end_of_the_list() {
+        let seen = HashSet::new();
+        // A cursor is handed back while rows remain.
+        assert_eq!(
+            next_page_token(Some("c2"), 100, 100, 150, 1, &seen).as_deref(),
+            Some("c2")
+        );
+        // Reaching the reported total ends the walk.
+        assert_eq!(next_page_token(Some("c2"), 50, 150, 150, 2, &seen), None);
+        // No cursor / blank cursor / empty page end the walk.
+        assert_eq!(next_page_token(None, 100, 100, 150, 1, &seen), None);
+        assert_eq!(next_page_token(Some("   "), 100, 100, 150, 1, &seen), None);
+        assert_eq!(next_page_token(Some("c2"), 0, 100, 150, 1, &seen), None);
+        // A cursor already used means the API is looping.
+        let mut used = HashSet::new();
+        used.insert("c2".to_string());
+        assert_eq!(next_page_token(Some("c2"), 100, 100, 150, 2, &used), None);
+        // Budget cap.
+        assert_eq!(
+            next_page_token(Some("c2"), 100, 100, 5000, MAX_PAGES, &seen),
+            None
+        );
+    }
+
+    #[test]
     fn build_data_derives_counts_from_items() {
-        let achievements = parse_achievements_response(RESPONSE_JSON).unwrap();
+        let achievements = parse_achievements_page(RESPONSE_JSON).unwrap().achievements;
         let data = build_data("1207658925", achievements, 1_700_000_000);
         assert_eq!(data.steam_app_id, 0);
         assert_eq!(data.total, 2);
@@ -685,8 +929,13 @@ mod tests {
 
     #[test]
     fn error_for_all_replicates_the_same_message() {
+        let target = |game_id: &str| AchievementSyncTarget {
+            game_id: game_id.to_string(),
+            store_id: Some(format!("{game_id}-store")),
+            namespace: None,
+        };
         let results = error_for_all(
-            vec!["a".to_string(), "b".to_string(), "c".to_string()],
+            vec![target("a"), target("b"), target("c")],
             "session expired — reconnect".to_string(),
         );
         assert_eq!(results.len(), 3);
@@ -696,5 +945,21 @@ mod tests {
         }
         assert_eq!(results[0].game_id, "a");
         assert_eq!(results[2].game_id, "c");
+    }
+
+    #[test]
+    fn sync_target_serializes_camel_case_from_the_frontend() {
+        let target: AchievementSyncTarget = serde_json::from_str(
+            r#"{"gameId":"gog-1207658925","storeId":"1207658925"}"#,
+        )
+        .unwrap();
+        assert_eq!(target.game_id, "gog-1207658925");
+        assert_eq!(target.store_id(), Some("1207658925"));
+        assert_eq!(target.namespace(), None);
+
+        // A target without a store id is valid JSON but cannot be fetched.
+        let bare: AchievementSyncTarget =
+            serde_json::from_str(r#"{"gameId":"gog-1","storeId":"  "}"#).unwrap();
+        assert_eq!(bare.store_id(), None);
     }
 }

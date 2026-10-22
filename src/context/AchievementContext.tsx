@@ -24,6 +24,7 @@ import type {
   AchievementUnlockRecord,
   AchievementCompletionEntry,
   AchievementLibraryStats,
+  AchievementSyncTarget,
   RetroSettings,
   RetroSettingsUpdate,
   RaConsole,
@@ -143,9 +144,9 @@ interface AchievementContextType {
   /** Sync a game's manually-tracked achievements (Steam schema + local unlocks). */
   syncManualAchievements: (gameId: string) => Promise<GameAchievementData>;
   /** Batch-sync achievements from GOG; applies each success and returns per-game results. */
-  syncGogAchievements: (gameIds: string[]) => Promise<BatchSyncResult[]>;
+  syncGogAchievements: (targets: AchievementSyncTarget[]) => Promise<BatchSyncResult[]>;
   /** Batch-sync achievements from Epic; applies each success and returns per-game results. */
-  syncEpicAchievements: (gameIds: string[]) => Promise<BatchSyncResult[]>;
+  syncEpicAchievements: (targets: AchievementSyncTarget[]) => Promise<BatchSyncResult[]>;
   /** Persist manual unlock state for a game and refresh its cached payload. */
   saveManualUnlocks: (
     gameId: string,
@@ -633,9 +634,9 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   // ── GOG / Epic batch sync ─────────────────────────────────────────────
 
   const syncGogAchievements = useCallback(
-    async (gameIds: string[]): Promise<BatchSyncResult[]> => {
+    async (targets: AchievementSyncTarget[]): Promise<BatchSyncResult[]> => {
       const results: BatchSyncResult[] = await invoke("gog_fetch_achievements", {
-        gameIds,
+        games: targets,
       });
       for (const result of results) {
         // A success row carries data; a soft note or hard error doesn't.
@@ -649,10 +650,10 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   );
 
   const syncEpicAchievements = useCallback(
-    async (gameIds: string[]): Promise<BatchSyncResult[]> => {
+    async (targets: AchievementSyncTarget[]): Promise<BatchSyncResult[]> => {
       const results: BatchSyncResult[] = await invoke(
         "epic_fetch_achievements",
-        { gameIds }
+        { games: targets }
       );
       for (const result of results) {
         if (result.data) {

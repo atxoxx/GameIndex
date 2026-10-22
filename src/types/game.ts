@@ -1124,6 +1124,19 @@ export interface ManualUnlock {
   unlockTime: number;
 }
 
+/** One game in a batch source sync (GOG / Epic).
+ *
+ *  `gameId` is GameIndex's own id — the achievements-cache key the
+ *  frontend looks the result up by. It is NOT what the store APIs want:
+ *  `storeId` carries the provider-side id (GOG numeric product id, Epic
+ *  AppName) and `namespace` the Epic sandbox id, which skips the
+ *  AppName → namespace lookup. */
+export interface AchievementSyncTarget {
+  gameId: string;
+  storeId?: string | null;
+  namespace?: string | null;
+}
+
 /** Per-game outcome of a batch source sync (GOG / Epic). */
 export interface BatchSyncResult {
   gameId: string;

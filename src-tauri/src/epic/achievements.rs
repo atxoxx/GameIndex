@@ -8,19 +8,24 @@
 //! token once (OAuth refresh-token grant, persisted back to the kv
 //! store) and retry the request once.
 //!
-//! Flow per game (game ids are Epic AppNames, e.g. "Chickens"):
-//!   1. Resolve the game's `namespace` via the library GetAssets API
+//! Flow per game:
+//!   0. Resolve the sandbox `namespace`: callers normally pass it
+//!      explicitly (`AchievementSyncTarget::namespace`, sourced from the
+//!      library's `epicNamespace`), which skips the network entirely.
+//!      Otherwise the game id is treated as an Epic AppName (e.g.
+//!      "Chickens") and mapped through the library GetAssets API
 //!      (paginated; cached in kv ~10 min with a fetched-at timestamp).
-//!   2. Fetch the achievement *schema* (display names / icons / rarity)
+//!   1. Fetch the achievement *schema* (display names / icons / rarity)
 //!      via the launcher store GraphQL endpoint. Keeps `productId`.
-//!   3. Fetch the player's *progress* (unlock state + dates) via the
+//!   2. Fetch the player's *progress* (unlock state + dates) via the
 //!      same endpoint.
-//!   4. Merge: schema items annotated with unlock state.
-//!   5. Map to the shared `Achievement` shape; counts derived from the
+//!   3. Merge: schema items annotated with unlock state.
+//!   4. Map to the shared `Achievement` shape; counts derived from the
 //!      merged list (the API's totalUnlocked/totalAchievements are
 //!      ignored).
-//!   6. Persist a cache row: `source="epic"`, `provider_id=namespace`,
-//!      `steam_app_id=0`, `last_synced=now`.
+//!   5. Persist a cache row keyed by the GameIndex game id:
+//!      `source="epic"`, `provider_id=namespace`, `steam_app_id=0`,
+//!      `last_synced=now`.
 //!
 //! SKIPPED (out of scope for this lane): the GetProductSlug /
 //! source-url step the upstream CommonPluginsStores plugin performs
@@ -35,7 +40,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 use super::types::EpicAuthTokens;
-use crate::achievements::{Achievement, GameAchievementData};
+use crate::achievements::{Achievement, AchievementSyncTarget, GameAchievementData};
 use crate::db;
 
 // ── Epic OAuth / API constants ──────────────────────────────────────
@@ -786,6 +791,30 @@ async fn resolve_namespace(
         .map(|r| r.namespace.clone()))
 }
 
+/// Where a target's sandbox namespace comes from.
+#[derive(Debug, PartialEq, Eq)]
+enum NamespaceHint<'a> {
+    /// Caller supplied the sandbox id — use it as-is, no API call.
+    Explicit(&'a str),
+    /// Caller supplied an Epic AppName — still needs GetAssets.
+    AppName(&'a str),
+    /// Neither: the caller only had GameIndex's own id.
+    Missing,
+}
+
+/// Prefer an explicit namespace over an AppName lookup. The library
+/// already stores `epicNamespace`, so the AppName path is a fallback for
+/// games imported before that field existed.
+fn namespace_hint(target: &AchievementSyncTarget) -> NamespaceHint<'_> {
+    if let Some(namespace) = target.namespace() {
+        return NamespaceHint::Explicit(namespace);
+    }
+    match target.store_id() {
+        Some(app_name) => NamespaceHint::AppName(app_name),
+        None => NamespaceHint::Missing,
+    }
+}
+
 // ── Steps 2–3: GraphQL schema + progress ────────────────────────────
 
 async fn fetch_schema(
@@ -877,29 +906,44 @@ async fn fetch_game_achievements(
     client: &Client,
     app: &AppHandle,
     auth: &mut EpicAuth,
-    game_id: &str,
+    target: &AchievementSyncTarget,
 ) -> Result<(GameAchievementData, Option<String>), String> {
-    // ── 1. Namespace mapping (GetAssets) ─────────────────────────────
-    let namespace = match resolve_namespace(client, app, auth, game_id).await {
-        Ok(Some(ns)) => ns,
-        Ok(None) => {
-            // No asset record with this AppName. The upstream plugin
-            // falls back to `namespace = game_id`, which is almost
-            // always wrong — we deliberately DON'T, and instead return
-            // empty data + a soft note so the UI can show "no
-            // achievements found".
+    // ── 0. Sandbox namespace ─────────────────────────────────────────
+    let namespace = match namespace_hint(target) {
+        NamespaceHint::Explicit(ns) => ns.to_string(),
+        NamespaceHint::AppName(app_name) => match resolve_namespace(client, app, auth, app_name).await
+        {
+            Ok(Some(ns)) => ns,
+            Ok(None) => {
+                // No asset record with this AppName. The upstream plugin
+                // falls back to `namespace = game_id`, which is almost
+                // always wrong — we deliberately DON'T, and instead
+                // return empty data + a soft note so the UI can show "no
+                // achievements found".
+                let note = format!(
+                    "No achievements found — '{}' is not in the Epic library asset list (AppName \
+                     could not be mapped to a namespace).",
+                    target.game_id
+                );
+                eprintln!("[epic-achievements] {note}");
+                return Ok((empty_epic_data(None), Some(note)));
+            }
+            Err(e) => return Err(e),
+        },
+        NamespaceHint::Missing => {
+            // Nothing to query with: the store id and the namespace are
+            // both unknown. Re-syncing the Epic library fills them in.
             let note = format!(
-                "No achievements found — '{}' is not in the Epic library asset list (AppName \
-                 could not be mapped to a namespace).",
-                game_id
+                "No achievements found — game '{}' has no Epic namespace. Re-sync your Epic \
+                 library to fill it in.",
+                target.game_id
             );
             eprintln!("[epic-achievements] {note}");
             return Ok((empty_epic_data(None), Some(note)));
         }
-        Err(e) => return Err(e),
     };
 
-    // ── 2. Achievement schema (GraphQL) ──────────────────────────────
+    // ── 1. Achievement schema (GraphQL) ──────────────────────────────
     let locale = resolve_locale(app);
     let parsed = fetch_schema(client, app, auth, &namespace, &locale).await?;
     if parsed.product_id.is_empty() {
@@ -912,12 +956,11 @@ async fn fetch_game_achievements(
         return Ok((empty_epic_data(Some(namespace)), Some(note)));
     }
 
-    // ── 3. Player progress (GraphQL) ─────────────────────────────────
+    // ── 2. Player progress (GraphQL) ─────────────────────────────────
     let account_id = auth.tokens.account_id.clone();
-    let progress =
-        fetch_progress(client, app, auth, &account_id, &parsed.product_id).await?;
+    let progress = fetch_progress(client, app, auth, &account_id, &parsed.product_id).await?;
 
-    // ── 4 + 5. Merge + map to the shared Achievement shape ───────────
+    // ── 3 + 4. Merge + map to the shared Achievement shape ───────────
     let mut achievements = merge_progress(&parsed.achievements, &progress);
     sort_achievements(&mut achievements);
 
@@ -934,7 +977,7 @@ async fn fetch_game_achievements(
         provider_id: Some(namespace.clone()),
     };
 
-    // ── 6. Persist the cache row ─────────────────────────────────────
+    // ── 5. Persist the cache row (keyed by the GameIndex game id) ────
     let payload =
         serde_json::to_string(&data).map_err(|e| format!("serialize achievements: {e}"))?;
     let db_state = app
@@ -942,7 +985,7 @@ async fn fetch_game_achievements(
         .ok_or_else(|| "Database not initialized".to_string())?;
     db::achievements::upsert(
         db_state.inner(),
-        game_id,
+        &target.game_id,
         0,
         &payload,
         now_secs(),
@@ -991,36 +1034,38 @@ fn result_from_outcome(
     }
 }
 
-/// Fetch Epic achievements for one or more games (game ids are Epic
-/// AppNames). Auth failure fails every game with the same error;
-/// per-game failures are tolerated and reported individually.
+/// Fetch Epic achievements for one or more games. Each target carries
+/// the GameIndex game id (cache key) plus either the sandbox namespace
+/// (preferred) or the Epic AppName (`store_id`). Auth failure fails
+/// every game with the same error; per-game failures are tolerated and
+/// reported individually.
 #[tauri::command]
 pub async fn epic_fetch_achievements(
     app: AppHandle,
-    game_ids: Vec<String>,
+    games: Vec<AchievementSyncTarget>,
 ) -> Vec<EpicAchievementResult> {
     let client = match build_client() {
         Ok(c) => c,
-        Err(e) => return error_for_all(game_ids, e),
+        Err(e) => return error_for_all(games, e),
     };
     let mut auth = match load_auth(&app) {
         Ok(a) => a,
-        Err(e) => return error_for_all(game_ids, e),
+        Err(e) => return error_for_all(games, e),
     };
 
-    let mut results = Vec::with_capacity(game_ids.len());
-    for game_id in &game_ids {
-        let outcome = fetch_game_achievements(&client, &app, &mut auth, game_id).await;
-        results.push(result_from_outcome(game_id.clone(), outcome));
+    let mut results = Vec::with_capacity(games.len());
+    for target in &games {
+        let outcome = fetch_game_achievements(&client, &app, &mut auth, target).await;
+        results.push(result_from_outcome(target.game_id.clone(), outcome));
     }
     results
 }
 
-/// Every game id gets the same error (used for auth / client failures).
-fn error_for_all(game_ids: Vec<String>, error: String) -> Vec<EpicAchievementResult> {
-    game_ids
+/// Every target gets the same error (used for auth / client failures).
+fn error_for_all(games: Vec<AchievementSyncTarget>, error: String) -> Vec<EpicAchievementResult> {
+    games
         .into_iter()
-        .map(|game_id| result_from_outcome(game_id, Err(error.clone())))
+        .map(|target| result_from_outcome(target.game_id, Err(error.clone())))
         .collect()
 }
 
@@ -1260,6 +1305,33 @@ mod tests {
         assert_eq!(parse_unlock_date("2024-01-01"), None);
         assert_eq!(parse_unlock_date("2024-13-01T00:00:00Z"), None);
         assert_eq!(parse_unlock_date("2024-01-32T00:00:00Z"), None);
+    }
+
+    #[test]
+    fn namespace_hint_prefers_explicit_namespace_over_app_name() {
+        let explicit = AchievementSyncTarget {
+            game_id: "epic-fn-abc".to_string(),
+            store_id: Some("Chickens".to_string()),
+            namespace: Some("  fn  ".to_string()),
+        };
+        assert_eq!(namespace_hint(&explicit), NamespaceHint::Explicit("fn"));
+
+        let app_name = AchievementSyncTarget {
+            game_id: "epic-Chickens".to_string(),
+            store_id: Some(" Chickens ".to_string()),
+            namespace: None,
+        };
+        assert_eq!(
+            namespace_hint(&app_name),
+            NamespaceHint::AppName("Chickens")
+        );
+
+        let blank = AchievementSyncTarget {
+            game_id: "epic-unknown".to_string(),
+            store_id: Some("   ".to_string()),
+            namespace: Some("".to_string()),
+        };
+        assert_eq!(namespace_hint(&blank), NamespaceHint::Missing);
     }
 
     #[test]

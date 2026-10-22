@@ -9,6 +9,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { usePersistedState } from "../hooks/usePersistedState";
 import {
   type AchievementSource,
+  type AchievementSyncTarget,
   gameDisplayName,
 } from "../types/game";
 import {
@@ -236,8 +237,14 @@ export default function AchievementsPage() {
     const manualGames = games.filter((g) =>
       (links[g.id] ?? []).some((l) => l.source === "manual")
     );
-    const gogIds = games.filter((g) => g.gogGameId).map((g) => g.id);
-    const epicIds = games.filter((g) => g.epicNamespace).map((g) => g.id);
+    // Store-side ids, not GameIndex ids: the backend builds its API URLs
+    // from these while keying the cache rows by the game id.
+    const gogTargets: AchievementSyncTarget[] = games
+      .filter((g) => g.gogGameId)
+      .map((g) => ({ gameId: g.id, storeId: g.gogGameId }));
+    const epicTargets: AchievementSyncTarget[] = games
+      .filter((g) => g.epicNamespace)
+      .map((g) => ({ gameId: g.id, namespace: g.epicNamespace }));
 
     let total = 0;
     let failed = 0;
@@ -264,11 +271,11 @@ export default function AchievementsPage() {
           Promise.all(manualGames.map((g) => syncManualAchievements(g.id)))
         );
       }
-      if (gogIds.length > 0) {
-        await run("GOG", () => syncGogAchievements(gogIds));
+      if (gogTargets.length > 0) {
+        await run("GOG", () => syncGogAchievements(gogTargets));
       }
-      if (epicIds.length > 0) {
-        await run("Epic", () => syncEpicAchievements(epicIds));
+      if (epicTargets.length > 0) {
+        await run("Epic", () => syncEpicAchievements(epicTargets));
       }
     } finally {
       setBulkSyncing(false);

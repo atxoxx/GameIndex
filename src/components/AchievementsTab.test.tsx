@@ -19,12 +19,16 @@ const { registerAction, registered } = vi.hoisted(() => {
 
 const {
   syncGameAchievements,
+  syncGogAchievements,
+  syncEpicAchievements,
   getGameAchievements,
   loadGameAchievements,
   fetchManualSchema,
   linksHolder,
 } = vi.hoisted(() => ({
   syncGameAchievements: vi.fn().mockResolvedValue(undefined),
+  syncGogAchievements: vi.fn(),
+  syncEpicAchievements: vi.fn(),
   getGameAchievements: vi.fn(),
   loadGameAchievements: vi.fn().mockResolvedValue(null),
   fetchManualSchema: vi.fn().mockResolvedValue([]),
@@ -61,8 +65,8 @@ vi.mock("../context/AchievementContext", () => ({
     syncLocalAchievements: vi.fn(),
     syncRetroAchievements: vi.fn(),
     syncManualAchievements: vi.fn().mockResolvedValue(undefined),
-    syncGogAchievements: vi.fn(),
-    syncEpicAchievements: vi.fn(),
+    syncGogAchievements,
+    syncEpicAchievements,
     removeManualLink: vi.fn(),
     getRetroSettings: vi.fn().mockResolvedValue({ consoleMap: [] }),
     fetchManualSchema,
@@ -106,6 +110,8 @@ describe("AchievementsTab controller focus", () => {
   beforeEach(() => {
     registered.length = 0;
     syncGameAchievements.mockClear();
+    syncGogAchievements.mockReset();
+    syncEpicAchievements.mockReset();
     linksHolder.links = {};
     getGameAchievements.mockReset();
     getGameAchievements.mockReturnValue(POPULATED);
@@ -140,6 +146,45 @@ describe("AchievementsTab controller focus", () => {
     expect(view!.tabIndex).toBe(0);
     expect(registered.some((e) => e.element === source)).toBe(true);
     expect(registered.some((e) => e.element === view)).toBe(true);
+  });
+
+  it("sends the GOG product id, not the GameIndex id, when switching source", async () => {
+    syncGogAchievements.mockResolvedValue([{ gameId: "game-1", data: POPULATED }]);
+
+    const { container } = render(<AchievementsTab game={game} />);
+
+    const gog = container.querySelector<HTMLButtonElement>('[data-source="gog"]');
+    expect(gog).not.toBeNull();
+    act(() => gog!.click());
+
+    await vi.waitFor(() =>
+      expect(syncGogAchievements).toHaveBeenCalledWith([
+        { gameId: "game-1", storeId: "1207658930" },
+      ]),
+    );
+  });
+
+  it("sends the Epic namespace so the AppName lookup is skipped", async () => {
+    const epicGame = {
+      ...game,
+      platform: "Epic",
+      steamAppId: undefined,
+      epicNamespace: "fn",
+      epicCatalogItemId: "catalog-1",
+    } as Game;
+    syncEpicAchievements.mockResolvedValue([{ gameId: game.id, data: POPULATED }]);
+
+    const { container } = render(<AchievementsTab game={epicGame} />);
+
+    const epic = container.querySelector<HTMLButtonElement>('[data-source="epic"]');
+    expect(epic).not.toBeNull();
+    act(() => epic!.click());
+
+    await vi.waitFor(() =>
+      expect(syncEpicAchievements).toHaveBeenCalledWith([
+        { gameId: "game-1", namespace: "fn" },
+      ]),
+    );
   });
 
   it("registers the empty-state manual-link controls with their own focus instances", async () => {
