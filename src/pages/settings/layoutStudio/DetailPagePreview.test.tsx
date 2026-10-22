@@ -69,3 +69,15 @@ describe("DetailPagePreview — Save Backups card", () => {
     expect(screen.queryByText("gameSaveBackup")).toBeNull();
   });
 });
+
+describe("DetailPagePreview — Value for Money card", () => {
+  it("renders the value card in the library game preview", () => {
+    renderPreview("game");
+    expect(screen.getByText("gameValue")).toBeInTheDocument();
+  });
+
+  it("omits the value card from the store game preview", () => {
+    renderPreview("storeGame");
+    expect(screen.queryByText("gameValue")).toBeNull();
+  });
+});

@@ -60,9 +60,10 @@ function noopGridChange() {}
  *   Full   gameHero · gameTabs · gameQuickStats
  *   Main   gameAbout · gameStoryline · gameMedia · gameSysReq · gameRelations
  *   Side   gamePulse (library only), then the sidebar cards:
- *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameSaveBackup
- *          (library only) · gameRatings · gameTimeToBeat · gameSpecsCard ·
- *          gameProtonDb · gameCrackwatch · gameReleases · gameLanguages
+ *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameValue (library
+ *          only) · gameSaveBackup (library only) · gameRatings ·
+ *          gameTimeToBeat · gameSpecsCard · gameProtonDb · gameCrackwatch ·
+ *          gameReleases · gameLanguages
  *
  *   `game` (library detail) is fully widget-addressable. `storeGame` (store
  *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`
@@ -96,6 +97,7 @@ const SIDE_CARD_WIDGETS: PageWidgetKey[] = [
   "gameInfoKpi",
   "gameDlcCard",
   "gameSteamFeatures",
+  "gameValue",
   "gameSaveBackup",
   "gameRatings",
   "gameTimeToBeat",
@@ -288,6 +290,20 @@ function SteamFeaturesBody() {
   );
 }
 
+/** Value for money: the rate tiles over the library bar and fact rows. */
+function ValueBody() {
+  return (
+    <span className="studio-detail-mini-body">
+      <span className="studio-detail-kpi-tiles">
+        <MiniTile />
+        <MiniTile />
+      </span>
+      <Track value={72} />
+      <MetaRows count={2} label={44} value={28} />
+    </span>
+  );
+}
+
 /** DLC card: the family-share strip over the DLC preview rows. */
 function DlcBody() {
   return (
@@ -424,13 +440,15 @@ function WidgetBody({ widget }: { widget: PageWidgetKey }) {
       return <PostersBody />;
     case "gamePulse":
       return <PulseBody />;
-    // The eleven individual sidebar cards, each its own widget slot now.
+    // The twelve individual sidebar cards, each its own widget slot now.
     case "gameInfoKpi":
       return <InfoKpiBody />;
     case "gameDlcCard":
       return <DlcBody />;
     case "gameSteamFeatures":
       return <SteamFeaturesBody />;
+    case "gameValue":
+      return <ValueBody />;
     case "gameSaveBackup":
       return <SaveBackupBody />;
     case "gameRatings":

@@ -495,6 +495,16 @@ describe("detail side-card order migration", () => {
     expect(result).toHaveLength(saved.length + 1);
   });
 
+  it("anchors the value card between Steam Features and Save Backups", () => {
+    const saved = (interfacePageDef("game")?.items ?? []).filter(
+      (key) => key !== "gameValue",
+    );
+    const result = normalizePageItemOrder("game", saved);
+    const index = result.indexOf("gameValue");
+    expect(result[index - 1]).toBe("gameSteamFeatures");
+    expect(result[index + 1]).toBe("gameSaveBackup");
+  });
+
   it("expands the retired specs group into the five spec cards", () => {
     const result = normalizePageItemOrder("game", ["gameSpecs"]);
     expect(result.slice(0, 5)).toEqual([...SIDE_SPECS_KEYS]);

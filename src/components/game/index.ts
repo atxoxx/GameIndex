@@ -17,6 +17,7 @@ export { default as GameQuickActions } from "./GameQuickActions";
 export { default as GameMediaSpotlight } from "./GameMediaSpotlight";
 export { default as GameQuickStatsBar } from "./GameQuickStatsBar";
 export { default as GameActivityPulseCard } from "./GameActivityPulseCard";
+export { default as GameValueCard } from "./GameValueCard";
 export { WineLogsModal } from "./WineLogsModal";
 
 export { default as InfoKpiCard } from "./InfoKpiCard";

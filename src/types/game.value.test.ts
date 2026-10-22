@@ -2,9 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   costPerHour,
   formatCost,
+  hoursToReachRate,
   libraryValueStats,
   parsePlayTime,
   resolvePurchaseCost,
+  valueBenchmark,
+  valueHistory,
+  valueProjection,
+  valueVerdict,
   type Game,
 } from "./game";
 
@@ -122,5 +127,146 @@ describe("resolvePurchaseCost", () => {
       currency: "USD",
       source: "price",
     });
+  });
+});
+
+describe("valueVerdict", () => {
+  it("buckets rates at the documented boundaries", () => {
+    expect(valueVerdict(0, "USD")).toBe("great");
+    expect(valueVerdict(2, "USD")).toBe("great");
+    expect(valueVerdict(2.01, "USD")).toBe("fair");
+    expect(valueVerdict(5, "USD")).toBe("fair");
+    expect(valueVerdict(5.01, "USD")).toBe("poor");
+  });
+
+  it("returns null without a usable rate", () => {
+    expect(valueVerdict(null, "USD")).toBeNull();
+    expect(valueVerdict(undefined, "USD")).toBeNull();
+    expect(valueVerdict(-1, "USD")).toBeNull();
+    expect(valueVerdict(NaN, "USD")).toBeNull();
+  });
+
+  it("refuses to judge currencies it has no price level for", () => {
+    expect(valueVerdict(1, "JPY")).toBeNull();
+    expect(valueVerdict(1, "EUR")).toBe("great");
+  });
+});
+
+describe("valueBenchmark", () => {
+  const target = game({ id: "target", purchaseCost: 60, playTime: "20h" }); // 3/h
+
+  it("reports the median and the share of worse-value games", () => {
+    const library = [
+      target,
+      game({ id: "cheap", purchaseCost: 10, playTime: "10h" }), // 1/h
+      game({ id: "same", purchaseCost: 30, playTime: "10h" }), // 3/h
+      game({ id: "pricey", purchaseCost: 50, playTime: "5h" }), // 10/h
+      game({ id: "mid", purchaseCost: 20, playTime: "10h" }), // 2/h
+    ];
+    const result = valueBenchmark(library, target)!;
+    expect(result.count).toBe(5);
+    expect(result.medianPerHour).toBeCloseTo(3);
+    expect(result.betterThan).toBeCloseTo(0.2);
+  });
+
+  it("skips games priced in another currency", () => {
+    const library = [
+      target,
+      game({ id: "eur", purchaseCost: 100, purchaseCurrency: "EUR", playTime: "1h" }),
+      game({ id: "free", purchaseCost: 0, playTime: "10h" }),
+      game({ id: "priceless" }),
+    ];
+    const result = valueBenchmark(library, target)!;
+    expect(result.count).toBe(2);
+    expect(result.currency).toBe("USD");
+  });
+
+  it("withholds the percentile until there are at least three rates", () => {
+    const library = [target, game({ id: "cheap", purchaseCost: 10, playTime: "10h" })];
+    const result = valueBenchmark(library, target)!;
+    expect(result.count).toBe(2);
+    expect(result.betterThan).toBeNull();
+  });
+
+  it("returns null when the game itself has no rate", () => {
+    expect(valueBenchmark([target], game({ id: "unpriced" }))).toBeNull();
+    expect(valueBenchmark([target], undefined)).toBeNull();
+  });
+});
+
+describe("hoursToReachRate", () => {
+  it("counts the remaining hours to a target rate", () => {
+    // 60 USD at 2/hour needs 30h; 10h are already on the clock.
+    expect(hoursToReachRate(60, "10h", 2)).toBeCloseTo(20);
+  });
+
+  it("returns 0 once the target is already met", () => {
+    expect(hoursToReachRate(10, "20h", 1)).toBe(0);
+    expect(hoursToReachRate(0, "0h", 1)).toBe(0);
+  });
+
+  it("rejects invalid input", () => {
+    expect(hoursToReachRate(-1, "10h", 2)).toBeNull();
+    expect(hoursToReachRate(60, "10h", 0)).toBeNull();
+    expect(hoursToReachRate(60, "10h", NaN)).toBeNull();
+    expect(hoursToReachRate(NaN, "10h", 2)).toBeNull();
+  });
+});
+
+describe("valueProjection", () => {
+  it("projects the rate at the story milestone", () => {
+    const result = valueProjection(60, "5h", { normally: 20 * 3600 });
+    expect(result).toEqual({ hours: 20, perHour: 3, milestone: "story" });
+  });
+
+  it("falls through to the completionist milestone", () => {
+    const result = valueProjection(60, "25h", { normally: 20 * 3600, completely: 50 * 3600 });
+    expect(result?.milestone).toBe("complete");
+    expect(result?.perHour).toBeCloseTo(1.2);
+  });
+
+  it("returns null when both milestones are already behind the playtime", () => {
+    expect(
+      valueProjection(60, "60h", { normally: 20 * 3600, completely: 50 * 3600 })
+    ).toBeNull();
+  });
+
+  it("returns null without time-to-beat data or a valid cost", () => {
+    expect(valueProjection(60, "5h", null)).toBeNull();
+    expect(valueProjection(60, "5h", {})).toBeNull();
+    expect(valueProjection(NaN, "5h", { normally: 20 * 3600 })).toBeNull();
+  });
+});
+
+describe("valueHistory", () => {
+  // Fixed "now" so the 12-month window is deterministic.
+  const now = Date.UTC(2026, 5, 15);
+
+  it("walks cumulative hours month by month and drops the rate", () => {
+    const points = valueHistory(
+      60,
+      [
+        { date: "2024-12-01T00:00:00.000Z", durationMin: 1200 }, // before the window
+        { date: "2026-05-10T00:00:00.000Z", durationMin: 300 },
+        { date: "2026-06-10T00:00:00.000Z", durationMin: 600 },
+      ],
+      12,
+      now
+    );
+    expect(points).toHaveLength(12);
+    const may = points[points.length - 2];
+    const june = points[points.length - 1];
+    // 20h baseline + 5h = 25h → 2.40/h, then 35h → 1.71/h
+    expect(may.hours).toBeCloseTo(25);
+    expect(may.rate).toBeCloseTo(60 / 25);
+    expect(june.hours).toBeCloseTo(35);
+    expect(june.rate).toBeCloseTo(60 / 35);
+  });
+
+  it("returns nothing without sessions or a valid cost", () => {
+    expect(valueHistory(60, [], 12, now)).toEqual([]);
+    expect(
+      valueHistory(NaN, [{ date: "2026-06-01T00:00:00.000Z", durationMin: 600 }], 12, now)
+    ).toEqual([]);
   });
 });

@@ -3147,20 +3147,236 @@
   padding-inline: var(--space-sm);
 }
 
-/* "est." marker on the value tile when the number is derived from the
- * current store price rather than a saved purchase cost. */
-.quick-stats-tile__est {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-}
-
 /* Rate suffix on the value tile ("2.20 USD/h") so the number can't be
  * mistaken for the game's price. */
 .quick-stats-tile__per-hour {
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
+}
+
+/* ==============================
+   Value for Money Card
+   ==============================
+   Detail-page sidebar KPI for the saved purchase cost. Leads with the rate,
+   then the two facts behind it, the library percentile, what finishing would
+   do to the rate, and the trend. The hue is the same teal as the quick-stat
+   tile so the two read as the same metric. */
+.game-value-card {
+  --value-hue: color-mix(in srgb, var(--color-info) 55%, var(--color-success));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.game-value-card .game-section-title {
+  margin-bottom: 0;
+}
+
+.game-value-card__hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.game-value-card__rate {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.game-value-card__unit {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.game-value-card__verdict {
+  padding: var(--space-3xs) var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.game-value-card__verdict--great {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 32%, transparent);
+}
+
+.game-value-card__verdict--fair {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 32%, transparent);
+}
+
+.game-value-card__verdict--poor {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 32%, transparent);
+}
+
+.game-value-card__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.game-value-card--empty {
+  gap: var(--space-sm);
+}
+
+.game-value-card--empty .ui-btn {
+  align-self: flex-start;
+}
+
+.game-value-card__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  padding-block: var(--space-sm);
+  border-block: 1px solid var(--color-border-faint);
+}
+
+.game-value-card__fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.game-value-card__fact-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.game-value-card__fact-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.game-value-card__edit {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.game-value-card__edit:hover,
+.game-value-card__edit:focus-visible {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.game-value-card__compare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.game-value-card__bar {
+  position: relative;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  overflow: hidden;
+}
+
+.game-value-card__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--value-hue),
+    color-mix(in srgb, var(--value-hue) 55%, var(--color-success))
+  );
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.game-value-card__caption {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.game-value-card__caption--muted {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.game-value-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.game-value-card__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.game-value-card__row-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--value-hue) 12%, transparent);
+  color: var(--value-hue);
+}
+
+.game-value-card__spark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-faint);
+}
+
+.game-value-card__spark-svg {
+  display: block;
+  width: 100%;
+  height: 34px;
+}
+
+.game-value-card__spark-line {
+  fill: none;
+  stroke: var(--value-hue);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }

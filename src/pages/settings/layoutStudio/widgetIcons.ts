@@ -45,6 +45,7 @@ import {
   Trophy,
   UserCheck,
   Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -87,6 +88,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   gameSysReq: Cpu,
   gameRelations: Boxes,
   gamePulse: Activity,
+  gameValue: Wallet,
   // Game Detail — the individual sidebar cards the detail pages render.
   gameInfoKpi: Info,
   gameDlcCard: Puzzle,

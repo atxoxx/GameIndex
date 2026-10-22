@@ -2021,6 +2021,173 @@ export function libraryValueStats(games: Game[]): LibraryValueStats | null {
   return { byCurrency, bestValue, worstValue };
 }
 
+// ─── Value for money: per-game verdict, benchmark & projection ──────────────
+
+/** Cost-per-hour buckets for the value verdict, keyed by the currency they
+ *  are quoted in. Only currencies whose price level is close enough to USD
+ *  are listed: the app does no FX conversion, so calling 15000 JPY/hour
+ *  "poor value" would be nonsense. A currency missing from this table simply
+ *  gets no verdict. */
+export const VALUE_RATE_THRESHOLDS: Record<string, { great: number; fair: number }> = {
+  USD: { great: 2, fair: 5 },
+  EUR: { great: 2, fair: 5 },
+  GBP: { great: 2, fair: 5 },
+};
+
+export type ValueVerdict = "great" | "fair" | "poor";
+
+/** Bucket a $/hour rate into a verdict, or `null` when the rate is missing or
+ *  the currency has no defined buckets. A free game (rate 0) is `great`. */
+export function valueVerdict(
+  perHour: number | null | undefined,
+  currency?: string
+): ValueVerdict | null {
+  if (perHour == null || !isFinite(perHour) || perHour < 0) return null;
+  const thresholds = VALUE_RATE_THRESHOLDS[(currency || "USD").toUpperCase()];
+  if (!thresholds) return null;
+  if (perHour <= thresholds.great) return "great";
+  if (perHour <= thresholds.fair) return "fair";
+  return "poor";
+}
+
+/** The rate a game is chasing in the "hours to reach" line. One currency
+ *  unit per hour is the classic "worth it" bar and reads well in every
+ *  supported language. */
+export const VALUE_TARGET_RATE = 1;
+
+export interface ValueBenchmark {
+  currency: string;
+  /** Priced games in the same currency with a usable rate (this one included). */
+  count: number;
+  medianPerHour: number;
+  /** Share of those games this one beats (higher rate = worse value), 0..1.
+   *  `null` with fewer than 3 peers — a percentile over two games is noise. */
+  betterThan: number | null;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+type ValueInputs = Pick<Game, "purchaseCost" | "purchaseCurrency" | "playTime">;
+
+/** Position a game's rate inside the user's own priced library, currency by
+ *  currency. Returns `null` when the game has no usable rate. */
+export function valueBenchmark(
+  games: ValueInputs[],
+  game: ValueInputs | undefined
+): ValueBenchmark | null {
+  const perHour = costPerHour(game);
+  if (perHour == null) return null;
+  const currency = (game?.purchaseCurrency || "USD").toUpperCase();
+  const rates: number[] = [];
+  for (const entry of games) {
+    if ((entry.purchaseCurrency || "USD").toUpperCase() !== currency) continue;
+    const rate = costPerHour(entry);
+    if (rate != null) rates.push(rate);
+  }
+  if (rates.length === 0) return null;
+  const worse = rates.filter((rate) => rate > perHour).length;
+  return {
+    currency,
+    count: rates.length,
+    medianPerHour: median(rates),
+    betterThan: rates.length >= 3 ? worse / rates.length : null,
+  };
+}
+
+/** Hours still to play before `cost` amortises down to `targetPerHour`.
+ *  Returns 0 once the target is already met, `null` for invalid input. */
+export function hoursToReachRate(
+  cost: number,
+  playTime: string | undefined,
+  targetPerHour: number
+): number | null {
+  if (!isFinite(cost) || cost < 0) return null;
+  if (!isFinite(targetPerHour) || targetPerHour <= 0) return null;
+  const spentHours = parsePlayTime(playTime || "0h") / 60;
+  return Math.max(0, cost / targetPerHour - spentHours);
+}
+
+export interface ValueProjection {
+  /** Hours on the clock when the projection lands (story or 100% run). */
+  hours: number;
+  /** Cost per hour at that point. */
+  perHour: number;
+  /** Which milestone produced it. */
+  milestone: "story" | "complete";
+}
+
+/** What the rate becomes if the user finishes the game. Returns `null` when
+ *  there is no time-to-beat data or the playtime already passed both
+ *  milestones (the current rate is then the final one). */
+export function valueProjection(
+  cost: number,
+  playTime: string | undefined,
+  timeToBeat?: { normally?: number; hastily?: number; completely?: number } | null
+): ValueProjection | null {
+  if (!isFinite(cost) || cost < 0 || !timeToBeat) return null;
+  const playedHours = parsePlayTime(playTime || "0h") / 60;
+  const storyHours = (timeToBeat.normally || timeToBeat.hastily || 0) / 3600;
+  const completeHours = (timeToBeat.completely || 0) / 3600;
+  if (storyHours > 0 && playedHours < storyHours) {
+    return { hours: storyHours, perHour: cost / storyHours, milestone: "story" };
+  }
+  if (completeHours > 0 && playedHours < completeHours) {
+    return { hours: completeHours, perHour: cost / completeHours, milestone: "complete" };
+  }
+  return null;
+}
+
+export interface ValueHistoryPoint {
+  /** First day of the month, ISO (`2026-03-01`). */
+  month: string;
+  /** Cumulative hours played at that point. */
+  hours: number;
+  /** Cost per hour at that point. */
+  rate: number;
+}
+
+/** Cumulative cost-per-hour at each of the last `months` month ends, so the
+ *  card can draw the rate falling as playtime accumulates. Months with no
+ *  recorded play are skipped (the curve only moves when hours do). */
+export function valueHistory(
+  cost: number,
+  sessions: Pick<GameSession, "date" | "durationMin">[],
+  months = 12,
+  now: number = Date.now()
+): ValueHistoryPoint[] {
+  if (!isFinite(cost) || cost < 0 || months <= 0) return [];
+  const nowDate = new Date(now);
+  const firstMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() - (months - 1), 1);
+  const baselineMinutes = sessions.reduce((sum, session) => {
+    const time = Date.parse(session.date);
+    return Number.isFinite(time) && time < firstMonth.getTime()
+      ? sum + Math.max(0, session.durationMin)
+      : sum;
+  }, 0);
+
+  const points: ValueHistoryPoint[] = [];
+  let cumulative = baselineMinutes;
+  for (let i = 0; i < months; i += 1) {
+    const start = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + i, 1);
+    const end = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + i + 1, 1);
+    const monthMinutes = sessions.reduce((sum, session) => {
+      const time = Date.parse(session.date);
+      return Number.isFinite(time) && time >= start.getTime() && time < end.getTime()
+        ? sum + Math.max(0, session.durationMin)
+        : sum;
+    }, 0);
+    cumulative += monthMinutes;
+    if (cumulative < COST_PER_HOUR_MIN_HOURS * 60) continue;
+    const hours = cumulative / 60;
+    points.push({ month: start.toISOString(), hours, rate: cost / hours });
+  }
+  return points;
+}
+
 /**
  * Format a size in bytes as a human-readable string with 1 decimal.
  *

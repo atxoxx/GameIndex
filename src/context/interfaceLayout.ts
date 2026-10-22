@@ -58,6 +58,7 @@ export type PageWidgetKey =
   | "gameSysReq"
   | "gameRelations"
   | "gamePulse"
+  | "gameValue"
   | "gameInfoKpi"
   | "gameSteamFeatures"
   | "gameRatings"
@@ -178,6 +179,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "gameSysReq",
   "gameRelations",
   "gamePulse",
+  "gameValue",
   "gameInfoKpi",
   "gameSteamFeatures",
   "gameRatings",
@@ -300,6 +302,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   gameSysReq: "ui-item-gameSysReq",
   gameRelations: "ui-item-gameRelations",
   gamePulse: "ui-item-gamePulse",
+  gameValue: "ui-item-gameValue",
   gameInfoKpi: "ui-item-gameInfoKpi",
   gameSteamFeatures: "ui-item-gameSteamFeatures",
   gameRatings: "ui-item-gameRatings",
@@ -422,6 +425,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   gameSysReq: "settings.interface.widgetGameSysReq",
   gameRelations: "settings.interface.widgetGameRelations",
   gamePulse: "settings.interface.widgetGamePulse",
+  gameValue: "settings.interface.widgetGameValue",
   gameInfoKpi: "settings.interface.widgetGameInfoKpi",
   gameSteamFeatures: "settings.interface.widgetGameSteamFeatures",
   gameRatings: "settings.interface.widgetGameRatings",
@@ -596,6 +600,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "gameInfoKpi",
       "gameDlcCard",
       "gameSteamFeatures",
+      "gameValue",
       "gameSaveBackup",
       "gameRatings",
       "gameTimeToBeat",
@@ -845,7 +850,7 @@ const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
 const NEW_PAGE_WIDGET_ANCHORS: Partial<
   Record<InterfacePageKey, Record<string, PageWidgetKey>>
 > = {
-  game: { gameSaveBackup: "gameSteamFeatures" },
+  game: { gameValue: "gameSteamFeatures", gameSaveBackup: "gameValue" },
 };
 
 /** Normalize a persisted per-page order: drop unknown/duplicates, migrate

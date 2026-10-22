@@ -1,16 +1,13 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useMemo } from "react";
 import type { Game, SizeUnit } from "../../types/game";
 import {
   costPerHour,
   formatCost,
   formatSize,
-  gameDisplayName,
   parsePlayTime,
   resolvePurchaseCost,
 } from "../../types/game";
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
-import { usePrice } from "../../context/PriceContext";
-import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar } from "./icons";
@@ -94,14 +91,12 @@ export default function GameQuickStatsBar({
   const sizeValue = game.sizeBytes ?? null;
   const formattedSize = sizeValue != null ? formatSize(sizeValue, sizeUnit) : null;
 
-  // 3b. Value for money — a saved purchase cost wins; otherwise the
-  // price the app already fetched for this title (the same CheapShark
-  // cache behind store price badges) is reused, so $/hour works without
-  // the user typing anything. Playtime still has to clear the noise
-  // threshold or the helper returns null.
-  const knownPrice = usePrice(gameDisplayName(game) || game.name);
-  const knownPriceValue = knownPrice?.salePrice ?? knownPrice?.normalPrice ?? null;
-  const resolvedCost = resolvePurchaseCost(game, knownPriceValue);
+  // 3b. Value for money — the rate only ever uses a cost the user saved.
+  // A store price is not what this copy cost them, and guessing it (then
+  // persisting the guess) would make a later real price impossible to
+  // distinguish. Playtime still has to clear the noise threshold or the
+  // helper returns null.
+  const resolvedCost = resolvePurchaseCost(game);
   const valuePerHour =
     resolvedCost != null
       ? costPerHour({
@@ -110,20 +105,6 @@ export default function GameQuickStatsBar({
           playTime: game.playTime,
         })
       : null;
-  const costFromPrice = resolvedCost?.source === "price";
-
-  // Persist the known price once when the page opens and the user has no
-  // stored cost yet: the library, Activity dashboard and Wrapped all read
-  // the saved value, and a stored cost always wins from then on.
-  const { updateGame } = useGames();
-  const autoCostRef = useRef(false);
-  useEffect(() => {
-    if (game.purchaseCost != null) return;
-    if (knownPriceValue == null) return;
-    if (autoCostRef.current) return;
-    autoCostRef.current = true;
-    updateGame(game.id, { purchaseCost: knownPriceValue, purchaseCurrency: "USD" });
-  }, [game.id, game.purchaseCost, knownPriceValue, updateGame]);
 
   // 4. Last played
   const lastPlayedRelative = useMemo(() => {
@@ -239,21 +220,17 @@ export default function GameQuickStatsBar({
       )}
 
       {/* 4. Value for Money ($ / hour). Always rendered in library mode.
-          A saved cost wins; without one the already-fetched store price
-          is reused (marked "est.") so the feature works immediately. */}
+          The rate needs a saved purchase cost — a store price is shown on
+          the value card as a reference, never used as the cost. */}
       {!isStoreMode && (() => {
         const noCost = resolvedCost == null;
         const noRate = valuePerHour == null;
         const interactive = Boolean(onSetCost);
         const title = noCost
           ? t("game.quickStats.setCostHint")
-          : costFromPrice
-            ? t("game.quickStats.estimatedHint", {
-                price: formatCost(resolvedCost.cost, resolvedCost.currency),
-              })
-            : noRate
-              ? t("game.quickStats.needPlaytime")
-              : undefined;
+          : noRate
+            ? t("game.quickStats.needPlaytime")
+            : undefined;
         const content = (
           <>
             <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--value">
@@ -284,11 +261,6 @@ export default function GameQuickStatsBar({
                     {!noRate && (
                       <span className="quick-stats-tile__per-hour">
                         {t("game.quickStats.perHour")}
-                      </span>
-                    )}
-                    {costFromPrice && !noRate && (
-                      <span className="quick-stats-tile__est" aria-hidden>
-                        {t("game.quickStats.estimated")}
                       </span>
                     )}
                   </>

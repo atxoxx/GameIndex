@@ -35,6 +35,7 @@ import {
   GameMediaSpotlight,
   GameQuickStatsBar,
   GameActivityPulseCard,
+  GameValueCard,
   ImageLightbox,
   InfoKpiCard,
   RatingsKpiCard,
@@ -245,6 +246,13 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
     setLightboxIndex(index ?? 0);
     setLightboxOpen(true);
   }, []);
+
+  // Both the quick-stats tile and the value card land on the same field, so
+  // "set cost" always means the same thing on this page.
+  const openCostEditor = useCallback(() => {
+    setEditFocus("purchaseCost");
+    setEditTab("details");
+  }, [setEditFocus, setEditTab]);
 
   // Lazy metadata auto-enrichment on mount. `metadataSource` is persisted
   // by the enrichment pipeline — set to the real source (e.g. "IGDB") after
@@ -546,10 +554,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                 game={game}
                 steamAppId={heroSteamAppId}
                 sizeUnit={sizeUnit}
-                onSetCost={() => {
-                  setEditFocus("purchaseCost");
-                  setEditTab("details");
-                }}
+                onSetCost={openCostEditor}
               />
             </div>
           </PageWidget>
@@ -648,17 +653,6 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                   onEditSize={() => setEditTab("details")}
                 />
               </PageWidgetSlot>
-              <PageWidgetSlot
-                page="game"
-                widget="gameSaveBackup"
-                className="ui-item-gameSaveBackup"
-              >
-                <GameSaveBackupCard
-                  gameId={game.id}
-                  gameName={gameDisplayName(game)}
-                  onManage={() => handleTabChange("saves")}
-                />
-              </PageWidgetSlot>
               {detailSectionVisible.dlc && heroSteamAppId && (
                 <PageWidgetSlot
                   page="game"
@@ -684,6 +678,22 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                   />
                 </PageWidgetSlot>
               )}
+
+              <PageWidgetSlot page="game" widget="gameValue" className="ui-item-gameValue">
+                <GameValueCard game={game} onSetCost={openCostEditor} />
+              </PageWidgetSlot>
+
+              <PageWidgetSlot
+                page="game"
+                widget="gameSaveBackup"
+                className="ui-item-gameSaveBackup"
+              >
+                <GameSaveBackupCard
+                  gameId={game.id}
+                  gameName={gameDisplayName(game)}
+                  onManage={() => handleTabChange("saves")}
+                />
+              </PageWidgetSlot>
               <PageWidgetSlot page="game" widget="gameRatings" className="ui-item-gameRatings">
                 <RatingsKpiCard game={game} />
               </PageWidgetSlot>
