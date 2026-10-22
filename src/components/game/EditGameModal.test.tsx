@@ -136,7 +136,7 @@ describe("EditGameModal save", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Graphics & Direct3D" })
+      screen.getByRole("tab", { name: "Graphics & Direct3D" })
     );
 
     const card = screen
@@ -155,7 +155,7 @@ describe("EditGameModal save", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    fireEvent.click(screen.getByRole("button", { name: "Tools & Overlays" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Tools & Overlays" }));
 
     const controllerCard = screen
       .getByText("Controller Support")
@@ -459,7 +459,7 @@ describe("EditGameModal global setting hints", () => {
     expect(screen.getByText("Settings: fixme-all")).toBeTruthy();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Graphics & Direct3D" })
+      screen.getByRole("tab", { name: "Graphics & Direct3D" })
     );
 
     const dxvkCard = screen

@@ -299,13 +299,14 @@
 
 /* ══ Segmented control ──────────────────────────────────────────────── */
 
+/* Controls are undelimited too: no tray, no stroke. Selection reads from a
+   soft accent tint plus weight, so the toolbar stays part of the page. */
 .act-seg {
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--space-3xs);
-  padding: var(--space-3xs);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-md);
 }
 
@@ -319,7 +320,7 @@
   gap: var(--space-xs);
   height: calc(var(--act-ctl-h) - 6px);
   padding: 0 var(--space-md);
-  border-radius: calc(var(--radius-md) - 2px);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -342,13 +343,14 @@
 
 .act-seg__btn:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
 }
 
 .act-seg__btn--active,
 .act-seg__btn--active:hover {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
 }
 
 /* ══ Date-range pills ───────────────────────────────────────────────── */
@@ -357,9 +359,8 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--space-3xs);
-  padding: var(--space-3xs);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-md);
 }
 
@@ -377,7 +378,7 @@
   justify-content: center;
   height: calc(var(--act-ctl-h) - 6px);
   padding: 0 var(--space-md);
-  border-radius: calc(var(--radius-md) - 2px);
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -389,13 +390,14 @@
 
 .act-pill:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
 }
 
 .act-pill--active,
 .act-pill--active:hover {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
 }
 
 /* ══ Empty state ────────────────────────────────────────────────────── */
@@ -984,9 +986,9 @@
   justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
   padding: var(--space-sm) var(--space-md);
 }
 
@@ -4828,76 +4830,6 @@
 .act-empty__title {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-}
-
-/* ══ Segmented Controls & Range Pills ────────────────────────────────── */
-.act-seg {
-  display: inline-flex;
-  gap: var(--space-3xs);
-  padding: var(--space-3xs);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.act-seg__btn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  padding: var(--space-2xs) var(--space-sm);
-  border-radius: calc(var(--radius-md) - 2px);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.act-seg__btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.act-seg__btn--active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-}
-
-.act-seg--sm .act-seg__btn {
-  padding: var(--space-3xs) var(--space-sm);
-  font-size: var(--text-2xs);
-}
-
-.act-pills {
-  display: inline-flex;
-  gap: var(--space-2xs);
-  flex-wrap: wrap;
-}
-
-.act-pill {
-  appearance: none;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  padding: var(--space-3xs) var(--space-sm);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.act-pill:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-border-hover, var(--color-border));
-  background: var(--color-bg-hover);
-}
-
-.act-pill--active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-accent-contrast);
 }
 
 /* ══ Performance Board Search & Alert ────────────────────────────────── */

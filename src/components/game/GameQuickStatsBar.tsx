@@ -11,7 +11,7 @@ import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { StatBand, type StatBandItem } from "../ui/StatBand";
-import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar } from "./icons";
+import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar, IconTag } from "./icons";
 
 interface GameQuickStatsBarProps {
   game: Game;
@@ -60,6 +60,13 @@ function scoreTone(score: number): StatBandItem["tone"] {
   if (score >= 75) return "success";
   if (score >= 50) return "warning";
   return "danger";
+}
+
+/** "50.5 GiB" / "0.02 EUR" → a figure plus its caption-sized unit. */
+function splitFigure(text: string): { value: string; unit?: string } {
+  const space = text.lastIndexOf(" ");
+  if (space <= 0) return { value: text };
+  return { value: text.slice(0, space), unit: text.slice(space + 1) };
 }
 
 /**
@@ -128,6 +135,7 @@ export default function GameQuickStatsBar({
 
   const items = useMemo<StatBandItem[]>(() => {
     const next: StatBandItem[] = [];
+    const sizeFigure = formattedSize ? splitFigure(formattedSize) : null;
 
     if (ratingScore != null || steamPositivePercent != null) {
       const tone = scoreTone(ratingScore ?? steamPositivePercent ?? 0);
@@ -158,11 +166,11 @@ export default function GameQuickStatsBar({
         id: "timeToBeat",
         label: t("game.quickStats.timeToBeat"),
         icon: <IconClock size={14} />,
-        tone: "info",
-        value: `${storyHours ?? completionistHours}h`,
+        value: storyHours ?? completionistHours,
+        unit: "h",
         detail:
           storyHours != null && completionistHours != null
-            ? `${completionistHours}h ${t("game.quickStats.completionist")}`
+            ? `${t("game.quickStats.completionist")} ${completionistHours}h`
             : storyHours != null
               ? t("game.quickStats.story")
               : t("game.quickStats.completionist"),
@@ -174,13 +182,13 @@ export default function GameQuickStatsBar({
       });
     }
 
-    if (formattedSize) {
+    if (sizeFigure) {
       next.push({
         id: "storage",
         label: t("game.quickStats.storage"),
         icon: <IconHardDrive size={14} />,
-        tone: game.installed ? "success" : "default",
-        value: formattedSize,
+        value: sizeFigure.value,
+        unit: sizeFigure.unit,
         detail: game.installed ? t("filter.installed") : undefined,
       });
     }
@@ -193,17 +201,13 @@ export default function GameQuickStatsBar({
         : noRate
           ? formatCost(resolvedCost.cost, resolvedCost.currency)
           : formatCost(valuePerHour, resolvedCost.currency);
+      const valueFigure = noCost ? { value: valueText } : splitFigure(valueText);
       next.push({
         id: "value",
         label: t("game.quickStats.value"),
-        icon: (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            <circle cx="12" cy="15.5" r="1.5" />
-          </svg>
-        ),
-        value: valueText,
+        icon: <IconTag size={14} />,
+        value: valueFigure.value,
+        unit: valueFigure.unit,
         detail: noCost || noRate ? undefined : t("game.quickStats.perHour"),
         hint: noCost
           ? t("game.quickStats.setCostHint")

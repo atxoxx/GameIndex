@@ -32,52 +32,10 @@
   flex-direction: column;
   gap: var(--space-md);
   padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
 }
 
-.game-news-categories-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  overflow-x: auto;
-  padding-bottom: var(--space-2xs);
-  scrollbar-width: none;
-}
-
-.game-news-categories-row::-webkit-scrollbar {
-  display: none;
-}
-
-.game-news-category-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--transition-fast) cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.game-news-category-pill:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-  transform: translateY(-1px);
-}
-
-.game-news-category-pill.is-active {
-  color: var(--color-accent-contrast);
-  background: var(--color-accent);
-  border-color: var(--color-accent-border);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
+/* Category filtering rides the shared `.ui-subtabs` strip: labels in the
+   flow, one sliding underline, no pill tray. */
 .game-news-category-icon {
   display: flex;
   align-items: center;
@@ -87,26 +45,6 @@
 .game-news-category-icon svg {
   width: 14px;
   height: 14px;
-}
-
-.game-news-category-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4xs) var(--space-xs);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
-  color: inherit;
-}
-
-.game-news-category-pill.is-active .game-news-category-count {
-  /* Active pill fills with the accent, so its count chip derives from
-   * --color-accent-contrast (white on dark themes' violet, dark ink on
-   * light accents like Nord) instead of hardcoded white. */
-  background: color-mix(in srgb, var(--color-accent-contrast) 25%, transparent);
-  color: var(--color-accent-contrast);
 }
 
 /* ── Controls Row (Search, View Mode, Actions) ─────────────────────── */

@@ -1474,19 +1474,22 @@
 
 /* ── StatBand ────────────────────────────────────────────────────────── */
 
+/* A quiet ledger: values are the only loud element, units step back, and a
+   tone only appears where it carries state (a score, a verification). */
 .ui-statband {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   column-gap: clamp(var(--space-xl), 3.5vw, var(--space-3xl));
-  row-gap: var(--space-xl);
+  row-gap: var(--space-lg);
   min-width: 0;
-  padding-block: var(--space-md) var(--space-lg);
+  padding-block: var(--space-sm) var(--space-md);
 }
 
 .ui-statband__item {
   --statband-tone: var(--color-text-primary);
+  --statband-icon-tone: var(--color-text-muted);
 
   display: flex;
   flex-direction: column;
@@ -1494,7 +1497,7 @@
   flex: 0 1 auto;
   min-width: 0;
   margin: 0;
-  padding: 0;
+  padding: 0 0 var(--space-2xs);
   border: 0;
   background: none;
   font: inherit;
@@ -1504,22 +1507,27 @@
 
 .ui-statband__item--accent {
   --statband-tone: var(--color-accent);
+  --statband-icon-tone: var(--color-accent);
 }
 
 .ui-statband__item--success {
   --statband-tone: var(--color-success);
+  --statband-icon-tone: var(--color-success);
 }
 
 .ui-statband__item--warning {
   --statband-tone: var(--color-warning);
+  --statband-icon-tone: var(--color-warning);
 }
 
 .ui-statband__item--danger {
   --statband-tone: var(--color-danger);
+  --statband-icon-tone: var(--color-danger);
 }
 
 .ui-statband__item--info {
   --statband-tone: var(--color-info);
+  --statband-icon-tone: var(--color-info);
 }
 
 .ui-statband__item--action {
@@ -1532,7 +1540,8 @@
   gap: var(--space-2xs);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
   text-transform: uppercase;
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -1541,39 +1550,58 @@
 
 .ui-statband__icon {
   display: inline-flex;
-  color: var(--statband-tone);
+  color: var(--statband-icon-tone);
+  opacity: 0.9;
 }
 
+/* Icons track the label's cap height so the row keeps one optical baseline. */
 .ui-statband__icon svg {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
 }
 
 .ui-statband__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.16em;
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-tight);
-  letter-spacing: -0.02em;
+  font-size: clamp(1.375rem, 1.6vw, 1.5rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
   color: var(--statband-tone);
   white-space: nowrap;
   transition: color var(--duration-fast) var(--ease-standard);
 }
 
+/* Units are a caption for the figure, never a second figure. */
+.ui-statband__unit {
+  font-family: var(--font-sans);
+  font-size: 0.6em;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  text-transform: none;
+}
+
 .ui-statband__detail {
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
+  line-height: 1.35;
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
+/* The progress hairline belongs to the cell's bottom edge, not between the
+   figure and its caption, so a single tracked metric doesn't read as a
+   stray underline. */
 .ui-statband__track {
   width: 100%;
-  max-width: 104px;
+  min-width: 64px;
   height: 2px;
-  margin-top: var(--space-2xs);
+  margin-top: auto;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   overflow: hidden;
 }
 
@@ -1581,7 +1609,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--statband-tone);
+  background: color-mix(in srgb, var(--color-accent) 80%, transparent);
   transition: width 400ms var(--ease-standard);
 }
 

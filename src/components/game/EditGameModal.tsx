@@ -29,7 +29,7 @@ import {
 import type { Mo2Instance } from "../../types/mo2";
 import { getGameMo2Config, saveGameMo2Config } from "../../utils/mo2Storage";
 import type { SteamLaunchOption } from "../../types/steam";
-import { Button } from "../../components/ui";
+import { Button, SubTabs } from "../../components/ui";
 import { EDIT_GAME_TABS, type EditGameTab } from "./editGameTabs";
 import { EditImageSlot } from "./EditImageSlot";
 import { MediaCandidateGallery } from "./MediaCandidateGallery";
@@ -1687,21 +1687,17 @@ function EditGameModalInner({ game, onClose, initialTab = "details", focusField 
           </div>
         </div>
 
-        <div className="edit-modal-tabs" role="tablist">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={activeEditTab === tab.key}
-              className={`edit-modal-tab ${activeEditTab === tab.key ? "active" : ""}`}
-              onClick={() => setEditTab(tab.key)}
-            >
-              <span className="edit-modal-tab-icon">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SubTabs
+          className="edit-modal-tabs"
+          ariaLabel={t("edit.sectionsAria")}
+          value={activeEditTab}
+          onChange={setEditTab}
+          items={tabs.map((tab) => ({
+            id: tab.key,
+            label: tab.label,
+            icon: () => <span className="edit-modal-tab-icon">{tab.icon}</span>,
+          }))}
+        />
 
         <div className="edit-modal-body">
           {activeEditTab === "details" && (
@@ -2177,21 +2173,17 @@ function EditGameModalInner({ game, onClose, initialTab = "details", focusField 
                   {t("edit.imagesDesc")}
                 </p>
               </div>
-              <div className="edit-subtabs" role="tablist" aria-label={t("edit.images")}>
-                {MEDIA_SUBTABS.map((sub) => (
-                  <button
-                    key={sub.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={mediaSubtab === sub.key}
-                    className={`edit-subtab-btn ${mediaSubtab === sub.key ? "is-active" : ""}`}
-                    onClick={() => setMediaSubtab(sub.key)}
-                  >
-                    {sub.icon}
-                    <span>{t(sub.labelKey)}</span>
-                  </button>
-                ))}
-              </div>
+              <SubTabs
+                className="edit-subtabs"
+                ariaLabel={t("edit.images")}
+                value={mediaSubtab}
+                onChange={setMediaSubtab}
+                items={MEDIA_SUBTABS.map((sub) => ({
+                  id: sub.key,
+                  label: t(sub.labelKey),
+                  icon: () => <>{sub.icon}</>,
+                }))}
+              />
 
               {IMAGE_SUBTABS.includes(mediaSubtab as (typeof IMAGE_SUBTABS)[number]) ? (
                 (() => {
@@ -2911,8 +2903,12 @@ function EditGameModalInner({ game, onClose, initialTab = "details", focusField 
               </div>
 
               {/* Categorised Subtab Navigation */}
-              <div className="edit-subtabs">
-                {[
+              <SubTabs
+                className="edit-subtabs"
+                ariaLabel={t("gameEdit.compatibility.subtabsAria")}
+                value={compatSubtab}
+                onChange={setCompatSubtab}
+                items={[
                   {
                     key: "runner" as const,
                     label: t("gameEdit.compatibility.subtab.runner") || "Runner & Prefix",
@@ -2964,18 +2960,12 @@ function EditGameModalInner({ game, onClose, initialTab = "details", focusField 
                       </svg>
                     ),
                   },
-                ].map((sub) => (
-                  <button
-                    key={sub.key}
-                    type="button"
-                    className={`edit-subtab-btn ${compatSubtab === sub.key ? "is-active" : ""}`}
-                    onClick={() => setCompatSubtab(sub.key)}
-                  >
-                    {sub.icon}
-                    <span>{sub.label}</span>
-                  </button>
-                ))}
-              </div>
+                ].map((sub) => ({
+                  id: sub.key,
+                  label: sub.label,
+                  icon: () => <>{sub.icon}</>,
+                }))}
+              />
 
               {/* Subtab 1: Runner & Prefix */}
               {compatSubtab === "runner" && (

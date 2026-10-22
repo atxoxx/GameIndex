@@ -19,7 +19,7 @@ import { useToast } from "../../context/ToastContext";
 import { useSaves } from "../../context/SavesContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { Button, Badge, ConfirmModal, KpiTile, Skeleton } from "../ui";
+import { Button, Badge, ConfirmModal, KpiTile, Skeleton, SubTabs, type SubTabItem } from "../ui";
 import SettingsToggleCard from "../../pages/settings/SettingsToggleCard";
 import {
   SAVE_KIND_LABEL_KEY,
@@ -317,6 +317,26 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
     return null;
   }
 
+  const subtabs: SubTabItem<GameSubtab>[] = [
+    {
+      id: "snapshots",
+      label: t("saves.gameTab.snapshots"),
+      icon: Archive,
+      count: totalSnapshots,
+    },
+    {
+      id: "locations",
+      label: t("saves.gameTab.locations"),
+      icon: FolderOpen,
+      count: locations?.length ?? 0,
+    },
+    {
+      id: "settings",
+      label: t("saves.gameTab.settings"),
+      icon: SlidersHorizontal,
+    },
+  ];
+
   return (
     <div className="saves-tab">
       {/* ─── Top Header & Primary Action Bar ────────────────────────────── */}
@@ -462,40 +482,13 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
       </div>
 
       {/* ─── Per-Game Subtabs Bar ───────────────────────────────────────── */}
-      <nav className="saves-game-subtabs-bar" aria-label="Game save views">
-        <button
-          type="button"
-          className={`saves-game-subtab-pill ${subtab === "snapshots" ? "active" : ""}`}
-          onClick={() => setSubtab("snapshots")}
-        >
-          <Archive size={14} />
-          <span>{t("saves.gameTab.snapshots")}</span>
-          {totalSnapshots > 0 && (
-            <span className="saves-subtab-badge">{totalSnapshots}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`saves-game-subtab-pill ${subtab === "locations" ? "active" : ""}`}
-          onClick={() => setSubtab("locations")}
-        >
-          <FolderOpen size={14} />
-          <span>{t("saves.gameTab.locations")}</span>
-          {(locations?.length ?? 0) > 0 && (
-            <span className="saves-subtab-badge">{locations?.length}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`saves-game-subtab-pill ${subtab === "settings" ? "active" : ""}`}
-          onClick={() => setSubtab("settings")}
-        >
-          <SlidersHorizontal size={14} />
-          <span>{t("saves.gameTab.settings")}</span>
-        </button>
-      </nav>
+      <SubTabs
+        items={subtabs}
+        value={subtab}
+        onChange={setSubtab}
+        ariaLabel={t("saves.viewsLabel")}
+        className="saves-game-subtabs"
+      />
 
       {/* ═══════════════════════════════════════════════════════════════════
           SUBTAB 1: SNAPSHOTS & TIMELINE

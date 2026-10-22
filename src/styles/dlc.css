@@ -353,6 +353,8 @@
 
 /* ── Filter / Search Bar ──────────────────────────────────────────────── */
 
+/* The filter chips became the shared `.ui-subtabs` strip, so the bar is a
+   tonal wash with no stroke: the underline carries the selection. */
 .dlc-controls-bar {
   display: flex;
   align-items: center;
@@ -360,50 +362,15 @@
   gap: var(--space-md);
   flex-wrap: wrap;
   padding: var(--space-md) var(--space-lg);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  border: 0;
 }
 
-.dlc-filter-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
-.dlc-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.dlc-filter-chip:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-hover);
-  border-color: color-mix(in srgb, var(--color-text-secondary) 40%, var(--color-border));
-}
-
-.dlc-filter-chip.active {
-  color: var(--color-accent-contrast);
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.dlc-filter-chip__count {
-  padding: var(--space-4xs) var(--space-xs);
-  border-radius: var(--radius-full);
-  font-size: var(--text-2xs);
-  background: color-mix(in srgb, currentColor 18%, transparent);
+.dlc-filter-tabs {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 .dlc-search-wrap {

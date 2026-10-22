@@ -8,7 +8,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { steamCodeForUi } from "../../i18n/languages";
 import { IconDlc, IconFamily, IconSteam, IconCheck } from "./icons";
-import { Button } from "../ui";
+import { Button, SubTabs, type SubTabItem } from "../ui";
 
 interface GameDlcTabProps {
   game?: Game | null;
@@ -338,6 +338,15 @@ export default function GameDlcTab({
 
   const truncatedTotal = data.totalAvailable ?? 0;
 
+  const filters: SubTabItem<FilterType>[] = [
+    { id: "all", label: t("dlc.filterAll"), count: counts.all },
+    { id: "owned", label: t("dlc.filterOwned"), count: counts.owned },
+    { id: "unowned", label: t("dlc.filterUnowned"), count: counts.unowned },
+    ...(counts.free > 0
+      ? [{ id: "free" as const, label: t("dlc.filterFree"), count: counts.free }]
+      : []),
+  ];
+
   return (
     <div className="dlc-tab-root">
       {/* Family Sharing Banner */}
@@ -430,42 +439,13 @@ export default function GameDlcTab({
 
       {/* Filter and Search Bar */}
       <div className="dlc-controls-bar">
-        <div className="dlc-filter-group" role="tablist">
-          <button
-            type="button"
-            className={`dlc-filter-chip ${filter === "all" ? "active" : ""}`}
-            onClick={() => setFilter("all")}
-          >
-            {t("dlc.filterAll")}
-            <span className="dlc-filter-chip__count">{counts.all}</span>
-          </button>
-          <button
-            type="button"
-            className={`dlc-filter-chip ${filter === "owned" ? "active" : ""}`}
-            onClick={() => setFilter("owned")}
-          >
-            {t("dlc.filterOwned")}
-            <span className="dlc-filter-chip__count">{counts.owned}</span>
-          </button>
-          <button
-            type="button"
-            className={`dlc-filter-chip ${filter === "unowned" ? "active" : ""}`}
-            onClick={() => setFilter("unowned")}
-          >
-            {t("dlc.filterUnowned")}
-            <span className="dlc-filter-chip__count">{counts.unowned}</span>
-          </button>
-          {counts.free > 0 && (
-            <button
-              type="button"
-              className={`dlc-filter-chip ${filter === "free" ? "active" : ""}`}
-              onClick={() => setFilter("free")}
-            >
-              {t("dlc.filterFree")}
-              <span className="dlc-filter-chip__count">{counts.free}</span>
-            </button>
-          )}
-        </div>
+        <SubTabs
+          items={filters}
+          value={filter}
+          onChange={setFilter}
+          ariaLabel={t("game.tab.dlc")}
+          className="dlc-filter-tabs"
+        />
 
         <div className="dlc-controls-right">
           {counts.unowned > 0 && (

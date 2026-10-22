@@ -952,49 +952,10 @@
 
 /* ── Per-Game Saves Tab Subtabs & KPIs ─────────────────────────────────── */
 
-.saves-game-subtabs-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-3xs);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  width: fit-content;
-  max-width: 100%;
+/* The strip itself is the shared `.ui-subtabs`; only spacing lives here so
+   the per-game sub-nav lines up with the page-level one. */
+.saves-game-subtabs {
   margin-bottom: var(--space-2xs);
-}
-
-.saves-game-subtab-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-md);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  white-space: nowrap;
-}
-
-.saves-game-subtab-pill:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-3, rgba(255, 255, 255, 0.05));
-}
-
-.saves-game-subtab-pill.active {
-  color: var(--color-text-primary);
-  background: var(--color-surface-1);
-  box-shadow: var(--shadow-sm);
-  font-weight: 600;
-}
-
-.saves-game-subtab-pill.active svg {
-  color: var(--color-accent);
 }
 
 .saves-game-kpis {

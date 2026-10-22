@@ -28,6 +28,18 @@ describe("StatBand", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("renders a figure with its caption-sized unit", () => {
+    render(
+      <StatBand
+        ariaLabel="Game overview"
+        items={[{ id: "size", label: "Storage", value: "50.5", unit: "GiB" }]}
+      />,
+    );
+
+    expect(screen.getByText("50.5")).toBeInTheDocument();
+    expect(screen.getByText("GiB")).toHaveClass("ui-statband__unit");
+  });
+
   it("turns a metric with an action into a button", () => {
     const onClick = vi.fn();
     render(

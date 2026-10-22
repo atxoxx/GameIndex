@@ -1,5 +1,5 @@
 import { useLanguage } from "../../../context/LanguageContext";
-import { Button } from "../../ui";
+import { Button, SubTabs } from "../../ui";
 import type {
   GameNewsFilterCategory,
   GameNewsViewMode,
@@ -112,27 +112,20 @@ export default function GameNewsToolbar({
   return (
     <div className="game-news-toolbar-container">
       {/* Category Pills Row */}
-      <div className="game-news-categories-row" role="tablist" aria-label="Game news categories">
-        {categories.map((cat) => {
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`game-news-category-pill ${isActive ? "is-active" : ""}`}
-              onClick={() => onSelectCategory(cat.id)}
-            >
-              <span className="game-news-category-icon" aria-hidden="true">
-                {cat.icon}
-              </span>
-              <span className="game-news-category-label">{cat.label}</span>
-              <span className="game-news-category-count">{cat.count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <SubTabs
+        items={categories.map((cat) => ({
+          id: cat.id,
+          label: cat.label,
+          count: cat.count,
+          icon: () => (
+            <span className="game-news-category-icon">{cat.icon}</span>
+          ),
+        }))}
+        value={activeCategory}
+        onChange={onSelectCategory}
+        ariaLabel={t("game.news.categories")}
+        className="game-news-categories"
+      />
 
       {/* Control bar: Search, View Mode, Sort, Actions */}
       <div className="game-news-controls-row">

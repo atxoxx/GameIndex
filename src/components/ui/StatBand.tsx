@@ -15,6 +15,8 @@ export interface StatBandItem {
   label: ReactNode;
   /** The headline figure. */
   value: ReactNode;
+  /** Caption-sized suffix inside the figure (GiB, EUR, h). */
+  unit?: ReactNode;
   /** Quiet line under the figure. */
   detail?: ReactNode;
   /** Optional leading glyph, tinted by `tone`. */
@@ -66,7 +68,10 @@ export function StatBand({ items, ariaLabel, className, ...props }: StatBandProp
               )}
               {item.label}
             </span>
-            <span className="ui-statband__value">{item.value}</span>
+            <span className="ui-statband__value">
+              {item.value}
+              {item.unit && <span className="ui-statband__unit">{item.unit}</span>}
+            </span>
             {item.detail && <span className="ui-statband__detail">{item.detail}</span>}
             {item.progress !== undefined && (
               <span className="ui-statband__track" aria-hidden="true">

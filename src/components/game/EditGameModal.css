@@ -153,35 +153,10 @@
   padding-bottom: var(--space-md);
 }
 
-/* ─── Tabs (with icons) ───────────────────────────────────── */
+/* ─── Tabs (shared .ui-subtabs strip) ─────────────────────── */
 .edit-modal-tabs {
-  display: flex;
-  gap: var(--space-xs);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-  padding: 0 var(--space-xl);
   flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.edit-modal-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--space-md);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  position: relative;
-  transition: color var(--transition-fast),
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  white-space: nowrap;
+  padding: 0 var(--space-xl);
 }
 
 .edit-modal-tab-icon {
@@ -191,29 +166,6 @@
 .edit-modal-tab-icon svg {
   width: 16px;
   height: 16px;
-}
-
-.edit-modal-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.edit-modal-tab.active {
-  color: var(--color-accent);
-}
-
-/* Gradient underline + glow on the active tab — mirrors the page-level
- * game-tabs indicator so the modal reads as part of the same system. */
-.edit-modal-tab.active::after {
-  content: "";
-  position: absolute;
-  left: var(--space-md);
-  right: var(--space-md);
-  bottom: -1px;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
-  border-radius: var(--radius-full);
-  box-shadow: 0 0 8px var(--color-accent-glow);
 }
 
 .edit-modal-body {
@@ -2223,69 +2175,7 @@
 }
 
 .edit-subtabs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-2xs);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   margin-bottom: var(--space-lg);
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-wrap: nowrap;
-  min-width: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
-  -ms-overflow-style: auto;
-}
-
-/* Themed thin scrollbar so overflowing subtabs stay reachable. */
-.edit-subtabs::-webkit-scrollbar {
-  height: 6px;
-}
-
-.edit-subtabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.edit-subtabs::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-.edit-subtabs::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
-}
-
-.edit-subtab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-
-.edit-subtab-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.edit-subtab-btn.is-active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: var(--shadow-sm);
 }
 
 .edit-subtab-content {
