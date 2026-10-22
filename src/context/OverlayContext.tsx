@@ -23,6 +23,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useOverlayBounds } from "../hooks/useOverlayBounds";
 import { useOverlayWindowControls } from "../hooks/useOverlayWindowControls";
+import {
+  OVERLAY_HISTORY_LIMIT,
+  pendingFlush,
+  saveableSnapshot,
+} from "../components/overlay/overlayHistory";
 
 export type OverlayCorner =
   | "top-left"
@@ -254,8 +259,9 @@ export const PANEL_WIDGETS = [
   "settings",
 ] as const;
 
-/** How many live telemetry samples the sparklines retain. */
-export const OVERLAY_HISTORY_LIMIT = 60;
+/** How many live telemetry samples the sparklines retain. Re-exported from
+ *  `overlayHistory.ts`, whose owner/flush rules the context consumes. */
+export { OVERLAY_HISTORY_LIMIT };
 
 /** How many recent screenshot / clip paths the HUD keeps in memory. */
 export const RECENT_CAPTURE_LIMIT = 60;
@@ -539,6 +545,13 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   const prevRecordingRef = useRef(false);
   // Throttle clock for the persisted telemetry window (I6).
   const historySaveRef = useRef(0);
+  // Samples in `history` always belong to exactly one game. `historyRef`
+  // mirrors the array for effect-time reads; `historyOwnerRef` remembers
+  // which gameId the window belongs to so a session switch can never relabel
+  // the previous game's telemetry (see `overlayHistory.ts`).
+  const historyRef = useRef<OverlayMetrics[]>([]);
+  const historyOwnerRef = useRef<string | null>(null);
+  historyRef.current = history;
 
   // Merged session the widgets read: a watcher-tracked session always wins;
   // otherwise a detected (untracked) game stands in.
@@ -741,15 +754,20 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Live mirror of `settings` so `updateSettings` can merge a patch without
+  // depending on it (and without running side effects inside a state updater,
+  // which React StrictMode double-invokes).
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
   // Update settings in memory and persist
   const updateSettings = useCallback(
     async (patch: Partial<OverlaySettings>) => {
-      setSettings((prev) => {
-        const next = { ...prev, ...patch };
-        void invoke("overlay_save_settings", { settings: next }).catch(() => {
-          /* no-op */
-        });
-        return next;
+      const next = { ...settingsRef.current, ...patch };
+      settingsRef.current = next;
+      setSettings(next);
+      void invoke("overlay_save_settings", { settings: next }).catch(() => {
+        /* no-op */
       });
     },
     [],
@@ -1111,8 +1129,26 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   // Persist the rolling telemetry window so the performance deep-dive survives
   // an overlay reopen for the same game. On a game change the window starts
   // empty and is seeded from the stored snapshot when it matches.
+  //
+  // Ownership First (see `overlayHistory.ts`): when the session moves to
+  // another game, the samples still in memory belong to the OLD game — flush
+  // them under their own id BEFORE resetting, and never let the save effect
+  // relabel them under the new game. The stale closure ordering that used to
+  // write game A's history under game B (and then wipe it) cannot happen.
   useEffect(() => {
     const gameId = effectiveSession?.gameId ?? null;
+    const stale = pendingFlush(historyOwnerRef.current, gameId, historyRef.current);
+    if (stale) {
+      // Final burst for the previous game: bypass the 8 s throttle entirely,
+      // so the last seconds of telemetry are not dropped at session end.
+      void invoke("overlay_save_history", { json: JSON.stringify(stale) }).catch(
+        () => {
+          /* no Tauri runtime / command unavailable */
+        },
+      );
+    }
+    historyOwnerRef.current = gameId;
+    historyRef.current = [];
     setHistory([]);
     historySaveRef.current = 0;
     let disposed = false;
@@ -1126,7 +1162,9 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           };
           if ((parsed.gameId ?? null) !== gameId) return;
           if (Array.isArray(parsed.samples)) {
-            setHistory(parsed.samples.slice(-OVERLAY_HISTORY_LIMIT));
+            const seeded = parsed.samples.slice(-OVERLAY_HISTORY_LIMIT);
+            historyRef.current = seeded;
+            setHistory(seeded);
           }
         } catch {
           /* ignore malformed snapshots */
@@ -1141,18 +1179,39 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   }, [effectiveSession?.gameId]);
 
   useEffect(() => {
-    // Throttle to ~8 s so a 1 Hz telemetry feed does not hammer the database.
+    // Ownership gate first: when the samples still belong to the previous
+    // game (a session switch in flight, or a window not yet reset) skip —
+    // the game-change effect owns that flush. Then throttle to ~8 s so a
+    // 1 Hz telemetry feed does not hammer the database.
+    const gameId = effectiveSession?.gameId ?? null;
+    const snapshot = saveableSnapshot(historyOwnerRef.current, gameId, historyRef.current);
+    if (!snapshot) return;
     const now = Date.now();
     if (now - historySaveRef.current < 8000) return;
     historySaveRef.current = now;
-    const payload = JSON.stringify({
-      gameId: effectiveSession?.gameId ?? null,
-      samples: history,
-    });
-    void invoke("overlay_save_history", { json: payload }).catch(() => {
+    void invoke("overlay_save_history", {
+      json: JSON.stringify(snapshot),
+    }).catch(() => {
       /* no Tauri runtime / command unavailable */
     });
   }, [history, effectiveSession?.gameId]);
+
+  // Flush the window when the HUD goes away for good (window close / reload):
+  // without this the last < 8 s burst of samples never reaches disk.
+  useEffect(() => {
+    const flush = () => {
+      const owner = historyOwnerRef.current;
+      const samples = historyRef.current;
+      if (owner === null || samples.length === 0) return;
+      void invoke("overlay_save_history", {
+        json: JSON.stringify({ gameId: owner, samples }),
+      }).catch(() => {
+        /* window is going down; nothing more to do */
+      });
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
 
   const corner = settings.corner;
 

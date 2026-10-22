@@ -176,8 +176,18 @@ export default function OverlayTab() {
   >(null);
   const hydratedRef = useRef(false);
   const applyHotkeyRef = useRef<(accelerator: string) => void>(() => {});
+  // Local edits not yet persisted. The backend broadcasts `overlay:settings`
+  // on every save (including the in-HUD settings widget and `set_hotkey`),
+  // and this tab holds a full-settings snapshot — without tracking our own
+  // pending edits an HUD edit could be reverted by our stale autosave, or
+  // our autosave could clobber something the user just changed here.
+  const pendingRef = useRef<Partial<OverlaySettings>>({});
+  // JSON of the last payload we sent, so the broadcast echo of our own save
+  // is recognized instead of scheduling a redundant re-save.
+  const lastSentRef = useRef<string | null>(null);
 
   const update = useCallback((patch: Partial<OverlaySettings>) => {
+    pendingRef.current = { ...pendingRef.current, ...patch };
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
   }, []);
 
@@ -189,6 +199,7 @@ export default function OverlayTab() {
         const next = on
           ? Array.from(new Set([...current, key]))
           : current.filter((k) => k !== key);
+        pendingRef.current = { ...pendingRef.current, [field]: next };
         return { ...prev, [field]: next };
       });
     },
@@ -290,8 +301,15 @@ export default function OverlayTab() {
       hydratedRef.current = true;
       return;
     }
+    // The broadcast of our own just-persisted payload arrives back as a state
+    // update; re-saving it would only generate one more round-trip.
+    if (lastSentRef.current !== null && lastSentRef.current === JSON.stringify(settings)) {
+      return;
+    }
     const snapshot = settings;
     const timer = setTimeout(() => {
+      lastSentRef.current = JSON.stringify(snapshot);
+      pendingRef.current = {};
       void invoke("overlay_save_settings", { settings: snapshot }).catch((err) =>
         showToast(
           t("settings.overlay.saveFailed", { error: String(err) }),
@@ -301,6 +319,41 @@ export default function OverlayTab() {
     }, 500);
     return () => clearTimeout(timer);
   }, [settings, showToast, t]);
+
+  // The HUD (and anything else) persists settings through the backend, which
+  // broadcasts them here. Merge the broadcast OVER our not-yet-saved local
+  // edits so the two writers can't silently revert each other, and clear any
+  // autosave timer that carried a stale snapshot.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen<OverlaySettings>("overlay:settings", (event) => {
+      if (!event.payload || !hydratedRef.current) return;
+      const incoming = normalizeOverlaySettings(event.payload);
+      if (lastSentRef.current !== null && lastSentRef.current === JSON.stringify(incoming)) {
+        return; // our own save echoed back — nothing to rebase
+      }
+      setSettings((prev) => {
+        const next = { ...incoming, ...pendingRef.current };
+        if (prev && JSON.stringify(next) === JSON.stringify(prev)) return prev;
+        return next;
+      });
+    })
+      .then((fn) => {
+        if (disposed) {
+          fn();
+          return;
+        }
+        unlisten = fn;
+      })
+      .catch(() => {
+        /* no Tauri runtime */
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // Hotkey re-registration: a failure keeps the previous binding.
   const applyHotkey = useCallback(

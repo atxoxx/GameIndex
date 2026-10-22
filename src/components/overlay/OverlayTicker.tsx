@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";import {
+import { invoke } from "@tauri-apps/api/core";
+import {
   Bell,
   Download,
   Maximize2,
@@ -69,7 +70,12 @@ function useTickerAutoFit() {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
+    // A trailing debounce (not just a rAF coalesce): on mixed-DPI monitors a
+    // each window resize fires another layout pass, and fitting immediately
+    // turned pass → resize → next pass into a continuous resize/fit ping
+    // (the backend's churn tolerance only catches exact-size duplicates).
     let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const fit = () => {
       const rect = el.getBoundingClientRect();
       if (rect.width < 1 || rect.height < 1) return;
@@ -80,17 +86,20 @@ function useTickerAutoFit() {
         /* no Tauri runtime */
       });
     };
-
-    const observer = new ResizeObserver(() => {
+    const schedule = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(fit);
-    });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(fit, 150);
+    };
+    const observer = new ResizeObserver(schedule);
     observer.observe(el);
     fit();
 
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
+      if (timer) clearTimeout(timer);
     };
   }, []);
 
@@ -151,7 +160,15 @@ export default function OverlayTicker() {
     if (!recActive) setRecSeconds(0);
   }, [recActive]);
 
-  const show = (key: string) => settings.tickerWidgets.includes(key);
+  const show = (key: string) => {
+    if (!settings.tickerWidgets.includes(key)) return false;
+    // Temperature chips/gauges are second-gated by the documented "Show
+    // CPU/GPU temperatures" master toggle — TickerLayout used to render them
+    // whenever the two widget chips were on, contradicting the toggle's
+    // semantics (the Performance widget honours it; so does the ticker now).
+    if (key === "cpuTemp" || key === "gpuTemp") return settings.showTemps;
+    return true;
+  };
 
   const fps = metrics?.fps;
   const fpsClass = `overlay-fps--${fpsIntent(fps)}`;
