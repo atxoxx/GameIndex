@@ -11,9 +11,10 @@ interface FriendsHeroStatsProps {
 export default function FriendsHeroStats({ friends, sessions, myGameIds }: FriendsHeroStatsProps) {
   const { t } = useLanguage();
 
-  const totalFriends = friends.length;
-  const onlineFriends = friends.filter((f) => !f.blocked && isOnline(f)).length;
-  const inGameFriends = friends.filter((f) => !f.blocked && !!safeCurrentlyPlaying(f.currentlyPlaying)).length;
+  const visibleFriends = friends.filter((f) => !f.blocked);
+  const totalFriends = visibleFriends.length;
+  const onlineFriends = visibleFriends.filter((f) => isOnline(f)).length;
+  const inGameFriends = visibleFriends.filter((f) => !!safeCurrentlyPlaying(f.currentlyPlaying)).length;
 
   const now = Date.now();
   const upcomingSessions = sessions.filter(

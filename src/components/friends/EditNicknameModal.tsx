@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Friend } from "./friendsTypes";
@@ -20,6 +20,12 @@ export default function EditNicknameModal({
 }: EditNicknameModalProps) {
   const { t } = useLanguage();
   const [nickname, setNickname] = useState(friend?.nickname || "");
+
+  // The modal stays mounted between openings, so reseed the draft whenever it
+  // is opened (or reopened for another friend) instead of showing stale text.
+  useEffect(() => {
+    if (isOpen) setNickname(friend?.nickname || "");
+  }, [isOpen, friend?.id, friend?.nickname]);
 
   if (!isOpen || !friend) return null;
 

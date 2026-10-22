@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { DmThread, Friend, UserProfile, DmAttachment } from "./friendsTypes";
+import { visibleMessages, startDmThreadId } from "../../pages/friendsStorage";
 import {
   displayName,
   getInitials,
@@ -68,7 +69,8 @@ export default function FriendsDmsTab({
   // Active thread calculation
   const activeThread = useMemo(() => {
     if (!selectedDmId) return null;
-    return dms.find((t) => t.id === selectedDmId) || null;
+    const thread = dms.find((t) => t.id === selectedDmId);
+    return thread && !thread.deleted ? thread : null;
   }, [dms, selectedDmId]);
 
   // Friend details for active conversation
@@ -93,7 +95,7 @@ export default function FriendsDmsTab({
         const otherName = th.participants.find((p) => p !== profile.name) || "";
         const f = friends.find((fr) => fr.name === otherName);
         const name = f ? displayName(f).toLowerCase() : otherName.toLowerCase();
-        const hasMsg = (th.messages || []).some((m) => m.text.toLowerCase().includes(q));
+        const hasMsg = visibleMessages(th.messages).some((m) => (m.text || "").toLowerCase().includes(q));
         return name.includes(q) || hasMsg;
       });
     }
@@ -103,7 +105,7 @@ export default function FriendsDmsTab({
 
   const unreadCount = (thread: DmThread): number => {
     const lastRead = thread.lastReadAt?.[profile.name] || 0;
-    return (thread.messages || []).filter((m) => m.author !== profile.name && m.timestamp > lastRead).length;
+    return visibleMessages(thread.messages).filter((m) => m.author !== profile.name && m.timestamp > lastRead).length;
   };
 
   const handleSend = () => {
@@ -118,9 +120,12 @@ export default function FriendsDmsTab({
     const friend = friends.find((f) => f.id === friendId);
     if (!friend) return;
     const existing = dms.find(
-      (th) => th.participants.includes(profile.name) && th.participants.includes(friend.name)
+      (th) =>
+        !th.deleted &&
+        th.participants.includes(profile.name) &&
+        th.participants.includes(friend.name)
     );
-    const tid = existing ? existing.id : `dm_${[profile.name.trim(), friend.name.trim()].sort().join("_")}`;
+    const tid = existing ? existing.id : startDmThreadId(profile.name, friend.name, dms);
     onSelectThread(tid, friend.name);
     setNewChatFriendId("");
   };
@@ -135,7 +140,7 @@ export default function FriendsDmsTab({
     });
   };
 
-  const messages = activeThread?.messages || [];
+  const messages = visibleMessages(activeThread?.messages);
   const pinnedMessages = messages.filter((m) => m.pinned);
   const regularMessages = messages.filter((m) => !m.pinned);
   const otherName = activeThread?.participants.find((p) => p !== profile.name) || "";
@@ -194,7 +199,7 @@ export default function FriendsDmsTab({
               const friend = friends.find((f) => f.name === otherName);
               const friendDisplay = friend ? displayName(friend) : otherName;
               const isCurr = thread.id === selectedDmId;
-              const lastMsg = (thread.messages || []).slice(-1)[0];
+              const lastMsg = visibleMessages(thread.messages).slice(-1)[0];
               const online = friend ? isOnline(friend) : false;
               const unread = unreadCount(thread);
 

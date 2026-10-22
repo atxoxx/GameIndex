@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameSuggestion, UserProfile, Friend, SuggestionReactionKind } from "./friendsTypes";
+import type { PendingSuggestion } from "../../pages/friendSuggestionSignal";
 import SuggestionCard from "./SuggestionCard";
 import {
   displayName,
@@ -16,6 +17,10 @@ interface FriendsSuggestionsTabProps {
   profile: UserProfile;
   friends: Friend[];
   wishlistGames: any[];
+  /** Game requested from the Wishlist page's "share with friends" action. */
+  prefillShare?: PendingSuggestion | null;
+  /** Clears the prefill after it has been applied. */
+  onPrefillConsumed?: () => void;
   onReact: (suggestionId: string, kind: SuggestionReactionKind) => void;
   onToggleWishlist: (gameId: string, gameName: string) => void;
   onAddComment: (suggestionId: string, text: string) => void;
@@ -29,6 +34,8 @@ export default function FriendsSuggestionsTab({
   profile,
   friends,
   wishlistGames,
+  prefillShare,
+  onPrefillConsumed,
   onReact,
   onToggleWishlist,
   onAddComment,
@@ -50,6 +57,22 @@ export default function FriendsSuggestionsTab({
     return suggestions.filter((s) => !s.deleted);
   }, [suggestions]);
 
+  // A "share with friends" request from the Wishlist page opens this tab with
+  // the dialog already primed on that game.
+  useEffect(() => {
+    if (!prefillShare) return;
+    const keyOf = (g: any) => String(g.id || g.slug || g.name);
+    const match = wishlistGames.find(
+      (g) =>
+        (g.slug != null && String(g.slug) === prefillShare.gameId) ||
+        (g.id != null && String(g.id) === prefillShare.gameId) ||
+        (!!prefillShare.gameName && g.name === prefillShare.gameName)
+    );
+    if (match) setSelectedWishlistGameId(keyOf(match));
+    setShowCreateModal(true);
+    onPrefillConsumed?.();
+  }, [prefillShare, wishlistGames, onPrefillConsumed]);
+
   const myWishlistGameIds = useMemo(() => {
     return new Set(wishlistGames.map((g) => String(g.id || g.slug || g.name)));
   }, [wishlistGames]);
@@ -61,9 +84,9 @@ export default function FriendsSuggestionsTab({
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (s) =>
-          s.gameName.toLowerCase().includes(q) ||
-          s.suggestedBy.toLowerCase().includes(q) ||
-          s.note.toLowerCase().includes(q)
+          (s.gameName || "").toLowerCase().includes(q) ||
+          (s.suggestedBy || "").toLowerCase().includes(q) ||
+          (s.note || "").toLowerCase().includes(q)
       );
     }
 

@@ -32,6 +32,9 @@ export function formatHours(totalMinutes: number, t: (key: string, vars?: Record
 export function formatDateTime(dateTimeStr: string, tz?: string): string {
   try {
     const d = new Date(dateTimeStr);
+    // Poll sessions have no fixed time (empty string) and malformed remote
+    // values are possible; never render "Invalid Date" in their place.
+    if (Number.isNaN(d.getTime())) return "";
     const opts: Intl.DateTimeFormatOptions = {
       month: "short",
       day: "numeric",
@@ -246,6 +249,43 @@ export function sharedGamesCount(friend: Friend, myGameIds: Set<string>): number
 
 // ── QR Code Component ───────────────────────────────────────────────
 
+/**
+ * The QR encoder only accepts hex colors, while the theme can resolve the
+ * tokens to `rgb(...)` (adaptive/custom themes write computed values onto the
+ * root element). Normalize whatever `getComputedStyle` returns to `#rrggbb`,
+ * falling back to the default palette when the value can't be parsed.
+ */
+export function normalizeQrColor(raw: string, fallback: string): string {
+  const value = raw.trim();
+  if (/^#[0-9a-f]{3,8}$/i.test(value)) return value;
+
+  const rgb = value.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (rgb) {
+    return `#${[rgb[1], rgb[2], rgb[3]]
+      .map((n) => Number(n).toString(16).padStart(2, "0"))
+      .join("")}`;
+  }
+
+  if (!value) return fallback;
+
+  // Anything else (hsl, a named color, a resolved color-mix…) goes through a
+  // canvas so the browser does the parsing.
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return fallback;
+  // An invalid `fillStyle` assignment is ignored, so seed a known value and
+  // read the browser-normalized color back.
+  ctx.fillStyle = fallback;
+  ctx.fillStyle = value;
+  const normalized = ctx.fillStyle;
+  if (/^#[0-9a-f]{3,8}$/i.test(normalized)) return normalized;
+
+  const normalizedRgb = normalized.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
+  if (!normalizedRgb) return fallback;
+  return `#${[normalizedRgb[1], normalizedRgb[2], normalizedRgb[3]]
+    .map((n) => Number(n).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
 export function FriendCodeQR({ code }: { code: string }) {
   const { t } = useLanguage();
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -258,11 +298,11 @@ export function FriendCodeQR({ code }: { code: string }) {
     }
     import("qrcode").then(({ default: QRCode }) => {
       if (cancelled) return;
-      // The encoder needs concrete hex colors — it can't resolve var() — so
-      // read the active theme's text ramp off the root element.
+      // The encoder can't resolve CSS variables, so read the active theme's
+      // text ramp off the root element and normalize it to hex.
       const rootStyles = getComputedStyle(document.documentElement);
-      const dark = rootStyles.getPropertyValue("--color-text-inverse").trim();
-      const light = rootStyles.getPropertyValue("--color-text-primary").trim();
+      const dark = normalizeQrColor(rootStyles.getPropertyValue("--color-text-inverse"), "black");
+      const light = normalizeQrColor(rootStyles.getPropertyValue("--color-text-primary"), "white");
       QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark, light } })
         .then((url: string) => {
           if (!cancelled) setDataUrl(url);
