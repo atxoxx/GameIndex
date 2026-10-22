@@ -2419,6 +2419,7 @@ export const ru: TranslationDict = {
   "friendsPage.allFriends": "Все друзья",
   "friendsPage.allGenres": "Все жанры",
   "friendsPage.alreadyInFriends": "{name} уже ваш друг",
+  "friendsPage.cannotAddYourself": "Это ваш собственный код друга",
   "friendsPage.alreadyInWishlist": "{game} уже в вашем списке желаемого",
   "friendsPage.actions": "Действия",
   "friendsPage.activityFeedTitle": "Лента активности",

@@ -2419,6 +2419,7 @@ export const zhCN: TranslationDict = {
   "friendsPage.allFriends": "所有好友",
   "friendsPage.allGenres": "所有类型",
   "friendsPage.alreadyInFriends": "{name} 已经是你的好友",
+  "friendsPage.cannotAddYourself": "这是你自己的好友代码",
   "friendsPage.alreadyInWishlist": "{game} 已在心愿单中",
   "friendsPage.actions": "操作",
   "friendsPage.activityFeedTitle": "动态信息流",

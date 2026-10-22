@@ -2419,6 +2419,7 @@ export const fr: TranslationDict = {
   "friendsPage.allFriends": "Tous les amis",
   "friendsPage.allGenres": "Tous les genres",
   "friendsPage.alreadyInFriends": "{name} est déjà votre ami·e",
+  "friendsPage.cannotAddYourself": "C'est votre propre code d'ami",
   "friendsPage.alreadyInWishlist": "{game} est déjà dans votre liste de souhaits",
   "friendsPage.actions": "Actions",
   "friendsPage.activityFeedTitle": "Fil d'activité",

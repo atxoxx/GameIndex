@@ -10,7 +10,7 @@ import { useToast } from "../context/ToastContext";
 import { useSettings } from "../context/SettingsContext";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useLanguage } from "../context/LanguageContext";
-import { consumePendingSuggestion } from "./friendSuggestionSignal";
+import { consumePendingSuggestion, onPendingSuggestion, type PendingSuggestion } from "./friendSuggestionSignal";
 import { parsePlayTime, slugify, type StoreGameSummary } from "../types/game";
 import {
   UserProfile,
@@ -42,7 +42,7 @@ import {
   saveCircles,
   loadDms,
   saveDmsAndPersist,
-  dmThreadId,
+  startDmThreadId,
   mergeSessions,
   mergeRecommendations,
   mergeSuggestions,
@@ -94,7 +94,7 @@ import FriendsCompareTab from "../components/friends/FriendsCompareTab";
 import FriendsLeaderboardTab from "../components/friends/FriendsLeaderboardTab";
 import FriendsRaceTab from "../components/friends/FriendsRaceTab";
 import FriendsProfileTab from "../components/friends/FriendsProfileTab";
-import { nextOccurrence } from "../components/friends/friendsUtils";
+import { nextOccurrence, detectTimezone } from "../components/friends/friendsUtils";
 import PageWidget from "../components/PageWidget";
 
 import AddFriendModal from "../components/friends/AddFriendModal";
@@ -329,9 +329,14 @@ export default function FriendsPage() {
   /** Fires one notification per thread that gained new incoming messages, deduped by message id across sync sources. */
   const notifyNewDmMessages = (remoteThreads: DmThread[], knownIdsByThread: Map<string, Set<string>>, myName: string, senderName: string) => {
     remoteThreads.forEach((rt) => {
+      if (rt.deleted) return;
       const known = knownIdsByThread.get(rt.id);
       const fresh = (rt.messages || []).filter(
-        (m) => m.author !== myName && !known?.has(m.id) && !notifiedMsgIdsRef.current.has(m.id)
+        (m) =>
+          !m.deleted &&
+          m.author !== myName &&
+          !known?.has(m.id) &&
+          !notifiedMsgIdsRef.current.has(m.id)
       );
       if (fresh.length === 0) return;
       fresh.forEach((m) => notifiedMsgIdsRef.current.add(m.id));
@@ -341,12 +346,19 @@ export default function FriendsPage() {
     });
   };
 
-  // Handle incoming Wishlist Suggestion jump signal
+  // Handle incoming Wishlist Suggestion jump signal — open the Suggestions tab
+  // with the requested game pre-selected in the share dialog.
+  const [pendingShare, setPendingShare] = useState<PendingSuggestion | null>(null);
   useEffect(() => {
     const pending = consumePendingSuggestion();
     if (pending) {
+      setPendingShare(pending);
       setActiveTab("suggestions");
     }
+    return onPendingSuggestion((next) => {
+      setPendingShare(next);
+      setActiveTab("suggestions");
+    });
   }, []);
 
   // Clear unseen badge when opening tab
@@ -610,9 +622,10 @@ export default function FriendsPage() {
       const knownIdsByThread = new Map<string, Set<string>>();
       localDms.forEach((t) => knownIdsByThread.set(t.id, new Set((t.messages || []).map((m) => m.id))));
       (remoteDb.dms || []).forEach((remoteThread) => {
+        if (remoteThread.deleted) return;
         const known = knownIdsByThread.get(remoteThread.id);
         newDmMessages += (remoteThread.messages || []).filter(
-          (m) => m.author !== localProfile.name && !known?.has(m.id)
+          (m) => !m.deleted && m.author !== localProfile.name && !known?.has(m.id)
         ).length;
       });
       if (remoteProfile) notifyNewDmMessages(remoteDb.dms || [], knownIdsByThread, localProfile.name, remoteProfile.name);
@@ -815,11 +828,14 @@ export default function FriendsPage() {
               mergedDms = mergeDms(mergedDms, remoteOutbox.dms, currProfile.name);
               let newIncoming = 0;
               remoteOutbox.dms.forEach((rt) => {
+                if (rt.deleted) return;
                 const known = knownMessages.get(rt.id);
                 if (!known) {
-                  newIncoming += (rt.messages || []).filter((m) => m.author !== currProfile.name).length;
+                  newIncoming += (rt.messages || []).filter((m) => !m.deleted && m.author !== currProfile.name).length;
                 } else {
-                  newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== currProfile.name).length;
+                  newIncoming += (rt.messages || []).filter(
+                    (m) => !m.deleted && !known.has(m.id) && m.author !== currProfile.name
+                  ).length;
                 }
               });
               notifyNewDmMessages(remoteOutbox.dms, knownMessages, currProfile.name, friendName);
@@ -1068,7 +1084,7 @@ export default function FriendsPage() {
         if (deniedIds.includes(peerId)) continue;
 
         const remoteOutbox = await fetchFriendOutbox(peerId);
-        if (!remoteOutbox) continue;
+        if (!remoteOutbox || !remoteOutbox.profile) continue;
         const friendSyncId = remoteOutbox.syncId || (remoteOutbox.profile as any)?.syncId || peerId;
         if (friendSyncId === mySyncId) continue;
         if (deniedIds.includes(friendSyncId)) continue;
@@ -1215,6 +1231,10 @@ export default function FriendsPage() {
 
   const handleAddFriend = () => {
     if (!decodedFriend) return;
+    if (decodedFriend.syncId === profile.syncId) {
+      showToast(t("friendsPage.cannotAddYourself"), "error");
+      return;
+    }
     const exists = friends.some((f) => f.syncId === decodedFriend.syncId);
     if (exists) {
       showToast(t("friendsPage.alreadyInFriends", { name: decodedFriend.name }), "error");
@@ -1346,16 +1366,18 @@ export default function FriendsPage() {
   };
 
   const handleInviteToSession = (friend: Friend) => {
-    setPendingSessionInvite(displayName(friend));
+    // Session invitees are matched by profile name (nicknames are local-only),
+    // so prefill the name the peer will recognise as themselves.
+    setPendingSessionInvite(friend.name);
     setActiveTab("sessions");
     showToast(t("friendsPage.invitingToSession", { name: displayName(friend) }), "info");
   };
 
   const handleMessageFriend = (friend: Friend) => {
-    const existing = dmsRef.current.find(
-      (th) => th.participants.includes(profile.name) && th.participants.includes(friend.name)
+    const live = dmsRef.current.find(
+      (th) => !th.deleted && th.participants.includes(profile.name) && th.participants.includes(friend.name)
     );
-    const tid = existing ? existing.id : dmThreadId(profile.name, friend.name);
+    const tid = live ? live.id : startDmThreadId(profile.name, friend.name, dmsRef.current);
     setSelectedDmId(tid);
     setSelectedDmFriendName(friend.name);
     setActiveTab("dms");
@@ -1416,12 +1438,19 @@ export default function FriendsPage() {
       }
       const isGoing = rsvps[profile.name] === "going";
       const attendees = isGoing
-        ? Array.from(new Set([...s.attendees, profile.name]))
-        : s.attendees.filter((n) => n !== profile.name);
+        ? Array.from(new Set([...(s.attendees || []), profile.name]))
+        : (s.attendees || []).filter((n) => n !== profile.name);
 
+      const existingParticipant = (s.participants || []).find((p) => p.name === profile.name);
       const participants = (s.participants || []).filter((p) => p.name !== profile.name);
       if (isGoing) {
-        participants.push({ name: profile.name, role: "player" });
+        // Keep the role/note/timezone already recorded for us — an RSVP toggle
+        // must never demote a host to a plain player.
+        participants.unshift({
+          ...(existingParticipant || {}),
+          name: profile.name,
+          role: existingParticipant?.role ?? "player",
+        });
       }
       return { ...s, rsvps, attendees, participants, updatedAt: Date.now() };
     });
@@ -1467,7 +1496,7 @@ export default function FriendsPage() {
       if (s.id !== sessionId || !s.poll) return s;
       const votes: Record<string, string[]> = {};
       s.poll.options.forEach((o) => {
-        votes[o.id] = (s.poll!.votes[o.id] || []).filter((v) => v !== profile.name);
+        votes[o.id] = (s.poll!.votes?.[o.id] || []).filter((v) => v !== profile.name);
       });
       votes[optionId] = [...(votes[optionId] || []), profile.name];
       return { ...s, poll: { ...s.poll, votes }, updatedAt: Date.now() };
@@ -1494,6 +1523,9 @@ export default function FriendsPage() {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = (s.participants || []).map((p) => (p.name === name ? { ...p, role } : p));
+      // Attendees/invited people may not have a participant record yet (legacy
+      // sessions), so add one instead of silently dropping the change.
+      if (!participants.some((p) => p.name === name)) participants.push({ name, role });
       return { ...s, participants, updatedAt: Date.now() };
     });
     setSessions(updated);
@@ -1502,10 +1534,20 @@ export default function FriendsPage() {
   };
 
   const handleAddSessionGuest = async (sessionId: string, guestName: string) => {
+    const name = guestName.trim();
+    if (!name) return;
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
-      const participants = [...(s.participants || []), { name: guestName, role: "player" as SessionRole, guest: true }];
-      return { ...s, participants, updatedAt: Date.now() };
+      const participants = [...(s.participants || [])];
+      if (!participants.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+        participants.push({ name, role: "player" as SessionRole, guest: true, timezone: detectTimezone() });
+      }
+      // A +1 is a confirmed attendee: record the RSVP and attendee entry too so
+      // the roster/capacity counts include them.
+      const rsvps = { ...(s.rsvps || {}) };
+      if (rsvps[name] === undefined) rsvps[name] = "going";
+      const attendees = Array.from(new Set([...(s.attendees || []), name]));
+      return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
     });
     setSessions(updated);
     saveSessions(updated);
@@ -1516,7 +1558,10 @@ export default function FriendsPage() {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = (s.participants || []).filter((p) => !(p.name === guestName && p.guest));
-      return { ...s, participants, updatedAt: Date.now() };
+      const rsvps = { ...(s.rsvps || {}) };
+      delete rsvps[guestName];
+      const attendees = (s.attendees || []).filter((n) => n !== guestName);
+      return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
     });
     setSessions(updated);
     saveSessions(updated);
@@ -1526,7 +1571,18 @@ export default function FriendsPage() {
   const handleSetSessionRsvpNote = async (sessionId: string, note: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
-      const participants = (s.participants || []).map((p) => (p.name === profile.name ? { ...p, note } : p));
+      const participants = [...(s.participants || [])];
+      const idx = participants.findIndex((p) => p.name === profile.name);
+      if (idx >= 0) {
+        participants[idx] = { ...participants[idx], note: note || undefined };
+      } else {
+        participants.push({
+          name: profile.name,
+          role: "player",
+          note: note || undefined,
+          timezone: detectTimezone(),
+        });
+      }
       return { ...s, participants, updatedAt: Date.now() };
     });
     setSessions(updated);
@@ -1579,6 +1635,24 @@ export default function FriendsPage() {
       if (r.id !== recId) return r;
       return { ...r, wantToPlay: !r.wantToPlay, updatedAt: Date.now() };
     });
+    setRecommendations(updated);
+    saveRecommendations(updated);
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
+  };
+
+  /**
+   * Applies one backlog state to several recommendations at once. The
+   * "Top Picks" card toggles every recommendation for a game, and calling the
+   * single-item handler in a loop would race its own stale state and only keep
+   * the last write.
+   */
+  const handleSetWantToPlayBulk = async (recIds: string[], wantToPlay: boolean) => {
+    if (recIds.length === 0) return;
+    const ids = new Set(recIds);
+    const now = Date.now();
+    const updated = recommendations.map((r) =>
+      ids.has(r.id) && !!r.wantToPlay !== wantToPlay ? { ...r, wantToPlay, updatedAt: now } : r
+    );
     setRecommendations(updated);
     saveRecommendations(updated);
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
@@ -1786,7 +1860,7 @@ export default function FriendsPage() {
 
   const markDmThreadRead = (threadId: string) => {
     const thread = dmsRef.current.find((t) => t.id === threadId);
-    if (!thread) return;
+    if (!thread || thread.deleted) return;
     const lastRead = thread.lastReadAt?.[profile.name] || 0;
     const unread = (thread.messages || []).some((m) => m.author !== profile.name && m.timestamp > lastRead);
     if (!unread) return;
@@ -1810,10 +1884,15 @@ export default function FriendsPage() {
   }, [selectedDmId, activeTab, dms]);
 
   const handleDeleteDmMessage = async (threadId: string, messageId: string) => {
+    const now = Date.now();
     const updated = dms.map((th) => {
       if (th.id !== threadId) return th;
-      const messages = (th.messages || []).filter((m) => m.id !== messageId);
-      return { ...th, messages, updatedAt: Date.now() };
+      // Tombstone instead of dropping the message: the peer still has a copy,
+      // so a plain removal would come straight back on the next merge.
+      const messages = (th.messages || []).map((m) =>
+        m.id === messageId ? { ...m, deleted: true } : m
+      );
+      return { ...th, messages, updatedAt: now };
     });
     setDms(updated);
     saveDmsAndPersist(updated);
@@ -1821,7 +1900,10 @@ export default function FriendsPage() {
   };
 
   const handleDeleteDmThread = async (threadId: string) => {
-    const updated = dms.filter((th) => th.id !== threadId);
+    const now = Date.now();
+    const updated = dms.map((th) =>
+      th.id === threadId ? { ...th, deleted: true, updatedAt: now } : th
+    );
     setDms(updated);
     saveDmsAndPersist(updated);
     if (selectedDmId === threadId) setSelectedDmId(null);
@@ -2002,6 +2084,7 @@ export default function FriendsPage() {
             wishlistGames={wishlist}
             onReact={handleReactRec}
             onToggleWantToPlay={handleToggleWantToPlay}
+            onSetWantToPlay={handleSetWantToPlayBulk}
             onAddComment={handleAddRecComment}
             onCreateRec={handleCreateRec}
             onDeleteRec={handleDeleteRec}
@@ -2015,6 +2098,8 @@ export default function FriendsPage() {
             profile={profile}
             friends={friends}
             wishlistGames={wishlist}
+            prefillShare={pendingShare}
+            onPrefillConsumed={() => setPendingShare(null)}
             onReact={handleReactSuggestion}
             onToggleWishlist={handleToggleWishlistSuggestion}
             onAddComment={handleAddSuggestionComment}
