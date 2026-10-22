@@ -57,4 +57,22 @@ describe("AddFriendModal preview", () => {
 
     expect(document.querySelector(".preview-avatar-wrapper .preview-avatar-img")).not.toBeNull();
   });
+
+  it("lays the shared library stats out as three labelled tiles", () => {
+    renderModal(
+      makeFriend({
+        libStats: { gamesCount: 256, playtimeMinutes: 276, achievementsCount: 869 },
+      }),
+    );
+
+    const tiles = document.querySelectorAll(".friend-preview-stats .preview-stat-item");
+    expect(tiles).toHaveLength(3);
+    expect(tiles[0].querySelector(".preview-stat-val")?.textContent).toBe("256");
+    expect(tiles[0].querySelector(".preview-stat-lbl")?.textContent).toBe("friendsPage.games");
+    expect(tiles[2].querySelector(".preview-stat-val")?.textContent).toBe("869");
+    expect(tiles[2].querySelector(".preview-stat-lbl")?.textContent).toBe("friendsPage.achievements");
+
+    // Separators must not live in the grid as their own cells.
+    expect(document.querySelector(".friend-preview-stats > span")).toBeNull();
+  });
 });

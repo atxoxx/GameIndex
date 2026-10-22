@@ -121,15 +121,24 @@ export default function AddFriendModal({
 
                   {decodedFriend.libStats && (
                     <div className="friend-preview-stats">
-                      <span>
-                        {t("friendsPage.gamesCount", { count: decodedFriend.libStats.gamesCount || 0 })}
-                      </span>
-                      <span> · </span>
-                      <span>{formatHours(decodedFriend.libStats.playtimeMinutes || 0, t)}</span>
-                      <span> · </span>
-                      <span>
-                        {decodedFriend.libStats.achievementsCount || 0} {t("friendsPage.achievements")}
-                      </span>
+                      <div className="preview-stat-item">
+                        <span className="preview-stat-val">
+                          {decodedFriend.libStats.gamesCount || 0}
+                        </span>
+                        <span className="preview-stat-lbl">{t("friendsPage.games")}</span>
+                      </div>
+                      <div className="preview-stat-item">
+                        <span className="preview-stat-val">
+                          {formatHours(decodedFriend.libStats.playtimeMinutes || 0, t)}
+                        </span>
+                        <span className="preview-stat-lbl">{t("friendsPage.playtime")}</span>
+                      </div>
+                      <div className="preview-stat-item">
+                        <span className="preview-stat-val">
+                          {decodedFriend.libStats.achievementsCount || 0}
+                        </span>
+                        <span className="preview-stat-lbl">{t("friendsPage.achievements")}</span>
+                      </div>
                     </div>
                   )}
                 </div>
