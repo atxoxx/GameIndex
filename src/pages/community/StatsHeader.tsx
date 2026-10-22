@@ -3,6 +3,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { formatHours } from "./statsCalculations";
+import { StatBand } from "../../components/ui/StatBand";
 import type { GamerLevelInfo, GamerPersona, StreakInfo, TimeframePreset } from "./statsTypes";
 
 interface StatsHeaderProps {
@@ -110,29 +111,32 @@ export function StatsHeader({
 
       {/* Cockpit Middle: Quick Stat Pills */}
       <div className="stats-cockpit-metrics">
-        <div className="stats-metric-card">
-          <span className="stats-metric-icon">⏱️</span>
-          <div className="stats-metric-content">
-            <span className="stats-metric-val">{formatHours(totalPlaytimeMin)}</span>
-            <span className="stats-metric-lbl">{t("community.totalPlaytime")}</span>
-          </div>
-        </div>
-
-        <div className="stats-metric-card">
-          <span className="stats-metric-icon">🎮</span>
-          <div className="stats-metric-content">
-            <span className="stats-metric-val">{totalSessions}</span>
-            <span className="stats-metric-lbl">{t("community.sessions")}</span>
-          </div>
-        </div>
-
-        <div className="stats-metric-card">
-          <span className="stats-metric-icon">{streak.current > 0 ? "🔥" : "❄️"}</span>
-          <div className="stats-metric-content">
-            <span className="stats-metric-val">{streak.current} {t("communityExtras.dayStreak")}</span>
-            <span className="stats-metric-lbl">{t("communityExtras.longest", { days: streak.longest })}</span>
-          </div>
-        </div>
+        <StatBand
+          ariaLabel={t("community.playerProfile")}
+          items={[
+            {
+              id: "playtime",
+              label: t("community.totalPlaytime"),
+              value: formatHours(totalPlaytimeMin),
+              icon: <span aria-hidden="true">⏱️</span>,
+              tone: "info",
+            },
+            {
+              id: "sessions",
+              label: t("community.sessions"),
+              value: totalSessions,
+              icon: <span aria-hidden="true">🎮</span>,
+            },
+            {
+              id: "streak",
+              label: t("communityExtras.dayStreak"),
+              value: streak.current,
+              detail: t("communityExtras.longest", { days: streak.longest }),
+              icon: <span aria-hidden="true">{streak.current > 0 ? "🔥" : "❄️"}</span>,
+              tone: "warning",
+            },
+          ]}
+        />
       </div>
 
       {/* Cockpit Right: Actions & Timeframe Filter */}

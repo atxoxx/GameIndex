@@ -50,99 +50,6 @@
 }
 
 /* ── 2. Top Tab Navigation Bar & Live Sync Status ──────────────────────────── */
-.friends-tab-bar-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-xs) var(--space-sm);
-  box-shadow: var(--shadow-sm);
-}
-
-.friends-tab-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2xs);
-}
-
-.friends-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  height: 32px;
-  padding: 0 var(--space-md);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  font-family: inherit;
-}
-
-.friends-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.friends-tab.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-.friends-tab.active:hover {
-  background: var(--color-accent-hover);
-  color: var(--color-accent-contrast);
-}
-
-.friends-tab svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.friends-tab-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-xs);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  line-height: 18px;
-  text-align: center;
-}
-
-.friends-tab.active .friends-tab-count {
-  background: color-mix(in srgb, var(--color-accent-contrast) 22%, transparent);
-  color: var(--color-accent-contrast);
-}
-
-.friends-tab-badge {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-2xs);
-  border-radius: var(--radius-full);
-  background: var(--color-danger);
-  color: var(--color-accent-contrast);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  line-height: 18px;
-  text-align: center;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 45%, transparent);
-}
 
 .friends-sync-cluster,
 .sync-status-container {
@@ -5785,3 +5692,37 @@ textarea.profile-input {
   gap: var(--space-sm);
 }
 
+
+
+/* ── Undelimited hero stats ─────────────────────────────────────────── */
+.hero-stat-card,
+.friends-hero-stat-card {
+  background: var(--panel-tint);
+  border: 0;
+  box-shadow: none;
+}
+
+.hero-stat-card:hover,
+.friends-hero-stat-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Friends section tabs ride the shared .ui-subtabs strip. */
+.friends-tab-bar-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-lg);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.friends-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}

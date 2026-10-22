@@ -591,79 +591,6 @@
    Saves Hub Subtabs & Modern Layout Enhancements
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.saves-subtabs-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-2xs);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  width: fit-content;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.saves-subtabs-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.saves-subtab-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-md);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-md);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.saves-subtab-pill:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-3, rgba(255, 255, 255, 0.05));
-}
-
-.saves-subtab-pill.active {
-  color: var(--color-text-primary);
-  background: var(--color-surface-1);
-  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.2));
-  font-weight: 600;
-}
-
-.saves-subtab-icon {
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-
-.saves-subtab-pill.active .saves-subtab-icon {
-  opacity: 1;
-  color: var(--color-accent);
-}
-
-.saves-subtab-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4xs) var(--space-xs);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-3, rgba(255, 255, 255, 0.08));
-  color: var(--color-text-muted);
-}
-
-.saves-subtab-pill.active .saves-subtab-badge {
-  background: var(--color-accent-subtle, rgba(var(--color-accent-rgb, 100, 100, 255), 0.15));
-  color: var(--color-accent);
-}
-
 /* ── Filter Pills & View Toggles ────────────────────────────────────────── */
 
 .saves-controls-bar {
@@ -1118,3 +1045,17 @@
   min-width: 0;
 }
 
+
+
+/* Page subtabs use the shared .ui-subtabs strip. */
+.saves-subtabs {
+  margin-bottom: var(--space-lg);
+}
+
+
+/* ── Undelimited section panels ─────────────────────────────────────── */
+.saves-card {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+}

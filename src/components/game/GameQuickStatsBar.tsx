@@ -10,6 +10,7 @@ import {
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
+import { StatBand, type StatBandItem } from "../ui/StatBand";
 import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar } from "./icons";
 
 interface GameQuickStatsBarProps {
@@ -18,7 +19,7 @@ interface GameQuickStatsBarProps {
   sizeUnit: SizeUnit;
   isStoreMode?: boolean;
   /** Open the edit dialog on the Details tab (used by the empty value
-   *  tile so "Set cost" actually takes the user to the field). */
+   *  metric so "Set cost" actually takes the user to the field). */
   onSetCost?: () => void;
 }
 
@@ -55,6 +56,20 @@ function formatRelativeTime(
   return t("game.quickStats.yearsAgo", { n: years });
 }
 
+function scoreTone(score: number): StatBandItem["tone"] {
+  if (score >= 75) return "success";
+  if (score >= 50) return "warning";
+  return "danger";
+}
+
+/**
+ * GameQuickStatsBar — the game overview's quick metrics.
+ *
+ * Rendered through the shared `StatBand` primitive: figures sit directly on
+ * the page with no per-metric tile, so the summary reads as a masthead for
+ * the overview rather than a row of widgets. Every metric keeps its own
+ * tooltip so the "set cost" affordance still explains itself.
+ */
 export default function GameQuickStatsBar({
   game,
   steamAppId: steamAppIdProp,
@@ -111,218 +126,144 @@ export default function GameQuickStatsBar({
     return formatRelativeTime(game.lastPlayed, t("game.quickStats.neverPlayed"), t);
   }, [game.lastPlayed, t]);
 
-  const scoreClass =
-    ratingScore && ratingScore >= 75
-      ? "quick-stats__score--high"
-      : ratingScore && ratingScore >= 50
-      ? "quick-stats__score--mid"
-      : "quick-stats__score--low";
+  const items = useMemo<StatBandItem[]>(() => {
+    const next: StatBandItem[] = [];
 
-  const hasAnyStat =
-    ratingScore != null ||
-    steamPositivePercent != null ||
-    storyHours != null ||
-    completionistHours != null ||
-    formattedSize != null ||
-    valuePerHour != null ||
-    (showDeckVerified && effectiveSteamAppId != null) ||
-    !isStoreMode;
+    if (ratingScore != null || steamPositivePercent != null) {
+      const tone = scoreTone(ratingScore ?? steamPositivePercent ?? 0);
+      next.push({
+        id: "reception",
+        label: t("game.quickStats.reception"),
+        icon: <IconStar size={14} />,
+        tone,
+        value:
+          ratingScore != null
+            ? Math.round(ratingScore)
+            : `${steamPositivePercent}%`,
+        detail:
+          ratingScore != null && steamPositivePercent != null
+            ? `${steamPositivePercent}% ${t("review.positive")}`
+            : ratingScore == null
+              ? t("review.positive")
+              : undefined,
+        hint:
+          ratingScore != null
+            ? `Rating: ${Math.round(ratingScore)}/100`
+            : undefined,
+      });
+    }
 
-  if (!hasAnyStat) return null;
+    if (storyHours != null || completionistHours != null) {
+      next.push({
+        id: "timeToBeat",
+        label: t("game.quickStats.timeToBeat"),
+        icon: <IconClock size={14} />,
+        tone: "info",
+        value: `${storyHours ?? completionistHours}h`,
+        detail:
+          storyHours != null && completionistHours != null
+            ? `${completionistHours}h ${t("game.quickStats.completionist")}`
+            : storyHours != null
+              ? t("game.quickStats.story")
+              : t("game.quickStats.completionist"),
+        progress: storyProgressPercent ?? undefined,
+        hint:
+          storyProgressPercent != null
+            ? `${storyProgressPercent}% completed`
+            : undefined,
+      });
+    }
 
-  return (
-    <div className="game-quick-stats-bar" aria-label="Game Quick Stats">
-      {/* 1. Reception Tile */}
-      {(ratingScore != null || steamPositivePercent != null) && (
-        <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--reception">
-            <IconStar size={18} className="quick-stats-tile__icon" />
-          </div>
-          <div className="quick-stats-tile__content">
-            <div className="quick-stats-tile__label">{t("game.quickStats.reception")}</div>
-            <div className="quick-stats-tile__value-row">
-              {ratingScore != null && (
-                <span className={`quick-stats__score-pill ${scoreClass}`} title={`Rating: ${Math.round(ratingScore)}/100`}>
-                  {Math.round(ratingScore)}
-                </span>
-              )}
-              {ratingScore != null && steamPositivePercent != null && (
-                <span className="quick-stats__divider-dot">•</span>
-              )}
-              {steamPositivePercent != null && (
-                <span className="quick-stats__sub-badge" title="Steam Positive Reviews">
-                  <span className="quick-stats__steam-pct">{steamPositivePercent}%</span> {t("review.positive")}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+    if (formattedSize) {
+      next.push({
+        id: "storage",
+        label: t("game.quickStats.storage"),
+        icon: <IconHardDrive size={14} />,
+        tone: game.installed ? "success" : "default",
+        value: formattedSize,
+        detail: game.installed ? t("filter.installed") : undefined,
+      });
+    }
 
-      {/* 2. Time to Beat Tile */}
-      {(storyHours != null || completionistHours != null) && (
-        <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--time">
-            <IconClock size={18} className="quick-stats-tile__icon" />
-          </div>
-          <div className="quick-stats-tile__content">
-            <div className="quick-stats-tile__label">{t("game.quickStats.timeToBeat")}</div>
-            <div className="quick-stats-tile__value-row">
-              {storyHours != null && (
-                <span className="quick-stats-tile__value">
-                  {storyHours}h <span className="quick-stats__hint">({t("game.quickStats.story")})</span>
-                </span>
-              )}
-              {completionistHours != null && storyHours != null && (
-                <span className="quick-stats__divider-dot">•</span>
-              )}
-              {completionistHours != null && (
-                <span className="quick-stats-tile__value">
-                  {completionistHours}h <span className="quick-stats__hint">({t("game.quickStats.completionist")})</span>
-                </span>
-              )}
-            </div>
-            {storyProgressPercent != null && !isStoreMode && (
-              <div className="quick-stats-tile__mini-bar" title={`${storyProgressPercent}% completed`}>
-                <div
-                  className="quick-stats-tile__mini-fill"
-                  style={{ width: `${storyProgressPercent}%` }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 3. Storage Footprint Tile */}
-      {formattedSize && (
-        <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--storage">
-            <IconHardDrive size={18} className="quick-stats-tile__icon" />
-          </div>
-          <div className="quick-stats-tile__content">
-            <div className="quick-stats-tile__label">{t("game.quickStats.storage")}</div>
-            <div className="quick-stats-tile__value-row">
-              <span className="quick-stats-tile__value">{formattedSize}</span>
-              {game.installed ? (
-                <span className="quick-stats__status-badge quick-stats__status-badge--installed">
-                  <span className="quick-stats__status-dot" />
-                  {t("filter.installed")}
-                </span>
-              ) : (
-                <span className="quick-stats__status-badge">
-                  {t("game.quickStats.storage")}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Value for Money ($ / hour). Always rendered in library mode.
-          The rate needs a saved purchase cost — a store price is shown on
-          the value card as a reference, never used as the cost. */}
-      {!isStoreMode && (() => {
-        const noCost = resolvedCost == null;
-        const noRate = valuePerHour == null;
-        const interactive = Boolean(onSetCost);
-        const title = noCost
+    if (!isStoreMode) {
+      const noCost = resolvedCost == null;
+      const noRate = valuePerHour == null;
+      const valueText = noCost
+        ? t("game.quickStats.setCost")
+        : noRate
+          ? formatCost(resolvedCost.cost, resolvedCost.currency)
+          : formatCost(valuePerHour, resolvedCost.currency);
+      next.push({
+        id: "value",
+        label: t("game.quickStats.value"),
+        icon: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            <circle cx="12" cy="15.5" r="1.5" />
+          </svg>
+        ),
+        value: valueText,
+        detail: noCost || noRate ? undefined : t("game.quickStats.perHour"),
+        hint: noCost
           ? t("game.quickStats.setCostHint")
           : noRate
             ? t("game.quickStats.needPlaytime")
-            : undefined;
-        const content = (
-          <>
-            <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--value">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-stats-tile__icon">
-                <path d="M3 11h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                <circle cx="12" cy="15.5" r="1.5" />
-              </svg>
-            </div>
-            <div className="quick-stats-tile__content">
-              <div className="quick-stats-tile__label">{t("game.quickStats.value")}</div>
-              <div className="quick-stats-tile__value-row">
-                {noCost ? (
-                  <span className="quick-stats-tile__value quick-stats-tile__value--hint">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    {t("game.quickStats.setCost")}
-                  </span>
-                ) : (
-                  <>
-                    <span className="quick-stats-tile__value">
-                      {noRate
-                        ? formatCost(resolvedCost.cost, resolvedCost.currency)
-                        : formatCost(valuePerHour, resolvedCost.currency)}
-                    </span>
-                    {!noRate && (
-                      <span className="quick-stats-tile__per-hour">
-                        {t("game.quickStats.perHour")}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </>
-        );
-        const className = `quick-stats-tile${noCost ? " quick-stats-tile--hint" : ""}${interactive ? " quick-stats-tile--action" : ""}`;
-        return interactive ? (
-          <button type="button" className={className} title={title} onClick={onSetCost}>
-            {content}
-          </button>
-        ) : (
-          <div className={className} title={title}>
-            {content}
-          </div>
-        );
-      })()}
+            : undefined,
+        onClick: noCost ? onSetCost : undefined,
+      });
+    }
 
-      {/* 5. Compatibility / Platform Readiness */}
-      {showDeckVerified && effectiveSteamAppId != null && (
-        <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--compat">
-            <IconShield size={18} className="quick-stats-tile__icon" />
-          </div>
-          <div className="quick-stats-tile__content">
-            <div className="quick-stats-tile__label">{t("game.quickStats.compatibility")}</div>
-            <div className="quick-stats-tile__value-row">
-              <span className="quick-stats__compat-pill">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                  <path d="M6 11h4M8 9v4M15 11h.01M18 11h.01M3 7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7z" />
-                </svg>
-                {t("game.quickStats.deckVerified")}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+    if (showDeckVerified && effectiveSteamAppId != null) {
+      next.push({
+        id: "compatibility",
+        label: t("game.quickStats.compatibility"),
+        icon: <IconShield size={14} />,
+        tone: "accent",
+        value: t("game.quickStats.deckVerified"),
+      });
+    }
 
-      {/* 6. Last Played (Library Only) */}
-      {!isStoreMode && (
-        <div className="quick-stats-tile">
-          <div className="quick-stats-tile__icon-wrap quick-stats-tile__icon-wrap--session">
-            <IconCalendar size={18} className="quick-stats-tile__icon" />
-          </div>
-          <div className="quick-stats-tile__content">
-            <div className="quick-stats-tile__label">{t("game.quickStats.lastPlayed")}</div>
-            <div className="quick-stats-tile__value-row">
-              <span className="quick-stats-tile__value">{lastPlayedRelative}</span>
-              {currentHours > 0 && (
-                <>
-                  <span className="quick-stats__divider-dot">•</span>
-                  <span className="quick-stats__hint">
-                    {currentHours}h {t("hero.playTime").toLowerCase()}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    if (!isStoreMode) {
+      next.push({
+        id: "lastPlayed",
+        label: t("game.quickStats.lastPlayed"),
+        icon: <IconCalendar size={14} />,
+        value: lastPlayedRelative,
+        detail:
+          currentHours > 0
+            ? `${currentHours}h ${t("hero.playTime").toLowerCase()}`
+            : undefined,
+      });
+    }
+
+    return next;
+  }, [
+    ratingScore,
+    steamPositivePercent,
+    storyHours,
+    completionistHours,
+    storyProgressPercent,
+    formattedSize,
+    game.installed,
+    resolvedCost,
+    valuePerHour,
+    isStoreMode,
+    showDeckVerified,
+    effectiveSteamAppId,
+    lastPlayedRelative,
+    currentHours,
+    onSetCost,
+    t,
+  ]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <StatBand
+      items={items}
+      ariaLabel={t("game.quickStats.aria")}
+      className="game-quick-stats"
+    />
   );
 }

@@ -3692,3 +3692,10 @@
   gap: var(--space-3xs);
   margin-left: auto;
 }
+
+
+/* ── Undelimited stat row ───────────────────────────────────────────── */
+.emu-stat {
+  background: transparent;
+  border: 0;
+}

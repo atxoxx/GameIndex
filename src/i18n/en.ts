@@ -2940,6 +2940,7 @@ export const en: TranslationDict = {
   "game.mediaSpotlight.pauseTrailer": "Pause Trailer",
   "game.mediaSpotlight.previousMedia": "Previous Media",
   "game.mediaSpotlight.nextMedia": "Next Media",
+  "game.quickStats.aria": "Game quick stats",
   "game.quickStats.reception": "Reception",
   "game.quickStats.timeToBeat": "Time to Beat",
   "game.quickStats.compatibility": "Compatibility",

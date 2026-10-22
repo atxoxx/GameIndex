@@ -2666,3 +2666,11 @@ textarea.settings-input {
     transition: none;
   }
 }
+
+
+/* ── Undelimited section panels ─────────────────────────────────────── */
+.settings-section {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+}

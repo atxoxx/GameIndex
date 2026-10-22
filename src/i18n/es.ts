@@ -2931,6 +2931,7 @@ export const es: TranslationDict = {
   "game.mediaSpotlight.pauseTrailer": "Pausar tráiler",
   "game.mediaSpotlight.previousMedia": "Medio anterior",
   "game.mediaSpotlight.nextMedia": "Medio siguiente",
+  "game.quickStats.aria": "Estadísticas rápidas del juego",
   "game.quickStats.reception": "Recepción",
   "game.quickStats.timeToBeat": "Duración",
   "game.quickStats.compatibility": "Compatibilidad",

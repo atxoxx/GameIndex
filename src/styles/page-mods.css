@@ -2187,3 +2187,11 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
+
+
+/* ── Undelimited section panels ─────────────────────────────────────── */
+.mods-toolbar-container {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+}

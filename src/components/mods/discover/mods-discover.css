@@ -2071,45 +2071,6 @@
 
 /* ── Top Navigation Bar ────────────────────────────────────────────── */
 
-.mods-discover-nav-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-2xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xs);
-  flex-wrap: wrap;
-}
-
-.mods-discover-nav-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  border: none;
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-standard);
-}
-
-.mods-discover-nav-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.mods-discover-nav-tab.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: var(--shadow-sm);
-}
-
 .mods-discover-nav-badge {
   display: inline-flex;
   align-items: center;
@@ -2119,17 +2080,6 @@
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, currentColor 20%, transparent);
-}
-
-.mods-discover-nav-tab.active .mods-discover-nav-badge {
-  background: color-mix(in srgb, var(--color-accent-contrast, #ffffff) 24%, transparent);
-  color: var(--color-accent-contrast, #ffffff);
-}
-
-.mods-discover-nav-extra {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
 }
 
 .mods-discover-tab-pane {
@@ -3406,3 +3356,9 @@
   box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.45));
 }
 
+
+
+/* Discover tabs use the shared .ui-subtabs strip. */
+.mods-discover-tabs {
+  margin-bottom: var(--space-lg);
+}

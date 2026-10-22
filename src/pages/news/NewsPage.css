@@ -1865,3 +1865,15 @@
   background: color-mix(in srgb, var(--color-danger) 24%, var(--color-bg-tertiary));
   color: var(--color-danger);
 }
+
+
+/* ── Undelimited news cards ─────────────────────────────────────────── */
+.news-article-card {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+}
+
+.news-article-card:hover {
+  border-color: transparent;
+}

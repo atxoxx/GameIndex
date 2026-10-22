@@ -1348,38 +1348,11 @@
 
 .game-section {
   position: relative;
-  box-shadow: var(--shadow-sm), inset 0 1px 0 var(--color-border-faint);
-  border-color: var(--color-border-light);
   transition: box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-.game-section-title {
-  /* Reset the App.css title to use the section title pattern */
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin: calc(-1 * var(--space-xl)) calc(-1 * var(--space-xl)) var(--space-lg);
-  padding: var(--space-lg) var(--space-xl) var(--space-md);
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)),
-    color-mix(in srgb, var(--color-accent) 0%, var(--color-surface)) 80%
-  );
-  position: relative;
-}
-
-.game-section-title svg {
-  width: 18px;
-  height: 18px;
-  /* Flat accent — the drop-shadow glow was removed so section icons
-   * read calm; glow is reserved for the hero (audit item 9). */
-  color: var(--color-accent);
-}
+/* The section header band lives in `game-page.css`: flat type on the panel
+   wash. Only the title's internal slots are styled here. */
 
 /* ── AboutSection enhancements ────────────────────────── */
 

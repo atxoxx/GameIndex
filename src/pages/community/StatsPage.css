@@ -306,66 +306,6 @@
    2. SUBTAB NAVIGATION BAR
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-.stats-subtab-bar {
-  display: flex;
-  gap: var(--space-xs);
-  border-bottom: 1px solid var(--color-border, #30363d);
-  padding-bottom: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.stats-subtab-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.stats-subtab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted, #8b949e);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium, 500);
-  cursor: pointer;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  transition: color var(--duration-fast, 150ms) ease, background var(--duration-fast, 150ms) ease;
-  position: relative;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.stats-subtab-btn::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--color-accent);
-  border-radius: 2px 2px 0 0;
-  opacity: 0;
-  transform: scaleX(0.5);
-  transition: opacity var(--duration-fast, 150ms) ease, transform var(--duration-fast, 150ms) ease;
-}
-
-.stats-subtab-btn:hover {
-  color: var(--color-text-primary, #ffffff);
-  background: var(--color-bg-hover, #1f2430);
-}
-
-.stats-subtab-btn.active {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-semibold, 600);
-}
-
-.stats-subtab-btn.active::after {
-  opacity: 1;
-  transform: scaleX(1);
-}
-
 .stats-subtab-icon {
   font-size: var(--text-md);
 }
@@ -2799,3 +2739,20 @@
   font-size: var(--text-xl);
   line-height: 1;
 }
+
+
+/* Section tabs use the shared .ui-subtabs strip. */
+.stats-subtabs {
+  margin-bottom: var(--space-lg);
+}
+
+/* Undelimited summary strip. */
+.stats-summary-strip-card {
+  border: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 7%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 1.5%, transparent) 100%
+  );
+}
+

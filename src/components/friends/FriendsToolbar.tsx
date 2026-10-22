@@ -1,5 +1,6 @@
 import { useLanguage } from "../../context/LanguageContext";
 import { useWidgetVisible } from "../../context/SettingsContext";
+import { SubTabs, type SubTabItem } from "../ui/SubTabs";
 import type { FriendsTabKey, UnseenCounts } from "./friendsTypes";
 import {
   UsersIcon,
@@ -43,137 +44,88 @@ export default function FriendsToolbar({
   const activityBadge =
     unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions;
 
+  const gatedClass = "ui-complete-only";
+
+  const items: SubTabItem<FriendsTabKey>[] = [
+    {
+      id: "friends",
+      label: t("friends.tab.friends"),
+      icon: UsersIcon,
+      count: friendsCount,
+    },
+    {
+      id: "activity",
+      label: t("friends.tab.activity"),
+      icon: ActivityIcon,
+      count: activityBadge,
+    },
+    {
+      id: "dms",
+      label: t("friends.tab.messages"),
+      icon: MessageIcon,
+      count: unseenCounts.dms,
+    },
+  ];
+
+  if (subtabsVisible) {
+    items.push(
+      {
+        id: "sessions",
+        label: t("friends.tab.sessions"),
+        icon: CalendarIcon,
+        count: unseenCounts.sessions,
+        className: gatedClass,
+      },
+      {
+        id: "recs",
+        label: t("friends.tab.recs"),
+        icon: RecommendIcon,
+        count: unseenCounts.recs,
+        className: gatedClass,
+      },
+      {
+        id: "suggestions",
+        label: t("friends.tab.suggestions"),
+        icon: SuggestionIcon,
+        count: unseenCounts.suggestions,
+        className: gatedClass,
+      },
+      {
+        id: "compare",
+        label: t("friends.tab.compare"),
+        icon: CompareIcon,
+        className: gatedClass,
+      },
+      {
+        id: "leaderboard",
+        label: t("friends.tab.leaderboard"),
+        icon: LeaderboardIcon,
+        className: gatedClass,
+      },
+      {
+        id: "race",
+        label: t("friends.tab.race"),
+        icon: TrophyIcon,
+        className: gatedClass,
+      },
+    );
+  }
+
+  items.push({
+    id: "profile",
+    label: t("friends.tab.profile"),
+    icon: UserIcon,
+  });
+
   return (
     <div className="friends-tab-bar-container">
-      <div className="friends-tab-bar" role="tablist" aria-label={t("friendsPage.sectionsAria")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "friends"}
-          className={`friends-tab${activeTab === "friends" ? " active" : ""}`}
-          onClick={() => onSelectTab("friends")}
-        >
-          <UsersIcon />
-          <span>{t("friends.tab.friends")}</span>
-          {friendsCount > 0 && <span className="friends-tab-count">{friendsCount}</span>}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "activity"}
-          className={`friends-tab${activeTab === "activity" ? " active" : ""}`}
-          onClick={() => onSelectTab("activity")}
-        >
-          <ActivityIcon />
-          <span>{t("friends.tab.activity")}</span>
-          {activityBadge > 0 && <span className="friends-tab-count">{activityBadge}</span>}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "dms"}
-          className={`friends-tab${activeTab === "dms" ? " active" : ""}`}
-          onClick={() => onSelectTab("dms")}
-        >
-          <MessageIcon />
-          <span>{t("friends.tab.messages")}</span>
-          {unseenCounts.dms > 0 && <span className="friends-tab-count">{unseenCounts.dms}</span>}
-        </button>
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "sessions"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "sessions" ? " active" : ""}`}
-          onClick={() => onSelectTab("sessions")}
-        >
-          <CalendarIcon />
-          <span>{t("friends.tab.sessions")}</span>
-          {unseenCounts.sessions > 0 && <span className="friends-tab-count">{unseenCounts.sessions}</span>}
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "recs"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "recs" ? " active" : ""}`}
-          onClick={() => onSelectTab("recs")}
-        >
-          <RecommendIcon />
-          <span>{t("friends.tab.recs")}</span>
-          {unseenCounts.recs > 0 && <span className="friends-tab-count">{unseenCounts.recs}</span>}
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "suggestions"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "suggestions" ? " active" : ""}`}
-          onClick={() => onSelectTab("suggestions")}
-        >
-          <SuggestionIcon />
-          <span>{t("friends.tab.suggestions")}</span>
-          {unseenCounts.suggestions > 0 && <span className="friends-tab-count">{unseenCounts.suggestions}</span>}
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "compare"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "compare" ? " active" : ""}`}
-          onClick={() => onSelectTab("compare")}
-        >
-          <CompareIcon />
-          <span>{t("friends.tab.compare")}</span>
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "leaderboard"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "leaderboard" ? " active" : ""}`}
-          onClick={() => onSelectTab("leaderboard")}
-        >
-          <LeaderboardIcon />
-          <span>{t("friends.tab.leaderboard")}</span>
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "race"}
-          className={`friends-tab ui-complete-only ui-item-subtabs${activeTab === "race" ? " active" : ""}`}
-          onClick={() => onSelectTab("race")}
-        >
-          <TrophyIcon />
-          <span>{t("friends.tab.race")}</span>
-        </button>
-        )}
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "profile"}
-          className={`friends-tab${activeTab === "profile" ? " active" : ""}`}
-          onClick={() => onSelectTab("profile")}
-        >
-          <UserIcon />
-          <span>{t("friends.tab.profile")}</span>
-        </button>
-      </div>
+      <SubTabs
+        ariaLabel={t("friendsPage.sectionsAria")}
+        className="friends-tabs"
+        value={activeTab}
+        onChange={onSelectTab}
+        items={items}
+      />
 
       <div className="sync-status-container">
         <span className={`sync-status-dot${isSyncing ? " spinning" : ""}`} aria-hidden />

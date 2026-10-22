@@ -13,7 +13,7 @@ import {
   HandshakeIcon,
   GamepadIcon,
 } from "./friendsUtils";
-import { Button } from "../ui";
+import { Button, SubTabs } from "../ui";
 
 interface FriendsCompareTabProps {
   friends: Friend[];
@@ -226,34 +226,35 @@ export default function FriendsCompareTab({
         </div>
 
         <div className="compare-subtabs-row">
-          <button
-            type="button"
-            className={`compare-subtab-btn${subTab === "overview" ? " active" : ""}`}
-            onClick={() => setSubTab("overview")}
-          >
-            <BarChartIcon /> {t("friendsPage.overview")}
-          </button>
-          <button
-            type="button"
-            className={`compare-subtab-btn${subTab === "games" ? " active" : ""}`}
-            onClick={() => setSubTab("games")}
-          >
-            <GamepadIcon /> {t("friendsPage.allGames")} ({comparisonData.length})
-          </button>
-          <button
-            type="button"
-            className={`compare-subtab-btn${subTab === "genres" ? " active" : ""}`}
-            onClick={() => setSubTab("genres")}
-          >
-            <TagIcon /> {t("friendsPage.genres")}
-          </button>
-          <button
-            type="button"
-            className={`compare-subtab-btn${subTab === "insights" ? " active" : ""}`}
-            onClick={() => setSubTab("insights")}
-          >
-            <LightbulbIcon /> {t("friendsPage.insights")}
-          </button>
+          <SubTabs
+            ariaLabel={t("friendsPage.compareSubtabsAria")}
+            className="compare-subtabs"
+            value={subTab}
+            onChange={setSubTab}
+            items={[
+              {
+                id: "overview",
+                label: t("friendsPage.overview"),
+                icon: BarChartIcon,
+              },
+              {
+                id: "games",
+                label: t("friendsPage.allGames"),
+                icon: GamepadIcon,
+                count: comparisonData.length,
+              },
+              {
+                id: "genres",
+                label: t("friendsPage.genres"),
+                icon: TagIcon,
+              },
+              {
+                id: "insights",
+                label: t("friendsPage.insights"),
+                icon: LightbulbIcon,
+              },
+            ]}
+          />
         </div>
       </div>
 

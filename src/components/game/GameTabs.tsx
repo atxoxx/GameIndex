@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { SubTabs } from "../ui/SubTabs";
 
 export interface GameTabItem<T extends string = string> {
   id: T;
   label: string;
-  icon?: React.ComponentType<{ size?: number; className?: string }>;
+  icon?: ComponentType<{ size?: number; className?: string }>;
   count?: number | null;
   /** Optional status indicator rendered after the label. */
   badge?: ReactNode;
@@ -14,188 +15,32 @@ export interface GameTabsProps<T extends string = string> {
   activeTab: T;
   onChange: (tabId: T) => void;
   className?: string;
+  ariaLabel?: string;
 }
 
+/**
+ * GameTabs — thin adapter over the shared `SubTabs` primitive.
+ *
+ * All detail pages now ride the same undelimited strip (labels in the page
+ * flow, one sliding accent underline), so this keeps the historic
+ * `tabs`/`activeTab` prop names without a second implementation of the
+ * scroll-centering and keyboard logic.
+ */
 export default function GameTabs<T extends string = string>({
   tabs,
   activeTab,
   onChange,
   className,
+  ariaLabel = "Game navigation tabs",
 }: GameTabsProps<T>) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const [indicatorStyle, setIndicatorStyle] = useState<{
-    left: number;
-    width: number;
-    opacity: number;
-  }>({ left: 0, width: 0, opacity: 0 });
-
-  // Update sliding indicator position & center the active tab in the strip
-  useEffect(() => {
-    const activeEl = tabRefs.current.get(activeTab);
-    const container = containerRef.current;
-    if (activeEl && container) {
-      // Center the active tab by scrolling the strip itself, not via
-      // `scrollIntoView`. That call also scrolls ancestors, so when the async
-      // tab data lands (achievement/note counts, map status) `tabs` changes,
-      // this effect re-runs, and a user who had scrolled down gets yanked back
-      // up to the tab bar. Touching `scrollLeft` leaves `.app-main` alone.
-      const containerRect = container.getBoundingClientRect();
-      const elRect = activeEl.getBoundingClientRect();
-      const targetLeft =
-        container.scrollLeft +
-        (elRect.left - containerRect.left) -
-        (containerRect.width - elRect.width) / 2;
-      container.scrollTo({ left: targetLeft, behavior: "smooth" });
-
-      const updateIndicator = () => {
-        const cRect = container.getBoundingClientRect();
-        const eRect = activeEl.getBoundingClientRect();
-        setIndicatorStyle({
-          left: eRect.left - cRect.left + container.scrollLeft,
-          width: eRect.width,
-          opacity: 1,
-        });
-      };
-      updateIndicator();
-      const timer = setTimeout(updateIndicator, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, tabs]);
-
-  // Update indicator on window resize and container scroll
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const activeEl = tabRefs.current.get(activeTab);
-      if (!activeEl) return;
-      const containerRect = container.getBoundingClientRect();
-      const elRect = activeEl.getBoundingClientRect();
-      const next = {
-        left: elRect.left - containerRect.left + container.scrollLeft,
-        width: elRect.width,
-        opacity: 1,
-      };
-      // Coalesce to one geometry read per frame; scroll fires far faster.
-      setIndicatorStyle((prev) =>
-        prev.left === next.left && prev.width === next.width && prev.opacity === 1
-          ? prev
-          : next
-      );
-    };
-
-    const handleUpdate = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(update);
-    };
-
-    window.addEventListener("resize", handleUpdate);
-    container.addEventListener("scroll", handleUpdate, { passive: true });
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener("resize", handleUpdate);
-      container.removeEventListener("scroll", handleUpdate);
-    };
-  }, [activeTab]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaX !== 0 || e.deltaY === 0) return;
-      if (container.scrollWidth <= container.clientWidth) return;
-      const atStart = container.scrollLeft <= 0;
-      const atEnd =
-        container.scrollLeft + container.clientWidth >= container.scrollWidth - 1;
-      if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
-      e.preventDefault();
-      const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-      container.scrollLeft += delta;
-    };
-
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    return () => container.removeEventListener("wheel", handleWheel);
-  }, []);
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const currentIndex = tabs.findIndex((t) => t.id === activeTab);
-    if (currentIndex === -1) return;
-
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      const nextIndex = (currentIndex + 1) % tabs.length;
-      const nextTab = tabs[nextIndex];
-      onChange(nextTab.id);
-      tabRefs.current.get(nextTab.id)?.focus();
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-      const prevTab = tabs[prevIndex];
-      onChange(prevTab.id);
-      tabRefs.current.get(prevTab.id)?.focus();
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      const firstTab = tabs[0];
-      onChange(firstTab.id);
-      tabRefs.current.get(firstTab.id)?.focus();
-    } else if (e.key === "End") {
-      e.preventDefault();
-      const lastTab = tabs[tabs.length - 1];
-      onChange(lastTab.id);
-      tabRefs.current.get(lastTab.id)?.focus();
-    }
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className={`game-tabs ${className || ""}`}
-      role="tablist"
-      aria-label="Game navigation tabs"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Animated sliding indicator */}
-      <span
-        className="game-tabs__indicator"
-        style={{
-          transform: `translateX(${indicatorStyle.left}px)`,
-          width: `${indicatorStyle.width}px`,
-          opacity: indicatorStyle.opacity,
-        }}
-        aria-hidden="true"
-      />
-
-      {tabs.map((tab) => {
-        const Icon = tab.icon;
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            ref={(el) => {
-              if (el) tabRefs.current.set(tab.id, el);
-              else tabRefs.current.delete(tab.id);
-            }}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
-            className={`game-tab ${isActive ? "active" : ""}`}
-            onClick={() => onChange(tab.id)}
-          >
-            {Icon && <Icon size={15} className="game-tab-icon" />}
-            <span className="game-tab-label">{tab.label}</span>
-            {tab.badge}
-            {tab.count !== undefined && tab.count !== null && tab.count > 0 && (
-              <span className="game-tab-count">{tab.count}</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    <SubTabs
+      items={tabs}
+      value={activeTab}
+      onChange={onChange}
+      ariaLabel={ariaLabel}
+      sticky
+      className={["game-tabs", className ?? ""].filter(Boolean).join(" ")}
+    />
   );
 }

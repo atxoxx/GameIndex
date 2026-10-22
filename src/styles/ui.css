@@ -198,48 +198,51 @@
 /* ── Card ────────────────────────────────────────────────────────────── */
 
 .ui-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  transition: border-color var(--duration-fast) var(--ease-standard),
-              background-color var(--duration-fast) var(--ease-standard);
+  background: var(--panel-tint);
+  transition: background-color var(--duration-fast) var(--ease-standard);
 }
 
 .ui-card--surface {
-  background: var(--color-surface);
+  background: var(--panel-tint);
 }
 
+/* Overlay widgets sit directly over the game, so "glass" keeps a real
+   scrim and blur instead of the page-level tonal wash. */
 .ui-card--glass {
-  background: var(--color-surface-raised);
-  border-color: var(--color-border-light);
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-color: transparent;
 }
 
 .ui-card--raised {
-  background: var(--color-surface-raised);
-  border-color: var(--color-border);
+  background: var(--panel-tint-raised);
+  border-color: transparent;
 }
 
 .ui-card:hover {
-  border-color: var(--color-border-light);
+  border-color: transparent;
 }
 
 .ui-card--raised:hover {
-  border-color: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  border-color: transparent;
 }
 
 .ui-card__header {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-xl) var(--space-xl) 0;
+  border-bottom: 0;
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .ui-card__body {
-  padding: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl) var(--space-xl);
   font-size: var(--text-sm);
   line-height: var(--line-height-normal);
   color: var(--color-text-secondary);
@@ -1323,5 +1326,444 @@
   .msd__menu,
   .msd__check svg {
     animation: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Undelimited surfaces
+   ──────────────────────────────────────────────────────────────────────
+   The three primitives below (Panel, StatBand, SubTabs) share one rule:
+   structure comes from tint, spacing and type — not from strokes. Tints
+   are mixed from the active theme's text color, so a 3% wash lifts a dark
+   theme and recesses a light one without a single hardcoded color.
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --panel-tint: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.2%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.2%, transparent) 100%
+  );
+  --panel-tint-raised: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 5%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 2.2%, transparent) 100%
+  );
+  --panel-tint-sunken: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────── */
+
+.ui-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+  padding: var(--space-xl);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.ui-panel--raised {
+  background: var(--panel-tint-raised);
+}
+
+.ui-panel--sunken {
+  background: var(--panel-tint-sunken);
+}
+
+.ui-panel--accent {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 6%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 1.5%, transparent) 100%
+  );
+}
+
+.ui-panel--warning {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-warning) 7%, transparent) 0%,
+    color-mix(in srgb, var(--color-warning) 2%, transparent) 100%
+  );
+}
+
+.ui-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.ui-panel__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.ui-panel__eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ui-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.ui-panel__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.ui-panel__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-panel__title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.ui-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.ui-panel--bleed {
+  gap: 0;
+  padding: 0;
+}
+
+.ui-panel--bleed .ui-panel__header {
+  padding: var(--space-xl) var(--space-xl) 0;
+}
+
+.ui-panel--bleed .ui-panel__body {
+  gap: 0;
+}
+
+/* ── StatBand ────────────────────────────────────────────────────────── */
+
+.ui-statband {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  column-gap: clamp(var(--space-xl), 3.5vw, var(--space-3xl));
+  row-gap: var(--space-xl);
+  min-width: 0;
+  padding-block: var(--space-md) var(--space-lg);
+}
+
+.ui-statband__item {
+  --statband-tone: var(--color-text-primary);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+
+.ui-statband__item--accent {
+  --statband-tone: var(--color-accent);
+}
+
+.ui-statband__item--success {
+  --statband-tone: var(--color-success);
+}
+
+.ui-statband__item--warning {
+  --statband-tone: var(--color-warning);
+}
+
+.ui-statband__item--danger {
+  --statband-tone: var(--color-danger);
+}
+
+.ui-statband__item--info {
+  --statband-tone: var(--color-info);
+}
+
+.ui-statband__item--action {
+  cursor: pointer;
+}
+
+.ui-statband__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-statband__icon {
+  display: inline-flex;
+  color: var(--statband-tone);
+}
+
+.ui-statband__icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ui-statband__value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--statband-tone);
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-statband__detail {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ui-statband__track {
+  width: 100%;
+  max-width: 104px;
+  height: 2px;
+  margin-top: var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  overflow: hidden;
+}
+
+.ui-statband__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--statband-tone);
+  transition: width 400ms var(--ease-standard);
+}
+
+.ui-statband__item--action:hover .ui-statband__value {
+  color: var(--color-accent);
+}
+
+.ui-statband__item--action:hover .ui-statband__label {
+  color: var(--color-text-secondary);
+}
+
+.ui-statband__item--action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-xs);
+}
+
+/* ── SubTabs ─────────────────────────────────────────────────────────── */
+
+.ui-subtabs {
+  --ui-subtabs-accent: var(--game-accent, var(--color-accent));
+
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-lg);
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ui-subtabs__strip {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: safe center;
+  gap: var(--space-2xs);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-top: var(--space-2xs);
+  border: 0;
+}
+
+.ui-subtabs__strip::-webkit-scrollbar {
+  display: none;
+}
+
+.ui-subtabs__tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-subtabs__tab:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.ui-subtabs__tab.is-active {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.ui-subtabs__tab:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-accent-border);
+}
+
+.ui-subtabs__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.ui-subtabs__tab:hover .ui-subtabs__icon {
+  color: var(--color-text-secondary);
+}
+
+.ui-subtabs__tab.is-active .ui-subtabs__icon {
+  color: var(--ui-subtabs-accent);
+  transform: translateY(-1px);
+}
+
+.ui-subtabs__count {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  padding-left: var(--space-3xs);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-subtabs__tab.is-active .ui-subtabs__count {
+  color: var(--ui-subtabs-accent);
+}
+
+.ui-subtabs__underline {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--ui-subtabs-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ui-subtabs-accent) 45%, transparent);
+  pointer-events: none;
+  transition: transform 320ms var(--ease-standard),
+    width 320ms var(--ease-standard), opacity 180ms linear;
+}
+
+.ui-subtabs__trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  padding-bottom: var(--space-2xs);
+}
+
+/* The sticky strip fades into the page instead of painting a bar. The fade
+   is part of the background gradient (not a mask) so it renders identically
+   in every webview: transparent at the edges, page-colored in the middle. */
+.ui-subtabs--sticky {
+  position: sticky;
+  top: var(--space-sm);
+  z-index: var(--z-sticky);
+  isolation: isolate;
+  padding-block: var(--space-sm) var(--space-2xs);
+}
+
+.ui-subtabs--sticky::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--space-sm)) calc(-1 * var(--space-md)) 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in srgb, var(--color-bg-secondary) 92%, transparent) 22%,
+    var(--color-bg-secondary) 50%,
+    color-mix(in srgb, var(--color-bg-secondary) 92%, transparent) 78%,
+    transparent 100%
+  );
+}
+
+@media (max-width: 1100px) {
+  .ui-subtabs__strip {
+    mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
+  }
+
+  .ui-statband {
+    column-gap: var(--space-2xl);
+    row-gap: var(--space-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-subtabs__underline,
+  .ui-subtabs__icon,
+  .ui-statband__fill {
+    transition: none;
   }
 }

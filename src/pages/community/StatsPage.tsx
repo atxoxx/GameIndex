@@ -6,6 +6,7 @@ import { useSettings, useWidgetVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import PageWidget from "../../components/PageWidget";
+import { SubTabs } from "../../components/ui/SubTabs";
 
 import { StatsHeader } from "./StatsHeader";
 import { OverviewTab } from "./tabs/OverviewTab";
@@ -167,67 +168,51 @@ export default function StatsPage() {
 
       {/* ── Subtab Navigation Bar ────────────────────────────────── */}
       <PageWidget page="community" widget="communityTabs">
-      <div className="stats-subtab-bar ui-item-communityTabs" role="tablist" aria-label={t("stats.tabsLabel")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveTab === "overview"}
-          className={`stats-subtab-btn${effectiveTab === "overview" ? " active" : ""}`}
-          onClick={() => handleTabChange("overview")}
-        >
-          <span className="stats-subtab-icon">📊</span>
-          <span>{t("stats.tab.overview")}</span>
-        </button>
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveTab === "trends"}
-          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "trends" ? " active" : ""}`}
-          onClick={() => handleTabChange("trends")}
-        >
-          <span className="stats-subtab-icon">📈</span>
-          <span>{t("stats.tab.trends")}</span>
-        </button>
-        )}
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveTab === "achievements"}
-          className={`stats-subtab-btn${effectiveTab === "achievements" ? " active" : ""}`}
-          onClick={() => handleTabChange("achievements")}
-        >
-          <span className="stats-subtab-icon">🏆</span>
-          <span>{t("stats.tab.achievements")}</span>
-        </button>
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveTab === "captures"}
-          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "captures" ? " active" : ""}`}
-          onClick={() => handleTabChange("captures")}
-        >
-          <span className="stats-subtab-icon">📸</span>
-          <span>{t("stats.tab.captures")}</span>
-        </button>
-        )}
-
-        {subtabsVisible && (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveTab === "milestones"}
-          className={`stats-subtab-btn ui-complete-only ui-item-subtabs${effectiveTab === "milestones" ? " active" : ""}`}
-          onClick={() => handleTabChange("milestones")}
-        >
-          <span className="stats-subtab-icon">🎖️</span>
-          <span>{t("stats.tab.milestones")}</span>
-        </button>
-        )}
+      <div className="ui-item-communityTabs">
+        <SubTabs
+          ariaLabel={t("stats.tabsLabel")}
+          className="stats-subtabs"
+          value={effectiveTab}
+          onChange={handleTabChange}
+          items={[
+            {
+              id: "overview",
+              label: t("stats.tab.overview"),
+              icon: () => <span className="stats-subtab-icon">📊</span>,
+            },
+            ...(subtabsVisible
+              ? [
+                  {
+                    id: "trends" as const,
+                    label: t("stats.tab.trends"),
+                    icon: () => <span className="stats-subtab-icon">📈</span>,
+                    className: "ui-complete-only ui-item-subtabs",
+                  },
+                ]
+              : []),
+            {
+              id: "achievements",
+              label: t("stats.tab.achievements"),
+              icon: () => <span className="stats-subtab-icon">🏆</span>,
+            },
+            ...(subtabsVisible
+              ? [
+                  {
+                    id: "captures" as const,
+                    label: t("stats.tab.captures"),
+                    icon: () => <span className="stats-subtab-icon">📸</span>,
+                    className: "ui-complete-only ui-item-subtabs",
+                  },
+                  {
+                    id: "milestones" as const,
+                    label: t("stats.tab.milestones"),
+                    icon: () => <span className="stats-subtab-icon">🎖️</span>,
+                    className: "ui-complete-only ui-item-subtabs",
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
       </PageWidget>
 

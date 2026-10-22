@@ -4163,3 +4163,22 @@ select.lib-filter-search option {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
 }
+
+
+/* ── Undelimited hero stats ─────────────────────────────────────────────
+   The tiles keep their glass over the hero artwork but drop the stroke and
+   the accent rail: numbers carry the row, not boxes. */
+.lib-stat {
+  background: color-mix(in srgb, var(--color-surface-glass) 82%, transparent);
+  border: 0;
+}
+
+.lib-stat::before {
+  display: none;
+}
+
+.lib-stat:hover {
+  border-color: transparent;
+  box-shadow: none;
+  transform: translateY(-1px);
+}

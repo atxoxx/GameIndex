@@ -3046,60 +3046,6 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 
 /* ── Section tabs ─────────────────────────────────────────────────────────── */
 
-.dl-tabs-bar {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-xs);
-  border-bottom: 1px solid var(--color-border);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.dl-tabs-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.dl-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.dl-tab-btn:hover {
-  color: var(--color-text-primary);
-}
-
-.dl-tab-btn.active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-}
-
-.dl-tab-count {
-  min-width: 18px;
-  padding: var(--space-4xs) var(--space-xs);
-  border-radius: var(--radius-full);
-  background: var(--color-surface-hover);
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  text-align: center;
-}
-
-.dl-tab-btn.active .dl-tab-count {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  color: var(--color-accent);
-}
-
 .dl-tab-dot {
   width: 7px;
   height: 7px;
@@ -3792,4 +3738,19 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+
+/* Section tabs use the shared .ui-subtabs strip. */
+.dl-tabs {
+  margin-bottom: var(--space-lg);
+}
+
+
+/* ── Undelimited section panels ─────────────────────────────────────── */
+.dl-dashboard-card {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
 }

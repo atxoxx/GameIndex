@@ -1056,3 +1056,111 @@
   background: var(--color-bg-tertiary);
   flex-shrink: 0;
 }
+
+/* ── Undelimited settings navigation ─────────────────────────────────────
+   The category row and the subtab strip drop their trays: labels sit in the
+   page flow and the active item is marked by an accent underline. */
+.settings-topnav-bar {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-sm) 0;
+}
+
+.settings-topnav-bar::before {
+  display: none;
+}
+
+.settings-category-tabs {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  gap: var(--space-xs);
+}
+
+.settings-category-tab {
+  position: relative;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.settings-category-tab:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  color: var(--color-text-primary);
+}
+
+.settings-category-tab.active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text-primary);
+}
+
+.settings-category-tab.active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-sm);
+  right: var(--space-sm);
+  bottom: -6px;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+.settings-subtabs-strip-container {
+  border-top: 0;
+}
+
+.settings-subtabs-bar {
+  gap: var(--space-2xs);
+  padding-bottom: 0;
+}
+
+.settings-subtab-item {
+  position: relative;
+  height: auto;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.settings-subtab-item:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  color: var(--color-text-primary);
+}
+
+.settings-subtab-item.active {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.settings-subtab-item.active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-md);
+  right: var(--space-md);
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+.settings-subtab-item.active .settings-subtab-item-icon {
+  color: var(--color-accent);
+}
+
+.settings-compact-subtab-chip {
+  background: transparent;
+  border: 0;
+  padding-left: 0;
+}

@@ -1,6 +1,7 @@
 import { CalendarClock, History, LayoutList } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import { SubTabs, type SubTabItem } from "../ui/SubTabs";
 
 export type DownloadsTabKey = "active" | "scheduled" | "history";
 
@@ -19,9 +20,10 @@ const TABS: { key: DownloadsTabKey; labelKey: string; icon: LucideIcon }[] = [
 ];
 
 /**
- * DownloadsTabs — the page's section switcher. Mirrors the
- * `dl-stats-nav-bar` tab convention used by the stats modal so the
- * role/aria contract stays identical across the download UI.
+ * DownloadsTabs — the page's section switcher.
+ *
+ * Rides the shared `SubTabs` strip so downloads navigation matches every
+ * other page: labels in the flow, one sliding accent underline, no tray.
  */
 export default function DownloadsTabs({
   activeTab,
@@ -31,39 +33,30 @@ export default function DownloadsTabs({
 }: DownloadsTabsProps) {
   const { t } = useLanguage();
 
-  const countFor = (key: DownloadsTabKey): number | undefined => {
-    if (key === "active") return counts.active;
-    if (key === "scheduled") return counts.scheduled;
-    if (key === "history") return counts.history;
-    return undefined;
-  };
-
+  const items: SubTabItem<DownloadsTabKey>[] = TABS.map(
+    ({ key, labelKey, icon }) => ({
+      id: key,
+      label: t(labelKey),
+      icon,
+      count: counts[key],
+      badge:
+        key === "scheduled" && windowOpen ? (
+          <span
+            className="dl-tab-dot"
+            title={t("scheduler.windowOpen")}
+            aria-hidden="true"
+          />
+        ) : undefined,
+    }),
+  );
 
   return (
-    <div className="dl-tabs-bar" role="tablist" aria-label={t("downloads.title")}>
-      {TABS.map(({ key, labelKey, icon: Icon }) => {
-        const count = countFor(key);
-        const isActive = activeTab === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            className={`dl-tab-btn${isActive ? " active" : ""}`}
-            onClick={() => onTabChange(key)}
-          >
-            <Icon size={15} aria-hidden="true" />
-            <span>{t(labelKey)}</span>
-            {key === "scheduled" && windowOpen && (
-              <span className="dl-tab-dot" title={t("scheduler.windowOpen")} aria-hidden="true" />
-            )}
-            {typeof count === "number" && count > 0 && (
-              <span className="dl-tab-count">{count}</span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+    <SubTabs
+      items={items}
+      value={activeTab}
+      onChange={onTabChange}
+      ariaLabel={t("downloads.title")}
+      className="dl-tabs"
+    />
   );
 }

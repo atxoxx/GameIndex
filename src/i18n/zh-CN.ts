@@ -2931,6 +2931,7 @@ export const zhCN: TranslationDict = {
   "game.mediaSpotlight.pauseTrailer": "暂停预告片",
   "game.mediaSpotlight.previousMedia": "上一个",
   "game.mediaSpotlight.nextMedia": "下一个",
+  "game.quickStats.aria": "游戏快速统计",
   "game.quickStats.reception": "评价",
   "game.quickStats.timeToBeat": "通关时长",
   "game.quickStats.compatibility": "兼容性",

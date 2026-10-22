@@ -19,16 +19,6 @@
 }
 
 /* Active tab clean underline */
-.deals-subtab.active::after {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 15%;
-  right: 15%;
-  height: 2px;
-  background: var(--color-accent);
-  border-radius: var(--radius-full);
-}
 
 /* Empty state — unified via .empty-state primitive */
 .deals-empty {
@@ -198,4 +188,24 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+}
+
+
+/* Page subtabs use the shared .ui-subtabs strip. */
+.deals-subtabs {
+  margin-bottom: var(--space-lg);
+}
+
+
+/* ── Undelimited deal surfaces ──────────────────────────────────────── */
+.deals-gamepass-card,
+.deals-deal-card,
+.deals-giveaway-card {
+  border: 0;
+}
+
+.deals-gamepass-card:hover,
+.deals-deal-card:hover,
+.deals-giveaway-card:hover {
+  border-color: transparent;
 }

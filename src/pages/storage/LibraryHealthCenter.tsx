@@ -8,7 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { Button, ConfirmModal } from "../../components/ui";
+import { Button, ConfirmModal, SubTabs } from "../../components/ui";
 import { useLibraryHealth } from "./useLibraryHealth";
 import { HealthCategoryIcon, type HealthTabId } from "./HealthCategoryIcon";
 import { HealthOverviewTab } from "./HealthOverviewTab";
@@ -361,28 +361,20 @@ export function LibraryHealthCenter() {
       </div>
 
       {/* ── Subtab rail ──────────────────────────────────────────────── */}
-      <div className="health-subtabs" role="tablist" aria-label={t("storage.health.tabsAria")}>
-        {TABS.map((tab) => {
-          const count = tab.category ? health.counts[tab.category] : health.counts.total;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={`health-subtab ${active ? "health-subtab--active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <HealthCategoryIcon category={tab.id} className="health-subtab-icon" />
-              <span className="health-subtab-label">{t(`storage.health.tab.${tab.id}`)}</span>
-              {count > 0 && (
-                <span className={`health-subtab-count health-subtab-count--${tab.tone}`}>{count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <SubTabs
+        ariaLabel={t("storage.health.tabsAria")}
+        className="health-subtabs"
+        value={activeTab}
+        onChange={setActiveTab}
+        items={TABS.map((tab) => ({
+          id: tab.id,
+          label: t(`storage.health.tab.${tab.id}`),
+          icon: () => <HealthCategoryIcon category={tab.id} />,
+          count: tab.category
+            ? health.counts[tab.category]
+            : health.counts.total,
+        }))}
+      />
 
       {/* ── Active panel ─────────────────────────────────────────────── */}
       <div className="health-panel">

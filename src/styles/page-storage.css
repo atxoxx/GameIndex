@@ -123,3 +123,9 @@
   color: var(--color-text-muted);
   line-height: 1.5;
 }
+
+
+/* Health-center tabs use the shared .ui-subtabs strip. */
+.health-subtabs {
+  margin-bottom: var(--space-lg);
+}

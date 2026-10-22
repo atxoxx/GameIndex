@@ -22,6 +22,7 @@ import { useToast } from "../../context/ToastContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { Badge, Button, ConfirmModal, KpiTile, PageHeader, Skeleton } from "../../components/ui";
+import { SubTabs } from "../../components/ui/SubTabs";
 import PageWidget from "../../components/PageWidget";
 import { formatRelative } from "../../components/game/SaveBackupTab";
 import { SAVE_KIND_LABEL_KEY, type SaveBackup, type SaveBackupKind, type SaveLocation } from "../../types/saves";
@@ -364,49 +365,36 @@ export default function SavesPage() {
       </PageWidget>
 
       {/* ─── Top Subtabs Strip ──────────────────────────────────────────── */}
-      <nav className="saves-subtabs-bar" aria-label={t("saves.viewsLabel")}>
-        <button
-          type="button"
-          className={`saves-subtab-pill ${subtab === "games" ? "active" : ""}`}
-          onClick={() => handleSelectSubtab("games")}
-        >
-          <Gamepad2 className="saves-subtab-icon" size={16} />
-          <span>{t("saves.subtab.games")}</span>
-          {(summary?.gamesWithLocations ?? 0) > 0 && (
-            <span className="saves-subtab-badge">{summary?.gamesWithLocations}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`saves-subtab-pill ${subtab === "snapshots" ? "active" : ""}`}
-          onClick={() => handleSelectSubtab("snapshots")}
-        >
-          <Archive className="saves-subtab-icon" size={16} />
-          <span>{t("saves.subtab.snapshots")}</span>
-          {(summary?.totalBackups ?? 0) > 0 && (
-            <span className="saves-subtab-badge">{summary?.totalBackups}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`saves-subtab-pill ${subtab === "system" ? "active" : ""}`}
-          onClick={() => handleSelectSubtab("system")}
-        >
-          <Database className="saves-subtab-icon" size={16} />
-          <span>{t("saves.subtab.system")}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`saves-subtab-pill ${subtab === "settings" ? "active" : ""}`}
-          onClick={() => handleSelectSubtab("settings")}
-        >
-          <SlidersHorizontal className="saves-subtab-icon" size={16} />
-          <span>{t("saves.subtab.settings")}</span>
-        </button>
-      </nav>
+      <SubTabs
+        ariaLabel={t("saves.viewsLabel")}
+        className="saves-subtabs"
+        value={subtab}
+        onChange={handleSelectSubtab}
+        items={[
+          {
+            id: "games",
+            label: t("saves.subtab.games"),
+            icon: Gamepad2,
+            count: summary?.gamesWithLocations ?? 0,
+          },
+          {
+            id: "snapshots",
+            label: t("saves.subtab.snapshots"),
+            icon: Archive,
+            count: summary?.totalBackups ?? 0,
+          },
+          {
+            id: "system",
+            label: t("saves.subtab.system"),
+            icon: Database,
+          },
+          {
+            id: "settings",
+            label: t("saves.subtab.settings"),
+            icon: SlidersHorizontal,
+          },
+        ]}
+      />
 
       {/* ─── Shared Progress Bar ────────────────────────────────────────── */}
       {progress && progress.percent < 100 && (

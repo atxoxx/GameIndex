@@ -1,11 +1,13 @@
 import { useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Library, Clock, Trophy, HardDrive } from "lucide-react";
 import { useGames } from "../../context/GameContext";
 import { useActivity } from "../../context/ActivityContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
+import { StatBand, type StatBandItem } from "../ui/StatBand";
 
 function HomeQuickStatsBase() {
   const navigate = useNavigate();
@@ -59,108 +61,54 @@ function HomeQuickStatsBase() {
     };
   }, [games, sessions, achStats]);
 
-  if (stats.totalGames === 0) return null;
+  const items = useMemo<StatBandItem[]>(() => {
+    if (stats.totalGames === 0) return [];
+    return [
+      {
+        id: "library",
+        label: t("home.stats.library"),
+        value: stats.totalGames,
+        detail: t("home.stats.installed", { count: stats.installedGames }),
+        icon: <Library size={14} />,
+        onClick: () => navigate("/library"),
+      },
+      {
+        id: "playtime",
+        label: t("home.stats.weekPlaytime"),
+        value: formatPlayTime(stats.weekMinutes),
+        detail: t("home.stats.sessions", { count: stats.weekSessionCount }),
+        icon: <Clock size={14} />,
+        tone: "info",
+        onClick: () => navigate("/activity"),
+      },
+      {
+        id: "achievements",
+        label: t("home.stats.achievements"),
+        value: stats.totalAch > 0 ? `${stats.achRate}%` : `${stats.unlockedAch}`,
+        detail: t("home.stats.unlocked", { count: stats.unlockedAch }),
+        icon: <Trophy size={14} />,
+        tone: "accent",
+        onClick: () => navigate("/achievements"),
+      },
+      {
+        id: "storage",
+        label: t("home.stats.storage"),
+        value: stats.totalBytes > 0 ? formatBytesShort(stats.totalBytes) : "0 B",
+        detail: t("home.stats.sized", { count: stats.sizedGamesCount }),
+        icon: <HardDrive size={14} />,
+        onClick: () => navigate("/storage"),
+      },
+    ];
+  }, [stats, navigate, t]);
+
+  if (items.length === 0) return null;
 
   return (
-    <section className="home-quick-stats" aria-label={t("home.stats.library")}>
-      <div
-        className="home-stat-tile"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate("/library")}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/library")}
-        title={t("nav.library")}
-      >
-        <div className="home-stat-tile__icon home-stat-tile__icon--library" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="14" rx="2" />
-            <line x1="8" y1="21" x2="16" y2="21" />
-            <line x1="12" y1="18" x2="12" y2="21" />
-          </svg>
-        </div>
-        <div className="home-stat-tile__content">
-          <span className="home-stat-tile__value">{stats.totalGames}</span>
-          <span className="home-stat-tile__label">{t("home.stats.library")}</span>
-          <span className="home-stat-tile__sub">
-            {t("home.stats.installed", { count: stats.installedGames })}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className="home-stat-tile"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate("/activity")}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/activity")}
-        title={t("home.activity.title")}
-      >
-        <div className="home-stat-tile__icon home-stat-tile__icon--playtime" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-        </div>
-        <div className="home-stat-tile__content">
-          <span className="home-stat-tile__value">{formatPlayTime(stats.weekMinutes)}</span>
-          <span className="home-stat-tile__label">{t("home.stats.weekPlaytime")}</span>
-          <span className="home-stat-tile__sub">
-            {t("home.stats.sessions", { count: stats.weekSessionCount })}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className="home-stat-tile"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate("/achievements")}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/achievements")}
-        title={t("home.stats.achievements")}
-      >
-        <div className="home-stat-tile__icon home-stat-tile__icon--achievements" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="7" />
-            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
-          </svg>
-        </div>
-        <div className="home-stat-tile__content">
-          <span className="home-stat-tile__value">
-            {stats.totalAch > 0 ? `${stats.achRate}%` : `${stats.unlockedAch}`}
-          </span>
-          <span className="home-stat-tile__label">{t("home.stats.achievements")}</span>
-          <span className="home-stat-tile__sub">
-            {t("home.stats.unlocked", { count: stats.unlockedAch })}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className="home-stat-tile"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate("/storage")}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate("/storage")}
-        title={t("home.stats.storage")}
-      >
-        <div className="home-stat-tile__icon home-stat-tile__icon--storage" aria-hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3" />
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-          </svg>
-        </div>
-        <div className="home-stat-tile__content">
-          <span className="home-stat-tile__value">
-            {stats.totalBytes > 0 ? formatBytesShort(stats.totalBytes) : "0 B"}
-          </span>
-          <span className="home-stat-tile__label">{t("home.stats.storage")}</span>
-          <span className="home-stat-tile__sub">
-            {t("home.stats.sized", { count: stats.sizedGamesCount })}
-          </span>
-        </div>
-      </div>
-    </section>
+    <StatBand
+      items={items}
+      ariaLabel={t("home.stats.library")}
+      className="home-quick-stats"
+    />
   );
 }
 

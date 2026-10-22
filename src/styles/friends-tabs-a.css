@@ -23,78 +23,12 @@
 
 /* The chrome strip owns its own hairline; the `.page` gap handles the
    rhythm below, so the old doubled margin-bottom goes away. */
-.friends-tab-bar-container {
-  margin-bottom: 0;
-  animation: friendsChromeIn 260ms var(--ease-standard);
-}
-
-.friends-tab-bar {
-  gap: var(--space-2xs);
-}
 
 /* Consistent chip height; icon + label + count sit on one baseline. */
-.friends-tab {
-  height: 30px;
-  padding: 0 var(--space-md);
-  gap: var(--space-xs);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.1px;
-  transition: background-color var(--transition-fast),
-    color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.friends-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
 
 /* Inset ring so the highlight never clips against the tray edges. */
-.friends-tab:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -1px;
-}
-
-.friends-tab.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 32%, transparent);
-}
-
-.friends-tab.active:hover {
-  background: var(--color-accent-hover);
-  color: var(--color-accent-contrast);
-}
-
-.friends-tab svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
 
 /* Count pill — quiet tray by default, inverted on the accent pill. */
-.friends-tab-count {
-  min-width: 18px;
-  height: 17px;
-  padding: 0 var(--space-2xs);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-hover);
-  color: var(--color-text-muted);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  line-height: 17px;
-  text-align: center;
-  transition: background-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.friends-tab.active .friends-tab-count {
-  background: color-mix(in srgb, var(--color-accent-contrast) 18%, transparent);
-  color: var(--color-accent-contrast);
-}
 
 /* =============================================================================
  * 2. Page chrome — sync status row
@@ -807,7 +741,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .friends-tab-bar-container,
   .friends-list-section,
   .friend-invitations-section,
   .friend-invitation-card,
@@ -817,8 +750,6 @@
     animation: none;
   }
 
-  .friends-tab,
-  .friends-tab-count,
   .btn-sync,
   .friend-card,
   .friend-card::before,
@@ -831,4 +762,20 @@
   .friend-shared-badge {
     transition: none;
   }
+}
+
+
+/* Friends section tabs ride the shared .ui-subtabs strip; the toolbar keeps
+   its sync cluster on the right of the same row. */
+.friends-tab-bar-container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-lg);
+}
+
+.friends-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
 }

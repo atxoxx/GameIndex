@@ -2859,3 +2859,49 @@
     display: none;
   }
 }
+
+
+/* ── Undelimited storage surfaces ───────────────────────────────────────
+   KPI tiles and drive cards become tonal panels: no stroke at rest, and
+   selection/alert states read through an inset ring instead of a border. */
+.storage-kpi-card,
+.storage-drive-card {
+  background: var(--panel-tint);
+  border: 0;
+}
+
+.storage-kpi-card--primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 7%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 1.5%, transparent) 100%
+  );
+}
+
+.storage-kpi-card--alert {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-danger) 7%, transparent) 0%,
+    color-mix(in srgb, var(--color-danger) 1.5%, transparent) 100%
+  );
+}
+
+.storage-kpi-card--interactive:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  box-shadow: none;
+}
+
+.storage-drive-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.storage-drive-card--active {
+  background: var(--panel-tint-raised);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.storage-drive-card--low-space {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 45%, transparent);
+}

@@ -1102,3 +1102,32 @@
     height: 110px;
   }
 }
+
+
+/* ── Undelimited section panels ─────────────────────────────────────── */
+.ach-card-section {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+}
+
+
+/* ── Undelimited achievement cards ──────────────────────────────────── */
+.ach-game-card {
+  background: var(--panel-tint);
+  border: 0;
+}
+
+.ach-game-card:hover {
+  border-color: transparent;
+}
+
+.ach-game-card.is-perfect {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+.ach-game-card.is-perfect:hover {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-warning);
+}

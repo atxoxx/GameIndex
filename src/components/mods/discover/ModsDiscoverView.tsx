@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { useGames } from "../../../context/GameContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
-import { Button } from "../../ui";
+import { Button, SubTabs } from "../../ui";
 import MultiSelectDropdown from "../../ui/MultiSelectDropdown";
 import SourceSelect from "./SourceSelect";
 import SourceConfigModal from "./SourceConfigModal";
@@ -399,65 +399,43 @@ export default function ModsDiscoverView({
       ) : null}
 
       {/* Discover Subtabs Navigation */}
-      <div className="mods-discover-nav-bar" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subtab === "browse"}
-          className={`mods-discover-nav-tab${subtab === "browse" ? " active" : ""}`}
-          onClick={() => setSubtab("browse")}
-        >
-          <Compass size={15} />
-          <span>{t("mods.discover.subtabBrowse")}</span>
-          {browse.total != null && browse.total > 0 && (
-            <span className="mods-discover-nav-badge">{browse.total}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subtab === "bookmarks"}
-          className={`mods-discover-nav-tab${subtab === "bookmarks" ? " active" : ""}`}
-          onClick={() => setSubtab("bookmarks")}
-        >
-          <Bookmark size={15} />
-          <span>{t("mods.discover.subtabBookmarks")}</span>
-          {bookmarks.length > 0 && (
-            <span className="mods-discover-nav-badge">{bookmarks.length}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subtab === "history"}
-          className={`mods-discover-nav-tab${subtab === "history" ? " active" : ""}`}
-          onClick={() => setSubtab("history")}
-        >
-          <History size={15} />
-          <span>{t("mods.discover.subtabHistory")}</span>
-          {installs.installs.length > 0 && (
-            <span className="mods-discover-nav-badge">{installs.installs.length}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={subtab === "sources"}
-          className={`mods-discover-nav-tab${subtab === "sources" ? " active" : ""}`}
-          onClick={() => setSubtab("sources")}
-        >
-          <Settings2 size={15} />
-          <span>{t("mods.discover.subtabSources")}</span>
-          <span className="mods-discover-nav-badge">
-            {availableCount}/{sources.length}
-          </span>
-        </button>
-
-        {variant === "subtab" && activeGame && (
-          <div className="mods-discover-nav-extra">
+      <SubTabs
+        ariaLabel={t("mods.discover.title")}
+        className="mods-discover-tabs"
+        value={subtab}
+        onChange={setSubtab}
+        items={[
+          {
+            id: "browse",
+            label: t("mods.discover.subtabBrowse"),
+            icon: Compass,
+            count: browse.total ?? 0,
+          },
+          {
+            id: "bookmarks",
+            label: t("mods.discover.subtabBookmarks"),
+            icon: Bookmark,
+            count: bookmarks.length,
+          },
+          {
+            id: "history",
+            label: t("mods.discover.subtabHistory"),
+            icon: History,
+            count: installs.installs.length,
+          },
+          {
+            id: "sources",
+            label: t("mods.discover.subtabSources"),
+            icon: Settings2,
+            badge: (
+              <span className="mods-discover-nav-badge">
+                {availableCount}/{sources.length}
+              </span>
+            ),
+          },
+        ]}
+        trailing={
+          variant === "subtab" && activeGame ? (
             <Button
               variant="ghost"
               size="sm"
@@ -467,9 +445,9 @@ export default function ModsDiscoverView({
             >
               {t("mods.discover.fullScreenBtn")}
             </Button>
-          </div>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* ── Subtab: BROWSE ────────────────────────────────────────────── */}
       {subtab === "browse" && (

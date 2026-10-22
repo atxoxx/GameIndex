@@ -9,7 +9,7 @@ import type {
   PlaytesterGame,
   PlaytesterFeed,
 } from "../../types/deals";
-import { PageHeader } from "../../components/ui";
+import { PageHeader, SubTabs } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
 import { useLanguage } from "../../context/LanguageContext";
 import {
@@ -388,25 +388,19 @@ export default function DealsPage() {
 
       {/* Subtabs */}
       <PageWidget page="deals" widget="subtabs">
-      <div className="deals-subtabs ui-item-subtabs" role="tablist">
-        {subtabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeSubTab === tab.id}
-            className={`deals-subtab ${activeSubTab === tab.id ? "active" : ""}`}
-            onClick={() => setActiveSubTab(tab.id)}
-          >
-            <span className="deals-subtab-icon" aria-hidden="true">
-              {tab.icon}
-            </span>
-            {tab.label}
-            {tab.count > 0 && !tab.loading && (
-              <span className="deals-subtab-badge">{tab.count}</span>
-            )}
-          </button>
-        ))}
+      <div className="ui-item-subtabs">
+        <SubTabs
+          ariaLabel={t("deals.title")}
+          className="deals-subtabs"
+          value={activeSubTab}
+          onChange={setActiveSubTab}
+          items={subtabs.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            icon: () => <>{tab.icon}</>,
+            count: tab.loading ? 0 : tab.count,
+          }))}
+        />
       </div>
       </PageWidget>
 
