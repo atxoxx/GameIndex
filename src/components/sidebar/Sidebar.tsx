@@ -202,7 +202,6 @@ export default function Sidebar() {
   // ── UI state ─────────────────────────────────────────────────────
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [importMenuAnchor, setImportMenuAnchor] = useState<HTMLElement | null>(null);
-  const [showViewOptionsMenu, setShowViewOptionsMenu] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -497,14 +496,13 @@ export default function Sidebar() {
         return;
       }
       setShowImportMenu(false);
-      setShowViewOptionsMenu(false);
       setContextMenu(null);
     }
-    if (showImportMenu || showViewOptionsMenu || contextMenu) {
+    if (showImportMenu || contextMenu) {
       document.addEventListener("click", handleClick);
     }
     return () => document.removeEventListener("click", handleClick);
-  }, [showImportMenu, showViewOptionsMenu, contextMenu]);
+  }, [showImportMenu, contextMenu]);
 
   // ── Import handlers ──────────────────────────────────────────────
   async function handleImportExe() {
@@ -870,9 +868,6 @@ export default function Sidebar() {
         showFilterPopover={showFilterPopover}
         onToggleFilterPopover={() => setShowFilterPopover((v) => !v)}
         filterButtonRef={filterBtnRef}
-        showViewOptionsMenu={showViewOptionsMenu}
-        onOpenViewOptionsMenu={() => setShowViewOptionsMenu(true)}
-        onCloseViewOptionsMenu={() => setShowViewOptionsMenu(false)}
         onImportExe={handleImportExe}
         onImportFolder={handleImportFolder}
         onRandomGame={handleRandomGame}

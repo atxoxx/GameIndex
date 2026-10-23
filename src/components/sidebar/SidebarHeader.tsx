@@ -2,7 +2,6 @@ import { memo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import SidebarSearch from "./SidebarSearch";
 import SidebarOverflowMenu from "./SidebarOverflowMenu";
-import SidebarViewOptionsDropdown from "./SidebarViewOptionsDropdown";
 import type { SidebarHeaderProps } from "./types";
 
 /**
@@ -14,10 +13,7 @@ import type { SidebarHeaderProps } from "./types";
  *   [ search games…                              ] [filter 2]
  *
  * Import, the random roll and the view options live in the "…" panel, so the
- * header reads as one identity row plus one input row. The trigger element
- * owns its own ref (the rail never depends on a ref passed from outside), and
- * opening the view-options panel is an explicit open — never a toggle — so a
- * stale open state can't swallow the click.
+ * header reads as one identity row plus one input row.
  */
 function SidebarHeaderBase({
   isIconRail,
@@ -30,9 +26,6 @@ function SidebarHeaderBase({
   showFilterPopover,
   onToggleFilterPopover,
   filterButtonRef,
-  showViewOptionsMenu,
-  onOpenViewOptionsMenu,
-  onCloseViewOptionsMenu,
   onImportExe,
   onImportFolder,
   onRandomGame,
@@ -86,7 +79,7 @@ function SidebarHeaderBase({
             <button
               ref={overflowButtonRef}
               type="button"
-              className={`sbn-icon-btn sbn-overflow-btn${overflowOpen || showViewOptionsMenu ? " is-open" : ""}`}
+              className={`sbn-icon-btn sbn-overflow-btn${overflowOpen ? " is-open" : ""}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setOverflowOpen((v) => !v);
@@ -132,37 +125,28 @@ function SidebarHeaderBase({
         </button>
       </div>
 
-      {overflowOpen && (
+      {overflowOpen && !isIconRail && (
         <SidebarOverflowMenu
           anchorEl={overflowButtonRef.current}
           onClose={() => setOverflowOpen(false)}
           onImportExe={onImportExe}
           onImportFolder={onImportFolder}
           onRandomGame={onRandomGame}
-          onOpenViewOptions={() => {
-            setOverflowOpen(false);
-            onOpenViewOptionsMenu();
+          viewOptions={{
+            groupBy,
+            onGroupByChange,
+            sort,
+            onSortChange,
+            sortDirection,
+            onToggleSortDirection,
+            density,
+            onDensityChange,
+            options: viewOptions,
+            onToggleOption: onToggleViewOption,
+            onExpandAllGroups,
+            onCollapseAllGroups,
+            hasGroups,
           }}
-        />
-      )}
-
-      {!isIconRail && showViewOptionsMenu && (
-        <SidebarViewOptionsDropdown
-          anchorEl={overflowButtonRef.current}
-          onClose={onCloseViewOptionsMenu}
-          groupBy={groupBy}
-          onGroupByChange={onGroupByChange}
-          sort={sort}
-          onSortChange={onSortChange}
-          sortDirection={sortDirection}
-          onToggleSortDirection={onToggleSortDirection}
-          density={density}
-          onDensityChange={onDensityChange}
-          viewOptions={viewOptions}
-          onToggleOption={onToggleViewOption}
-          onExpandAllGroups={onExpandAllGroups}
-          onCollapseAllGroups={onCollapseAllGroups}
-          hasGroups={hasGroups}
         />
       )}
     </div>

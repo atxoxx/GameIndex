@@ -1,18 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
+import SidebarViewOptionsPanel from "./SidebarViewOptionsPanel";
 import type { SidebarOverflowMenuProps } from "./types";
 
 /**
  * SidebarOverflowMenu
  * ───────────────────
- * The rail's "…" panel. Import and the random-game roll used to sit as their
- * own buttons in the header; folding them in here leaves the title row with a
- * single quiet action and gives the search field the full width underneath.
+ * The rail's "…" panel: import actions, the random roll, and — expanded inline
+ * — the grouping / sorting / density controls.
  *
- * View options stays a second step: the panel closes and the existing
- * group/sort/density panel opens anchored to the same button, so there is one
- * implementation of those controls.
+ * View options used to open a second floating panel anchored to the same
+ * button, which could silently show nothing when the anchor or the open state
+ * was stale. Inline, the click just reveals the controls in place.
  */
 export default function SidebarOverflowMenu({
   anchorEl,
@@ -20,10 +20,11 @@ export default function SidebarOverflowMenu({
   onImportExe,
   onImportFolder,
   onRandomGame,
-  onOpenViewOptions,
+  viewOptions,
 }: SidebarOverflowMenuProps) {
   const { t } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [viewOpen, setViewOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function SidebarOverflowMenu({
     const el = menuRef.current;
     if (!el || !anchorEl) return;
     const rect = anchorEl.getBoundingClientRect();
-    const width = 268;
+    const width = 272;
     const height = el.offsetHeight;
     const left = Math.min(
       Math.max(8, rect.right - width),
@@ -74,7 +75,7 @@ export default function SidebarOverflowMenu({
         position: "fixed",
         top: position?.top ?? anchorEl.getBoundingClientRect().bottom + 6,
         left: position?.left ?? 8,
-        width: 268,
+        width: 272,
         visibility: position ? "visible" : "hidden",
         zIndex: "var(--z-popover)",
       }}
@@ -156,9 +157,9 @@ export default function SidebarOverflowMenu({
 
         <button
           type="button"
-          className="sbn-menu__item sbn-menu__item--row"
-          role="menuitem"
-          onClick={onOpenViewOptions}
+          className={`sbn-menu__item sbn-menu__item--row${viewOpen ? " is-open" : ""}`}
+          aria-expanded={viewOpen}
+          onClick={() => setViewOpen((v) => !v)}
         >
           <span className="sbn-menu__icon" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -174,6 +175,26 @@ export default function SidebarOverflowMenu({
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
+
+        {viewOpen && (
+          <div className="sbn-menu__view">
+            <SidebarViewOptionsPanel
+              groupBy={viewOptions.groupBy}
+              onGroupByChange={viewOptions.onGroupByChange}
+              sort={viewOptions.sort}
+              onSortChange={viewOptions.onSortChange}
+              sortDirection={viewOptions.sortDirection}
+              onToggleSortDirection={viewOptions.onToggleSortDirection}
+              density={viewOptions.density}
+              onDensityChange={viewOptions.onDensityChange}
+              viewOptions={viewOptions.options}
+              onToggleOption={viewOptions.onToggleOption}
+              onExpandAllGroups={viewOptions.onExpandAllGroups}
+              onCollapseAllGroups={viewOptions.onCollapseAllGroups}
+              hasGroups={viewOptions.hasGroups}
+            />
+          </div>
+        )}
       </div>
     </div>,
     document.body,

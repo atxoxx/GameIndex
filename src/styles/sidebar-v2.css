@@ -1341,46 +1341,50 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
-/* ── View-options panel (portaled, so unscoped from .sbn) ─────────────── */
+/* ── Inline view options (inside the "…" panel) ───────────────────────── */
 
-.sidebar-view-options-menu {
-  --svo-well: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
-  --svo-well-strong: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  --svo-hairline: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
-
-  padding: var(--space-xs);
-  border: 1px solid var(--svo-hairline);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-bg-secondary) 97%, transparent);
-  box-shadow: var(--elevation-4);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+.sbn-menu {
+  max-height: min(680px, calc(100vh - 96px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sbn-hairline, var(--color-border)) transparent;
 }
 
-.sidebar-view-options-menu__header {
-  padding: var(--space-2xs) var(--space-sm) var(--space-xs);
+.sbn-menu__item.is-open {
+  color: var(--color-text-primary);
+  background: var(--sbn-well);
 }
 
-.sidebar-view-options-menu__title {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+.sbn-menu__item.is-open .sbn-menu__chevron {
+  transform: rotate(90deg);
+  color: var(--color-accent);
 }
 
-.sidebar-view-options-menu__section {
+.sbn-menu__chevron {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.sbn-menu__view {
+  padding: var(--space-xs) var(--space-2xs) var(--space-2xs);
+  border-top: 1px solid var(--sbn-hairline, var(--color-border-light));
+  margin-top: var(--space-2xs);
+}
+
+.sbn-view-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sbn-view-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
-  padding: var(--space-xs) var(--space-sm) var(--space-sm);
 }
 
-.sidebar-view-options-menu__section + .sidebar-view-options-menu__section {
-  border-top: 1px solid var(--svo-hairline);
-}
-
-.sidebar-view-options-menu__label {
+.sbn-view-label {
+  padding-inline: var(--space-xs);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
@@ -1388,20 +1392,20 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   color: var(--color-text-muted);
 }
 
-.sidebar-view-options-menu__pill-grid {
+.sbn-view-pills {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4xs);
   padding: var(--space-3xs);
   border-radius: var(--radius-md);
-  background: var(--svo-well);
+  background: var(--sbn-well);
 }
 
-.sidebar-view-options-menu__pill-grid--tri {
+.sbn-view-pills--tri {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.sidebar-view-option-pill {
+.sbn-view-pill {
   height: 24px;
   padding: 0 var(--space-xs);
   border: 0;
@@ -1420,23 +1424,23 @@ html[data-sidebar-position="right"] .sidebar.sbn {
     background var(--duration-fast) var(--ease-standard);
 }
 
-.sidebar-view-option-pill:hover {
+.sbn-view-pill:hover {
   color: var(--color-text-primary);
-  background: var(--svo-well-strong);
+  background: var(--sbn-well-strong);
 }
 
-.sidebar-view-option-pill.active {
+.sbn-view-pill.is-active {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
 }
 
-.sidebar-view-options-menu__actions-row {
+.sbn-view-actions {
   display: flex;
-  gap: var(--space-sm);
-  margin-top: var(--space-2xs);
+  gap: var(--space-md);
+  padding-inline: var(--space-xs);
 }
 
-.sidebar-view-options-menu__action-link {
+.sbn-view-link {
   padding: 0;
   border: 0;
   background: transparent;
@@ -1447,37 +1451,37 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   cursor: pointer;
 }
 
-.sidebar-view-options-menu__action-link:hover {
+.sbn-view-link:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.sidebar-view-options-menu__sort-row {
+.sbn-view-sort {
   display: flex;
   align-items: center;
   gap: var(--space-2xs);
 }
 
-.sidebar-view-options-menu__select {
+.sbn-view-select {
   flex: 1;
   min-width: 0;
   height: 28px;
   padding: 0 var(--space-sm);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--svo-well);
+  background: var(--sbn-well);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--text-2xs);
   cursor: pointer;
 }
 
-.sidebar-view-options-menu__select:focus-visible {
+.sbn-view-select:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
-.sidebar-view-options-menu__dir-btn {
+.sbn-view-dir {
   display: grid;
   place-items: center;
   width: 28px;
@@ -1486,28 +1490,33 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   padding: 0;
   border: 0;
   border-radius: var(--radius-md);
-  background: var(--svo-well);
+  background: var(--sbn-well);
   color: var(--color-text-secondary);
   cursor: pointer;
 }
 
-.sidebar-view-options-menu__dir-btn:hover {
+.sbn-view-dir:hover {
   color: var(--color-text-primary);
-  background: var(--svo-well-strong);
+  background: var(--sbn-well-strong);
 }
 
-.sidebar-view-options-menu__dir-btn svg {
+.sbn-view-dir svg {
   width: 13px;
   height: 13px;
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
-.sidebar-view-options-menu__toggles {
+.sbn-view-dir.is-desc svg {
+  transform: rotate(180deg);
+}
+
+.sbn-view-toggles {
   display: flex;
   flex-direction: column;
   gap: var(--space-4xs);
 }
 
-.sidebar-view-options-menu__toggle-item {
+.sbn-view-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1519,19 +1528,18 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   cursor: pointer;
 }
 
-.sidebar-view-options-menu__toggle-item:hover {
-  background: var(--svo-well);
+.sbn-view-toggle:hover {
+  background: var(--sbn-well);
   color: var(--color-text-primary);
 }
 
-.sidebar-view-options-menu__toggle-item input {
+.sbn-view-toggle input {
   width: 14px;
   height: 14px;
   margin: 0;
   accent-color: var(--color-accent);
   cursor: pointer;
 }
-
 /* The rail mode keeps its own mini-card rows; only neutralise the pieces the
    new header/row wrappers introduced. */
 .app-sidebar.sidebar-icon-rail .sbn .sbn-title-row {

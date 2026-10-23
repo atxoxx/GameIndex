@@ -95,11 +95,6 @@ export interface SidebarHeaderProps {
   showFilterPopover: boolean;
   onToggleFilterPopover: () => void;
   filterButtonRef: React.RefObject<HTMLButtonElement | null>;
-  showViewOptionsMenu: boolean;
-  /** Opens the view-options panel (explicit — never a toggle, so a stale open
-   *  state can't make the click a no-op). */
-  onOpenViewOptionsMenu: () => void;
-  onCloseViewOptionsMenu: () => void;
   onImportExe: () => void;
   onImportFolder: () => void;
   onRandomGame: () => void;
@@ -119,14 +114,30 @@ export interface SidebarHeaderProps {
 }
 
 /** Props for the rail's overflow (…) menu. */
+export interface SidebarViewOptionsBundle {
+  groupBy: SidebarGroupBy;
+  onGroupByChange: (groupBy: SidebarGroupBy) => void;
+  sort: LibrarySort;
+  onSortChange: (sort: LibrarySort) => void;
+  sortDirection: SidebarSortDirection;
+  onToggleSortDirection: () => void;
+  density: SidebarDensity;
+  onDensityChange: (density: SidebarDensity) => void;
+  options: SidebarViewOptions;
+  onToggleOption: (key: keyof SidebarViewOptions) => void;
+  onExpandAllGroups?: () => void;
+  onCollapseAllGroups?: () => void;
+  hasGroups: boolean;
+}
+
 export interface SidebarOverflowMenuProps {
   anchorEl: HTMLElement | null;
   onClose: () => void;
   onImportExe: () => void;
   onImportFolder: () => void;
   onRandomGame: () => void;
-  /** Closes this menu and opens the view-options panel. */
-  onOpenViewOptions: () => void;
+  /** Inline grouping/sort/density controls. */
+  viewOptions: SidebarViewOptionsBundle;
 }
 
 /** Active filter chip data bundle for rendering and removal. */

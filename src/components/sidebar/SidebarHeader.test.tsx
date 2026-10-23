@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import SidebarHeader from "./SidebarHeader";
@@ -8,10 +7,7 @@ vi.mock("../../context/LanguageContext", () => ({
   useLanguage: () => ({ t: (key: string) => key }),
 }));
 
-const baseProps: Omit<
-  SidebarHeaderProps,
-  "showViewOptionsMenu" | "onOpenViewOptionsMenu" | "onCloseViewOptionsMenu"
-> = {
+const baseProps: SidebarHeaderProps = {
   isIconRail: false,
   onToggleIconRail: () => {},
   gameCount: 12,
@@ -45,18 +41,6 @@ const baseProps: Omit<
   hasGroups: false,
 };
 
-function Harness() {
-  const [showViewOptionsMenu, setShowViewOptionsMenu] = useState(false);
-  return (
-    <SidebarHeader
-      {...baseProps}
-      showViewOptionsMenu={showViewOptionsMenu}
-      onOpenViewOptionsMenu={() => setShowViewOptionsMenu(true)}
-      onCloseViewOptionsMenu={() => setShowViewOptionsMenu(false)}
-    />
-  );
-}
-
 /** Opens the "…" panel and returns it, so queries stay inside the menu. */
 function openOverflowMenu() {
   fireEvent.click(screen.getByRole("button", { name: "sidebar.menuTitle" }));
@@ -64,26 +48,35 @@ function openOverflowMenu() {
 }
 
 describe("SidebarHeader", () => {
-  it("opens the view options panel from the overflow menu", () => {
-    render(<Harness />);
+  it("shows the library identity and the search row", () => {
+    render(<SidebarHeader {...baseProps} />);
+
+    expect(screen.getByText("nav.library")).toBeInTheDocument();
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "sidebar.filterGames" })).toBeInTheDocument();
+  });
+
+  it("reveals the view options inline, without closing the menu", () => {
+    render(<SidebarHeader {...baseProps} />);
 
     const menu = openOverflowMenu();
     fireEvent.click(within(menu).getByText("sidebar.viewOptionsTitle"));
 
-    expect(document.querySelector(".sidebar-view-options-menu")).toBeInTheDocument();
-    expect(screen.queryByRole("menu", { name: "sidebar.menuTitle" })).toBeNull();
+    expect(
+      within(menu).getByRole("group", { name: "sidebar.viewOptionsTitle" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("menu", { name: "sidebar.menuTitle" })).toBeInTheDocument();
   });
 
-  it("still shows the panel when the action is used again", () => {
-    render(<Harness />);
+  it("collapses the inline view options on a second click", () => {
+    render(<SidebarHeader {...baseProps} />);
 
-    fireEvent.click(
-      within(openOverflowMenu()).getByText("sidebar.viewOptionsTitle"),
-    );
-    fireEvent.click(
-      within(openOverflowMenu()).getByText("sidebar.viewOptionsTitle"),
-    );
+    const menu = openOverflowMenu();
+    fireEvent.click(within(menu).getByText("sidebar.viewOptionsTitle"));
+    fireEvent.click(within(menu).getByText("sidebar.viewOptionsTitle"));
 
-    expect(document.querySelector(".sidebar-view-options-menu")).toBeInTheDocument();
+    expect(
+      within(menu).queryByRole("group", { name: "sidebar.viewOptionsTitle" }),
+    ).toBeNull();
   });
 });
