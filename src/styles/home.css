@@ -2555,3 +2555,11 @@
 .home-dashboard__main > *:has(.lib-rail--collapsed) {
   padding-block: 0;
 }
+
+/* A widget that bails out (no pinned shelves, nothing downloading, empty
+   wishlist) still leaves its mounted wrapper behind. Empty wrappers carry no
+   content, so they must not reserve their hairline + padding band either. */
+.home-dashboard__sidebar > :empty,
+.home-dashboard__main > :empty {
+  display: none;
+}
