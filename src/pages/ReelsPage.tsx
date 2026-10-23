@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
-import { Button, ConfirmModal, PageHeader } from "../components/ui";
+import { Button, ConfirmModal, PageHeader, Panel } from "../components/ui";
 import type { Clip, Reel, ReelsSnapshot } from "../types/reels";
 import "../styles/page-reels.css";
 
@@ -287,7 +287,7 @@ export default function ReelsPage() {
       />
 
       <div className="reels-split">
-        <aside className="reels-list" aria-label={t("reels.listTitle")}>
+        <Panel as="aside" className="reels-list" aria-label={t("reels.listTitle")}>
           <h2 className="reels-list__title">{t("reels.listTitle")}</h2>
           {reels.length === 0 ? (
             <p className="reels-empty">{t("reels.noReels")}</p>
@@ -308,9 +308,9 @@ export default function ReelsPage() {
               ))}
             </ul>
           )}
-        </aside>
+        </Panel>
 
-        <main className="reels-detail">
+        <Panel as="main" className="reels-detail">
           {creating && (
             <div className="reels-inline-form">
               <input
@@ -494,7 +494,7 @@ export default function ReelsPage() {
               </ul>
             )}
           </section>
-        </main>
+        </Panel>
       </div>
 
       <ConfirmModal
