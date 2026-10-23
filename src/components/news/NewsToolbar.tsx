@@ -1,7 +1,20 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import {
+  Bookmark,
+  CirclePlay,
+  Clock,
+  Cpu,
+  Gamepad2,
+  Joystick,
+  Monitor,
+  Rss,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import type { NewsCategory } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { SubTabs } from "../ui";
 
 export type NewsTimeFilter = "all" | "today" | "3days" | "week" | "month";
 export type NewsReadTimeFilter = "all" | "quick" | "medium" | "long";
@@ -61,131 +74,36 @@ export default function NewsToolbar({
   ].filter(Boolean).length;
   const showFiltersRow = filtersOpen || activeFilterCount > 0;
 
-  const categories: { id: NewsCategory; labelKey: string; icon: ReactNode }[] = [
-    {
-      id: "all",
-      labelKey: "news.tabAll",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 11a9 9 0 0 1 9 9" />
-          <path d="M4 4a16 16 0 0 1 16 16" />
-          <circle cx="5" cy="19" r="1" />
-        </svg>
-      ),
-    },
-    {
-      id: "for_you",
-      labelKey: "news.tabForYou",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="6" width="20" height="12" rx="2" />
-          <line x1="6" y1="12" x2="10" y2="12" />
-          <line x1="8" y1="10" x2="8" y2="14" />
-          <line x1="15" y1="11" x2="15.01" y2="11" />
-          <line x1="18" y1="13" x2="18.01" y2="13" />
-        </svg>
-      ),
-    },
-    {
-      id: "pc",
-      labelKey: "news.tabPc",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" />
-          <line x1="8" y1="21" x2="16" y2="21" />
-          <line x1="12" y1="17" x2="12" y2="21" />
-        </svg>
-      ),
-    },
-    {
-      id: "console",
-      labelKey: "news.tabConsole",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="5 3 19 3 22 17 2 17 5 3" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="10" y1="11" x2="14" y2="11" />
-        </svg>
-      ),
-    },
-    {
-      id: "tech",
-      labelKey: "news.tabTech",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-        </svg>
-      ),
-    },
-    {
-      id: "indie",
-      labelKey: "news.tabIndie",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polygon points="10 8 16 12 10 16 10 8" />
-        </svg>
-      ),
-    },
-    {
-      id: "deals",
-      labelKey: "news.tabDeals",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-          <line x1="7" y1="7" x2="7.01" y2="7" />
-        </svg>
-      ),
-    },
-    {
-      id: "saved",
-      labelKey: "news.tabSaved",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "history",
-      labelKey: "news.tabHistory",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-      ),
-    },
+  const categories: { id: NewsCategory; labelKey: string; icon: LucideIcon }[] = [
+    { id: "all", labelKey: "news.tabAll", icon: Rss },
+    { id: "for_you", labelKey: "news.tabForYou", icon: Gamepad2 },
+    { id: "pc", labelKey: "news.tabPc", icon: Monitor },
+    { id: "console", labelKey: "news.tabConsole", icon: Joystick },
+    { id: "tech", labelKey: "news.tabTech", icon: Cpu },
+    { id: "indie", labelKey: "news.tabIndie", icon: CirclePlay },
+    { id: "deals", labelKey: "news.tabDeals", icon: Tag },
+    { id: "saved", labelKey: "news.tabSaved", icon: Bookmark },
+    { id: "history", labelKey: "news.tabHistory", icon: Clock },
   ];
 
   return (
     <div className="news-toolbar">
-      {/* Category / Stream Subtabs */}
-      <div className="news-categories-track" role="tablist" aria-label={t("news.categoriesLabel")}>
-        {categories.map((cat) => {
-          const count = countsByCategory[cat.id] ?? 0;
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`news-category-tab ${isActive ? "active" : ""}`}
-              onClick={() => onCategoryChange(cat.id)}
-            >
-              <span className="news-category-tab-icon" aria-hidden="true">
-                {cat.icon}
-              </span>
-              <span>{t(cat.labelKey)}</span>
-              {count > 0 && <span className="news-category-tab-badge">{count}</span>}
-            </button>
-          );
-        })}
-      </div>
+      <SubTabs
+        ariaLabel={t("news.categoriesLabel")}
+        className="news-category-subtabs"
+        value={activeCategory}
+        onChange={onCategoryChange}
+        items={categories.map((cat) => ({
+          id: cat.id,
+          label: t(cat.labelKey),
+          icon: cat.icon,
+          count: countsByCategory[cat.id] ?? 0,
+        }))}
+      />
 
-      {/* Main Row: Search, Unread Toggle, Filters Trigger, Density */}
-      <div className="news-toolbar-main-row">
+      <div className="news-toolbar-band">
+        {/* Main Row: Search, Unread Toggle, Filters Trigger, Density */}
+        <div className="news-toolbar-main-row">
         <div className="news-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="news-search-icon" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
@@ -390,6 +308,7 @@ export default function NewsToolbar({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
