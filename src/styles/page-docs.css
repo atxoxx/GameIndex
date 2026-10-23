@@ -1928,3 +1928,69 @@
     transition: none;
   }
 }
+
+
+/* ── Undelimited docs surfaces ──────────────────────────────────────────
+   The guide reads as one document instead of a wall of framed boxes: the
+   sidebar, article, quick cards and search results become tonal panels,
+   and strokes survive only where they carry state (focus, callouts). */
+
+.docs-hero {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.docs-sidebar,
+.docs-article,
+.docs-search-card,
+.docs-quickcard,
+.docs-navbtn {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.docs-search-card:hover,
+.docs-quickcard:hover,
+.docs-navbtn:hover {
+  background: var(--panel-tint-raised);
+}
+
+.docs-article {
+  background: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
+}
+
+.docs-stat-pill {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+/* Controls keep their shape but lose the tray: the trigger is a tinted
+   field, the menu is the only place that keeps elevation. */
+.docs-category-dropdown__trigger {
+  border: 0;
+  background: var(--panel-tint-raised);
+  box-shadow: none;
+}
+
+.docs-category-dropdown__menu {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.doc-table-wrapper,
+.doc-code-block {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint-sunken);
+}
+
+/* Callouts carry meaning through their tint, so the stroke is redundant. */
+.docs-callout {
+  border: 0;
+  border-radius: var(--radius-xl);
+}
+
