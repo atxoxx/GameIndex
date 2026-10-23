@@ -706,7 +706,7 @@ export interface ReviewFetchResult {
   /** "steam" | "igdb" | "none" */
   source: string;
   error?: string;
-  /** Total number of reviews (from Steam query_summary). */
+  /** Total number of reviews matching the query (Steam `total_matching`). */
   totalReviews?: number;
   /** Cursor for fetching the next page. null when no more pages. */
   cursor?: string | null;
@@ -791,9 +791,9 @@ export function reactionImagePath(reactionType: number): string | null {
 }
 
 /** Options controlling a Steam reviews query. Mirrors the params the
- *  backend forwards to Steam's `appreviews` endpoint. */
+ *  backend forwards to Steam's `IUserReviewsService/GetAppReviews` endpoint. */
 export interface ReviewQueryOptions {
-  /** Display order → Steam `filter`: "summary"|"all"|"recent"|"funny". */
+  /** Display order → Steam `filter` enum (Helpful/Recent/Funny). */
   display: "summary" | "all" | "recent" | "funny";
   /** Recommendation → Steam `review_type`: "all"|"positive"|"negative". */
   reviewType: "all" | "positive" | "negative";
@@ -1409,9 +1409,9 @@ export interface SteamGameDetails {
 
 /**
  * Aggregate review breakdown for a Steam app, sourced from
- * `appreviews?json=1&filter=all&num_per_page=0`. We request zero per-page
- * results so the response stays small regardless of how many reviews the
- * title has accumulated.
+ * `IUserReviewsService/GetAppReviews` (`num_per_page: 1`). We ask for a
+ * single review so the response stays small regardless of how many reviews
+ * the title has accumulated; only `query_summary` is used.
  */
 export interface SteamGameReviews {
   /** Cumulative count of positive reviews over the lifetime of the title. */

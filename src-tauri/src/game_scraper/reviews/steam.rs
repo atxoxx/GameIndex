@@ -1,6 +1,18 @@
 use serde::Deserialize;
+use serde_json::{json, Value};
 
 use super::*;
+
+/// Valve retired `store.steampowered.com/appreviews/<appid>?json=1` on
+/// 2026-10-22; the path now redirects to the store homepage, which is why
+/// callers saw an HTML body where they expected JSON. `GetAppReviews`
+/// takes the same filters and needs no API key.
+const STEAM_REVIEWS_API: &str =
+    "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/";
+
+/// Reviews per page — Steam's default and the page size the review viewer
+/// has always used.
+const STEAM_REVIEWS_PER_PAGE: u32 = 20;
 
 pub async fn lookup_steam_app_id(game_name: &str) -> Option<u64> {
     let client = http_client();
@@ -33,14 +45,26 @@ pub async fn lookup_steam_app_id(game_name: &str) -> Option<u64> {
     }).map(|item| item.id)
 }
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct SteamReviewResponse {
-    success: u32,
-    #[serde(default)]
+/// `GetAppReviews` wraps its payload in `{"response": …}` and, unlike the
+/// retired store endpoint, has no `success` field — the HTTP status is the
+/// only signal. An app with no reviews answers `{"response":{}}`.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct SteamReviewsEnvelope {
+    response: Option<SteamReviewsResponseBody>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+pub(crate) struct SteamReviewsResponseBody {
+    /// Totals for the query. The score fields are only present on the first
+    /// page, and only when `review_type` is All.
     query_summary: Option<SteamQuerySummary>,
     reviews: Option<Vec<SteamReview>>,
-    #[serde(default)]
     cursor: Option<String>,
+    /// Reviews matching the query on every page, so it beats
+    /// `query_summary.total_reviews` as a page-count source.
+    total_matching: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -133,107 +157,122 @@ pub(crate) fn steam_num_to_mb(v: &serde_json::Value) -> Option<u64> {
 }
 
 /// Parsed reviews query options forwarded from the frontend. Mirrors the
-/// Steam appreviews query params exposed by the ReviewViewer plugin.
+/// filters `GetAppReviews` accepts (and the ones `/appreviews` used to).
 #[derive(Debug, Default, Clone)]
 pub struct SteamReviewQuery {
     pub cursor: String,
     pub language: Option<String>,
-    /// Display order → Steam `filter` param: "recent" | "funny" |
-    /// "summary" | anything else → "all" (Most Helpful).
+    /// Display order → `filter` enum: "recent" | "funny" |
+    /// "summary" | anything else → Helpful (Most Helpful).
     pub filter_type: Option<String>,
-    /// Review recommendation → Steam `review_type`: "all"|"positive"|"negative".
+    /// Review recommendation → `review_type`: "all"|"positive"|"negative".
     pub review_type: Option<String>,
-    /// Purchase source → Steam `purchase_type`: "all"|"steam"|"other".
+    /// Purchase source → `purchase_type`: "all"|"steam"|"other".
     pub purchase_type: Option<String>,
     pub playtime_min_hours: Option<u32>,
     pub playtime_max_hours: Option<u32>,
-    /// Device → Steam `playtime_type`: "all"|"deck".
+    /// Device → `primarily_steam_deck`: "all"|"deck".
     pub playtime_device: Option<String>,
     pub use_helpful_system: bool,
 }
 
-/// Fetch recent reviews from the Steam storefront for a given app id.
-///
-/// Uses cursor-based pagination. Returns (reviews, total_count, next_cursor, query_summary).
-/// `total_count` is the total reviews returned by query_summary.
-/// `next_cursor` is None when there are no more pages.
-pub(crate) async fn fetch_steam_reviews(
-    app_id: u64,
-    opts: &SteamReviewQuery,
-) -> Result<(Vec<IgdbReview>, u64, Option<String>, Option<SteamQuerySummary>), String> {
-    let client = http_client();
+/// Map the UI's display order onto Steam's `filter` enum
+/// (Helpful = 0, Recent = 1, Updated = 2, Funny = 3). "summary" was the
+/// pre-2023 alias for the ranked view, so it shares Helpful with "all".
+fn filter_enum(filter_type: Option<&str>) -> u32 {
+    match filter_type {
+        Some("recent") => 1,
+        Some("funny") => 3,
+        _ => 0,
+    }
+}
 
-    let cursor_param = if opts.cursor.is_empty() || opts.cursor == "*" {
+/// Map the recommendation filter onto Steam's `review_type` enum
+/// (All = 0, Positive = 1, Negative = 2).
+fn review_type_enum(review_type: Option<&str>) -> u32 {
+    match review_type {
+        Some("positive") => 1,
+        Some("negative") => 2,
+        _ => 0,
+    }
+}
+
+/// Map the purchase filter onto Steam's `purchase_type` enum
+/// (Steam = 0, All = 1, NonSteamPurchase = 2). Unlike the retired store
+/// endpoint, Steam is the default here, so "all" must be stated explicitly.
+fn purchase_type_enum(purchase_type: Option<&str>) -> u32 {
+    match purchase_type {
+        Some("steam") => 0,
+        Some("other") => 2,
+        _ => 1,
+    }
+}
+
+/// Build the `input_json` blob that carries every `GetAppReviews` filter.
+/// The cursor travels inside it, so it needs no pre-encoding — `reqwest`
+/// percent-encodes the whole parameter value, which keeps the `+`, `/` and
+/// `=` characters Steam puts in cursors intact.
+pub(crate) fn build_reviews_input_json(opts: &SteamReviewQuery) -> Value {
+    let cursor = if opts.cursor.is_empty() || opts.cursor == "*" {
         "*"
     } else {
         opts.cursor.as_str()
     };
-
-    // Steam cursors contain characters like '+' and '/' which must be URL-encoded
-    // so they are not corrupted or misparsed as space/slashes by the Steam server.
-    // First decode in case cursor is already percent-encoded, then encode cleanly.
-    let encoded_cursor = if cursor_param == "*" {
-        "*".to_string()
-    } else {
-        let decoded = urlencoding::decode(cursor_param).unwrap_or(std::borrow::Cow::Borrowed(cursor_param));
-        urlencoding::encode(&decoded).into_owned()
-    };
-
-    let lang_param = opts.language.as_deref().unwrap_or("all");
-
-    // Display order → `filter`. "summary"/"all" both mean the ranked view.
-    let filter_param = match opts.filter_type.as_deref() {
-        Some("recent") => "recent",
-        Some("funny") => "funny",
-        Some("summary") => "summary",
-        _ => "all",
-    };
-    let review_type_param = match opts.review_type.as_deref() {
-        Some("positive") => "positive",
-        Some("negative") => "negative",
-        _ => "all",
-    };
-    let purchase_type_param = match opts.purchase_type.as_deref() {
-        Some("steam") => "steam",
-        Some("other") => "non_steam_purchase",
-        _ => "all",
-    };
-    let playtime_type_param = match opts.playtime_device.as_deref() {
-        Some("deck") => "deck",
-        _ => "all",
-    };
-    let playtime_min = opts.playtime_min_hours.unwrap_or(0);
     // A max of 0 (or the UI's 100 sentinel) means "no maximum".
     let playtime_max = match opts.playtime_max_hours {
         Some(100) | None => 0,
         Some(v) => v,
     };
-    let use_quality = if opts.use_helpful_system { 1 } else { 0 };
 
-    let url = format!(
-        "https://store.steampowered.com/appreviews/{}?json=1&l=english&language={}&cursor={}\
-&filter={}&review_type={}&purchase_type={}&playtime_filter_min={}&playtime_filter_max={}\
-&playtime_type={}&filter_offtopic_activity=0&use_review_quality={}&num_per_page=20",
-        app_id,
-        lang_param,
-        encoded_cursor,
-        filter_param,
-        review_type_param,
-        purchase_type_param,
-        playtime_min,
-        playtime_max,
-        playtime_type_param,
-        use_quality,
-    );
+    json!({
+        "cursor": cursor,
+        "filter": filter_enum(opts.filter_type.as_deref()),
+        // The Helpful filter only searches the last 30 days unless told
+        // otherwise (widening the window until it finds reviews). 0 keeps
+        // the old `/appreviews?filter=all` behaviour of ranking reviews
+        // across the title's whole lifetime.
+        "day_range": 0,
+        "languages": [opts.language.as_deref().unwrap_or("all")],
+        "review_type": review_type_enum(opts.review_type.as_deref()),
+        "purchase_type": purchase_type_enum(opts.purchase_type.as_deref()),
+        "num_per_page": STEAM_REVIEWS_PER_PAGE,
+        // Off-topic (review-bomb) reviews are filtered out unless this is
+        // false — the review viewer has always shown them.
+        "filter_offtopic_activity": false,
+        "use_review_quality": opts.use_helpful_system,
+        "playtime_min_hours": opts.playtime_min_hours.unwrap_or(0),
+        "playtime_max_hours": playtime_max,
+        "primarily_steam_deck": opts.playtime_device.as_deref() == Some("deck"),
+    })
+}
 
-    let resp = client
-        .get(&url)
+/// Fetch a page of reviews from Steam's Web API for a given app id.
+///
+/// Uses cursor-based pagination. Returns (reviews, total_count, next_cursor, query_summary).
+/// `total_count` is the number of reviews matching the query.
+/// `next_cursor` is None when there are no more pages.
+pub(crate) async fn fetch_steam_reviews(
+    app_id: u64,
+    opts: &SteamReviewQuery,
+) -> Result<(Vec<IgdbReview>, u64, Option<String>, Option<SteamQuerySummary>), String> {
+    let input_json = build_reviews_input_json(opts);
+
+    let resp = http_client()
+        .get(STEAM_REVIEWS_API)
+        .query(&[
+            ("appid", app_id.to_string()),
+            ("input_json", input_json.to_string()),
+        ])
         .send()
         .await
         .map_err(|e| format!("Steam reviews request failed: {}", e))?;
 
-    if !resp.status().is_success() {
-        return Err(format!("Steam reviews returned HTTP {}", resp.status()));
+    let status = resp.status();
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        return Err("Steam reviews request was rate limited (HTTP 429)".to_string());
+    }
+    if !status.is_success() {
+        return Err(format!("Steam reviews returned HTTP {}", status));
     }
 
     let text = resp
@@ -241,21 +280,34 @@ pub(crate) async fn fetch_steam_reviews(
         .await
         .map_err(|e| format!("Failed to read Steam reviews response: {}", e))?;
 
-    let data: SteamReviewResponse = serde_json::from_str(&text)
+    parse_steam_reviews(&text)
+}
+
+/// Parse a `GetAppReviews` response body into the viewer's review shape.
+pub(crate) fn parse_steam_reviews(
+    text: &str,
+) -> Result<(Vec<IgdbReview>, u64, Option<String>, Option<SteamQuerySummary>), String> {
+    let envelope: SteamReviewsEnvelope = serde_json::from_str(text)
         .map_err(|e| format!("Steam reviews parse error: {}", e))?;
 
-    if data.success != 1 {
-        return Err("Steam reviews response was not successful".to_string());
-    }
+    // An absent `response` (or a bare `{}`) means Steam has no reviews to
+    // report for this appid — a legitimate empty answer, not a failure.
+    Ok(map_steam_reviews(envelope.response.unwrap_or_default()))
+}
 
-    let summary = data.query_summary.clone();
-    let total_reviews = data
-        .query_summary
-        .map(|q| q.total_reviews)
+fn map_steam_reviews(
+    body: SteamReviewsResponseBody,
+) -> (Vec<IgdbReview>, u64, Option<String>, Option<SteamQuerySummary>) {
+    let summary = body.query_summary.clone();
+    // `total_matching` survives pagination and honours the active filters;
+    // the summary only carries totals on page one.
+    let total_reviews = body
+        .total_matching
+        .or_else(|| body.query_summary.as_ref().map(|q| q.total_reviews))
         .unwrap_or(0);
-    let next_cursor = data.cursor.filter(|c| !c.is_empty() && c != "*");
+    let next_cursor = body.cursor.filter(|c| !c.is_empty() && c != "*");
 
-    let raw_reviews = data.reviews.unwrap_or_default();
+    let raw_reviews = body.reviews.unwrap_or_default();
 
     let reviews = raw_reviews
         .into_iter()
@@ -273,8 +325,9 @@ pub(crate) async fn fetch_steam_reviews(
                         else { format!("Steam Player …{}", tail) }
                     })
                 });
-            // weighted_vote_score is a stringified float in [0,1]; convert
-            // to a 0-100 confidence percentage for the UI.
+            // weighted_vote_score is a 0-1 float (a stringified float on the
+            // retired store endpoint); convert either form to a 0-100
+            // confidence percentage for the UI.
             let weight_pct = r.weighted_vote_score.as_ref().and_then(|v| match v {
                 serde_json::Value::Number(n) => n.as_f64(),
                 serde_json::Value::String(s) => s.trim().parse::<f64>().ok(),
@@ -333,5 +386,147 @@ pub(crate) async fn fetch_steam_reviews(
         })
         .collect();
 
-    Ok((reviews, total_reviews, next_cursor, summary))
+    (reviews, total_reviews, next_cursor, summary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Trimmed-down copy of an anonymous `GetAppReviews` response: same
+    /// envelope, same field names, one review with and one without text.
+    const FIXTURE: &str = r#"{
+        "response": {
+            "query_summary": {
+                "num_reviews": 2,
+                "review_score": 8,
+                "review_score_desc": "Very Positive",
+                "total_positive": 900,
+                "total_negative": 100,
+                "total_reviews": 1000
+            },
+            "reviews": [
+                {
+                    "recommendationid": "1",
+                    "author": {
+                        "steamid": "76561198000000001",
+                        "num_reviews": 3,
+                        "playtime_forever": 600,
+                        "playtime_at_review": 540,
+                        "deck_playtime_at_review": 30
+                    },
+                    "language": "english",
+                    "review": "Still the benchmark for the genre.",
+                    "timestamp_created": 1700000000,
+                    "voted_up": true,
+                    "votes_up": 12,
+                    "votes_funny": 1,
+                    "weighted_vote_score": 0.804,
+                    "comment_count": 4,
+                    "steam_purchase": true,
+                    "received_for_free": false,
+                    "written_during_early_access": false,
+                    "primarily_steam_deck": false,
+                    "refunded": false
+                },
+                {
+                    "recommendationid": "2",
+                    "author": { "steamid": "76561198000000002" },
+                    "review": "   ",
+                    "voted_up": false
+                }
+            ],
+            "cursor": "AoJ4nK/gs6EDfMahjQc=",
+            "total_matching": 4231
+        }
+    }"#;
+
+    #[test]
+    fn parses_reviews_and_query_totals() {
+        let (reviews, total, next_cursor, summary) = parse_steam_reviews(FIXTURE).unwrap();
+
+        // The whitespace-only review is dropped.
+        assert_eq!(reviews.len(), 1);
+        let review = &reviews[0];
+        assert_eq!(review.content.as_deref(), Some("Still the benchmark for the genre."));
+        assert_eq!(review.rating, Some(85.0));
+        assert_eq!(review.votes_up, Some(12));
+        assert_eq!(review.author_steam_id.as_deref(), Some("76561198000000001"));
+        assert_eq!(review.author_playtime_at_review, Some(540));
+        assert_eq!(review.author_deck_playtime_at_review, Some(30));
+        assert_eq!(review.weight_vote_up_percentage, Some(80.0));
+        assert_eq!(review.timestamp_created, Some(1700000000));
+
+        // `total_matching` wins over the summary total so paging keeps the
+        // count stable once Steam stops sending the score fields.
+        assert_eq!(total, 4231);
+        assert_eq!(summary.as_ref().map(|s| s.review_score), Some(8));
+        // Pagination cursors keep their punctuation; only the request layer
+        // percent-encodes them.
+        assert_eq!(next_cursor.as_deref(), Some("AoJ4nK/gs6EDfMahjQc="));
+    }
+
+    #[test]
+    fn empty_response_is_no_reviews_not_an_error() {
+        let (reviews, total, next_cursor, summary) = parse_steam_reviews(r#"{"response":{}}"#).unwrap();
+
+        assert!(reviews.is_empty());
+        assert_eq!(total, 0);
+        assert!(next_cursor.is_none());
+        assert!(summary.is_none());
+    }
+
+    #[test]
+    fn non_json_body_reports_a_parse_error() {
+        // What the retired store endpoint answered: the store homepage.
+        let err = parse_steam_reviews("<!DOCTYPE html><html><head><title>Welcome to Steam</title>")
+            .unwrap_err();
+
+        assert!(err.starts_with("Steam reviews parse error:"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn input_json_maps_ui_filters_onto_steam_enums() {
+        let opts = SteamReviewQuery {
+            cursor: "AoJ4nK/gs6EDfMahjQc=".to_string(),
+            language: Some("german".to_string()),
+            filter_type: Some("funny".to_string()),
+            review_type: Some("negative".to_string()),
+            purchase_type: Some("other".to_string()),
+            playtime_min_hours: Some(10),
+            playtime_max_hours: Some(100),
+            playtime_device: Some("deck".to_string()),
+            use_helpful_system: true,
+        };
+
+        let input = build_reviews_input_json(&opts);
+
+        assert_eq!(input["cursor"], "AoJ4nK/gs6EDfMahjQc=");
+        assert_eq!(input["filter"], 3); // Funny
+        assert_eq!(input["review_type"], 2); // Negative
+        assert_eq!(input["purchase_type"], 2); // NonSteamPurchase
+        assert_eq!(input["languages"], json!(["german"]));
+        assert_eq!(input["day_range"], 0);
+        assert_eq!(input["num_per_page"], 20);
+        assert_eq!(input["playtime_min_hours"], 10);
+        // The UI's 100-hour sentinel means "no maximum".
+        assert_eq!(input["playtime_max_hours"], 0);
+        assert_eq!(input["primarily_steam_deck"], true);
+        assert_eq!(input["use_review_quality"], true);
+        assert_eq!(input["filter_offtopic_activity"], false);
+    }
+
+    #[test]
+    fn input_json_defaults_match_the_old_all_reviews_view() {
+        let input = build_reviews_input_json(&SteamReviewQuery::default());
+
+        assert_eq!(input["cursor"], "*");
+        assert_eq!(input["filter"], 0); // Helpful
+        assert_eq!(input["review_type"], 0); // All
+        assert_eq!(input["purchase_type"], 1); // All, not Steam-only
+        assert_eq!(input["languages"], json!(["all"]));
+        assert_eq!(input["playtime_min_hours"], 0);
+        assert_eq!(input["playtime_max_hours"], 0);
+        assert_eq!(input["primarily_steam_deck"], false);
+    }
 }

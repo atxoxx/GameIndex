@@ -867,7 +867,7 @@ pub fn run() {
             // a user's just-fetched count behind their back.
             app.manage(PlayerCountCache::default());
 
-            // Steam game-stats cache (appdetails + appreviews, used by
+            // Steam game-stats cache (appdetails + user reviews, used by
             // the player-count popover). Same growth model as
             // PlayerCountCache: 0 entries on startup, bounded by the
             // number of distinct Steam appids the user actually opens.

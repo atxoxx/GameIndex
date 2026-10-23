@@ -456,7 +456,7 @@ pub async fn get_steam_player_history(
 // of related stats: developer, publisher, release date, price, and recent
 // review breakdown. We expose all of them as a single Tauri command so the
 // frontend pays one IPC round-trip per open and we can fan out the two HTTP
-// fetches (`appdetails` + `appreviews`) in parallel from Rust.
+// fetches (`appdetails` + `GetAppReviews`) in parallel from Rust.
 //
 // Caching strategy
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -737,71 +737,84 @@ async fn fetch_steam_game_reviews_impl(
         let neg = cache.reviews_neg.lock().map_err(|e| e.to_string())?;
         if let Some(ts) = neg.get(&app_id) {
             if ts.elapsed() < STEAM_NEG_TTL {
-                return Err("Recent appreviews fetch failed; backed off".to_string());
+                return Err("Recent Steam reviews fetch failed; backed off".to_string());
             }
         }
     }
 
-    // â”€â”€ 3. Fetch from store.steampowered.com/appreviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // `num_per_page=0` skips the heavy `reviews[]` array â€” we only
-    // want the aggregate counts in `query_summary`. This makes the
-    // response dramatically smaller for popular games (e.g. CS2 has
-    // 1M+ reviews; the per-review list would be a multi-MB payload
-    // for nothing).
-    let url = format!(
-        "https://store.steampowered.com/appreviews/{}?json=1&filter=all&language=all&num_per_page=0",
-        app_id
-    );
-    let client = shared_steam_client();
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("appreviews request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let err = format!("appreviews returned HTTP {}", resp.status());
-        let mut neg = cache.reviews_neg.lock().map_err(|e| e.to_string())?;
-        neg.insert(app_id, Instant::now());
-        prune_fetched(&mut neg, |at| *at);
-        return Err(err);
-    }
-
+    // â”€â”€ 3. Fetch from Steam's GetAppReviews Web API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // `num_per_page: 1` keeps the response small — only the aggregate
+    // counts in `query_summary` matter here, and the new API treats 0 as
+    // "use the default 20", which would drag 20 full reviews back for a
+    // title with millions of them.
     #[derive(Deserialize, Default)]
     #[serde(default)]
     struct ReviewsQuerySummary {
-        num_reviews: u32,
         review_score: u8,
         review_score_desc: String,
         total_positive: u32,
         total_negative: u32,
         total_reviews: u32,
     }
+    /// `GetAppReviews` has no `success` field and wraps its payload in
+    /// `{"response": …}`; the HTTP status is the only failure signal.
     #[derive(Deserialize, Default)]
     #[serde(default)]
-    struct ReviewsResponse {
-        success: u8,
+    struct ReviewsBody {
         query_summary: Option<ReviewsQuerySummary>,
     }
-
-    let payload: ReviewsResponse = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse appreviews JSON: {}", e))?;
-
-    if payload.success != 1 {
-        // Steam returns `success: 2` (or higher) when the appid has
-        // no reviews page â€” same "legitimate no data" case as
-        // appdetails' `success: false`. Map it to `Ok(None)` so the
-        // popover renders the empty-state message instead of
-        // flagging the title as broken. No negative-cache write:
-        // the answer is permanent for this appid.
-        return Ok(None);
+    #[derive(Deserialize, Default)]
+    #[serde(default)]
+    struct ReviewsEnvelope {
+        response: Option<ReviewsBody>,
     }
 
-    let summary = payload
-        .query_summary
-        .ok_or_else(|| "appreviews returned no query_summary".to_string())?;
+    let input_json = serde_json::json!({
+        "num_per_page": 1,
+        // Helpful sort across the title's whole lifetime (day_range 0);
+        // Steam otherwise limits this filter to the last 30 days.
+        "filter": 0,
+        "day_range": 0,
+        "languages": ["all"],
+        // The score fields are only sent for the All review type.
+        "review_type": 0,
+        // All purchases — the store endpoint's default, which is what the
+        // popover's totals have always counted.
+        "purchase_type": 1,
+    });
+
+    let client = shared_steam_client();
+    let resp = client
+        .get("https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/")
+        .query(&[
+            ("appid", app_id.to_string()),
+            ("input_json", input_json.to_string()),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("Steam reviews request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let err = format!("Steam reviews returned HTTP {}", resp.status());
+        let mut neg = cache.reviews_neg.lock().map_err(|e| e.to_string())?;
+        neg.insert(app_id, Instant::now());
+        prune_fetched(&mut neg, |at| *at);
+        return Err(err);
+    }
+
+    let payload: ReviewsEnvelope = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Steam reviews JSON: {}", e))?;
+
+    // An appid with no reviews answers with an empty `response` — the same
+    // "legitimate no data" case as appdetails' `success: false`. Map it to
+    // `Ok(None)` so the popover renders the empty state instead of
+    // flagging the title as broken. No negative-cache write: the answer is
+    // permanent for this appid.
+    let Some(summary) = payload.response.and_then(|body| body.query_summary) else {
+        return Ok(None);
+    };
 
     // An empty `total_reviews` means Steam has no reviews at all for
     // this title â€” represent that as `Some(empty)` so the popover
