@@ -45,6 +45,14 @@ function fromLocalInputValue(value: string): number | null {
   return Math.floor(ms / 1000);
 }
 
+/** Short weekday labels for the active locale, Monday first. */
+function weekdayShortLabels(language: string): string[] {
+  const formatter = new Intl.DateTimeFormat(language, { weekday: "short" });
+  return Array.from({ length: 7 }, (_, index) =>
+    formatter.format(new Date(2024, 0, 1 + index)),
+  );
+}
+
 function DayChips({
   days,
   onToggle,
@@ -54,7 +62,8 @@ function DayChips({
   onToggle: (index: number) => void;
   compact?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const labels = useMemo(() => weekdayShortLabels(language), [language]);
   return (
     <div className={`dl-sched-days${compact ? " dl-sched-days--compact" : ""}`}>
       {days.map((on, index) => (
@@ -66,7 +75,7 @@ function DayChips({
           title={t(DAY_LABEL_KEYS[index])}
           onClick={() => onToggle(index)}
         >
-          {t(DAY_LABEL_KEYS[index]).slice(0, 3)}
+          {labels[index]}
         </button>
       ))}
     </div>
@@ -102,7 +111,7 @@ function Switch({
  * the queue of downloads waiting on their start time.
  */
 export default function DownloadsScheduledTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
   const {
@@ -215,165 +224,189 @@ export default function DownloadsScheduledTab() {
         : { label: t("scheduler.statusWindowClosed"), className: "is-closed" }
       : { label: t("scheduler.statusActive"), className: "is-open" };
 
-  return (
-    <div className="dl-sched">
-      <div className="dl-sched-grid">
-        {/* Start window & queue policy */}
-        <div className="dl-sched-card">
-          <div className="dl-sched-card-head">
-            <div className="dl-sched-card-title">
-              <CalendarClock size={16} aria-hidden="true" />
-              <span>{t("scheduler.title")}</span>
-            </div>
-            <div className="dl-sched-head-actions">
-              <span className={`dl-sched-status ${status.className}`}>
-                <span className="dl-sched-status-dot" aria-hidden="true" />
-                {status.label}
-              </span>
-              <Switch
-                checked={draft.enabled}
-                onChange={(next) => patch({ enabled: next })}
-                label={t("scheduler.enabled")}
-              />
-            </div>
-          </div>
-          <p className="dl-sched-hint">{t("scheduler.subtitle")}</p>
+  const weekdayLabels = weekdayShortLabels(language);
 
-          <div className="dl-sched-group">
-            <div className="dl-sched-group-title">{t("scheduler.groupWindow")}</div>
-            <label className="dl-sched-row">
-              <span className="dl-sched-row-label">{t("scheduler.windowEnabled")}</span>
+  // The window can cross midnight; split it into the two pieces of the day
+  // so the week strip can paint them without special-casing midnight.
+  const windowSegments = useMemo(() => {
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(":").map(Number);
+      return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
+    };
+    const start = toMinutes(draft.windowStart);
+    const end = toMinutes(draft.windowEnd);
+    if (start === end) return [];
+    return start < end
+      ? [{ from: start, to: end }]
+      : [
+          { from: start, to: 1440 },
+          { from: 0, to: end },
+        ];
+  }, [draft.windowStart, draft.windowEnd]);
+
+  const windowHours =
+    Math.round(
+      (windowSegments.reduce((total, segment) => total + segment.to - segment.from, 0) / 60) * 10,
+    ) / 10;
+
+  const now = new Date();
+  const nowPercent = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 100;
+
+  return (
+    <div className="dl-sched dsc">
+      <header className="dsc-header">
+        <div className="dsc-head-icon">
+          <CalendarClock size={18} aria-hidden="true" />
+        </div>
+        <div className="dsc-head-text">
+          <h3 className="dsc-title">{t("scheduler.title")}</h3>
+          <p className="dsc-subtitle">{t("scheduler.subtitle")}</p>
+        </div>
+        <div className="dsc-head-actions">
+          <span className={`dsc-status ${status.className}`}>
+            <span className="dsc-status-dot" aria-hidden="true" />
+            {status.label}
+          </span>
+          <Switch
+            checked={draft.enabled}
+            onChange={(next) => patch({ enabled: next })}
+            label={t("scheduler.enabled")}
+          />
+        </div>
+      </header>
+
+      <div className="dsc-grid">
+        <section className="dsc-card">
+          <header className="dsc-card-head">
+            <div className="dsc-card-title">
+              <CalendarClock size={15} aria-hidden="true" />
+              <span>{t("scheduler.groupWindow")}</span>
+            </div>
+            <div className="dsc-card-actions">
+              {draft.windowEnabled && (
+                <span className="dsc-window-badge">
+                  {draft.windowStart}–{draft.windowEnd} · {windowHours}h
+                </span>
+              )}
               <Switch
                 checked={draft.windowEnabled}
                 onChange={(next) => patch({ windowEnabled: next })}
                 label={t("scheduler.windowEnabled")}
               />
-            </label>
+            </div>
+          </header>
 
-            <div className={`dl-sched-window${draft.windowEnabled ? "" : " is-dim"}`}>
-              <label className="dl-sched-field">
-                <span>{t("scheduler.windowStart")}</span>
-                <input
-                  type="time"
-                  value={draft.windowStart}
-                  onChange={(e) => setDraft({ ...draft, windowStart: e.target.value })}
-                  onBlur={(e) => patch({ windowStart: e.target.value })}
-                />
-              </label>
-              <label className="dl-sched-field">
-                <span>{t("scheduler.windowEnd")}</span>
-                <input
-                  type="time"
-                  value={draft.windowEnd}
-                  onChange={(e) => setDraft({ ...draft, windowEnd: e.target.value })}
-                  onBlur={(e) => patch({ windowEnd: e.target.value })}
-                />
-              </label>
-              <div className="dl-sched-days-wrap">
-                <span className="dl-sched-row-label">{t("scheduler.days")}</span>
-                <DayChips days={draft.days} onToggle={toggleDay} />
+          <div className={`dsc-week${draft.windowEnabled ? "" : " is-off"}`}>
+            <div className="dsc-week-axis">
+              <span className="dsc-week-day" />
+              <div className="dsc-week-hours">
+                <span>00</span>
+                <span>06</span>
+                <span>12</span>
+                <span>18</span>
+                <span>24</span>
               </div>
             </div>
+
+            {weekdayLabels.map((label, index) => (
+              <div className="dsc-week-row" key={label + index}>
+                <span className="dsc-week-day">{label}</span>
+                <div className="dsc-week-track">
+                  {draft.windowEnabled &&
+                    draft.days[index] &&
+                    windowSegments.map((segment, segmentIndex) => (
+                      <span
+                        key={segmentIndex}
+                        className="dsc-week-band"
+                        style={{
+                          left: `${(segment.from / 1440) * 100}%`,
+                          width: `${((segment.to - segment.from) / 1440) * 100}%`,
+                        }}
+                      />
+                    ))}
+                  <span
+                    className="dsc-week-now"
+                    style={{ left: `${nowPercent}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div className="dl-sched-group">
-            <div className="dl-sched-group-title">{t("scheduler.groupCadence")}</div>
-            <label className="dl-sched-row">
-              <span className="dl-sched-row-label">{t("scheduler.maxConcurrent")}</span>
+          <div className={`dsc-window${draft.windowEnabled ? "" : " is-dim"}`}>
+            <label className="dsc-field">
+              <span>{t("scheduler.windowStart")}</span>
               <input
-                className="dl-sched-number"
-                type="number"
-                min={0}
-                max={64}
-                value={draft.maxConcurrent}
-                onChange={(e) =>
-                  setDraft({ ...draft, maxConcurrent: Math.max(0, Number(e.target.value) || 0) })
-                }
-                onBlur={(e) =>
-                  patch({ maxConcurrent: Math.max(0, Number(e.target.value) || 0) })
-                }
+                type="time"
+                value={draft.windowStart}
+                onChange={(e) => setDraft({ ...draft, windowStart: e.target.value })}
+                onBlur={(e) => patch({ windowStart: e.target.value })}
               />
             </label>
-            <p className="dl-sched-hint">{t("scheduler.maxConcurrentHint")}</p>
 
-            <label className="dl-sched-row">
-              <span className="dl-sched-row-label">{t("scheduler.autoStart")}</span>
-              <Switch
-                checked={draft.autoStartQueued}
-                onChange={(next) => patch({ autoStartQueued: next })}
-                label={t("scheduler.autoStart")}
+            <label className="dsc-field">
+              <span>{t("scheduler.windowEnd")}</span>
+              <input
+                type="time"
+                value={draft.windowEnd}
+                onChange={(e) => setDraft({ ...draft, windowEnd: e.target.value })}
+                onBlur={(e) => patch({ windowEnd: e.target.value })}
               />
             </label>
-            <p className="dl-sched-hint">{t("scheduler.autoStartHint")}</p>
+
+            <div className="dsc-days">
+              <span className="dsc-field-label">{t("scheduler.days")}</span>
+              <DayChips days={draft.days} onToggle={toggleDay} />
+            </div>
           </div>
 
-          <div className="dl-sched-group">
-            <div className="dl-sched-group-title">{t("scheduler.groupAutomation")}</div>
-            <label className={`dl-sched-row${draft.windowEnabled ? "" : " is-dim"}`}>
-              <span className="dl-sched-row-label">{t("scheduler.pauseOutsideWindow")}</span>
-              <Switch
-                checked={draft.pauseOutsideWindow}
-                onChange={(next) => patch({ pauseOutsideWindow: next })}
-                label={t("scheduler.pauseOutsideWindow")}
-              />
-            </label>
-            <p className="dl-sched-hint">{t("scheduler.pauseOutsideWindowHint")}</p>
+        </section>
 
-            <label className="dl-sched-row">
-              <span className="dl-sched-row-label">{t("scheduler.pauseOnGame")}</span>
-              <Switch
-                checked={draft.pauseOnGame}
-                onChange={(next) => patch({ pauseOnGame: next })}
-                label={t("scheduler.pauseOnGame")}
-              />
-            </label>
-            <p className="dl-sched-hint">{t("scheduler.pauseOnGameHint")}</p>
-          </div>
-        </div>
-
-        {/* Time-of-day bandwidth rules */}
-        <div className="dl-sched-card">
-          <div className="dl-sched-card-head">
-            <div className="dl-sched-card-title">
-              <Gauge size={16} aria-hidden="true" />
+        <section className="dsc-card">
+          <header className="dsc-card-head">
+            <div className="dsc-card-title">
+              <Gauge size={15} aria-hidden="true" />
               <span>{t("scheduler.rulesTitle")}</span>
             </div>
-            <button type="button" className="dl-sched-add-btn" onClick={addRule}>
+            <button type="button" className="dsc-add-btn" onClick={addRule}>
               <Plus size={13} aria-hidden="true" />
               <span>{t("scheduler.addRule")}</span>
             </button>
-          </div>
-          <p className="dl-sched-hint">{t("scheduler.rulesHint")}</p>
+          </header>
+          <p className="dsc-hint">{t("scheduler.rulesHint")}</p>
 
           {draft.bandwidthRules.length === 0 ? (
-            <div className="dl-sched-empty dl-sched-empty--roomy dl-sched-empty--icon">
-              <div className="dl-sched-empty-icon" aria-hidden="true">
-                <Gauge size={22} />
-              </div>
+            <div className="dsc-empty">
+              <span className="dsc-empty-icon" aria-hidden="true">
+                <Gauge size={20} />
+              </span>
               <p>{t("scheduler.noRules")}</p>
               <span>{t("scheduler.noRulesHint")}</span>
             </div>
           ) : (
-            <div className="dl-sched-rules">
+            <div className="dsc-rules">
               {draft.bandwidthRules.map((rule) => (
-                <div className="dl-sched-rule" key={rule.id}>
-                  <div className="dl-sched-rule-top">
+                <div className="dsc-rule" key={rule.id}>
+                  <div className="dsc-rule-head">
                     <input
-                      className="dl-sched-rule-label"
+                      className="dsc-rule-label"
                       type="text"
                       placeholder={t("scheduler.ruleLabel")}
                       value={rule.label}
-                      onChange={(e) => setDraft({
-                        ...draft,
-                        bandwidthRules: draft.bandwidthRules.map((r) =>
-                          r.id === rule.id ? { ...r, label: e.target.value } : r,
-                        ),
-                      })}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          bandwidthRules: draft.bandwidthRules.map((r) =>
+                            r.id === rule.id ? { ...r, label: e.target.value } : r,
+                          ),
+                        })
+                      }
                       onBlur={(e) => updateRule(rule.id, { label: e.target.value })}
                     />
                     <button
                       type="button"
-                      className="dl-sched-icon-btn"
+                      className="dsc-icon-btn"
                       aria-label={t("scheduler.removeRule")}
                       title={t("scheduler.removeRule")}
                       onClick={() => removeRule(rule.id)}
@@ -381,6 +414,7 @@ export default function DownloadsScheduledTab() {
                       <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </div>
+
                   <DayChips
                     compact
                     days={rule.days}
@@ -390,8 +424,9 @@ export default function DownloadsScheduledTab() {
                       updateRule(rule.id, { days });
                     }}
                   />
-                  <div className="dl-sched-rule-grid">
-                    <label className="dl-sched-field">
+
+                  <div className="dsc-rule-grid">
+                    <label className="dsc-field">
                       <span>{t("scheduler.windowStart")}</span>
                       <input
                         type="time"
@@ -399,7 +434,7 @@ export default function DownloadsScheduledTab() {
                         onChange={(e) => updateRule(rule.id, { start: e.target.value })}
                       />
                     </label>
-                    <label className="dl-sched-field">
+                    <label className="dsc-field">
                       <span>{t("scheduler.windowEnd")}</span>
                       <input
                         type="time"
@@ -407,96 +442,176 @@ export default function DownloadsScheduledTab() {
                         onChange={(e) => updateRule(rule.id, { end: e.target.value })}
                       />
                     </label>
-                    <label className="dl-sched-field">
+                    <label className="dsc-field">
                       <span>{t("scheduler.ruleDownload")}</span>
                       <input
                         type="number"
                         min={0}
                         value={rule.downloadKbps}
                         onChange={(e) =>
-                          updateRule(rule.id, { downloadKbps: Math.max(0, Number(e.target.value) || 0) })
+                          updateRule(rule.id, {
+                            downloadKbps: Math.max(0, Number(e.target.value) || 0),
+                          })
                         }
                       />
                     </label>
-                    <label className="dl-sched-field">
+                    <label className="dsc-field">
                       <span>{t("scheduler.ruleUpload")}</span>
                       <input
                         type="number"
                         min={0}
                         value={rule.uploadKbps}
                         onChange={(e) =>
-                          updateRule(rule.id, { uploadKbps: Math.max(0, Number(e.target.value) || 0) })
+                          updateRule(rule.id, {
+                            uploadKbps: Math.max(0, Number(e.target.value) || 0),
+                          })
                         }
                       />
                     </label>
                   </div>
-                  <label className="dl-sched-row">
-                    <span className="dl-sched-row-label">{t("scheduler.ruleDisableUpload")}</span>
+
+                  <div className="dsc-setting dsc-setting--inline">
+                    <span className="dsc-setting-label">{t("scheduler.ruleDisableUpload")}</span>
                     <Switch
                       checked={rule.disableUpload}
                       onChange={(next) => updateRule(rule.id, { disableUpload: next })}
                       label={t("scheduler.ruleDisableUpload")}
                     />
-                  </label>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Waiting queue */}
-      <div className="dl-sched-card dl-sched-queue-card">
-        <div className="dl-sched-card-head">
-          <div className="dl-sched-card-title">
-            <CalendarClock size={16} aria-hidden="true" />
-            <span>{t("scheduler.queueTitle")}</span>
-            {waiting.length > 0 && <span className="dl-tab-count">{waiting.length}</span>}
+      <section className="dsc-card">
+        <header className="dsc-card-head">
+          <div className="dsc-card-title">
+            <Gauge size={15} aria-hidden="true" />
+            <span>{t("scheduler.groupAutomation")}</span>
+          </div>
+        </header>
+
+        <div className="dsc-settings">
+          <div className="dsc-setting">
+            <div className="dsc-setting-text">
+              <span className="dsc-setting-label">{t("scheduler.maxConcurrent")}</span>
+              <span className="dsc-setting-hint">{t("scheduler.maxConcurrentHint")}</span>
+            </div>
+            <input
+              className="dsc-number"
+              type="number"
+              min={0}
+              max={64}
+              value={draft.maxConcurrent}
+              onChange={(e) =>
+                setDraft({ ...draft, maxConcurrent: Math.max(0, Number(e.target.value) || 0) })
+              }
+              onBlur={(e) =>
+                patch({ maxConcurrent: Math.max(0, Number(e.target.value) || 0) })
+              }
+            />
+          </div>
+
+          <div className="dsc-setting">
+            <div className="dsc-setting-text">
+              <span className="dsc-setting-label">{t("scheduler.autoStart")}</span>
+              <span className="dsc-setting-hint">{t("scheduler.autoStartHint")}</span>
+            </div>
+            <Switch
+              checked={draft.autoStartQueued}
+              onChange={(next) => patch({ autoStartQueued: next })}
+              label={t("scheduler.autoStart")}
+            />
+          </div>
+
+          <div className={`dsc-setting${draft.windowEnabled ? "" : " is-dim"}`}>
+            <div className="dsc-setting-text">
+              <span className="dsc-setting-label">{t("scheduler.pauseOutsideWindow")}</span>
+              <span className="dsc-setting-hint">{t("scheduler.pauseOutsideWindowHint")}</span>
+            </div>
+            <Switch
+              checked={draft.pauseOutsideWindow}
+              onChange={(next) => patch({ pauseOutsideWindow: next })}
+              label={t("scheduler.pauseOutsideWindow")}
+            />
+          </div>
+
+          <div className="dsc-setting">
+            <div className="dsc-setting-text">
+              <span className="dsc-setting-label">{t("scheduler.pauseOnGame")}</span>
+              <span className="dsc-setting-hint">{t("scheduler.pauseOnGameHint")}</span>
+            </div>
+            <Switch
+              checked={draft.pauseOnGame}
+              onChange={(next) => patch({ pauseOnGame: next })}
+              label={t("scheduler.pauseOnGame")}
+            />
           </div>
         </div>
+      </section>
+
+      <section className="dsc-card dsc-queue">
+        <header className="dsc-card-head">
+          <div className="dsc-card-title">
+            <CalendarClock size={15} aria-hidden="true" />
+            <span>{t("scheduler.queueTitle")}</span>
+            {waiting.length > 0 && <span className="dsc-count">{waiting.length}</span>}
+          </div>
+        </header>
 
         {waiting.length === 0 ? (
-          <div className="dl-sched-empty dl-sched-empty--roomy dl-sched-empty--icon">
-            <div className="dl-sched-empty-icon" aria-hidden="true">
-              <CalendarClock size={22} />
-            </div>
+          <div className="dsc-empty">
+            <span className="dsc-empty-icon" aria-hidden="true">
+              <CalendarClock size={20} />
+            </span>
             <p>{t("scheduler.queueEmpty")}</p>
             <span>{t("scheduler.queueEmptyHint")}</span>
           </div>
         ) : (
-          <div className="dl-sched-queue">
+          <div className="dsc-queue-list">
             {waiting.map((download) => {
               const held = isScheduleHeld(download);
               return (
-                <div className={`dl-sched-queue-row${held ? " is-held" : ""}`} key={download.id}>
-                  <div className="dl-sched-queue-main">
-                    <span className="dl-sched-queue-name" title={getDownloadDisplayName(download, t)}>
-                      {getDownloadDisplayName(download, t)}
-                    </span>
-                    <span className={`dl-row-status dl-row-status--${getStatusClassSuffix(download.status)}`}>
-                      {getStatusLabel(download.status, t)}
-                    </span>
-                    <span className="dl-sched-queue-size">
+                <div className={`dsc-queue-row${held ? " is-held" : ""}`} key={download.id}>
+                  <div className="dsc-queue-main">
+                    <div className="dsc-queue-title">
+                      <span
+                        className="dsc-queue-name"
+                        title={getDownloadDisplayName(download, t)}
+                      >
+                        {getDownloadDisplayName(download, t)}
+                      </span>
+                      <span
+                        className={`dsc-pill dsc-pill--${getStatusClassSuffix(download.status)}`}
+                      >
+                        {getStatusLabel(download.status, t)}
+                      </span>
+                    </div>
+                    <span className="dsc-queue-size">
                       {formatBytesShort(download.downloaded, unit)}
-                      {download.totalSize ? ` / ${formatBytesShort(download.totalSize, unit)}` : ""}
+                      {download.totalSize
+                        ? ` / ${formatBytesShort(download.totalSize, unit)}`
+                        : ""}
                     </span>
                   </div>
 
-                  <div className="dl-sched-queue-controls">
-                    <div className="dl-sched-priority" title={t("scheduler.priorityHint")}>
+                  <div className="dsc-queue-controls">
+                    <div className="dsc-stepper" title={t("scheduler.priorityHint")}>
                       <button
                         type="button"
-                        className="dl-sched-icon-btn"
+                        className="dsc-icon-btn"
                         aria-label={t("scheduler.priorityUp")}
                         title={t("scheduler.priorityUp")}
                         onClick={() => void changePriority(download, 1)}
                       >
                         <ChevronUp size={14} aria-hidden="true" />
                       </button>
-                      <span className="dl-sched-priority-value">{download.priority ?? 0}</span>
+                      <span className="dsc-stepper-value">{download.priority ?? 0}</span>
                       <button
                         type="button"
-                        className="dl-sched-icon-btn"
+                        className="dsc-icon-btn"
                         aria-label={t("scheduler.priorityDown")}
                         title={t("scheduler.priorityDown")}
                         onClick={() => void changePriority(download, -1)}
@@ -504,13 +619,15 @@ export default function DownloadsScheduledTab() {
                         <ChevronDown size={14} aria-hidden="true" />
                       </button>
                     </div>
-                    <span className={`dl-sched-queue-when${held ? " is-held" : ""}`}>
+
+                    <span className={`dsc-queue-when${held ? " is-held" : ""}`}>
                       {held && download.scheduledStartAt
                         ? formatScheduleTimestamp(download.scheduledStartAt)
                         : t("scheduler.noSchedule")}
                     </span>
+
                     <input
-                      className="dl-sched-datetime"
+                      className="dsc-datetime"
                       type="datetime-local"
                       value={
                         download.scheduledStartAt
@@ -520,9 +637,10 @@ export default function DownloadsScheduledTab() {
                       onChange={(e) => void setStartTime(download, e.target.value)}
                       aria-label={t("scheduler.startAt")}
                     />
+
                     <button
                       type="button"
-                      className="dl-sched-now-btn"
+                      className="dsc-now-btn"
                       onClick={() => void startNow(download)}
                     >
                       <Play size={13} aria-hidden="true" />
@@ -534,7 +652,7 @@ export default function DownloadsScheduledTab() {
             })}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import { Search } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
@@ -588,22 +589,21 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
   if (!open) return null;
 
   return createPortal(
-    <div className="modal-backdrop dl-stats-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal dl-stats-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Modal Header */}
-        <div className="modal-header dl-stats-header">
-          <div className="modal-header-icon dl-stats-header-icon">
+    <div className="modal-backdrop dl-stats-backdrop dsm-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="modal dl-stats-modal dsm" onClick={(e) => e.stopPropagation()}>
+        <header className="dsm-header">
+          <div className="dsm-head-icon">
             <StatsIcon />
           </div>
-          <div className="modal-header-text">
-            <div className="dl-stats-title-row">
-              <h2 className="modal-title">{t("downloadStats.title")}</h2>
-              <span className="dl-stats-badge">{t("downloadStats.totalCount", { count: stats.total })}</span>
+          <div className="dsm-head-text">
+            <div className="dsm-title-row">
+              <h2 className="dsm-title">{t("downloadStats.title")}</h2>
+              <span className="dsm-count">{t("downloadStats.totalCount", { count: stats.total })}</span>
             </div>
-            <p className="modal-subtitle">{t("downloadStats.subtitle")}</p>
+            <p className="dsm-subtitle">{t("downloadStats.subtitle")}</p>
           </div>
 
-          <div className="dl-stats-header-actions">
+          <div className="dsm-head-actions">
             <Button
               variant="secondary"
               size="sm"
@@ -613,22 +613,24 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
             >
               {t("downloadStats.resetStats")}
             </Button>
-            <Button variant="ghost" size="sm" iconOnly
+            <button
               type="button"
-              
+              className="dsm-close"
               onClick={onClose}
               aria-label={t("common.close")}
-             className="modal-close"> × </Button>
+              title={t("common.close")}
+            >
+              ×
+            </button>
           </div>
-        </div>
+        </header>
 
-        {/* Modal Navigation Tabs */}
-        <div className="dl-stats-nav-bar" role="tablist">
+        <div className="dsm-tabs" role="tablist">
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "overview"}
-            className={`dl-stats-tab-btn${activeTab === "overview" ? " active" : ""}`}
+            className={`dsm-tab${activeTab === "overview" ? " is-active" : ""}`}
             onClick={() => setActiveTab("overview")}
           >
             <StatsIcon />
@@ -639,18 +641,19 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
             type="button"
             role="tab"
             aria-selected={activeTab === "sources"}
-            className={`dl-stats-tab-btn${activeTab === "sources" ? " active" : ""}`}
+            className={`dsm-tab${activeTab === "sources" ? " is-active" : ""}`}
             onClick={() => setActiveTab("sources")}
           >
             <DirectIcon />
             <span>{t("downloadStats.tabSources")}</span>
+            <span className="dsm-tab-count">{stats.sourcesList.length}</span>
           </button>
 
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === "records"}
-            className={`dl-stats-tab-btn${activeTab === "records" ? " active" : ""}`}
+            className={`dsm-tab${activeTab === "records" ? " is-active" : ""}`}
             onClick={() => setActiveTab("records")}
           >
             <DebridIcon />
@@ -661,406 +664,521 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
             type="button"
             role="tab"
             aria-selected={activeTab === "diagnostics"}
-            className={`dl-stats-tab-btn${activeTab === "diagnostics" ? " active" : ""}`}
+            className={`dsm-tab${activeTab === "diagnostics" ? " is-active" : ""}`}
             onClick={() => setActiveTab("diagnostics")}
           >
             <TorrentIcon />
             <span>{t("downloadStats.tabDiagnostics")}</span>
-            <span className="dl-stats-tab-count">{downloads.length}</span>
+            <span className="dsm-tab-count">{downloads.length}</span>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="modal-body dl-stats-body">
-          {/* TAB 1: OVERVIEW */}
+        <div className="dsm-body">
           {activeTab === "overview" && (
-            <div className="dl-stats-tab-content fade-in">
+            <div className="dsm-panel fade-in">
               {history.length > 0 && (
-                <p className="dl-stats-history-note">{t("downloadStats.includesDeleted")}</p>
+                <p className="dsm-note">{t("downloadStats.includesDeleted")}</p>
               )}
-              {/* 4 Core KPI Tiles */}
-              <div className="dl-stats-kpi-grid">
-                <div className="dl-stats-kpi-card">
-                  <span className="dl-stats-kpi-label">{t("downloadStats.totalDownloaded")}</span>
-                  <span className="dl-stats-kpi-value dl-stats-kpi-value--accent">
+
+              <div className="dsm-overview">
+                <section className="dsm-hero">
+                  <span className="dsm-eyebrow">{t("downloadStats.totalDownloaded")}</span>
+                  <span className="dsm-hero-value">
                     {formatBytesShort(stats.totalDownloadedBytes, sizeUnit)}
                   </span>
-                  <span className="dl-stats-kpi-sub">
-                    {t("downloadStats.totalCatalogSize", { size: formatBytesShort(stats.totalPayloadBytes, sizeUnit) })}
+                  <span className="dsm-hero-sub">
+                    {t("downloadStats.totalCatalogSize", {
+                      size: formatBytesShort(stats.totalPayloadBytes, sizeUnit),
+                    })}
                   </span>
-                </div>
+                  <div className="dsm-hero-track">
+                    <span
+                      style={{
+                        width: `${
+                          stats.totalPayloadBytes > 0
+                            ? Math.min(100, (stats.totalDownloadedBytes / stats.totalPayloadBytes) * 100)
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="dsm-hero-foot">
+                    <span>
+                      {t("downloadStats.completedRatio", {
+                        completed: stats.completedCount,
+                        total: stats.total,
+                      })}
+                    </span>
+                    <span>
+                      {t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, sizeUnit) })}
+                    </span>
+                  </div>
+                </section>
 
-                <div className="dl-stats-kpi-card">
-                  <span className="dl-stats-kpi-label">{t("downloadStats.completionRate")}</span>
-                  <span className="dl-stats-kpi-value dl-stats-kpi-value--success">
-                    {stats.completionRate.toFixed(0)}%
-                  </span>
-                  <span className="dl-stats-kpi-sub">
-                    {t("downloadStats.completedRatio", { completed: stats.completedCount, total: stats.total })}
-                  </span>
-                </div>
-
-                <div className="dl-stats-kpi-card">
-                  <span className="dl-stats-kpi-label">{t("downloadStats.liveTransfer")}</span>
-                  <span className="dl-stats-kpi-value dl-stats-kpi-value--info">
-                    {formatBytesPerSecond(stats.totalCurrentDownSpeed, speedUnit)}
-                  </span>
-                  <span className="dl-stats-kpi-sub">
-                    ↑ {formatBytesPerSecond(stats.totalCurrentUpSpeed, speedUnit)} {t("downloadStats.uploadActive")}
-                  </span>
-                </div>
-
-                <div className="dl-stats-kpi-card">
-                  <span className="dl-stats-kpi-label">{t("downloadStats.swarmConnectivity")}</span>
-                  <span className="dl-stats-kpi-value">
-                    {stats.totalConnectedPeers} <small style={{ fontSize: 13, color: "var(--color-text-muted)" }}>{t("downloadStats.peers")}</small>
-                  </span>
-                  <span className="dl-stats-kpi-sub">
-                    {stats.totalKnownSeeds} {t("downloadStats.knownSeeds")} · {stats.avgPeers.toFixed(1)} {t("downloadStats.avgPerTorrent")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Protocol Breakdown Section */}
-              <div className="dl-stats-card">
-                <div className="dl-stats-card-header">
-                  <h3 className="dl-stats-card-title">{t("downloadStats.protocolBreakdown")}</h3>
-                </div>
-                <div className="dl-stats-protocol-grid">
-                  <div className="dl-stats-protocol-pill">
-                    <div className="dl-stats-protocol-icon dl-stats-protocol-icon--torrent">
-                      <TorrentIcon />
-                    </div>
-                    <div className="dl-stats-protocol-info">
-                      <span className="dl-stats-protocol-title">BitTorrent</span>
-                      <span className="dl-stats-protocol-count">
-                        {stats.torrentCount} {t("downloadStats.items")} (
-                        {((stats.torrentCount / (stats.total || 1)) * 100).toFixed(0)}%)
+                <div className="dsm-kpis">
+                  <div className="dsm-kpi">
+                    <span className="dsm-kpi-label">{t("downloadStats.completionRate")}</span>
+                    <div className="dsm-kpi-row">
+                      <span className="dsm-kpi-value">{stats.completionRate.toFixed(0)}%</span>
+                      <span className="dsm-kpi-sub">
+                        {t("downloadStats.completedRatio", {
+                          completed: stats.completedCount,
+                          total: stats.total,
+                        })}
                       </span>
+                    </div>
+                    <div className="dsm-kpi-track">
+                      <span
+                        style={{
+                          width: `${Math.max(0, Math.min(100, stats.completionRate))}%`,
+                        }}
+                      />
                     </div>
                   </div>
 
-                  <div className="dl-stats-protocol-pill">
-                    <div className="dl-stats-protocol-icon dl-stats-protocol-icon--direct">
-                      <DirectIcon />
-                    </div>
-                    <div className="dl-stats-protocol-info">
-                      <span className="dl-stats-protocol-title">Direct HTTP</span>
-                      <span className="dl-stats-protocol-count">
-                        {stats.directCount} {t("downloadStats.items")} (
-                        {((stats.directCount / (stats.total || 1)) * 100).toFixed(0)}%)
+                  <div className="dsm-kpi">
+                    <span className="dsm-kpi-label">{t("downloadStats.liveTransfer")}</span>
+                    <div className="dsm-kpi-row">
+                      <span className="dsm-kpi-value dsm-kpi-value--accent">
+                        ↓ {formatBytesPerSecond(stats.totalCurrentDownSpeed, speedUnit)}
                       </span>
                     </div>
+                    <span className="dsm-kpi-sub">
+                      ↑ {formatBytesPerSecond(stats.totalCurrentUpSpeed, speedUnit)}{" "}
+                      {t("downloadStats.uploadActive")}
+                    </span>
                   </div>
 
-                  <div className="dl-stats-protocol-pill">
-                    <div className="dl-stats-protocol-icon dl-stats-protocol-icon--debrid">
-                      <DebridIcon />
-                    </div>
-                    <div className="dl-stats-protocol-info">
-                      <span className="dl-stats-protocol-title">Real-Debrid</span>
-                      <span className="dl-stats-protocol-count">
-                        {stats.debridCount} {t("downloadStats.items")} · {stats.debridCacheRate.toFixed(0)}% {t("downloadStats.cached")}
+                  <div className="dsm-kpi">
+                    <span className="dsm-kpi-label">{t("downloadStats.swarmConnectivity")}</span>
+                    <div className="dsm-kpi-row">
+                      <span className="dsm-kpi-value">{stats.totalConnectedPeers}</span>
+                      <span className="dsm-kpi-unit">{t("downloadStats.peers")}</span>
+                      <span className="dsm-kpi-sub">
+                        {stats.totalKnownSeeds} {t("downloadStats.knownSeeds")}
                       </span>
                     </div>
+                    <span className="dsm-kpi-sub">
+                      {stats.avgPeers.toFixed(1)} {t("downloadStats.avgPerTorrent")}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Status Breakdown Horizontal Stacked Bar */}
-              <div className="dl-stats-card">
-                <div className="dl-stats-card-header">
-                  <h3 className="dl-stats-card-title">{t("downloadStats.statusDistribution")}</h3>
-                </div>
+              <div className="dsm-cols">
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.protocolBreakdown")}</h3>
+                  </header>
 
-                <div className="dl-stats-status-bar">
-                  {stats.completedCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--completed"
-                      style={{ flex: stats.completedCount }}
-                      title={`${t("downloadsFilter.statusCompleted")}: ${stats.completedCount}`}
-                    />
-                  )}
-                  {stats.downloadingCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--downloading"
-                      style={{ flex: stats.downloadingCount }}
-                      title={`${t("downloadsFilter.statusActive")}: ${stats.downloadingCount}`}
-                    />
-                  )}
-                  {stats.seedingCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--seeding"
-                      style={{ flex: stats.seedingCount }}
-                      title={`${t("downloadRow.badgeSeeding")}: ${stats.seedingCount}`}
-                    />
-                  )}
-                  {stats.pausedCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--paused"
-                      style={{ flex: stats.pausedCount }}
-                      title={`${t("downloadsFilter.statusPaused")}: ${stats.pausedCount}`}
-                    />
-                  )}
-                  {stats.queuedCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--queued"
-                      style={{ flex: stats.queuedCount }}
-                      title={`${t("download.status.queued")}: ${stats.queuedCount}`}
-                    />
-                  )}
-                  {stats.removedCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--removed"
-                      style={{ flex: stats.removedCount }}
-                      title={`${t("downloadStats.removedPartial")}: ${stats.removedCount}`}
-                    />
-                  )}
-                  {stats.errorCount > 0 && (
-                    <div
-                      className="dl-stats-status-seg dl-stats-status-seg--error"
-                      style={{ flex: stats.errorCount }}
-                      title={`${t("downloadsFilter.statusErrored")}: ${stats.errorCount}`}
-                    />
-                  )}
-                </div>
+                  <div className="dsm-protos">
+                    <div className="dsm-proto">
+                      <div className="dsm-proto-head">
+                        <span className="dsm-proto-icon dsm-proto-icon--torrent">
+                          <TorrentIcon />
+                        </span>
+                        <span className="dsm-proto-name">BitTorrent</span>
+                        <span className="dsm-proto-sub">
+                          {stats.torrentCount} {t("downloadStats.items")} ·{" "}
+                          {((stats.torrentCount / (stats.total || 1)) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="dsm-track">
+                        <span
+                          style={{
+                            width: `${Math.max(
+                              (stats.torrentCount / (stats.total || 1)) * 100,
+                              stats.torrentCount > 0 ? 4 : 0,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
 
-                <div className="dl-stats-legend-wrap">
-                  <div className="dl-stats-legend-chip">
-                    <span className="dl-stats-dot dl-stats-dot--completed" />
-                    <span>{t("downloadsFilter.statusCompleted")}: {stats.completedCount}</span>
-                  </div>
-                  <div className="dl-stats-legend-chip">
-                    <span className="dl-stats-dot dl-stats-dot--downloading" />
-                    <span>{t("downloadsFilter.statusActive")}: {stats.downloadingCount}</span>
-                  </div>
-                  <div className="dl-stats-legend-chip">
-                    <span className="dl-stats-dot dl-stats-dot--seeding" />
-                    <span>{t("downloadRow.badgeSeeding")}: {stats.seedingCount}</span>
-                  </div>
-                  <div className="dl-stats-legend-chip">
-                    <span className="dl-stats-dot dl-stats-dot--paused" />
-                    <span>{t("downloadsFilter.statusPaused")}: {stats.pausedCount}</span>
-                  </div>
-                  <div className="dl-stats-legend-chip">
-                    <span className="dl-stats-dot dl-stats-dot--queued" />
-                    <span>{t("download.status.queued")}: {stats.queuedCount}</span>
-                  </div>
-                  {stats.removedCount > 0 && (
-                    <div className="dl-stats-legend-chip">
-                      <span className="dl-stats-dot dl-stats-dot--removed" />
-                      <span>{t("downloadStats.removedPartial")}: {stats.removedCount}</span>
+                    <div className="dsm-proto">
+                      <div className="dsm-proto-head">
+                        <span className="dsm-proto-icon dsm-proto-icon--direct">
+                          <DirectIcon />
+                        </span>
+                        <span className="dsm-proto-name">Direct HTTP</span>
+                        <span className="dsm-proto-sub">
+                          {stats.directCount} {t("downloadStats.items")} ·{" "}
+                          {((stats.directCount / (stats.total || 1)) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="dsm-track">
+                        <span
+                          style={{
+                            width: `${Math.max(
+                              (stats.directCount / (stats.total || 1)) * 100,
+                              stats.directCount > 0 ? 4 : 0,
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                  )}
-                  {stats.errorCount > 0 && (
-                    <div className="dl-stats-legend-chip">
-                      <span className="dl-stats-dot dl-stats-dot--error" />
-                      <span>{t("downloadsFilter.statusErrored")}: {stats.errorCount}</span>
+
+                    <div className="dsm-proto">
+                      <div className="dsm-proto-head">
+                        <span className="dsm-proto-icon dsm-proto-icon--debrid">
+                          <DebridIcon />
+                        </span>
+                        <span className="dsm-proto-name">Real-Debrid</span>
+                        <span className="dsm-proto-sub">
+                          {stats.debridCount} {t("downloadStats.items")} ·{" "}
+                          {((stats.debridCount / (stats.total || 1)) * 100).toFixed(0)}% ·{" "}
+                          {stats.debridCacheRate.toFixed(0)}% {t("downloadStats.cached")}
+                        </span>
+                      </div>
+                      <div className="dsm-track dsm-track--debrid">
+                        <span
+                          style={{
+                            width: `${Math.max(
+                              (stats.debridCount / (stats.total || 1)) * 100,
+                              stats.debridCount > 0 ? 4 : 0,
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                </section>
+
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.statusDistribution")}</h3>
+                  </header>
+
+                  <div className="dsm-stack">
+                    {stats.completedCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--completed"
+                        style={{ flex: stats.completedCount }}
+                        title={`${t("downloadsFilter.statusCompleted")}: ${stats.completedCount}`}
+                      />
+                    )}
+                    {stats.downloadingCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--downloading"
+                        style={{ flex: stats.downloadingCount }}
+                        title={`${t("downloadsFilter.statusActive")}: ${stats.downloadingCount}`}
+                      />
+                    )}
+                    {stats.seedingCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--seeding"
+                        style={{ flex: stats.seedingCount }}
+                        title={`${t("downloadRow.badgeSeeding")}: ${stats.seedingCount}`}
+                      />
+                    )}
+                    {stats.pausedCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--paused"
+                        style={{ flex: stats.pausedCount }}
+                        title={`${t("downloadsFilter.statusPaused")}: ${stats.pausedCount}`}
+                      />
+                    )}
+                    {stats.queuedCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--queued"
+                        style={{ flex: stats.queuedCount }}
+                        title={`${t("download.status.queued")}: ${stats.queuedCount}`}
+                      />
+                    )}
+                    {stats.removedCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--removed"
+                        style={{ flex: stats.removedCount }}
+                        title={`${t("downloadStats.removedPartial")}: ${stats.removedCount}`}
+                      />
+                    )}
+                    {stats.errorCount > 0 && (
+                      <div
+                        className="dsm-ratio dsm-ratio--error"
+                        style={{ flex: stats.errorCount }}
+                        title={`${t("downloadsFilter.statusErrored")}: ${stats.errorCount}`}
+                      />
+                    )}
+                  </div>
+
+                  <div className="dsm-legend">
+                    {stats.completedCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--completed" />
+                        {t("downloadsFilter.statusCompleted")}
+                        <strong>{stats.completedCount}</strong>
+                      </span>
+                    )}
+                    {stats.downloadingCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--downloading" />
+                        {t("downloadsFilter.statusActive")}
+                        <strong>{stats.downloadingCount}</strong>
+                      </span>
+                    )}
+                    {stats.seedingCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--seeding" />
+                        {t("downloadRow.badgeSeeding")}
+                        <strong>{stats.seedingCount}</strong>
+                      </span>
+                    )}
+                    {stats.pausedCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--paused" />
+                        {t("downloadsFilter.statusPaused")}
+                        <strong>{stats.pausedCount}</strong>
+                      </span>
+                    )}
+                    {stats.queuedCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--queued" />
+                        {t("download.status.queued")}
+                        <strong>{stats.queuedCount}</strong>
+                      </span>
+                    )}
+                    {stats.removedCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--removed" />
+                        {t("downloadStats.removedPartial")}
+                        <strong>{stats.removedCount}</strong>
+                      </span>
+                    )}
+                    {stats.errorCount > 0 && (
+                      <span className="dsm-legend-item">
+                        <i className="dsm-dot dsm-dot--error" />
+                        {t("downloadsFilter.statusErrored")}
+                        <strong>{stats.errorCount}</strong>
+                      </span>
+                    )}
+                    {stats.total === 0 && <span className="dsm-legend-empty">—</span>}
+                  </div>
+                </section>
               </div>
             </div>
           )}
 
-          {/* TAB 2: SOURCES & STORAGE */}
           {activeTab === "sources" && (
-            <div className="dl-stats-tab-content fade-in">
-              <div className="dl-stats-two-col">
-                {/* Sources Distribution */}
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.sourcesDistribution")}</h3>
-                    <span className="dl-stats-card-badge">{t("downloadStats.sourcesCount", { count: stats.sourcesList.length })}</span>
-                  </div>
+            <div className="dsm-panel fade-in">
+              <div className="dsm-cols">
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.sourcesDistribution")}</h3>
+                    <span className="dsm-card-badge">
+                      {t("downloadStats.sourcesCount", { count: stats.sourcesList.length })}
+                    </span>
+                  </header>
 
-                  <div className="dl-stats-bars-list">
+                  <div className="dsm-ranks">
                     {stats.sourcesList.length === 0 ? (
-                      <p className="dl-stats-empty-text">{t("downloadStats.noSourcesYet")}</p>
+                      <p className="dsm-empty">{t("downloadStats.noSourcesYet")}</p>
                     ) : (
                       stats.sourcesList.slice(0, 7).map((src) => {
-                        const pct = stats.totalPayloadBytes > 0 ? (src.bytes / stats.totalPayloadBytes) * 100 : 0;
+                        const pct =
+                          stats.totalPayloadBytes > 0
+                            ? (src.bytes / stats.totalPayloadBytes) * 100
+                            : 0;
                         return (
-                          <div key={src.name} className="dl-stats-bar-item">
-                            <div className="dl-stats-bar-meta">
-                              <span className="dl-stats-bar-title" title={src.name}>{src.name}</span>
-                              <span className="dl-stats-bar-val">
-                                {formatBytesShort(src.bytes, sizeUnit)} ({src.count})
+                          <div key={src.name} className="dsm-rank">
+                            <div className="dsm-rank-head">
+                              <span className="dsm-rank-name" title={src.name}>
+                                {src.name}
+                              </span>
+                              <span className="dsm-rank-value">
+                                {formatBytesShort(src.bytes, sizeUnit)}
+                                <em>{src.count}</em>
                               </span>
                             </div>
-                            <div className="dl-stats-bar-track">
-                              <div className="dl-stats-bar-fill" style={{ width: `${Math.max(pct, 4)}%` }} />
+                            <div className="dsm-track">
+                              <span style={{ width: `${Math.max(pct, 4)}%` }} />
                             </div>
                           </div>
                         );
                       })
                     )}
                   </div>
-                </div>
+                </section>
 
-                {/* Size Distribution Tiers */}
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.sizeTiers")}</h3>
-                    <span className="dl-stats-card-badge">{t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, sizeUnit) })}</span>
-                  </div>
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.sizeTiers")}</h3>
+                    <span className="dsm-card-badge">
+                      {t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, sizeUnit) })}
+                    </span>
+                  </header>
 
-                  <div className="dl-stats-bars-list">
+                  <div className="dsm-ranks">
                     {stats.sizeTiers.map((tier) => {
                       const pct = stats.total > 0 ? (tier.count / stats.total) * 100 : 0;
                       return (
-                        <div key={tier.label} className="dl-stats-bar-item">
-                          <div className="dl-stats-bar-meta">
-                            <span className="dl-stats-bar-title">{tier.label}</span>
-                            <span className="dl-stats-bar-val">
-                              {tier.count} {t("downloadStats.items")} ({pct.toFixed(0)}%)
+                        <div key={tier.label} className="dsm-rank">
+                          <div className="dsm-rank-head">
+                            <span className="dsm-rank-name">{tier.label}</span>
+                            <span className="dsm-rank-value">
+                              {tier.count} {t("downloadStats.items")}
+                              <em>{pct.toFixed(0)}%</em>
                             </span>
                           </div>
-                          <div className="dl-stats-bar-track">
-                            <div
-                              className="dl-stats-bar-fill"
-                              style={{ width: `${Math.max(pct, tier.count > 0 ? 4 : 0)}%`, background: tier.color }}
+                          <div className="dsm-track">
+                            <span
+                              style={{
+                                width: `${Math.max(pct, tier.count > 0 ? 4 : 0)}%`,
+                                background: tier.color,
+                              }}
                             />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </section>
               </div>
 
-              {/* Drives & Extraction Efficiency */}
-              <div className="dl-stats-two-col" style={{ marginTop: "var(--space-md)" }}>
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.storageLocations")}</h3>
-                  </div>
-                  <div className="dl-stats-bars-list">
-                    {stats.drivesList.map((d) => (
-                      <div key={d.drive} className="dl-stats-bar-item">
-                        <div className="dl-stats-bar-meta">
-                          <span className="dl-stats-bar-title">{d.drive}</span>
-                          <span className="dl-stats-bar-val">
-                            {formatBytesShort(d.bytes, sizeUnit)} ({d.count} {t("downloadStats.items")})
+              <div className="dsm-cols">
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.storageLocations")}</h3>
+                  </header>
+                  <div className="dsm-ranks">
+                    {stats.drivesList.length === 0 ? (
+                      <p className="dsm-empty">{t("downloadStats.noDataYet")}</p>
+                    ) : (
+                      stats.drivesList.map((d) => (
+                      <div key={d.drive} className="dsm-rank">
+                        <div className="dsm-rank-head">
+                          <span className="dsm-rank-name">{d.drive}</span>
+                          <span className="dsm-rank-value">
+                            {formatBytesShort(d.bytes, sizeUnit)}
+                            <em>
+                              {d.count} {t("downloadStats.items")}
+                            </em>
                           </span>
                         </div>
-                        <div className="dl-stats-bar-track">
-                          <div
-                            className="dl-stats-bar-fill"
+                        <div className="dsm-track">
+                          <span
                             style={{
-                              width: `${Math.max((d.bytes / (stats.totalPayloadBytes || 1)) * 100, 4)}%`,
-                              background: "var(--color-accent)",
+                              width: `${Math.max(
+                                (d.bytes / (stats.totalPayloadBytes || 1)) * 100,
+                                4,
+                              )}%`,
                             }}
                           />
                         </div>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
-                </div>
+                </section>
 
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.archiveExtraction")}</h3>
-                  </div>
-                  <div className="dl-stats-extraction-stats">
-                    <div className="dl-stats-extraction-tile">
-                      <span className="dl-stats-extraction-num">{stats.autoExtractCount}</span>
-                      <span className="dl-stats-extraction-desc">{t("downloadStats.autoExtractEnabled")}</span>
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.archiveExtraction")}</h3>
+                  </header>
+                  <div className="dsm-figures">
+                    <div className="dsm-figure">
+                      <span className="dsm-figure-num">{stats.autoExtractCount}</span>
+                      <span className="dsm-figure-label">
+                        {t("downloadStats.autoExtractEnabled")}
+                      </span>
                     </div>
-                    <div className="dl-stats-extraction-tile">
-                      <span className="dl-stats-extraction-num">{stats.extractedCount}</span>
-                      <span className="dl-stats-extraction-desc">{t("downloadStats.extractedSuccess")}</span>
+                    <div className="dsm-figure">
+                      <span className="dsm-figure-num">{stats.extractedCount}</span>
+                      <span className="dsm-figure-label">
+                        {t("downloadStats.extractedSuccess")}
+                      </span>
                     </div>
                   </div>
-                </div>
+                </section>
               </div>
             </div>
           )}
 
-          {/* TAB 3: RECORDS & HALL OF FAME */}
           {activeTab === "records" && (
-            <div className="dl-stats-tab-content fade-in">
-              {/* Activity Timeline Badges */}
-              <div className="dl-stats-card">
-                <div className="dl-stats-card-header">
-                  <h3 className="dl-stats-card-title">{t("downloadStats.activityTimeline")}</h3>
+            <div className="dsm-panel fade-in">
+              <section className="dsm-card">
+                <header className="dsm-card-head">
+                  <h3>{t("downloadStats.activityTimeline")}</h3>
+                </header>
+                <div className="dsm-activity">
+                  <div className="dsm-activity-tile">
+                    <span className="dsm-activity-num">{stats.timeStats.addedLast24h}</span>
+                    <span className="dsm-activity-label">{t("downloadStats.last24h")}</span>
+                  </div>
+                  <div className="dsm-activity-tile">
+                    <span className="dsm-activity-num">{stats.timeStats.addedLast7d}</span>
+                    <span className="dsm-activity-label">{t("downloadStats.last7Days")}</span>
+                  </div>
+                  <div className="dsm-activity-tile">
+                    <span className="dsm-activity-num">{stats.timeStats.addedLast30d}</span>
+                    <span className="dsm-activity-label">{t("downloadStats.last30Days")}</span>
+                  </div>
                 </div>
-                <div className="dl-stats-timeline-row">
-                  <div className="dl-stats-timeline-stat">
-                    <span className="dl-stats-timeline-count">{stats.timeStats.addedLast24h}</span>
-                    <span className="dl-stats-timeline-label">{t("downloadStats.last24h")}</span>
-                  </div>
-                  <div className="dl-stats-timeline-stat">
-                    <span className="dl-stats-timeline-count">{stats.timeStats.addedLast7d}</span>
-                    <span className="dl-stats-timeline-label">{t("downloadStats.last7Days")}</span>
-                  </div>
-                  <div className="dl-stats-timeline-stat">
-                    <span className="dl-stats-timeline-count">{stats.timeStats.addedLast30d}</span>
-                    <span className="dl-stats-timeline-label">{t("downloadStats.last30Days")}</span>
-                  </div>
-                </div>
-              </div>
+              </section>
 
-              <div className="dl-stats-two-col" style={{ marginTop: "var(--space-md)" }}>
-                {/* Largest Downloads */}
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.largestDownloads")}</h3>
-                  </div>
-                  <div className="dl-stats-mini-table">
-                    {stats.largestList.map((item, idx) => (
-                      <div key={item.id} className="dl-stats-mini-row">
-                        <span className="dl-stats-rank-badge">#{idx + 1}</span>
-                        <div className="dl-stats-mini-meta">
-                          <span className="dl-stats-mini-name" title={item.name}>{item.name}</span>
-                          <span className="dl-stats-mini-sub">{item.sourceName}</span>
-                        </div>
-                        <span className="dl-stats-mini-value">
+              <div className="dsm-cols">
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.largestDownloads")}</h3>
+                  </header>
+                  <div className="dsm-ranks">
+                    {stats.largestList.length === 0 ? (
+                      <p className="dsm-empty">{t("downloadStats.noDataYet")}</p>
+                    ) : (
+                      stats.largestList.map((item, idx) => (
+                      <div key={item.id} className="dsm-list-row">
+                        <span className="dsm-rank-badge">{idx + 1}</span>
+                        <span className="dsm-list-meta">
+                          <span className="dsm-list-name" title={item.name}>
+                            {item.name}
+                          </span>
+                          <span className="dsm-list-sub">{item.sourceName}</span>
+                        </span>
+                        <span className="dsm-list-value">
                           {formatBytesShort(item.totalSize ?? item.downloaded, sizeUnit)}
                         </span>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
-                </div>
+                </section>
 
-                {/* Recent Completed */}
-                <div className="dl-stats-card">
-                  <div className="dl-stats-card-header">
-                    <h3 className="dl-stats-card-title">{t("downloadStats.recentCompletions")}</h3>
-                  </div>
-                  <div className="dl-stats-mini-table">
+                <section className="dsm-card">
+                  <header className="dsm-card-head">
+                    <h3>{t("downloadStats.recentCompletions")}</h3>
+                  </header>
+                  <div className="dsm-ranks">
                     {stats.recentCompleted.length === 0 ? (
-                      <p className="dl-stats-empty-text">{t("downloadStats.noCompletedYet")}</p>
+                      <p className="dsm-empty">{t("downloadStats.noCompletedYet")}</p>
                     ) : (
                       stats.recentCompleted.map((item) => (
-                        <div key={item.id} className="dl-stats-mini-row">
-                          <span className="dl-stats-status-tag dl-stats-status-tag--completed">
-                            {t("downloadsFilter.statusCompleted")}
+                        <div key={item.id} className="dsm-list-row">
+                          <span className="dsm-dot dsm-dot--completed" />
+                          <span className="dsm-list-meta">
+                            <span className="dsm-list-name" title={item.name}>
+                              {item.name}
+                            </span>
+                            <span className="dsm-list-sub">{item.sourceName}</span>
                           </span>
-                          <div className="dl-stats-mini-meta">
-                            <span className="dl-stats-mini-name" title={item.name}>{item.name}</span>
-                            <span className="dl-stats-mini-sub">{item.sourceName}</span>
-                          </div>
-                          <span className="dl-stats-mini-value">
+                          <span className="dsm-list-value">
                             {formatBytesShort(item.totalSize ?? item.downloaded, sizeUnit)}
                           </span>
                         </div>
                       ))
                     )}
                   </div>
-                </div>
+                </section>
               </div>
             </div>
           )}
 
-          {/* TAB 4: DIAGNOSTICS */}
           {activeTab === "diagnostics" && (
-            <div className="dl-stats-tab-content fade-in">
-              <div className="dl-stats-diag-header">
-                <div className="dl-stats-search-wrap">
+            <div className="dsm-panel fade-in">
+              <div className="dsm-diag-bar">
+                <div className="dsm-search">
+                  <Search size={14} aria-hidden="true" />
                   <input
                     type="text"
-                    className="dl-stats-search-input"
+                    className="dsm-search-input"
                     placeholder={t("downloadStats.searchDiagnostics")}
                     value={diagSearch}
                     onChange={(e) => setDiagSearch(e.target.value)}
@@ -1068,20 +1186,21 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                   {diagSearch && (
                     <button
                       type="button"
-                      className="dl-stats-search-clear"
+                      className="dsm-search-clear"
                       onClick={() => setDiagSearch("")}
+                      aria-label={t("downloadsFilter.clearSearch")}
                     >
                       ×
                     </button>
                   )}
                 </div>
-                <span className="dl-stats-diag-count">
+                <span className="dsm-diag-count">
                   {filteredDiagnostics.length} / {downloads.length} {t("downloadStats.items")}
                 </span>
               </div>
 
-              <div className="dl-stats-table-wrapper">
-                <table className="dl-stats-table">
+              <div className="dsm-table-wrap">
+                <table className="dsm-table">
                   <thead>
                     <tr>
                       <th>{t("downloadStats.colName")}</th>
@@ -1096,36 +1215,42 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                   <tbody>
                     {filteredDiagnostics.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="dl-stats-table-empty">
+                        <td colSpan={7} className="dsm-table-empty">
                           {t("downloadStats.noMatches")}
                         </td>
                       </tr>
                     ) : (
                       filteredDiagnostics.map((d) => (
-                        <tr key={d.id} className={d.isHistory ? "dl-stats-table-row--history" : undefined}>
-                          <td className="dl-stats-cell-name" title={d.name}>
-                            <span className="dl-stats-tbl-name-row">
-                              <span className="dl-stats-tbl-name">{d.name}</span>
+                        <tr key={d.id}>
+                          <td className="dsm-td-name" title={d.name}>
+                            <span className="dsm-td-name-row">
+                              <span className="dsm-td-name-text">{d.name}</span>
                               {d.isHistory && (
-                                <span className="dl-stats-tbl-history-tag">{t("downloadStats.historyTag")}</span>
+                                <span className="dsm-history-tag">{t("downloadStats.historyTag")}</span>
                               )}
                             </span>
-                            <span className="dl-stats-tbl-source">{d.sourceName}</span>
+                            <span className="dsm-td-source">{d.sourceName}</span>
                           </td>
                           <td>
-                            <span className={`dl-stats-chip dl-stats-chip--${d.kind}`}>
+                            <span className={`dsm-chip dsm-chip--${d.kind}`}>
                               {t(PROTOCOL_LABEL_KEY[d.kind] ?? d.kind)}
                             </span>
                           </td>
                           <td>
-                            <span className={`dl-stats-status-pill dl-stats-status-pill--${d.status.kind}`}>
+                            <span className={`dsm-pill dsm-pill--${d.status.kind}`}>
                               {t(STATUS_KIND_LABEL_KEY[d.status.kind] ?? d.status.kind)}
                             </span>
                           </td>
-                          <td>{formatBytesShort(d.totalSize ?? d.downloaded, sizeUnit)}</td>
-                          <td>{formatProgress(d.progress)}</td>
-                          <td>{formatBytesPerSecond(d.downloadSpeed, speedUnit)}</td>
-                          <td>{d.kind === "torrent" ? `${d.peers} / ${d.seeds}` : "—"}</td>
+                          <td className="dsm-num">
+                            {formatBytesShort(d.totalSize ?? d.downloaded, sizeUnit)}
+                          </td>
+                          <td className="dsm-num">{formatProgress(d.progress)}</td>
+                          <td className="dsm-num">
+                            {formatBytesPerSecond(d.downloadSpeed, speedUnit)}
+                          </td>
+                          <td className="dsm-num">
+                            {d.kind === "torrent" ? `${d.peers} / ${d.seeds}` : "—"}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -1136,34 +1261,35 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
           )}
         </div>
 
-        {/* Modal Footer & Export Bar */}
-        <div className="modal-footer dl-stats-footer">
-          <div className="dl-stats-export-controls">
-            <span className="dl-stats-export-label">{t("downloadStats.exportAs")}:</span>
-            <div className="dl-stats-format-seg">
+        <footer className="dsm-footer">
+          <div className="dsm-export">
+            <span className="dsm-export-label">{t("downloadStats.exportAs")}</span>
+            <div className="dsm-seg">
               <button
                 type="button"
-                className={`dl-stats-format-btn${exportFormat === "json" ? " active" : ""}`}
+                className={`dsm-seg-btn${exportFormat === "json" ? " is-active" : ""}`}
                 onClick={() => setExportFormat("json")}
               >
                 JSON
               </button>
               <button
                 type="button"
-                className={`dl-stats-format-btn${exportFormat === "csv" ? " active" : ""}`}
+                className={`dsm-seg-btn${exportFormat === "csv" ? " is-active" : ""}`}
                 onClick={() => setExportFormat("csv")}
               >
                 CSV
               </button>
               <button
                 type="button"
-                className={`dl-stats-format-btn${exportFormat === "markdown" ? " active" : ""}`}
+                className={`dsm-seg-btn${exportFormat === "markdown" ? " is-active" : ""}`}
                 onClick={() => setExportFormat("markdown")}
               >
                 Markdown
               </button>
             </div>
+          </div>
 
+          <div className="dsm-footer-actions">
             <Button
               variant="secondary"
               size="sm"
@@ -1171,7 +1297,9 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
               leftIcon={copied ? <CheckIcon /> : <CopyIcon />}
               title={t("downloadStats.copyTooltip")}
             >
-              {copied ? t("common.copiedToClipboard", { label: exportFormat.toUpperCase() }) : t("downloadStats.copySummary")}
+              {copied
+                ? t("common.copiedToClipboard", { label: exportFormat.toUpperCase() })
+                : t("downloadStats.copySummary")}
             </Button>
 
             <Button
@@ -1185,11 +1313,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
               {t("downloadStats.exportButton")}
             </Button>
           </div>
-
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            {t("common.close")}
-          </Button>
-        </div>
+        </footer>
       </div>
 
       {/* Reset stats confirmation (destructive) */}

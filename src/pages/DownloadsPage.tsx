@@ -30,6 +30,9 @@ import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
 import "../styles/downloads-v2.css";
+import "../styles/download-stats-v2.css";
+import "../styles/download-scheduler-v2.css";
+import "../styles/download-history-v2.css";
 
 export default function DownloadsPage() {
   const { t } = useLanguage();
