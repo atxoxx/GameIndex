@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import LineChart from "../../components/charts/LineChart";
 import { ActivitySparkline } from "./ActivitySparkline";
@@ -169,6 +169,18 @@ export function ActivitySessions({
     () => filteredAndSortedSessions.slice(0, visibleLimit),
     [filteredAndSortedSessions, visibleLimit]
   );
+
+  const dayTotals = useMemo(() => {
+    const totals = new Map<string, { count: number; minutes: number }>();
+    for (const session of filteredAndSortedSessions) {
+      const key = session.date.slice(0, 10);
+      const current = totals.get(key) ?? { count: 0, minutes: 0 };
+      current.count += 1;
+      current.minutes += session.durationMin;
+      totals.set(key, current);
+    }
+    return totals;
+  }, [filteredAndSortedSessions]);
 
   // Extend the window when the sentinel scrolls near the viewport. Re-runs on
   // every increase so the observer keeps watching the (still-mounted) sentinel.
@@ -484,24 +496,49 @@ export function ActivitySessions({
             </span>
           </div>
 
-          {visibleSessions.map((session) => {
-            const game = gameById.get(session.gameId);
-            const isSelected = selectedSessionIds.has(session.id);
+          {(() => {
+            let lastDay = "";
+            return visibleSessions.map((session) => {
+              const game = gameById.get(session.gameId);
+              const isSelected = selectedSessionIds.has(session.id);
+              const day = session.date.slice(0, 10);
+              const showDay = sortField === "date" && day !== lastDay;
+              lastDay = day;
+              const totals = dayTotals.get(day);
 
-            return (
-              <ActivitySessionItem
-                key={session.id}
-                session={session}
-                game={game}
-                isSelected={isSelected}
-                onToggleSelect={() => toggleSelectSession(session.id)}
-                onRequestDelete={(s) => setPendingDeleteSession(s)}
-                onLaunchGame={onLaunchGame}
-                onRequestLink={(id, title) => setLinkModalTarget({ id, title })}
-                onRequestAdd={(id, title) => setAddModalTarget({ id, title })}
-              />
-            );
-          })}
+              return (
+                <Fragment key={session.id}>
+                  {showDay && (
+                    <div className="actv-day-head">
+                      <span className="actv-day-label">
+                        {new Date(`${day}T12:00:00`).toLocaleDateString(language, {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        })}
+                      </span>
+                      {totals && (
+                        <span className="actv-day-meta">
+                          {totals.count} · {formatPlayTime(totals.minutes)}
+                        </span>
+                      )}
+                      <span className="actv-day-line" aria-hidden="true" />
+                    </div>
+                  )}
+                  <ActivitySessionItem
+                    session={session}
+                    game={game}
+                    isSelected={isSelected}
+                    onToggleSelect={() => toggleSelectSession(session.id)}
+                    onRequestDelete={(s) => setPendingDeleteSession(s)}
+                    onLaunchGame={onLaunchGame}
+                    onRequestLink={(id, title) => setLinkModalTarget({ id, title })}
+                    onRequestAdd={(id, title) => setAddModalTarget({ id, title })}
+                  />
+                </Fragment>
+              );
+            });
+          })()}
           {filteredAndSortedSessions.length > visibleLimit && (
             <div
               ref={sentinelRef}

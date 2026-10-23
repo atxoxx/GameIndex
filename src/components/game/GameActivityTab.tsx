@@ -26,6 +26,7 @@ import {
 } from "../activity";
 import { pooledOnePercentLowFps } from "../activity/insights";
 import { useFocusProps } from "../activity/focusable";
+import "../../styles/activity-v2.css";
 import {
   type Timeframe,
   type ViewMode,
@@ -431,7 +432,7 @@ export function GameActivityTab({ game }: { game: Game }) {
 
   if (sessions.length === 0) {
     return (
-      <div className="game-activity-tab act-stack">
+      <div className="game-activity-tab act-stack gav">
         <EmptyState
           icon={<Icons.History size={24} />}
           title={t("gameActivity.noSessionsTitle")}
@@ -463,7 +464,7 @@ export function GameActivityTab({ game }: { game: Game }) {
 
   return (
     <>
-      <div className="game-activity-tab act-stack">
+      <div className="game-activity-tab act-stack gav">
         <div className="act-toolbar">
           <div className="act-toolbar__left">
             <Segmented<ViewMode>

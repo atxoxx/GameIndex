@@ -23,6 +23,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { usePersistedState } from "../hooks/usePersistedState";
 import "./activity/ActivityPage.css";
 import "../styles/activity.css";
+import "../styles/activity-v2.css";
 
 type TabType = "dashboard" | "timeline" | "sessions" | "performance" | "wrapped";
 type AggregationType = "day" | "week" | "month";
@@ -64,18 +65,42 @@ export default function ActivityPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSimpleUi]);
 
+  const telemetryCount = useMemo(
+    () =>
+      sessions.filter(
+        (s) => s.metrics && ((s.metrics.avgFps ?? 0) > 0 || (s.metrics.avgCpuUsage ?? 0) > 0),
+      ).length,
+    [sessions],
+  );
+
   const tabOptions = useMemo(() => {
     const all = [
       { value: "dashboard" as const, label: <><Icons.LayoutDashboard size={13} /> {t("activity.tab.dashboard")}</> },
       { value: "timeline" as const, label: <><Icons.GanttChart size={13} /> {t("activity.tab.timeline")}</> },
-      { value: "sessions" as const, label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
-      { value: "performance" as const, label: <><Icons.BarChart3 size={13} /> {t("activity.tab.performance")}</> },
+      {
+        value: "sessions" as const,
+        label: (
+          <>
+            <Icons.History size={13} /> {t("activity.tab.sessions")}
+            {sessions.length > 0 && <span className="actv-tab-count">{sessions.length}</span>}
+          </>
+        ),
+      },
+      {
+        value: "performance" as const,
+        label: (
+          <>
+            <Icons.BarChart3 size={13} /> {t("activity.tab.performance")}
+            {telemetryCount > 0 && <span className="actv-tab-count">{telemetryCount}</span>}
+          </>
+        ),
+      },
       { value: "wrapped" as const, label: <><Icons.Sparkles size={13} /> {t("activity.tab.wrapped")}</> },
     ];
     return isSimpleUi
       ? all.filter((opt) => opt.value === "dashboard" || opt.value === "sessions")
       : all;
-  }, [isSimpleUi, t]);
+  }, [isSimpleUi, t, sessions.length, telemetryCount]);
 
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
@@ -268,7 +293,7 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="activity__container">
+    <div className="activity__container actv">
       <PageWidget page="activity" widget="activityHeader">
       <div className="ui-item-activityHeader">
         <PageHeader

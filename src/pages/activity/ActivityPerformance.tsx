@@ -32,6 +32,8 @@ export interface ActivityPerformanceProps {
   sourceFilter: string;
 }
 
+type PerfSection = "overview" | "compare" | "board" | "timeline";
+
 export function ActivityPerformance({
   sessions,
   games,
@@ -43,6 +45,11 @@ export function ActivityPerformance({
   const { totalRamGb, selectedGpu, ensureSamplesFor } = useActivity();
   const { tempUnit } = useSettings();
   const [metricTab, setMetricTab] = usePersistedState<ComparisonMetric>("gamelib.activity.performance.metric_tab_v1", "fps", ["fps", "temps", "ram"]);
+  const [perfSection, setPerfSection] = usePersistedState<PerfSection>(
+    "gamelib.activity.performance.section_v1",
+    "overview",
+    ["overview", "compare", "board", "timeline"],
+  );
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
   const [compareModalOpen, setCompareModalOpen] = useState(false);
 
@@ -130,65 +137,124 @@ export function ActivityPerformance({
         </div>
       )}
 
-      <PerformanceOverview
-        overview={overview}
-        gameAverages={gameAverages}
-        totalRamGb={totalRamGb}
-        tempUnit={tempUnit}
-      />
-
-      {resolutionBreakdown.length > 0 && (
-        <SectionPanel
-          icon={<Icons.Monitor size={14} />}
-          title={t("activityInsights.resolutionBreakdown")}
+      <nav className="actv-subtabs" role="tablist" aria-label={t("activity.tab.performance")}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={perfSection === "overview"}
+          className={`actv-subtab${perfSection === "overview" ? " is-active" : ""}`}
+          onClick={() => setPerfSection("overview")}
         >
-          <div className="act-resolution-grid">
-            {resolutionBreakdown.map((item) => (
-              <div key={item.resolution} className="act-resolution-card">
-                <div className="act-resolution-card__header">
-                  <span className="act-resolution-card__tag">{item.resolution}</span>
-                  <span className="act-resolution-card__count">
-                    {item.sessionsCount} {item.sessionsCount === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")}
-                  </span>
-                </div>
-                <div className="act-resolution-card__body">
-                  <div className="act-resolution-card__stat">
-                    <span className="act-resolution-card__stat-lbl">{t("activityPerf.avgFps")}</span>
-                    <span className="act-resolution-card__stat-val">{item.avgFps}</span>
+          <Icons.Gauge size={13} />
+          <span>{t("activityPerf.performanceInsights")}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={perfSection === "compare"}
+          className={`actv-subtab${perfSection === "compare" ? " is-active" : ""}`}
+          onClick={() => setPerfSection("compare")}
+        >
+          <Icons.ArrowRightLeft size={13} />
+          <span>{t("activityPerf.gameComparisons")}</span>
+          {gameAverages.length > 0 && (
+            <span className="actv-tab-count">{gameAverages.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={perfSection === "board"}
+          className={`actv-subtab${perfSection === "board" ? " is-active" : ""}`}
+          onClick={() => setPerfSection("board")}
+        >
+          <Icons.Trophy size={13} />
+          <span>{t("activityPerf.detailedBoard")}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={perfSection === "timeline"}
+          className={`actv-subtab${perfSection === "timeline" ? " is-active" : ""}`}
+          onClick={() => setPerfSection("timeline")}
+        >
+          <Icons.TrendingUp size={13} />
+          <span>{t("activityPerf.sessionTimeline")}</span>
+          {filteredSessions.length > 0 && (
+            <span className="actv-tab-count">{filteredSessions.length}</span>
+          )}
+        </button>
+      </nav>
+
+      {perfSection === "overview" && (
+        <>
+          <PerformanceOverview
+            overview={overview}
+            gameAverages={gameAverages}
+            totalRamGb={totalRamGb}
+            tempUnit={tempUnit}
+          />
+
+          {resolutionBreakdown.length > 0 && (
+            <SectionPanel
+              icon={<Icons.Monitor size={14} />}
+              title={t("activityInsights.resolutionBreakdown")}
+            >
+              <div className="act-resolution-grid">
+                {resolutionBreakdown.map((item) => (
+                  <div key={item.resolution} className="act-resolution-card">
+                    <div className="act-resolution-card__header">
+                      <span className="act-resolution-card__tag">{item.resolution}</span>
+                      <span className="act-resolution-card__count">
+                        {item.sessionsCount} {item.sessionsCount === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")}
+                      </span>
+                    </div>
+                    <div className="act-resolution-card__body">
+                      <div className="act-resolution-card__stat">
+                        <span className="act-resolution-card__stat-lbl">{t("activityPerf.avgFps")}</span>
+                        <span className="act-resolution-card__stat-val">{item.avgFps}</span>
+                      </div>
+                      <div className="act-resolution-card__stat">
+                        <span className="act-resolution-card__stat-lbl">{t("activity.duration")}</span>
+                        <span className="act-resolution-card__stat-val">{formatPlayTime(item.minutes)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="act-resolution-card__stat">
-                    <span className="act-resolution-card__stat-lbl">{t("activity.duration")}</span>
-                    <span className="act-resolution-card__stat-val">{formatPlayTime(item.minutes)}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </SectionPanel>
+            </SectionPanel>
+          )}
+        </>
       )}
 
-      <PerformanceComparison
-        games={gameAverages}
-        metricTab={metricTab}
-        tempUnit={tempUnit}
-        totalRamGb={totalRamGb}
-        onMetricTabChange={setMetricTab}
-      />
+      {perfSection === "compare" && (
+        <PerformanceComparison
+          games={gameAverages}
+          metricTab={metricTab}
+          tempUnit={tempUnit}
+          totalRamGb={totalRamGb}
+          onMetricTabChange={setMetricTab}
+        />
+      )}
 
-      <PerformanceBoard
-        games={gameAverages}
-        tempUnit={tempUnit}
-        totalRamGb={totalRamGb}
-        onSelectGame={(gameId) => setSelectedGameFilter(gameId)}
-      />
+      {perfSection === "board" && (
+        <PerformanceBoard
+          games={gameAverages}
+          tempUnit={tempUnit}
+          totalRamGb={totalRamGb}
+          onSelectGame={(gameId) => setSelectedGameFilter(gameId)}
+        />
+      )}
 
-      <PerformanceTimeline
-        sessions={filteredSessions}
-        gameAverages={gameAverages}
-        tempUnit={tempUnit}
-        totalRamGb={totalRamGb}
-        initialSelectedGameId={selectedGameFilter}
-      />
+      {perfSection === "timeline" && (
+        <PerformanceTimeline
+          sessions={filteredSessions}
+          gameAverages={gameAverages}
+          tempUnit={tempUnit}
+          totalRamGb={totalRamGb}
+          initialSelectedGameId={selectedGameFilter}
+        />
+      )}
 
       <SessionComparisonModal
         isOpen={compareModalOpen}
