@@ -51,6 +51,25 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
       </div>
 
       <div className="store-toolbar-right">
+        <span className="store-toolbar-count">
+          {t("storage.gamesCount", {
+            count:
+              c.sourceFilterChipCount !== undefined
+                ? c.sourceFilterChipCount
+                : c.displayedGames.length,
+            plural: c.displayedGames.length !== 1 ? "s" : "",
+          })}
+          {/* No-flash refetch cue: during a live search the old results stay
+              on screen until the new batch lands, so a quiet "refreshing"
+              readout sits next to the count instead of a skeleton flash. */}
+          {c.isSearching && c.loading && (
+            <span className="store-refresh-cue" role="status" aria-live="polite">
+              <span className="store-refresh-cue-dot" aria-hidden="true" />
+              {t("store.refreshingResults")}
+            </span>
+          )}
+        </span>
+
         <StoreSortDropdown value={c.sort} onChange={c.setSort} />
 
         <button

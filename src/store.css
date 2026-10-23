@@ -3210,3 +3210,27 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* ── Undelimited store cards ────────────────────────────────────────────
+   Cards are artwork plus type: no stroke, no inset highlight, no shadow at
+   rest. The grid reads as one shelf and hover lifts the surface instead of
+   drawing a frame around it. */
+.store-game-card,
+.store-rail .store-game-card {
+  border: 0;
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.store-game-card:hover,
+.store-rail .store-game-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  box-shadow: none;
+}
+
+.store-game-card:active,
+.store-rail .store-game-card:active {
+  border-color: transparent;
+  box-shadow: none;
+}

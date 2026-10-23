@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState, useCallback, useMemo, useContext, type ReactElement } from "react";
+import {
+  CalendarCheck,
+  Flame,
+  Rocket,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AboutBundle, GameMetadataResult, StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
@@ -12,7 +19,8 @@ import {
 } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 import { useStoreCardHover } from "./storeCardHover";
-import { Button } from "../ui";
+import { Button } from "../ui/Button";
+import { SubTabs } from "../ui/SubTabs";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
 type HeroCategory = "hot" | "weekly" | "trending" | "coming_soon";
@@ -25,52 +33,12 @@ interface StoreFeaturedHeroProps {
 const TABS: {
   id: HeroCategory;
   labelKey: string;
-  icon: ReactElement;
+  icon: LucideIcon;
 }[] = [
-  {
-    id: "hot",
-    labelKey: "store.featured.hot",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 2c1 3-1 4-1 6 0 1.5 1 2 2 2 2 0 2-2 2-4 3 2 5 5 5 9 0 4-3 7-7 8-3 .7-5-1-6-3-2-3-1-7 1-9 1-2 4-4 5-7z" />
-      </svg>
-    ),
-  },
-  {
-    id: "weekly",
-    labelKey: "store.featured.weekly",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <path d="M9 16l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    id: "trending",
-    labelKey: "store.featured.trending",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-        <polyline points="17 6 23 6 23 12" />
-      </svg>
-    ),
-  },
-  {
-    id: "coming_soon",
-    labelKey: "store.featured.comingSoon",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
-        <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
-        <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-        <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-      </svg>
-    ),
-  },
+  { id: "hot", labelKey: "store.featured.hot", icon: Flame },
+  { id: "weekly", labelKey: "store.featured.weekly", icon: CalendarCheck },
+  { id: "trending", labelKey: "store.featured.trending", icon: TrendingUp },
+  { id: "coming_soon", labelKey: "store.featured.comingSoon", icon: Rocket },
 ];
 
 const HERO_LIMIT = 15;
@@ -550,23 +518,17 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     >
       {/* Category selector & Surprise me header */}
       <div className="store-spotlight-top">
-        <div className="store-spotlight-tablist" role="tablist" aria-label={t("store.featuredCategoriesAria")}>
-          {TABS.map((tabItem) => (
-            <button
-              key={tabItem.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === tabItem.id}
-              className={`store-spotlight-tab${tab === tabItem.id ? " active" : ""}`}
-              onClick={() => setTab(tabItem.id)}
-            >
-              <span className="store-spotlight-tab-icon" aria-hidden="true">
-                {tabItem.icon}
-              </span>
-              <span>{t(tabItem.labelKey)}</span>
-            </button>
-          ))}
-        </div>
+        <SubTabs
+          className="store-spotlight-subtabs"
+          ariaLabel={t("store.featuredCategoriesAria")}
+          value={tab}
+          onChange={setTab}
+          items={TABS.map((tabItem) => ({
+            id: tabItem.id,
+            label: t(tabItem.labelKey),
+            icon: tabItem.icon,
+          }))}
+        />
 
         <div className="store-spotlight-top-right">
           {games.length > 1 && (
