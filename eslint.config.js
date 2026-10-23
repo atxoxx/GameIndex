@@ -19,6 +19,7 @@ const COLOR_DATA_FILES = [
   "src/components/ui/FlagIcon.tsx",
   "src/pages/settings/settingsIcons.tsx",
   "src/pages/settings/AppearanceTab.tsx",
+  "src/utils/themePreview.ts",
   "src/pages/settings/AccentPreview.tsx",
   "src/pages/settings/backupUtils.ts",
   "src/components/BootstrapErrorBoundary.tsx",
