@@ -3,6 +3,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import type { GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
 import * as Icons from "./Icons";
+import "../../styles/activity-heatmap.css";
 
 export interface WeeklyHeatmapProps {
   sessions: GameSession[];
