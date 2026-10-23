@@ -1700,6 +1700,8 @@
 }
 
 .ui-subtabs__icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
   color: var(--color-text-muted);
   transition: color var(--duration-fast) var(--ease-standard),

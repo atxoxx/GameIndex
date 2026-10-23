@@ -2905,3 +2905,579 @@
 .storage-drive-card--low-space {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 45%, transparent);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tonal page pass
+   ──────────────────────────────────────────────────────────────────────
+   The dashboard, control band, rows and emulator cards stop drawing
+   frames: each is a tinted step over the page, and only semantic states
+   (stale, selected, low space) add an edge.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.storage-page {
+  gap: var(--space-xl);
+}
+
+/* ── KPI tiles ───────────────────────────────────────────────────────── */
+
+.storage-kpi-grid {
+  gap: var(--space-md);
+}
+
+.storage-kpi-card {
+  padding: var(--space-lg);
+  border-radius: var(--radius-2xl);
+  border: 0;
+  gap: var(--space-sm);
+}
+
+.storage-kpi-card--interactive:hover {
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-3);
+}
+
+.storage-kpi-card--alert .storage-kpi-value {
+  color: var(--color-danger);
+}
+
+.storage-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-lg);
+}
+
+.storage-kpi-label {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+}
+
+.storage-kpi-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 2.6vw, 2.45rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.storage-kpi-badge {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.storage-kpi-game-thumb,
+.storage-kpi-game-placeholder {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: var(--radius-lg);
+}
+
+.storage-kpi-game-title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.storage-coverage-track {
+  height: 4px;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* ── By-drive ────────────────────────────────────────────────────────── */
+
+.storage-drives-section {
+  padding: 0;
+  gap: var(--space-md);
+  border: 0;
+  background: transparent;
+}
+
+.storage-drives-header {
+  padding: 0 var(--space-2xs);
+}
+
+.storage-drive-card {
+  padding: var(--space-md) var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-xl);
+}
+
+.storage-drive-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.storage-drive-card--active {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+}
+
+.storage-drive-card--active:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.storage-drive-card--low-space {
+  background: color-mix(in srgb, var(--color-danger) 6%, transparent);
+  box-shadow: none;
+}
+
+.storage-drive-letter {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.storage-drive-multibar,
+.storage-drive-simplebar {
+  height: 8px;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.storage-drive-warning {
+  background: color-mix(in srgb, var(--color-danger) 11%, transparent);
+}
+
+/* ── Platform strip ──────────────────────────────────────────────────── */
+
+.storage-platform-strip {
+  padding: 0 var(--space-2xs);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.storage-platform-chip {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.storage-platform-chip-size {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Control band ────────────────────────────────────────────────────── */
+
+.storage-controls-panel {
+  padding: var(--space-lg);
+  gap: var(--space-md);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+}
+
+.storage-controls-row--filters {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.storage-views-segment {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.storage-view-btn:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.storage-view-btn--active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.storage-view-badge--danger {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+
+.storage-tool-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storage-search-input,
+.storage-select-control {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.storage-search-input:focus,
+.storage-select-control:focus {
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-border),
+    0 0 0 3px var(--color-focus-ring);
+}
+
+.storage-search-shortcut {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.storage-groupby-segment {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.storage-groupby-btn--active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.storage-drive-active-chip {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.storage-export-popover {
+  border: 0;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-4);
+}
+
+/* ── List rows ───────────────────────────────────────────────────────── */
+
+.storage__row {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.2%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.2%, transparent) 100%
+  );
+}
+
+.storage__row:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 4.6%, transparent);
+}
+
+.storage__row--expanded {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.storage__row--stale {
+  border-left: 0;
+  background: color-mix(in srgb, var(--color-danger) 4%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+.storage__row--selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+}
+
+.storage__row--stale.storage__row--selected {
+  box-shadow:
+    inset 3px 0 0 var(--color-danger),
+    inset 0 0 0 1px var(--color-accent-border);
+}
+
+.storage__row-summary {
+  padding: var(--space-sm) var(--space-lg);
+}
+
+.storage__row-thumb {
+  border: 0;
+  border-radius: var(--radius-lg);
+}
+
+.storage__row-thumb-placeholder {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.storage__row-name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.storage__row-drive-badge {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.storage__stale-badge {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.storage__row-platform {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.storage__row-size-total {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.storage__row-detected {
+  font-size: var(--text-2xs);
+}
+
+.storage__row-footprint-bar {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.storage__row-panel {
+  border-top: 0;
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.storage__row-path-value {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.storage__row-copy-btn {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.storage__row-mods-card {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+/* ── Grid cards ──────────────────────────────────────────────────────── */
+
+.storage-grid-card {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+  box-shadow: none;
+}
+
+.storage-grid-card:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  box-shadow: var(--elevation-3);
+  transform: translateY(-3px);
+}
+
+.storage-grid-card--selected {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--color-accent-border);
+}
+
+.storage-grid-card--stale {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-danger) 5%, transparent);
+}
+
+.storage-grid-card--stale.storage-grid-card--selected {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 45%, transparent),
+    inset 0 0 0 2px var(--color-accent-border);
+}
+
+.storage-grid-card-media {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.storage-grid-card-content {
+  padding: var(--space-md);
+  gap: var(--space-xs);
+}
+
+.storage-grid-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  line-height: 1.3;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.storage-grid-badge--drive {
+  background: var(--scrim-dark);
+  border-radius: var(--radius-full);
+}
+
+.storage-grid-badge--platform {
+  background: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  border-radius: var(--radius-full);
+}
+
+.storage-grid-card-size-val {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+}
+
+.storage-grid-card-sizebar {
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+/* ── Group headers ───────────────────────────────────────────────────── */
+
+.storage__group-header {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 3.4%, transparent);
+}
+
+.storage__group-header:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+/* ── Batch dock ──────────────────────────────────────────────────────── */
+
+.storage-floating-batch-bar {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 88%, transparent);
+  box-shadow:
+    var(--elevation-5),
+    0 0 0 1px var(--color-accent-border);
+}
+
+.storage-batch-selectors {
+  border-left: 0;
+  border-right: 0;
+}
+
+/* ── Emulator view ───────────────────────────────────────────────────── */
+
+.storage__emu-stat {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.storage__emu-stat:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-3);
+}
+
+.storage__emu-stat--primary {
+  border-color: transparent;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 10%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 3%, transparent) 100%
+  );
+}
+
+.storage__emu-stat-value {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.emu-storage-card {
+  border: 0;
+  border-left: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.emu-storage-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.emu-storage-card-head {
+  background: transparent;
+}
+
+.emu-storage-card-glyph {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  box-shadow: none;
+}
+
+.emu-storage-card-name {
+  font-family: var(--font-display);
+}
+
+.emu-storage-card-chevron {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.emu-storage-card-body {
+  border-top: 0;
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.emu-storage-card-search-bar {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.emu-storage-rom {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
+}
+
+.emu-storage-rom:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+}
+
+.emu-storage-rom-thumb {
+  border: 0;
+}
+
+.emu-storage-rom-icon-box {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.emu-storage-rom-open-btn {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .storage-controls-row--tools {
+    gap: var(--space-sm);
+  }
+
+  .storage-search-box {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .storage-controls-actions {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .storage-kpi-grid,
+  .storage-drives-grid,
+  .storage__emu-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .storage__row-summary {
+    padding: var(--space-sm) var(--space-md);
+  }
+}

@@ -75,74 +75,12 @@
 
 /* ── Subtab rail ──────────────────────────────────────────────────────── */
 
-.health-subtabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  padding: var(--space-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.health-subtab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.health-subtab:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-}
-
-.health-subtab--active {
-  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
-  color: var(--color-text-primary);
-}
-
-.health-subtab-icon {
-  width: 15px;
-  height: 15px;
-}
-
-.health-subtab-label {
-  white-space: nowrap;
-}
-
-.health-subtab-count {
-  min-width: 18px;
+.health-page .ui-subtabs {
   padding: 0 var(--space-2xs);
-  border-radius: var(--radius-md);
-  font-size: var(--text-2xs);
-  line-height: 16px;
-  text-align: center;
-  color: var(--color-text-primary);
 }
 
-.health-subtab-count--danger {
-  background: color-mix(in srgb, var(--color-danger) 25%, transparent);
-  color: var(--color-danger);
-}
-
-.health-subtab-count--warning {
-  background: color-mix(in srgb, var(--color-warning) 25%, transparent);
-  color: var(--color-warning);
-}
-
-.health-subtab-count--info {
-  background: color-mix(in srgb, var(--color-info) 25%, transparent);
-  color: var(--color-info);
+.health-page .ui-subtabs__strip {
+  justify-content: flex-start;
 }
 
 /* ── Panel shell ──────────────────────────────────────────────────────── */
@@ -681,4 +619,98 @@
   border-radius: var(--radius-xs);
   background: var(--color-accent);
   transition: width 0.2s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tonal pass — the health center reads as one surface: a tinted hero,
+   a tinted work area, and tonal issue rows. Severity keeps its color.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.health-page {
+  gap: var(--space-lg);
+}
+
+.health-hero {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 3%, transparent) 100%
+  );
+}
+
+.health-hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.health-hero-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+}
+
+.health-hero-desc {
+  font-size: var(--text-sm);
+}
+
+.health-panel {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+}
+
+.health-score-card {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.health-cat-card {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.health-cat-card:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  transform: translateY(-1px);
+}
+
+.health-issue {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.health-duplicate-group {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+}
+
+.health-duplicate-game {
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.health-check-box {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.health-bulk-track {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }

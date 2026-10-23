@@ -126,6 +126,31 @@
 
 
 /* Health-center tabs use the shared .ui-subtabs strip. */
-.health-subtabs {
-  margin-bottom: var(--space-lg);
+
+/* ── Tonal empty state ──────────────────────────────────────────────── */
+.storage-page .storage__empty-state {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+  min-height: 240px;
+}
+
+.storage-page .storage__empty-state-icon {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.storage-page .storage__empty-state-title {
+  color: var(--color-text-primary);
+}
+
+.storage-page .storage__empty-state-subtitle {
+  color: var(--color-text-secondary);
 }
