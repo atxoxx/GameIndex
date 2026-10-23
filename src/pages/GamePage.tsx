@@ -71,6 +71,7 @@ import "../styles/game-news.css";
 import "../styles/mapgenie.css";
 import "./news/NewsPage.css";
 import "../styles/weblinks.css";
+import "../styles/game-tab-immersive.css";
 import { useAchievements } from "../context/AchievementContext";
 import { useSaves } from "../context/SavesContext";
 import { Button, ConfirmModal } from "../components/ui";

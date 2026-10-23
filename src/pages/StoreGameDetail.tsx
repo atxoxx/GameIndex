@@ -62,6 +62,7 @@ import "../styles/reviews.css";
 import "../styles/game-news.css";
 import "../styles/mapgenie.css";
 import "../styles/weblinks.css";
+import "../styles/game-tab-immersive.css";
 
 /* ------------------------------------------------------------------ */
 /*  Error and Not Found States                                         */

@@ -1,0 +1,396 @@
+/* ==========================================================================
+   Immersive Detail Tabs — style bridge to the Overview panel language
+   ──────────────────────────────────────────────────────────────────────
+   The Overview tab renders every card in the "undelimited Panel" language
+   (see ui.css): a wash mixed from the theme's text color, generous radius,
+   no stroke and no drop shadow. The other detail tabs (Reviews,
+   Achievements, News, DLC, Weblinks) predate that language and draw
+   bordered, boxed surfaces — so a tab swap reads as a different app.
+
+   This stylesheet re-skins ONLY the surface treatment of those tabs, kept
+   scoped to `.game-page--immersive` (both the library game page and the
+   store detail page). Everything else inside the tabs — layout, counts,
+   semantics, controls — is untouched. Reuse elsewhere must not leak to the
+   standalone pages (AchievementsPage shares several `.achievements-*`
+   class names) so every rule hangs off the page scope.
+
+   Rules of the mapping:
+     * Page-level panels        → var(--panel-tint)
+     * Cards inside a panel /
+       cards sitting on the page→ var(--panel-tint-raised)
+     * Wells, thumbnails, trims → var(--panel-tint-sunken)
+     * Borders                  → transparent (geometry-preserving), with
+       only status/identity edges (owned, perfect, source bars) kept
+     * Drop shadows             → none; hover keeps a small elevation cue
+
+   No hex/rgb: themeable dark/light/third-party themes all work because
+   every tone is a color-mix off an existing token.
+   ========================================================================== */
+
+/* ── Reviews ─────────────────────────────────────────────────────────── */
+
+/* Score board: Overview-panel surface, reading column rhythm. */
+.game-page--immersive .rv-summary {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.game-page--immersive .rv-summary-left {
+  border-right-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* Toolbar tray: a raised tint, not a boxed toolbar. */
+.game-page--immersive .rv-toolbar {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .rv-source-tabs-divider::before,
+.game-page--immersive .rv-source-tabs-divider::after {
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* Segmented trays inherit the panel wash instead of a hard outline. */
+.game-page--immersive .rv-source-seg,
+.game-page--immersive .rv-seg {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+/* Review rows: tonal cards, dusk-quiet until hovered. */
+.game-page--immersive .rv-row,
+.game-page--immersive .rv-critic-row {
+  background: var(--panel-tint);
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .rv-row:hover,
+.game-page--immersive .rv-critic-row:hover {
+  background: var(--panel-tint-raised);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  box-shadow: none;
+}
+
+/* Row internals that sat on a boxed surface now sit on a wash. */
+.game-page--immersive .rv-row-pill-muted {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-critic-score {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-critic-footer {
+  border-top-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.game-page--immersive .rv-hw-specs {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* "Critics across the web" cards ride the same card tint. */
+.game-page--immersive .rv-external-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.game-page--immersive .rv-external-card:hover {
+  background: color-mix(in srgb, var(--accent, var(--color-accent)) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent, var(--color-accent)) 35%, transparent);
+}
+
+.game-page--immersive .rv-header {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+/* ── Achievements ────────────────────────────────────────────────────── */
+
+/* Hero header: a full-width Overview-style panel. */
+.game-page--immersive .ach-tab-hero,
+.game-page--immersive .ach-tab-header {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.game-page--immersive .ach-tab-hero:hover,
+.game-page--immersive .ach-tab-header:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+/* `.is-perfect` keeps its golden identity edge on the wash. */
+.game-page--immersive .ach-tab-hero.is-perfect {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.game-page--immersive .ach-tab-cover,
+.game-page--immersive .ach-tab-cover-placeholder {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* Rarity sidebar: same panel family as Overview's rail cards. */
+.game-page--immersive .ach-rarity-side {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+}
+
+.game-page--immersive .ach-rarity-side-stats {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+/* Stat trio + segmented trays + toolbars: raised wells, no strokes. */
+.game-page--immersive .achievements-stat-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-source-picker,
+.game-page--immersive .achievements-filters,
+.game-page--immersive .achievements-toolbar {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-source-picker-btn.active,
+.game-page--immersive .achievements-filter-btn.active {
+  /* "Active segment on a wash" cue: slight text-tint + ring, not surface. */
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+/* Achievement cards (grid) and compact rows. */
+.game-page--immersive .achievement-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.game-page--immersive .achievement-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  box-shadow: none;
+}
+
+.game-page--immersive .achievement-card.locked {
+  background: var(--panel-tint);
+}
+
+.game-page--immersive .achievement-card-icon,
+.game-page--immersive .ach-compact-icon {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-compact-row {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-compact-row:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+/* Empty state rides a panel wash with a faint dashed rim. */
+.game-page--immersive .achievements-empty {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* ── News ────────────────────────────────────────────────────────────── */
+
+/* Hero spotlight: the cover art provides the imagery, the panel provides
+   the wash — no boxed border. */
+.game-page--immersive .game-news-hero {
+  background: var(--panel-tint);
+  border-color: transparent;
+}
+
+.game-page--immersive .game-news-hero:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Toolbar surfaces: search + sort stay controls; the tray and toggle
+   cluster get the wash treatment. */
+.game-page--immersive .game-news-view-toggles {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+/* Grid article cards (NewsArticleCard) and list rows. */
+.game-page--immersive .news-article-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .news-article-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.game-page--immersive .game-news-list-row {
+  background: var(--panel-tint);
+  border-color: transparent;
+}
+
+.game-page--immersive .game-news-list-row:hover {
+  background: var(--panel-tint-raised);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.game-page--immersive .game-news-list-thumb,
+.game-page--immersive .game-news-timeline-thumb {
+  background: var(--panel-tint-sunken);
+}
+
+/* Timeline strip + cards. */
+.game-page--immersive .game-news-timeline-card {
+  background: var(--panel-tint);
+  border-color: transparent;
+}
+
+.game-page--immersive .game-news-timeline-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.game-page--immersive .game-news-timeline-node {
+  background: var(--panel-tint-raised);
+  border-color: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+}
+
+.game-page--immersive .game-news-empty {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* ── DLC & Add-ons ───────────────────────────────────────────────────── */
+
+.game-page--immersive .dlc-stat-tile,
+.game-page--immersive .dlc-progress-card {
+  background: var(--panel-tint);
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: var(--radius-2xl);
+}
+
+/* DLC cards read as raised tiles on the page — still undelimited. */
+.game-page--immersive .dlc-item-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .dlc-item-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: var(--elevation-3);
+}
+
+.game-page--immersive .dlc-item-card--owned {
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.game-page--immersive .dlc-empty-state {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-style: dashed;
+}
+
+/* ── Web Links ───────────────────────────────────────────────────────── */
+
+/* Source tab strip: keep the underline metaphor, fade the rail. */
+.game-page--immersive .wl-source-tabs {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-source-tab.active {
+  border-bottom-color: var(--color-accent);
+}
+
+/* URL bar: a floating command slab on the wash, not a boxed toolbar. */
+.game-page--immersive .wl-urlbar {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-urlbar-form {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* Browser frame: full-bleed tint panel like an Overview media card. */
+.game-page--immersive .wl-preview {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .wl-webview-frame,
+.game-page--immersive .wl-webview-loader {
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+}
+
+/* My Links manager: editor card, chips and link cards on the wash. */
+.game-page--immersive .wl-mylinks-editor-card {
+  background: var(--panel-tint);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-favicon {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-card:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-mylink-card.active {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+    0 2px 14px var(--color-accent-glow);
+}
+
+.game-page--immersive .wl-mylinks-empty {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-mylink-btn-icon,
+.game-page--immersive .wl-urlbar-btn,
+.game-page--immersive .wl-preset-chip,
+.game-page--immersive .wl-source-tab-count,
+.game-page--immersive .wl-category-menu-count,
+.game-page--immersive .wl-steam-subtab {
+  background: var(--panel-tint-sunken);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* Branded/active states keep their own identity surfaces. */
+.game-page--immersive .wl-steam-subtab.active:not(.disabled) {
+  background: var(--brand-steam);
+  border-color: var(--brand-steam);
+}
+
+.game-page--immersive .wl-urlbar-btn.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.game-page--immersive .wl-urlbar-btn.active-pin {
+  border-color: color-mix(in srgb, var(--wl-pin-gold) 40%, transparent);
+}
