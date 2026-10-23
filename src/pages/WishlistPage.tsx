@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  ArrowUpDown,
+  CalendarDays,
+  Check,
+  Heart,
+  Pencil,
+  Plus,
+  Search,
+  Share2,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import StoreGameCard from "../components/store/StoreGameCard";
 import { useWishlistContext } from "../context/WishlistContext";
 import { requestShareToFriends } from "./friendSuggestionSignal";
 import type { StoreGameSummary, WishlistEntry } from "../types/game";
-import { PageHeader } from "../components/ui";
+import { Button, ConfirmModal, PageHeader, Panel, StatBand, SubTabs } from "../components/ui";
 import PageWidget from "../components/PageWidget";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-wishlist.css";
@@ -239,6 +252,11 @@ export default function WishlistPage() {
     [wishlist]
   );
 
+  const noteCount = useMemo(
+    () => wishlist.filter((e) => (e.note ?? "").trim().length > 0).length,
+    [wishlist]
+  );
+
   // ── Clear-wishlist confirm dialog ────────────────────────────────────
   const [confirmClear, setConfirmClear] = useState(false);
   const handleClear = useCallback(() => {
@@ -279,159 +297,114 @@ export default function WishlistPage() {
   return (
     <div className="wishlist-page page">
       <PageWidget page="wishlist" widget="wishlistHeader">
-      <div className="ui-item-wishlistHeader">
-        <PageHeader
-          eyebrow={t("wishlist.eyebrow")}
-          title={t("wishlist.title")}
-          description={t("wishlist.description")}
-          icon={
-            <svg
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-          }
-          actions={
-            <>
-              <span className="wishlist-page-count">
-                {wishlist.length === 0
-                  ? t("wishlist.empty")
-                  : t("wishlist.gamesCount", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
-              </span>
-              {wishlist.length > 0 && (
-                  <button
-                    type="button"
-                    className="wishlist-clear-btn"
-                    onClick={() => setConfirmClear(true)}
-                  >
-                    {t("wishlist.clearAll")}
-                  </button>
-              )}
-            </>
-          }
-        />
-      </div>
+        <div className="ui-item-wishlistHeader wl-head">
+          <PageHeader
+            eyebrow={t("wishlist.eyebrow")}
+            title={t("wishlist.title")}
+            description={t("wishlist.description")}
+            icon={<Heart size={22} />}
+            actions={
+              wishlist.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Trash2 size={14} />}
+                  onClick={() => setConfirmClear(true)}
+                >
+                  {t("wishlist.clearAll")}
+                </Button>
+              )
+            }
+          />
+
+          {wishlist.length > 0 && (
+            <StatBand
+              className="wl-stats"
+              ariaLabel={t("wishlist.statsAria")}
+              items={[
+                {
+                  id: "saved",
+                  label: t("wishlist.stats.saved"),
+                  value: wishlist.length,
+                  icon: <Heart size={14} />,
+                },
+                {
+                  id: "out",
+                  label: t("wishlist.stats.outNow"),
+                  value: releasedCount,
+                  tone: "success",
+                  icon: <Check size={14} />,
+                },
+                {
+                  id: "upcoming",
+                  label: t("wishlist.stats.comingSoon"),
+                  value: wishlist.length - releasedCount,
+                  tone: "accent",
+                  icon: <CalendarDays size={14} />,
+                },
+                {
+                  id: "notes",
+                  label: t("wishlist.stats.withNotes"),
+                  value: noteCount,
+                  icon: <Pencil size={14} />,
+                },
+              ]}
+            />
+          )}
+        </div>
       </PageWidget>
 
       {wishlist.length === 0 ? (
-        <div
-          className="wishlist-empty wishlist-empty--brand"
+        <Panel
+          className="wl-empty"
           role="status"
           aria-live="polite"
         >
-          <div
-            className="wishlist-empty-mesh"
-            aria-hidden="true"
-            style={{ background: "var(--mesh-gradient)" }}
-          />
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
+          <Heart size={26} className="wl-empty__icon" aria-hidden="true" />
           {hydrated ? (
             <>
               <strong>{t("wishlist.noGames")}</strong>
-              <p>
-                {t("wishlist.noGamesHint")}
-              </p>
-              <button
-                type="button"
-                className="wishlist-empty-cta"
+              <p>{t("wishlist.noGamesHint")}</p>
+              <Button
+                variant="primary"
+                rightIcon={<ArrowRight size={15} />}
                 onClick={handleBrowseStore}
               >
                 {t("wishlist.browseStore")}
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
+              </Button>
             </>
           ) : (
             <p>{t("wishlist.loading")}</p>
           )}
-        </div>
+        </Panel>
       ) : (
         <>
           {/* ── Toolbar ─────────────────────────────────────────────── */}
           <PageWidget page="wishlist" widget="wishlistToolbar">
-          <div className="wishlist-toolbar ui-item-wishlistToolbar">
-            <div className="wishlist-search">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={filters.search}
-                placeholder={t("wishlist.searchPlaceholder")}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label={t("wishlist.searchPlaceholder")}
-              />
-              {filters.search && (
-                <button
-                  type="button"
-                  className="wishlist-search-clear"
-                  onClick={() => setSearch("")}
-                  aria-label={t("wishlist.clearSearch")}
-                >
-                  ×
-                </button>
-              )}
-            </div>
+          <div className="ui-item-wishlistToolbar wl-controls">
+            <div className="wl-controls__row">
+              <div className="wl-search">
+                <Search size={15} className="wl-search__icon" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={filters.search}
+                  placeholder={t("wishlist.searchPlaceholder")}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label={t("wishlist.searchPlaceholder")}
+                />
+                {filters.search && (
+                  <button
+                    type="button"
+                    className="wl-search__clear"
+                    onClick={() => setSearch("")}
+                    aria-label={t("wishlist.clearSearch")}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
 
-              <div className="wishlist-group-tabs" role="group" aria-label={t("wishlist.groupByStatus")}>
-              <button
-                type="button"
-                className={filters.group === "all" ? "active" : ""}
-                onClick={() => setGroup("all")}
-              >
-                {t("wishlist.all")}
-              </button>
-              <button
-                type="button"
-                className={filters.group === "released" ? "active" : ""}
-                onClick={() => setGroup("released")}
-              >
-                {t("wishlist.outNow")} ({releasedCount})
-              </button>
-              <button
-                type="button"
-                className={filters.group === "coming_soon" ? "active" : ""}
-                onClick={() => setGroup("coming_soon")}
-              >
-                {t("wishlist.comingSoon")} ({wishlist.length - releasedCount})
-              </button>
-            </div>
-
-            <div className="wishlist-toolbar-end">
+              <div className="wl-controls__end">
               {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
                 <PageWidget page="wishlist" widget="filters">
                 <div className="wishlist-filter-wrap ui-complete-only ui-item-filters" ref={filtersRef}>
@@ -443,17 +416,7 @@ export default function WishlistPage() {
                     aria-haspopup="dialog"
                     aria-label={t("wishlist.filtersAria")}
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                    </svg>
+                    <SlidersHorizontal size={14} aria-hidden="true" />
                     {t("wishlist.filters")}
                     {activeFacetCount > 0 && (
                       <span className="wishlist-filter-badge">{activeFacetCount}</span>
@@ -531,8 +494,8 @@ export default function WishlistPage() {
                 </PageWidget>
               )}
 
-              <label className="wishlist-sort">
-                <span className="wishlist-sort-label">{t("wishlist.sort")}</span>
+              <label className="wl-sort">
+                <ArrowUpDown size={14} className="wl-sort__icon" aria-hidden="true" />
                 <select
                   value={filters.sort}
                   onChange={(e) => setSort(e.target.value as WishlistSort)}
@@ -546,27 +509,43 @@ export default function WishlistPage() {
                 </select>
               </label>
             </div>
+            </div>
+
+            <SubTabs
+              className="wl-subtabs"
+              ariaLabel={t("wishlist.groupByStatus")}
+              value={filters.group}
+              onChange={(id) => setGroup(id as WishlistGroup)}
+              items={[
+                { id: "all", label: t("wishlist.all"), count: wishlist.length },
+                { id: "released", label: t("wishlist.outNow"), count: releasedCount },
+                {
+                  id: "coming_soon",
+                  label: t("wishlist.comingSoon"),
+                  count: wishlist.length - releasedCount,
+                },
+              ]}
+              trailing={
+                <span className="wl-result-count">
+                  {t("wishlist.showing", {
+                    visible: visible.length,
+                    total: wishlist.length,
+                  })}
+                </span>
+              }
+            />
           </div>
           </PageWidget>
 
-          {/* ── Result count ───────────────────────────────────────── */}
-          <p className="wishlist-result-count">
-            {t("wishlist.showing", { visible: visible.length, total: wishlist.length })}
-          </p>
-
           {/* ── Grid ──────────────────────────────────────────────── */}
           {visible.length === 0 ? (
-            <div className="wishlist-empty small">
-            <strong>{t("wishlist.noMatches")}</strong>
-            <p>{t("wishlist.noMatchesHint")}</p>
-            <button
-              type="button"
-              className="wishlist-empty-cta"
-              onClick={resetFilters}
-            >
-              {t("wishlist.clearFilters")}
-            </button>
-            </div>
+            <Panel className="wl-empty wl-empty--compact" role="status" aria-live="polite">
+              <strong>{t("wishlist.noMatches")}</strong>
+              <p>{t("wishlist.noMatchesHint")}</p>
+              <Button variant="secondary" onClick={resetFilters}>
+                {t("wishlist.clearFilters")}
+              </Button>
+            </Panel>
           ) : (
             <PageWidget page="wishlist" widget="wishlistGrid">
               <div className="wishlist-page-grid ui-item-wishlistGrid">
@@ -585,44 +564,18 @@ export default function WishlistPage() {
         </>
       )}
 
-      {/* ── Clear confirmation dialog ──────────────────────────────── */}
-      {confirmClear &&
-        createPortal(
-          <div
-            className="wishlist-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("wishlist.clearWishlistAria")}
-          onClick={() => setConfirmClear(false)}
-        >
-          <div
-            className="wishlist-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-          <h2>{t("wishlist.clearTitle")}</h2>
-          <p>
-            {t("wishlist.clearBody", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
-          </p>
-          <div className="wishlist-modal-actions">
-            <button
-              type="button"
-              className="wishlist-modal-cancel"
-              onClick={() => setConfirmClear(false)}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="wishlist-modal-confirm"
-              onClick={handleClear}
-            >
-              {t("wishlist.clearAll")}
-            </button>
-            </div>
-          </div>
-          </div>,
-          document.body
-        )}
+      <ConfirmModal
+        open={confirmClear}
+        title={t("wishlist.clearTitle")}
+        message={t("wishlist.clearBody", {
+          count: wishlist.length,
+          plural: wishlist.length !== 1 ? "s" : "",
+        })}
+        confirmLabel={t("wishlist.clearAll")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={handleClear}
+        onCancel={() => setConfirmClear(false)}
+      />
     </div>
   );
 }
@@ -745,19 +698,7 @@ function WishlistCard({
           onClick={shareToFriends}
           title={t("wishlist.shareWithFriends")}
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
+          <Share2 size={14} aria-hidden="true" />
           {t("wishlist.shareToFriends")}
         </button>
       </div>
@@ -772,19 +713,7 @@ function WishlistCard({
           }
         >
           <span className="wishlist-release-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
+            <CalendarDays size={14} />
           </span>
           <span className="wishlist-release-text">
             {release.released ? (
@@ -861,18 +790,7 @@ function WishlistCard({
               aria-label={t("wishlist.editNoteLabel", { name: entry.name })}
               title={t("wishlist.editNote")}
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
+              <Pencil size={13} aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -881,18 +799,7 @@ function WishlistCard({
             className="wishlist-note-add"
             onClick={() => setEditing(true)}
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <Plus size={14} aria-hidden="true" />
             {t("wishlist.addNote")}
           </button>
         )}

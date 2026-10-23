@@ -1,41 +1,8 @@
-/* Page-level styling for wishlist — flat surfaces, restrained accent. */
+/* Page-level styling for wishlist - flat surfaces, restrained accent. */
 
-/* ── Cards / rows ────────────────────────────────────────────────── */
+/* ── Cards ─────────────────────────────────────────────────────────────── */
 /* The wrapper is transparent; the StoreGameCard inside owns its own
    hover lift, so the unit must not lift again (no double transform). */
 .wishlist-card-wrap--brand {
   position: relative;
-}
-
-/* ── Empty state ─────────────────────────────────────────────────── */
-.wishlist-empty--brand {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-secondary);
-  border: 1px dashed var(--color-border);
-}
-
-.wishlist-empty-mesh {
-  display: none;
-}
-
-.wishlist-empty--brand > *:not(.wishlist-empty-mesh) {
-  position: relative;
-  z-index: 1;
-}
-
-.wishlist-empty--brand > svg {
-  color: var(--color-accent);
-}
-
-.wishlist-empty--brand strong {
-  color: var(--color-accent);
-}
-
-.wishlist-empty--brand .wishlist-empty-cta {
-  background: var(--color-accent);
-  border: none;
-  color: var(--color-accent-contrast);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }

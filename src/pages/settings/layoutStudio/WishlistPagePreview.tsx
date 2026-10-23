@@ -12,7 +12,6 @@ import {
   Line,
   SchematicGameGrid,
   SchematicSearchBar,
-  SchematicSegmentedTabs,
 } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
 
@@ -93,13 +92,26 @@ export function WishlistPagePreview({
               </span>
               <div className="studio-wishlist-header-text">
                 <Line w={35} h={12} />
-                <span className="studio-wishlist-badge">24 games</span>
               </div>
             </div>
             <div className="studio-wishlist-header-actions">
               <span className="studio-wishlist-btn-clear">
                 <Trash2 size={9} />
                 <span>Clear</span>
+              </span>
+            </div>
+            <div className="studio-wishlist-stats-mock">
+              <span>
+                <b>24</b>Saved
+              </span>
+              <span>
+                <b>18</b>Out now
+              </span>
+              <span>
+                <b>6</b>Coming soon
+              </span>
+              <span>
+                <b>3</b>With notes
               </span>
             </div>
           </div>,
@@ -112,15 +124,22 @@ export function WishlistPagePreview({
           "wishlistToolbar",
           "slot",
           <div className="studio-wishlist-toolbar-mock">
-            <SchematicSearchBar placeholder="Search wishlist..." />
-            <SchematicSegmentedTabs
-              tabs={["All (24)", "Out Now (18)", "Coming Soon (6)"]}
-              activeIndex={0}
-            />
-            <span className="studio-wishlist-sort-pill">
-              <ArrowUpDown size={9} />
-              <span>Date Added</span>
-            </span>
+            <div className="studio-wishlist-toolbar-row">
+              <SchematicSearchBar placeholder="Search wishlist..." />
+              <span className="studio-wishlist-sort-pill">
+                <Filter size={9} />
+                <span>Filters</span>
+              </span>
+              <span className="studio-wishlist-sort-pill">
+                <ArrowUpDown size={9} />
+                <span>Date Added</span>
+              </span>
+            </div>
+            <div className="studio-wishlist-tabs-mock">
+              <span className="is-active">All (24)</span>
+              <span>Out Now (18)</span>
+              <span>Coming Soon (6)</span>
+            </div>
           </div>,
         )}
       </div>

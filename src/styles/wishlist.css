@@ -5,69 +5,43 @@
      a friendly empty state with a "Browse the Store" CTA.
    - Density follows the same DensityContext as the Store, so toggling
      density in either tab updates the other automatically.
+
+   Undelimited surface: header, stat row, controls and cards are separated
+   by tint, spacing and type. The only strokes left are focus rings.
    ============================================================================ */
 
 .wishlist-page {
   min-height: 100%;
 }
 
-/* ── Header count chip (used in PageHeader actions) ─────────────────────── */
+/* ── Header + stat row ─────────────────────────────────────────────────── */
 
-.wishlist-page-count {
-  padding: var(--space-2xs) var(--space-md);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  border: 1px solid var(--color-border);
-  white-space: nowrap;
-}
-
-/* ── Card grid ─────────────────────────────────────────────────────────── */
-
-.wishlist-page-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(160px, 15vw, 220px), 1fr));
-  gap: var(--space-md);
-  align-items: start;
-}
-
-/* Each grid cell wraps the StoreGameCard plus the meta row (added date)
-   and the note editor. */
-.wishlist-card-wrap {
+.wl-head {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-md);
 }
 
-/* Cozy/compact cards inside the wishlist grid flow at their natural
-   widths thanks to `auto-fill`; cinematic cards take more space. We
-   just need a small adjustment so 260px cinematic cards don't overflow
-   the auto-fill min. */
-.wishlist-page-grid .store-game-card {
-  width: 100%;
-  max-width: 100%;
+.wl-stats {
+  padding: 0 var(--space-3xs);
 }
 
-/* Cinematic cards in the wishlist grid keep their 3/4 aspect ratio from
-   store-discover.css; we just ensure the grid row height doesn't get
-   pinned by the body overlay. */
-.wishlist-page-grid .store-game-card.density-cinematic {
-  width: 100%;
+/* ── Controls ──────────────────────────────────────────────────────────── */
+
+.wl-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-/* ── Toolbar (search · group tabs · filters · sort) ──────────────────── */
-
-.wishlist-toolbar {
+.wl-controls__row {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding: var(--space-sm) 0;
 }
 
-.wishlist-search {
+.wl-search {
   position: relative;
   display: flex;
   align-items: center;
@@ -75,144 +49,129 @@
   min-width: 200px;
   gap: var(--space-sm);
   padding: 0 var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background: var(--panel-tint-raised);
   color: var(--color-text-muted);
-  transition: border-color var(--transition-fast),
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-.wishlist-search:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+.wl-search:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
 }
 
-.wishlist-search:focus-within {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 94%, var(--color-accent) 6%);
-  box-shadow: 0 0 0 2px var(--color-accent-glow);
+.wl-search:focus-within {
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  color: var(--color-text-secondary);
 }
 
-.wishlist-search svg {
-  width: 16px;
-  height: 16px;
+.wl-search__icon {
   flex-shrink: 0;
-  transition: color var(--transition-fast);
 }
 
-.wishlist-search:focus-within svg {
+.wl-search:focus-within .wl-search__icon {
   color: var(--color-accent);
 }
 
-.wishlist-search input {
+.wl-search input {
   flex: 1;
   min-width: 0;
+  padding: var(--space-sm) 0;
   border: none;
   background: transparent;
   color: var(--color-text-primary);
-  font-size: var(--text-md);
   font-family: inherit;
-  padding: var(--space-sm) 0;
+  font-size: var(--text-md);
   outline: none;
 }
 
-.wishlist-search input::placeholder {
+.wl-search input::placeholder {
   color: var(--color-text-muted);
   opacity: 0.85;
 }
 
-.wishlist-search-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.wl-search__clear {
+  display: grid;
+  place-items: center;
   width: 20px;
   height: 20px;
+  padding: 0;
   border: none;
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--text-md);
-  line-height: 1;
   cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-full);
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
-.wishlist-search-clear:hover {
+.wl-search__clear:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
-.wishlist-group-tabs {
-  display: inline-flex;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3xs);
-  gap: var(--space-3xs);
-}
-
-.wishlist-group-tabs button {
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: calc(var(--radius-md) - 3px);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.wishlist-group-tabs button:hover {
-  color: var(--color-text-primary);
-}
-
-.wishlist-group-tabs button.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
-}
-
-.wishlist-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.wishlist-sort-label {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-}
-
-.wishlist-sort select {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  font-size: var(--text-sm);
-  padding: var(--space-sm) var(--space-sm);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  outline: none;
-}
-
-.wishlist-sort select:focus-visible {
-  border-color: var(--color-accent);
-  outline: 2px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
-  outline-offset: 1px;
-}
-
-/* ── Filters (genre / platform popover) ───────────────────────────────── */
-
-.wishlist-toolbar-end {
+.wl-controls__end {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   margin-left: auto;
 }
+
+.wl-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.wl-sort__icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.wl-sort select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-3xs);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+
+.wl-sort select:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.wl-sort select:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.wl-sort select option {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.wl-subtabs {
+  margin-bottom: var(--space-md);
+}
+
+.wl-result-count {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filters (genre / platform popover) ────────────────────────────────── */
 
 .wishlist-filter-wrap {
   position: relative;
@@ -222,34 +181,27 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--color-text-secondary);
+  font-family: inherit;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  padding: var(--space-sm) var(--space-md);
   cursor: pointer;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.wishlist-filter-btn svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-filter-btn:hover {
   color: var(--color-text-primary);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
 .wishlist-filter-btn.active {
   color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .wishlist-filter-badge {
@@ -260,8 +212,8 @@
   height: 18px;
   padding: 0 var(--space-2xs);
   border-radius: var(--radius-full);
-  background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
@@ -280,8 +232,8 @@
   gap: var(--space-sm);
   padding: var(--space-sm);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-xl);
   overflow: hidden;
   overflow-y: auto;
@@ -312,16 +264,18 @@
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
+  font-family: inherit;
   font-size: var(--text-sm);
   text-align: left;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-filter-option:hover {
-  background: var(--color-bg-hover);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
   color: var(--color-text-primary);
 }
 
@@ -351,34 +305,55 @@
 .wishlist-filter-footer {
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid var(--color-border);
   padding-top: var(--space-sm);
 }
 
 .wishlist-filter-clear {
-  border: 1px solid var(--color-border);
+  border: none;
   background: transparent;
   color: var(--color-text-secondary);
+  font-family: inherit;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-  padding: var(--space-xs) var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-filter-clear:hover {
   color: var(--color-text-primary);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
 }
 
-.wishlist-result-count {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+/* ── Card grid ─────────────────────────────────────────────────────────── */
+
+.wishlist-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(160px, 15vw, 220px), 1fr));
+  gap: var(--space-md);
+  align-items: start;
 }
 
-/* ── Per-card meta + note ─────────────────────────────────────────────── */
+/* Each grid cell wraps the StoreGameCard plus the meta row (added date)
+   and the note editor. */
+.wishlist-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.wishlist-page-grid .store-game-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+.wishlist-page-grid .store-game-card.density-cinematic {
+  width: 100%;
+}
+
+/* ── Per-card meta + note ──────────────────────────────────────────────── */
 
 .wishlist-card-meta {
   display: flex;
@@ -389,11 +364,12 @@
 }
 
 .wishlist-added-date {
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wishlist-share-btn {
@@ -401,31 +377,26 @@
   align-items: center;
   gap: var(--space-2xs);
   margin-left: auto;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
   padding: var(--space-2xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
   font-size: var(--text-xs);
-  color: var(--color-text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.wishlist-share-btn svg {
-  width: 14px;
-  height: 14px;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-share-btn:hover {
-  border-color: var(--color-accent);
-  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
-/* Release date + live countdown pill, sits between the meta row and the
-   note. Uses the accent tint so upcoming releases read as "highlighted"
-   without shouting; flips to a calm green once the game is out. */
+/* Release date + live countdown. A tint carries the meaning: accent while
+   the game is still ahead, success once it is out. */
 .wishlist-release {
   display: flex;
   align-items: center;
@@ -433,28 +404,21 @@
   margin: 0 var(--space-3xs);
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
 }
 
 .wishlist-release.released {
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  background: color-mix(in srgb, var(--color-success) 9%, transparent);
 }
 
 .wishlist-release-icon {
   display: inline-flex;
-  color: var(--color-accent);
   flex-shrink: 0;
+  color: var(--color-accent);
 }
 
 .wishlist-release.released .wishlist-release-icon {
   color: var(--color-success);
-}
-
-.wishlist-release-icon svg {
-  width: 14px;
-  height: 14px;
 }
 
 .wishlist-release-text {
@@ -499,37 +463,28 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-xs);
-  border: 1px dashed var(--color-border);
-  background: transparent;
+  border: none;
+  background: color-mix(in srgb, var(--color-text-primary) 3.5%, transparent);
   color: var(--color-text-muted);
+  font-family: inherit;
   font-size: var(--text-sm);
   text-align: left;
-  padding: var(--space-sm) var(--space-sm);
+  padding: var(--space-sm);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color var(--transition-fast),
-    color var(--transition-fast),
-    background var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-note-add svg,
 .wishlist-note-view svg {
-  width: 14px;
-  height: 14px;
   flex-shrink: 0;
   margin-top: var(--space-3xs);
 }
 
 .wishlist-note-add:hover {
   color: var(--color-text-primary);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
-}
-
-.wishlist-note-view {
-  flex: 1;
-  border-style: solid;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
 }
 
 .wishlist-note-view:hover {
@@ -538,294 +493,134 @@
 
 .wishlist-note-view-row {
   display: flex;
-  align-items: stretch;
-  gap: var(--space-xs);
+  align-items: flex-start;
+  gap: var(--space-2xs);
 }
 
 .wishlist-note-edit {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--color-text-muted);
-  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.wishlist-note-edit svg {
-  width: 14px;
-  height: 14px;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-note-edit:hover {
   color: var(--color-text-primary);
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 .wishlist-note-text {
-  line-height: 1.4;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .wishlist-note-editor {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
 }
 
 .wishlist-note-editor textarea {
   width: 100%;
+  min-height: 62px;
   resize: vertical;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--panel-tint-sunken);
   color: var(--color-text-primary);
-  font-size: var(--text-sm);
   font-family: inherit;
-  padding: var(--space-sm) var(--space-sm);
-  line-height: 1.45;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
   outline: none;
 }
 
 .wishlist-note-editor textarea:focus-visible {
-  border-color: var(--color-accent);
-  outline: 2px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
-  outline-offset: 1px;
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .wishlist-note-actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
 }
 
 .wishlist-note-cancel,
 .wishlist-note-save {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-xs) var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2xs) var(--space-sm);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .wishlist-note-cancel {
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 
 .wishlist-note-cancel:hover {
   color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
 .wishlist-note-save {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
 }
 
 .wishlist-note-save:hover {
-  transform: translateY(-1px);
-  background: var(--color-accent-hover);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
-/* ── Clear wishlist button ────────────────────────────────────────────── */
+/* ── Empty states ──────────────────────────────────────────────────────── */
 
-.wishlist-clear-btn {
-  margin-left: auto;
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.wishlist-clear-btn:hover {
-  color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-border));
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-}
-
-/* ── Confirmation modal ───────────────────────────────────────────────── */
-
-.wishlist-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--color-surface-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-lg);
-  z-index: 1000;
-}
-
-.wishlist-modal {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-xl);
-  max-width: 420px;
-  width: 100%;
-  box-shadow: var(--shadow-xl);
-}
-
-.wishlist-modal h2 {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--text-lg);
-  color: var(--color-text-primary);
-}
-
-.wishlist-modal p {
-  margin: 0 0 var(--space-lg);
-  color: var(--color-text-secondary);
-  line-height: 1.55;
-  font-size: var(--text-md);
-}
-
-.wishlist-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-}
-
-.wishlist-modal-cancel,
-.wishlist-modal-confirm {
-  border-radius: var(--radius-md);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-sm) var(--space-lg);
-  cursor: pointer;
-  border: 1px solid var(--color-border);
-  transition: transform var(--transition-fast),
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.wishlist-modal-cancel {
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-.wishlist-modal-cancel:hover {
-  color: var(--color-text-primary);
-}
-
-.wishlist-modal-confirm {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: var(--scrim-text);
-}
-
-.wishlist-modal-confirm:hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--color-danger) 88%, white 12%);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
-}
-
-/* ── Empty state ──────────────────────────────────────────────────────── */
-
-.wishlist-empty {
+.wl-empty .ui-panel__body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  padding: var(--space-3xl) var(--space-xl);
-  background: var(--color-bg-secondary);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  text-align: center;
-  max-width: 520px;
-  margin: var(--space-2xl) auto 0;
-  color: var(--color-text-secondary);
-}
-
-.wishlist-empty.small {
-  max-width: 420px;
+  gap: var(--space-sm);
   padding: var(--space-xl);
-  margin-top: var(--space-lg);
+  text-align: center;
 }
 
-.wishlist-empty svg {
-  width: 56px;
-  height: 56px;
-  color: var(--color-text-muted);
-  opacity: 0.55;
-  flex-shrink: 0;
+.wl-empty__icon {
+  color: color-mix(in srgb, var(--color-accent) 70%, var(--color-text-muted));
 }
 
-.wishlist-empty strong {
+.wl-empty strong {
+  font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  margin: 0;
 }
 
-.wishlist-empty p {
+.wl-empty p {
+  max-width: 46ch;
   margin: 0;
-  max-width: 380px;
-  line-height: 1.5;
   color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
 }
 
-.wishlist-empty-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: transform var(--transition-fast),
-    box-shadow var(--transition-fast),
-    background var(--transition-fast);
+.wl-empty .ui-btn {
+  margin-top: var(--space-xs);
 }
 
-.wishlist-empty-cta:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
-  background: var(--color-accent-hover);
-}
-
-.wishlist-empty-cta:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wishlist-empty-cta svg {
-  width: 16px;
-  height: 16px;
-  opacity: 1;
-  color: currentColor;
-}
-
-/* ── Reduced motion ───────────────────────────────────────────────────── */
-
-@media (prefers-reduced-motion: reduce) {
-  .wishlist-empty-cta {
-    transition: none;
-  }
-  .wishlist-empty-cta:hover {
-    transform: none;
-  }
+.wl-empty--compact .ui-panel__body {
+  padding: var(--space-lg);
 }

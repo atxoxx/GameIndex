@@ -4115,6 +4115,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--space-xs);
 }
 
@@ -4134,9 +4135,21 @@
   gap: var(--space-3xs);
 }
 
-.studio-wishlist-badge {
+.studio-wishlist-stats-mock {
+  display: flex;
+  flex-basis: 100%;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-top: var(--space-2xs);
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
+}
+
+.studio-wishlist-stats-mock b {
+  margin-right: var(--space-3xs);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .studio-wishlist-btn-clear {
@@ -4145,16 +4158,51 @@
   gap: var(--space-3xs);
   font-size: var(--text-2xs);
   padding: var(--space-3xs) var(--space-2xs);
+  border: 0;
   border-radius: var(--radius-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
   color: var(--color-text-muted);
 }
 
 .studio-wishlist-toolbar-mock {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-wishlist-toolbar-row {
+  display: flex;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.studio-wishlist-tabs-mock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-top: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-wishlist-tabs-mock span {
+  position: relative;
+  padding-bottom: var(--space-3xs);
+}
+
+.studio-wishlist-tabs-mock span.is-active {
+  color: var(--color-text-primary);
+}
+
+.studio-wishlist-tabs-mock span.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
 }
 
 .studio-wishlist-sort-pill {
@@ -4164,8 +4212,8 @@
   font-size: var(--text-2xs);
   padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  border: 0;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
@@ -4183,13 +4231,13 @@
   font-size: var(--text-2xs);
   padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   color: var(--color-text-secondary);
 }
 
 .studio-wishlist-filter-btn.is-active {
-  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
 }
 
