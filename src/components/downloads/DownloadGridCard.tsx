@@ -25,14 +25,11 @@ import {
 import {
   PlayIcon,
   PauseIcon,
-  FolderIcon,
-  TrashIcon,
   PeersIcon,
   SeedsIcon,
   GameFallbackIcon,
-  RemoveIcon,
 } from "./DownloadIcons";
-import { Button } from "../ui";
+import { MoreHorizontal, RotateCcw } from "lucide-react";
 
 interface DownloadGridCardProps {
   download: TorrentDownload;
@@ -57,7 +54,7 @@ export const DownloadGridCard = React.memo(
     const { unit: sizeUnit } = useSizeUnit();
     const { unit: speedUnit } = useSpeedUnit();
     const { launchGame } = useGames();
-    const { openDownloadFolder } = useDownloads();
+    const { setSeeding, retryDownload } = useDownloads();
     const { showToast } = useToast();
     const { t } = useLanguage();
 
@@ -82,8 +79,7 @@ export const DownloadGridCard = React.memo(
     const activity = getActivityMessage(download, t);
     const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
 
-    const handleLaunch = async (e: React.MouseEvent) => {
-      e.stopPropagation();
+    const handleLaunch = async () => {
       if (!matchedGame) return;
       try {
         await launchGame(matchedGame);
@@ -94,11 +90,71 @@ export const DownloadGridCard = React.memo(
 
     const isPlayable = isCompleted && matchedGame && matchedGame.installed;
 
+    const handleRetry = async () => {
+      try {
+        await retryDownload(download.id);
+      } catch (err) {
+        showToast(t("downloadRow.retryFailed", { error: String(err) }), "error");
+      }
+    };
+
+    const handleStopSeeding = async () => {
+      try {
+        await setSeeding(download.id, false);
+      } catch (err) {
+        showToast(t("downloadRow.stopSeedingFailed", { error: String(err) }), "error");
+      }
+    };
+
+    let primary: { tone: string; label: string; icon: React.ReactNode; onSelect: () => void } | null =
+      null;
+    if (isPlayable) {
+      primary = {
+        tone: "play",
+        label: t("game.play"),
+        icon: <PlayIcon style={{ width: 12, height: 12 }} />,
+        onSelect: handleLaunch,
+      };
+    } else if (isPaused) {
+      primary = {
+        tone: "resume",
+        label: t("downloadRow.resume"),
+        icon: <PlayIcon style={{ width: 12, height: 12 }} />,
+        onSelect: () => onResume(download.id),
+      };
+    } else if (isSeeding) {
+      primary = {
+        tone: "stop",
+        label: t("downloadRow.stopSeeding"),
+        icon: <PauseIcon style={{ width: 12, height: 12 }} />,
+        onSelect: handleStopSeeding,
+      };
+    } else if (isError) {
+      primary = {
+        tone: "retry",
+        label: t("downloadRow.retry"),
+        icon: <RotateCcw size={13} />,
+        onSelect: handleRetry,
+      };
+    } else if (isActiveStatus(status)) {
+      primary = {
+        tone: "pause",
+        label: t("downloadRow.pause"),
+        icon: <PauseIcon style={{ width: 12, height: 12 }} />,
+        onSelect: () => onPause(download.id),
+      };
+    }
+
+    const openMenuFromButton = (e: React.MouseEvent<HTMLButtonElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      downloadMenu.openAt(rect.right - 6, rect.bottom + 4);
+    };
+
     return (
       <div
-        className={`dl-card${selected ? " dl-card--selected" : ""}${isError ? " dl-card--error" : ""}${
-          isCompleted ? " dl-card--completed" : ""
-        }`}
+        className={`dl-card dlc-card${selected ? " dl-card--selected" : ""}${
+          isError ? " dl-card--error" : ""
+        }${isCompleted ? " dl-card--completed" : ""}`}
         onContextMenu={(e) => downloadMenu.open(e)}
       >
         {/* Artwork Media Header */}
@@ -218,63 +274,29 @@ export const DownloadGridCard = React.memo(
           )}
 
           {/* Card Action Controls */}
-          <div className="dl-card-actions">
-            {isPlayable && (
+          <div className="dlc-actions">
+            {primary && (
               <button
                 type="button"
-                className="dl-card-action-btn primary"
-                onClick={handleLaunch}
-                title={t("game.play")}
+                className={`dlc-primary dlc-primary--${primary.tone}`}
+                onClick={primary.onSelect}
+                title={primary.label}
               >
-                <PlayIcon style={{ width: 12, height: 12 }} />
-                <span>{t("game.play")}</span>
+                {primary.icon}
+                <span>{primary.label}</span>
               </button>
             )}
 
-            {(status.kind === "downloading" || status.kind === "fetchingMetadata") && (
-              <Button variant="secondary" size="sm" iconOnly leftIcon={<PauseIcon />}
-                type="button"
-                
-                onClick={() => onPause(download.id)}
-                title={t("downloadRow.pause")}
-               className="dl-card-icon-btn"></Button>
-            )}
-
-            {isPaused && (
-              <Button variant="secondary" size="sm" iconOnly leftIcon={<PlayIcon />}
-                type="button"
-                
-                onClick={() => onResume(download.id)}
-                title={t("downloadRow.resume")}
-               className="dl-card-icon-btn"></Button>
-            )}
-
-            <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderIcon />}
+            <button
               type="button"
-              
-              onClick={async () => {
-                try {
-                  await openDownloadFolder(download.id);
-                } catch (err) {
-                  showToast(t("downloadRow.openFolderFailed", { error: String(err) }), "error");
-                }
-              }}
-              title={t("downloadRow.openFolder")}
-             className="dl-card-icon-btn"></Button>
-
-            <Button variant="secondary" size="sm" iconOnly leftIcon={<RemoveIcon />}
-              type="button"
-              
-              onClick={() => onRemove(download.id)}
-              title={t("common.remove")}
-             className="dl-card-icon-btn danger"></Button>
-
-            <Button variant="secondary" size="sm" iconOnly leftIcon={<TrashIcon />}
-              type="button"
-              
-              onClick={() => onDeleteFiles(download)}
-              title={t("downloadRow.deleteFromDisk")}
-             className="dl-card-icon-btn danger-fill"></Button>
+              className="dlc-more"
+              onClick={openMenuFromButton}
+              title={t("downloads.rowActions")}
+              aria-label={t("downloads.rowActions")}
+              aria-haspopup="menu"
+            >
+              <MoreHorizontal size={15} />
+            </button>
           </div>
         </div>
 

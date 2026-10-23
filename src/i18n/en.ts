@@ -1735,6 +1735,7 @@ export const en: TranslationDict = {
   "downloads.removedNamed": "Removed \"{name}\"",
   "downloads.resumeAria": "Resume download",
   "downloads.resumeFailed": "Resume failed: {error}",
+  "downloads.rowActions": "Download actions",
   "downloads.resumeTitle": "Resume",
   "downloads.seedAfterCompletion": "Seed torrents after completion",
   "downloads.seedingSettings": "Seeding Preferences",

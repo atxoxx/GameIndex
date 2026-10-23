@@ -1,4 +1,5 @@
 import React from "react";
+import { Search } from "lucide-react";
 import type {
   DownloadSort,
   DownloadStatusFilter,
@@ -8,7 +9,7 @@ import { ListViewIcon, GridViewIcon, CompactViewIcon } from "./DownloadIcons";
 
 export type DownloadViewMode = "detailed" | "grid" | "compact";
 
-interface StatusPill {
+interface StatusChip {
   value: DownloadStatusFilter;
   label: string;
   count: number;
@@ -35,7 +36,18 @@ const SORT_OPTIONS: { value: DownloadSort; labelKey: string }[] = [
   { value: "speed-desc", labelKey: "downloadsFilter.sortFastest" },
 ];
 
-export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
+const VIEW_MODES: { value: DownloadViewMode; labelKey: string; Icon: typeof ListViewIcon }[] = [
+  { value: "detailed", labelKey: "downloadsFilter.viewDetailed", Icon: ListViewIcon },
+  { value: "grid", labelKey: "downloadsFilter.viewGrid", Icon: GridViewIcon },
+  { value: "compact", labelKey: "downloadsFilter.viewCompact", Icon: CompactViewIcon },
+];
+
+/**
+ * One toolbar above the queue: the status chips read as a single segmented
+ * control with live counts, and search, sort and view mode sit together on
+ * the right as quiet controls.
+ */
+const DownloadsFilterBar: React.FC<DownloadsFilterBarProps> = ({
   query,
   onQueryChange,
   statusFilter,
@@ -45,10 +57,10 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
   viewMode,
   onViewModeChange,
   counts,
-}: DownloadsFilterBarProps) {
+}) => {
   const { t } = useLanguage();
 
-  const pills: StatusPill[] = [
+  const chips: StatusChip[] = [
     { value: "all", label: t("downloadsFilter.statusAll"), count: counts.all },
     { value: "downloading", label: t("downloadsFilter.statusActive"), count: counts.downloading },
     { value: "seeding", label: t("downloadRow.badgeSeeding"), count: counts.seeding },
@@ -59,42 +71,30 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
   ];
 
   return (
-    <div className="dl-filter-bar-container">
-      {/* Status Filter Dropdown */}
-      <div className="dl-filters-status-wrapper">
-        <select
-          className="dl-filters-sort-select"
-          value={statusFilter}
-          onChange={(e) => onStatusFilterChange(e.target.value as DownloadStatusFilter)}
-          aria-label={t("downloadsFilter.filterByStatus")}
-        >
-          {pills.map((pill) => (
-            <option key={pill.value} value={pill.value}>
-              {pill.label} ({pill.count})
-            </option>
-          ))}
-        </select>
+    <div className="dlfb">
+      <div className="dlfb-chips" role="group" aria-label={t("downloadsFilter.filterByStatus")}>
+        {chips.map((chip) => (
+          <button
+            key={chip.value}
+            type="button"
+            className={`dlfb-chip dlfb-chip--${chip.value}${
+              statusFilter === chip.value ? " is-active" : ""
+            }`}
+            aria-pressed={statusFilter === chip.value}
+            onClick={() => onStatusFilterChange(chip.value)}
+          >
+            <span className="dlfb-chip-dot" aria-hidden="true" />
+            <span className="dlfb-chip-label">{chip.label}</span>
+            <span className="dlfb-chip-count">{chip.count}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Right Controls: Search, Sort, and View Mode (never wraps internally) */}
-      <div className="dl-filters-controls-row">
-        {/* Search Input */}
-        <div className="dl-filters-search">
-          <svg
-            className="dl-filters-search-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+      <div className="dlfb-tools">
+        <div className="dlfb-search">
+          <Search size={14} className="dlfb-search-icon" aria-hidden="true" />
           <input
-            className="dl-filters-search-input"
+            className="dlfb-search-input"
             type="text"
             placeholder={t("downloadsFilter.searchPlaceholder")}
             value={query}
@@ -105,7 +105,7 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
           />
           {query && (
             <button
-              className="dl-filters-search-clear"
+              className="dlfb-search-clear"
               onClick={() => onQueryChange("")}
               aria-label={t("downloadsFilter.clearSearch")}
               title={t("downloadsFilter.clearSearch")}
@@ -116,23 +116,9 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
           )}
         </div>
 
-        {/* Sort Select with Sort Icon */}
-        <div className="dl-filters-sort-wrapper">
-          <svg
-            className="dl-filters-sort-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 6h18M6 12h12m-9 6h6" />
-          </svg>
+        <label className="dlfb-sort" title={t("downloadsFilter.sort")}>
           <select
-            id="dl-sort-select"
-            className="dl-filters-sort-select"
+            className="dlfb-sort-select"
             value={sort}
             onChange={(e) => onSortChange(e.target.value as DownloadSort)}
             aria-label={t("downloadsFilter.sort")}
@@ -143,41 +129,38 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
               </option>
             ))}
           </select>
-        </div>
+          <svg
+            className="dlfb-sort-chevron"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </label>
 
-        {/* View Mode Segmented Switcher */}
-        <div className="dl-view-toggle-group" role="group" aria-label={t("downloadsFilter.viewMode")}>
-          <button
-            type="button"
-            className={`dl-view-toggle-btn${viewMode === "detailed" ? " active" : ""}`}
-            onClick={() => onViewModeChange("detailed")}
-            title={t("downloadsFilter.viewDetailed")}
-            aria-pressed={viewMode === "detailed"}
-          >
-            <ListViewIcon style={{ width: 14, height: 14 }} />
-          </button>
-          <button
-            type="button"
-            className={`dl-view-toggle-btn${viewMode === "grid" ? " active" : ""}`}
-            onClick={() => onViewModeChange("grid")}
-            title={t("downloadsFilter.viewGrid")}
-            aria-pressed={viewMode === "grid"}
-          >
-            <GridViewIcon style={{ width: 14, height: 14 }} />
-          </button>
-          <button
-            type="button"
-            className={`dl-view-toggle-btn${viewMode === "compact" ? " active" : ""}`}
-            onClick={() => onViewModeChange("compact")}
-            title={t("downloadsFilter.viewCompact")}
-            aria-pressed={viewMode === "compact"}
-          >
-            <CompactViewIcon style={{ width: 14, height: 14 }} />
-          </button>
+        <div className="dlfb-views" role="group" aria-label={t("downloadsFilter.viewMode")}>
+          {VIEW_MODES.map(({ value, labelKey, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              className={`dlfb-view${viewMode === value ? " is-active" : ""}`}
+              onClick={() => onViewModeChange(value)}
+              title={t(labelKey)}
+              aria-label={t(labelKey)}
+              aria-pressed={viewMode === value}
+            >
+              <Icon style={{ width: 14, height: 14 }} />
+            </button>
+          ))}
         </div>
       </div>
     </div>
   );
-});
+};
 
-export default DownloadsFilterBar;
+export default React.memo(DownloadsFilterBar);

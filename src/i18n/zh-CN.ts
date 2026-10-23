@@ -1735,6 +1735,7 @@ export const zhCN: TranslationDict = {
   "downloads.removedNamed": "已移除“{name}”",
   "downloads.resumeAria": "恢复下载",
   "downloads.resumeFailed": "继续失败：{error}",
+  "downloads.rowActions": "下载操作",
   "downloads.resumeTitle": "恢复",
   "downloads.seedAfterCompletion": "下载完成后做种",
   "downloads.seedingSettings": "做种偏好设置",

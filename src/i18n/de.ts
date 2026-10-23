@@ -1735,6 +1735,7 @@ export const de: TranslationDict = {
   "downloads.removedNamed": "\"{name}\" entfernt",
   "downloads.resumeAria": "Download fortsetzen",
   "downloads.resumeFailed": "Fortsetzung fehlgeschlagen: {error}",
+  "downloads.rowActions": "Download-Aktionen",
   "downloads.resumeTitle": "Fortsetzen",
   "downloads.seedAfterCompletion": "Nach Abschluss weiterverteilen (Seeding)",
   "downloads.seedingSettings": "Seeding-Einstellungen",

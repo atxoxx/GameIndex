@@ -21,7 +21,12 @@ export function useContextMenu<T = undefined>() {
     setState({ target: target as T, x: e.clientX, y: e.clientY });
   }, []);
 
+  /** Anchor the menu to a point instead of the pointer (overflow buttons). */
+  const openAt = useCallback((x: number, y: number, target?: T) => {
+    setState({ target: target as T, x, y });
+  }, []);
+
   const close = useCallback(() => setState(null), []);
 
-  return { state, open, close };
+  return { state, open, openAt, close };
 }

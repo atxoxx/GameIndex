@@ -29,13 +29,13 @@ import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
+import "../styles/downloads-v2.css";
 
 export default function DownloadsPage() {
   const { t } = useLanguage();
   const {
     downloads,
     activeDownloads,
-    completedDownloads,
     history,
     refreshHistory,
     pauseDownload,
@@ -307,7 +307,7 @@ export default function DownloadsPage() {
   }, [selectedIds, downloads]);
 
   return (
-    <div className="dl-page page">
+    <div className="dl-page page dlp">
       <PageWidget page="downloads" widget="downloadsHeader">
       <div className="ui-item-downloadsHeader">
         <PageHeader
@@ -408,8 +408,6 @@ export default function DownloadsPage() {
           </h3>
 
           <DownloadsToolbar
-            activeCount={activeDownloads.length}
-            historyCount={completedDownloads.length}
             selectedCount={selectedIds.size}
             totalVisibleCount={filteredDownloads.length}
             onSelectAll={handleSelectAll}

@@ -1,14 +1,7 @@
-import { useState } from "react";
-import { RotateCcw } from "lucide-react";
-import { useDownloads } from "../../context/DownloadContext";
-import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
-import { PauseIcon, PlayIcon, TrashIcon } from "./DownloadIcons";
 
 interface DownloadsToolbarProps {
-  activeCount: number;
-  historyCount: number;
   selectedCount?: number;
   totalVisibleCount?: number;
   onSelectAll?: () => void;
@@ -19,9 +12,12 @@ interface DownloadsToolbarProps {
   onDeleteSelected?: () => void;
 }
 
+/**
+ * The list's action strip: a quiet "select all" at rest, and the bulk actions
+ * once a selection exists. Transfer-wide controls (pause/resume/retry all)
+ * live in the band above, so this stays scoped to what is selected.
+ */
 export default function DownloadsToolbar({
-  activeCount,
-  historyCount,
   selectedCount = 0,
   totalVisibleCount = 0,
   onSelectAll,
@@ -31,91 +27,10 @@ export default function DownloadsToolbar({
   onRemoveSelected,
   onDeleteSelected,
 }: DownloadsToolbarProps) {
-  const { pauseAll, resumeAll, removeDownload, completedDownloads, downloads, retryAllFailed } = useDownloads();
-  const { showToast } = useToast();
   const { t } = useLanguage();
-  const [busy, setBusy] = useState<"pause" | "resume" | "clear" | "retry" | null>(null);
-  const errorCount = downloads.filter((d) => d.status.kind === "error").length;
-
-  async function handleRetryAll() {
-    if (busy) return;
-    setBusy("retry");
-    try {
-      const n = await retryAllFailed();
-      showToast(
-        n > 0 ? t("downloadsToolbar.retrying", { count: n }) : t("downloadsToolbar.nothingToRetry"),
-        "info",
-      );
-    } catch (err) {
-      showToast(t("downloadsToolbar.retryFailed", { error: String(err) }), "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handlePauseAll() {
-    if (busy) return;
-    setBusy("pause");
-    try {
-      const n = await pauseAll();
-      showToast(
-        n > 0
-          ? t("downloadsToolbar.paused", { count: n, s: n !== 1 ? "s" : "" })
-          : t("downloadsToolbar.nothingToPause"),
-        "info",
-      );
-    } catch (err) {
-      showToast(t("downloadsToolbar.pauseAllFailed", { error: String(err) }), "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleResumeAll() {
-    if (busy) return;
-    setBusy("resume");
-    try {
-      const n = await resumeAll();
-      showToast(
-        n > 0
-          ? t("downloadsToolbar.resumed", { count: n, s: n !== 1 ? "s" : "" })
-          : t("downloadsToolbar.nothingToResume"),
-        "info",
-      );
-    } catch (err) {
-      showToast(t("downloadsToolbar.resumeAllFailed", { error: String(err) }), "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleClearHistory() {
-    if (busy) return;
-    setBusy("clear");
-    const ids = completedDownloads.map((d) => d.id);
-    if (ids.length === 0) {
-      setBusy(null);
-      return;
-    }
-    let success = 0;
-    let failed = 0;
-    for (const id of ids) {
-      try {
-        await removeDownload(id, false);
-        success++;
-      } catch {
-        failed++;
-      }
-    }
-    if (failed === 0) {
-      showToast(t("downloadsToolbar.clearedFromHistory", { count: success }), "info");
-    } else {
-      showToast(t("downloadsToolbar.clearedFailed", { success, failed }), "error");
-    }
-    setBusy(null);
-  }
-
   const isSelectionActive = selectedCount > 0;
+
+  if (!isSelectionActive && totalVisibleCount === 0) return null;
 
   return (
     <div
@@ -161,43 +76,6 @@ export default function DownloadsToolbar({
         </div>
       ) : (
         <div className="dl-toolbar-group">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handlePauseAll}
-            disabled={busy !== null || activeCount === 0}
-            isLoading={busy === "pause"}
-            leftIcon={<PauseIcon style={{ width: 12, height: 12 }} />}
-            title={t("downloadsToolbar.pauseAll")}
-          >
-            {t("downloadsToolbar.pauseAllBtn")}
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleResumeAll}
-            disabled={busy !== null || activeCount === 0}
-            isLoading={busy === "resume"}
-            leftIcon={<PlayIcon style={{ width: 12, height: 12 }} />}
-            title={t("downloadsToolbar.resumeAll")}
-          >
-            {t("downloadsToolbar.resumeAllBtn")}
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRetryAll}
-            disabled={busy !== null || errorCount === 0}
-            isLoading={busy === "retry"}
-            leftIcon={<RotateCcw size={12} />}
-            title={t("downloadsToolbar.retryAllHint")}
-          >
-            {t("downloadsToolbar.retryAll")}
-            {errorCount > 0 && <span className="dl-toolbar-count">{errorCount}</span>}
-          </Button>
-
           {onSelectAll && totalVisibleCount > 0 && (
             <Button variant="ghost" size="sm" onClick={onSelectAll}>
               {t("downloadFiles.selectAll") || "Select All"}
@@ -207,21 +85,6 @@ export default function DownloadsToolbar({
       )}
 
       <div className="dl-toolbar-spacer" />
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleClearHistory}
-        disabled={busy !== null || historyCount === 0}
-        isLoading={busy === "clear"}
-        leftIcon={<TrashIcon style={{ width: 13, height: 13 }} />}
-        title={t("downloadsToolbar.clearHint")}
-      >
-        {t("downloadsToolbar.clearHistory")}
-        {historyCount > 0 && (
-          <span className="dl-toolbar-count">{historyCount}</span>
-        )}
-      </Button>
     </div>
   );
 }

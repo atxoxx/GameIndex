@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { Info, RotateCcw } from "lucide-react";
+import React, { useState, useMemo, type ReactNode } from "react";
+import { Info, MoreHorizontal, RotateCcw } from "lucide-react";
 import TorrentDetailModal from "./TorrentDetailModal";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
@@ -9,17 +9,14 @@ import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import ContextMenu from "../ui/ContextMenu";
+import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { useDownloadMenuItems } from "./downloadMenu";
 import {
   PlayIcon,
   PauseIcon,
-  RemoveIcon,
-  TrashIcon,
   ChevronIcon,
   PeersIcon,
   SeedsIcon,
-  FolderIcon,
   GameFallbackIcon,
 } from "./DownloadIcons";
 import {
@@ -47,6 +44,13 @@ interface DownloadRowProps {
   onDeleteFiles: (download: TorrentDownload) => void;
 }
 
+interface PrimaryAction {
+  tone: "play" | "pause" | "resume" | "stop" | "retry";
+  label: string;
+  icon: ReactNode;
+  onSelect: () => void;
+}
+
 export const DownloadRow = React.memo(
   ({
     download,
@@ -61,12 +65,7 @@ export const DownloadRow = React.memo(
     const { unit: sizeUnit } = useSizeUnit();
     const { unit: speedUnit } = useSpeedUnit();
     const { launchGame } = useGames();
-    const {
-      updateSelectedFiles,
-      openDownloadFolder,
-      setSeeding,
-      retryDownload,
-    } = useDownloads();
+    const { updateSelectedFiles, setSeeding, retryDownload } = useDownloads();
     const { showToast } = useToast();
     const { t } = useLanguage();
     const [expanded, setExpanded] = useState(false);
@@ -83,6 +82,28 @@ export const DownloadRow = React.memo(
       onRemove,
       onDeleteFiles,
     });
+
+    const status = download.status;
+    const isPaused = status.kind === "paused";
+    const isCompleted = status.kind === "completed";
+    const isError = status.kind === "error";
+    const isSeeding = status.kind === "seeding";
+    const isDirect = download.kind === "direct" || download.kind === "debrid";
+    const isPlayable = isCompleted && matchedGame && matchedGame.installed;
+
+    const menuItems = useMemo<ContextMenuItem[]>(() => {
+      if (download.kind !== "torrent") return downloadMenuItems;
+      return [
+        {
+          id: "torrent-details",
+          label: t("torrentDetail.open"),
+          icon: <Info size={15} />,
+          onSelect: () => setShowDetail(true),
+        },
+        { id: "sep-details", separator: true },
+        ...downloadMenuItems,
+      ];
+    }, [download.kind, downloadMenuItems, t]);
 
     const handleToggleFile = async (idx: number) => {
       if (!download.files) return;
@@ -110,18 +131,12 @@ export const DownloadRow = React.memo(
       }
     };
 
-    const status = download.status;
     const indeterminate = download.progress == null && isActiveStatus(status);
-    const isPaused = status.kind === "paused";
-    const isCompleted = status.kind === "completed";
-    const isError = status.kind === "error";
     const fileSelectionLocked =
       isCompleted || (download.kind === "debrid" && isActiveStatus(status));
     const errorMessage = getStatusError(status);
-    const isDirect = download.kind === "direct" || download.kind === "debrid";
     const activity = getActivityMessage(download, t);
     const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
-    const isSeeding = status.kind === "seeding";
 
     const isStalledActivity =
       !isDirect &&
@@ -142,19 +157,20 @@ export const DownloadRow = React.memo(
     }, [isDirect, isCompleted, isPaused, isStalledActivity, download.peers, download.seeds]);
 
     const rowClass = [
-      "dl-row",
-      compact && "dl-row--compact",
-      selected && "dl-row--selected",
-      isError && "error",
-      isCompleted && "completed",
-      isPaused && "paused",
-      indeterminate && "indeterminate",
+      "dlrow",
+      !onToggleSelect && "dlrow--no-check",
+      compact && "dlrow--compact",
+      selected && "dlrow--selected",
+      isError && "dlrow--error",
+      isCompleted && "dlrow--completed",
+      isPaused && "dlrow--paused",
+      isSeeding && "dlrow--seeding",
+      indeterminate && "dlrow--indeterminate",
     ]
       .filter(Boolean)
       .join(" ");
 
-    const handleLaunch = async (e: React.MouseEvent) => {
-      e.stopPropagation();
+    const handleLaunch = async () => {
       if (!matchedGame) return;
       try {
         await launchGame(matchedGame);
@@ -163,17 +179,78 @@ export const DownloadRow = React.memo(
       }
     };
 
-    const isPlayable = isCompleted && matchedGame && matchedGame.installed;
+    const handleRetry = async () => {
+      try {
+        await retryDownload(download.id);
+      } catch (err) {
+        showToast(t("downloadRow.retryFailed", { error: String(err) }), "error");
+      }
+    };
+
+    const handleStopSeeding = async () => {
+      try {
+        await setSeeding(download.id, false);
+      } catch (err) {
+        showToast(t("downloadRow.stopSeedingFailed", { error: String(err) }), "error");
+      }
+    };
+
+    // One contextual primary per row; everything else lives in the menu.
+    let primary: PrimaryAction | null = null;
+    if (isPlayable) {
+      primary = {
+        tone: "play",
+        label: t("game.play"),
+        icon: <PlayIcon style={{ width: 12, height: 12 }} />,
+        onSelect: handleLaunch,
+      };
+    } else if (isPaused) {
+      primary = {
+        tone: "resume",
+        label: t("downloadRow.resume"),
+        icon: <PlayIcon style={{ width: 12, height: 12 }} />,
+        onSelect: () => onResume(download.id),
+      };
+    } else if (isSeeding) {
+      primary = {
+        tone: "stop",
+        label: t("downloadRow.stopSeeding"),
+        icon: <PauseIcon style={{ width: 12, height: 12 }} />,
+        onSelect: handleStopSeeding,
+      };
+    } else if (isError) {
+      primary = {
+        tone: "retry",
+        label: t("downloadRow.retry"),
+        icon: <RotateCcw size={13} />,
+        onSelect: handleRetry,
+      };
+    } else if (isActiveStatus(status)) {
+      primary = {
+        tone: "pause",
+        label: t("downloadRow.pause"),
+        icon: <PauseIcon style={{ width: 12, height: 12 }} />,
+        onSelect: () => onPause(download.id),
+      };
+    }
+
+    const eta =
+      isActiveStatus(status) && download.downloadSpeed > 0 && download.totalSize != null
+        ? formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t)
+        : "";
+
+    const openMenuFromButton = (e: React.MouseEvent<HTMLButtonElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      downloadMenu.openAt(rect.right - 6, rect.bottom + 4);
+    };
 
     return (
-      <div className="dl-row-container">
+      <div className="dlrow-wrap">
         <div className={rowClass} onContextMenu={(e) => downloadMenu.open(e)}>
-          {/* Multi-select checkbox */}
           {onToggleSelect && (
-            <div className="dl-row-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+            <div className="dlrow-check" onClick={(e) => e.stopPropagation()}>
               <input
                 type="checkbox"
-                className="dl-row-checkbox"
                 checked={selected}
                 onChange={() => onToggleSelect(download.id)}
                 aria-label={`Select ${displayName}`}
@@ -181,311 +258,178 @@ export const DownloadRow = React.memo(
             </div>
           )}
 
-          {/* Thumbnail artwork (always rendered in detailed mode to maintain stable grid layout) */}
-          {!compact && (
-            <div className="dl-row-thumb" title={displayName}>
-              {artworkUrl ? (
-                <img src={artworkUrl} alt={displayName} className="dl-row-thumb-img" loading="lazy" decoding="async" />
-              ) : (
-                <div className="dl-row-thumb-placeholder">
-                  <GameFallbackIcon style={{ width: 22, height: 22, opacity: 0.4 }} />
-                </div>
+          <div className="dlrow-thumb" title={displayName}>
+            {artworkUrl ? (
+              <img
+                src={artworkUrl}
+                alt={displayName}
+                className="dlrow-thumb-img"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <div className="dlrow-thumb-ph">
+                <GameFallbackIcon style={{ width: 18, height: 18 }} />
+              </div>
+            )}
+          </div>
+
+          <div className="dlrow-main">
+            <div className="dlrow-head">
+              <span className="dlrow-name" title={displayName}>
+                {displayName}
+              </span>
+
+              <span
+                className={`dlrow-status dlrow-status--${getStatusClassSuffix(status)}`}
+                title={getStatusLabel(status, t)}
+              >
+                {getStatusLabel(status, t)}
+              </span>
+
+              {download.kind === "direct" && (
+                <span className="dlrow-badge dlrow-badge--direct">{t("downloadRow.badgeDirect")}</span>
               )}
-            </div>
-          )}
+              {download.kind === "debrid" && (
+                <span className="dlrow-badge dlrow-badge--debrid">{t("downloadRow.badgeDebrid")}</span>
+              )}
+              {download.kind === "debrid" && download.debridCached && (
+                <span className="dlrow-badge dlrow-badge--cached">{t("downloadRow.badgeCached")}</span>
+              )}
 
-          {/* Main Info, Badges & Progress */}
-          <div className="dl-row-main">
-            <div className="dl-row-name-row">
-              <div className="dl-row-name-group">
-                <span className="dl-row-name" title={displayName}>
-                  {displayName}
-                </span>
-
-                {/* Status Pill Badge next to title */}
-                <span
-                  className={`dl-row-status dl-row-status--${getStatusClassSuffix(status)}`}
-                  title={getStatusLabel(status, t)}
-                >
-                  {getStatusLabel(status, t)}
-                </span>
-
-                {download.kind === "direct" && (
-                  <span className="dl-row-badge dl-row-badge--direct">{t("downloadRow.badgeDirect")}</span>
-                )}
-                {download.kind === "debrid" && (
-                  <span className="dl-row-badge dl-row-badge--debrid">{t("downloadRow.badgeDebrid")}</span>
-                )}
-                {download.kind === "debrid" && download.debridCached && (
-                  <span className="dl-row-badge dl-row-badge--cached">{t("downloadRow.badgeCached")}</span>
-                )}
-                {isSeeding && (
-                  <span
-                    className="dl-row-badge dl-row-badge--seeding"
-                    title={t("downloadRow.seedingUploaded", {
-                      size: formatBytesShort(download.uploaded ?? 0, sizeUnit),
-                    })}
-                  >
-                    {t("downloadRow.badgeSeeding")}
-                  </span>
-                )}
-              </div>
-
-              <div className="dl-row-meta-tags">
-                <span
-                  className="dl-row-source"
-                  title={t("downloadRow.sourceTitle", { source: download.sourceName })}
-                >
-                  {download.sourceName}
-                </span>
-              </div>
+              <span className="dlrow-source" title={t("downloadRow.sourceTitle", { source: download.sourceName })}>
+                {download.sourceName}
+              </span>
             </div>
 
-            {/* Progress Bar & ETA */}
-            <div className="dl-row-progress-row">
-              <div className="dl-row-bar">
+            <div className="dlrow-line">
+              <div className="dlrow-bar">
                 <div
-                  className={`dl-row-bar-fill${status.kind === "downloading" ? " dl-row-bar-fill--active" : ""}`}
+                  className={`dlrow-bar-fill${status.kind === "downloading" ? " is-active" : ""}`}
                   style={{
-                    width: indeterminate ? "30%" : `${Math.max(0, Math.min(100, (download.progress ?? 0) * 100))}%`,
+                    width: indeterminate
+                      ? "30%"
+                      : `${Math.max(0, Math.min(100, (download.progress ?? 0) * 100))}%`,
                   }}
                 />
               </div>
-              <span className="dl-row-progress">
-                {formatProgress(download.progress)}
-                {download.totalSize != null ? (
-                  <span className="dl-row-size">
-                    {" · "}
-                    {formatBytesShort(download.downloaded, sizeUnit)} / {formatBytesShort(download.totalSize, sizeUnit)}
-                  </span>
-                ) : (
-                  download.downloaded > 0 && (
-                    <span className="dl-row-size">
-                      {" · "}
-                      {formatBytesShort(download.downloaded, sizeUnit)}
-                    </span>
-                  )
-                )}
-                {isActiveStatus(status) && download.downloadSpeed > 0 && download.totalSize != null && (
-                  <span className="dl-row-eta">
-                    {formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t)}
-                  </span>
-                )}
+              <span className="dlrow-pct">{formatProgress(download.progress)}</span>
+              <span className="dlrow-size">
+                {formatBytesShort(download.downloaded, sizeUnit)}
+                {download.totalSize != null && ` / ${formatBytesShort(download.totalSize, sizeUnit)}`}
               </span>
             </div>
 
-            {/* Status activity string / error message */}
-            {activity && !isError && (
-              <div
-                className={`dl-row-activity${isStalledActivity ? " dl-row-activity--stalled" : ""}${
-                  isCompleted ? " dl-row-activity--completed" : ""
-                }`}
-              >
-                <span className="dl-row-activity-dot" aria-hidden="true" />
-                <span>{activity}</span>
-              </div>
-            )}
-
-            {isError && errorMessage && (
-              <div className="dl-row-error" role="alert">
+            {isError && errorMessage ? (
+              <div className="dlrow-error" role="alert">
                 {errorMessage}
               </div>
-            )}
-          </div>
-
-          {/* Speed Column (↓ / ↑) */}
-          <div className="dl-row-speed">
-            {isActiveStatus(status) && download.downloadSpeed > 0 ? (
-              <span className="dl-row-speed-dl">
-                ↓ {formatBytesPerSecond(download.downloadSpeed, speedUnit)}
-              </span>
-            ) : isSeeding && download.uploadSpeed > 0 ? (
-              <span className="dl-row-speed-ul">
-                ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
-              </span>
             ) : (
-              <span className="dl-row-speed-muted">
-                {isPaused ? t("download.status.paused") : isCompleted ? t("downloadRow.done") : "—"}
-              </span>
-            )}
-            {isActiveStatus(status) && download.uploadSpeed > 0 && (
-              <span className="dl-row-speed-ul">
-                ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
-              </span>
-            )}
-          </div>
+              <div className="dlrow-meta">
+                {isStalledActivity && activity && (
+                  <span className="dlrow-meta-item dlrow-warn">{activity}</span>
+                )}
 
-          {/* Swarm Column (Peers, Seeds, Health) */}
-          <div className="dl-row-swarm">
-            <div className="dl-row-swarm-counts">
-              <span title={t("downloadRow.peersInSwarm")}>
-                <PeersIcon style={{ width: 12, height: 12 }} />
-                {download.peers}
-              </span>
-              <span title={t("downloadRow.seeds")} className="dl-row-swarm-seeds">
-                <SeedsIcon style={{ width: 12, height: 12 }} />
-                {download.seeds}
-              </span>
-            </div>
-            {!isDirect && (
-              <div
-                className={`dl-swarm-health dl-swarm-health--${swarmHealth}`}
-                title={t("downloadRow.swarmHealthTitle")}
-              >
-                <div className="dl-swarm-bar" />
-                <div className="dl-swarm-bar" />
-                <div className="dl-swarm-bar" />
-                <div className="dl-swarm-bar" />
+                <span className="dlrow-meta-item dlrow-speed">
+                  {isActiveStatus(status) && download.downloadSpeed > 0 ? (
+                    <>↓ {formatBytesPerSecond(download.downloadSpeed, speedUnit)}</>
+                  ) : isSeeding && download.uploadSpeed > 0 ? (
+                    <>↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}</>
+                  ) : (
+                    <span className="dlrow-speed-muted">
+                      {isPaused
+                        ? t("download.status.paused")
+                        : isCompleted
+                          ? t("downloadRow.done")
+                          : "—"}
+                    </span>
+                  )}
+                  {isActiveStatus(status) && download.uploadSpeed > 0 && (
+                    <span className="dlrow-speed-up">
+                      ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
+                    </span>
+                  )}
+                </span>
+
+                {eta && <span className="dlrow-meta-item dlrow-eta">{eta}</span>}
+
+                {isSeeding && (
+                  <span className="dlrow-meta-item">
+                    {t("downloadRow.seedingUploaded", {
+                      size: formatBytesShort(download.uploaded ?? 0, sizeUnit),
+                    })}
+                  </span>
+                )}
+
+                {!isDirect && (download.peers > 0 || download.seeds > 0) && (
+                  <span className="dlrow-meta-item dlrow-swarm">
+                    <span title={t("downloadRow.peersInSwarm")}>
+                      <PeersIcon style={{ width: 11, height: 11 }} />
+                      {download.peers}
+                    </span>
+                    <span title={t("downloadRow.seeds")}>
+                      <SeedsIcon style={{ width: 11, height: 11 }} />
+                      {download.seeds}
+                    </span>
+                    {swarmHealth > 0 && (
+                      <span
+                        className={`dlrow-health dlrow-health--${swarmHealth}`}
+                        title={t("downloadRow.swarmHealthTitle")}
+                        aria-hidden="true"
+                      >
+                        <i />
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="dl-row-actions">
-            {/* Direct Play if game is installed */}
-            {isPlayable && (
-              <button
-                type="button"
-                className="dl-row-btn play-btn"
-                onClick={handleLaunch}
-                title={t("game.play")}
-              >
-                <PlayIcon />
-              </button>
-            )}
-
-
-
-            {/* Retry (errors only) */}
-            {isError && (
-              <button
-                type="button"
-                className="dl-row-btn retry-btn"
-                onClick={async () => {
-                  try {
-                    await retryDownload(download.id);
-                  } catch (err) {
-                    showToast(t("downloadRow.retryFailed", { error: String(err) }), "error");
-                  }
-                }}
-                title={t("downloadRow.retry")}
-              >
-                <RotateCcw size={15} />
-              </button>
-            )}
-
-            {/* Torrent detail modal */}
-            {download.kind === "torrent" && (
-              <button
-                type="button"
-                className="dl-row-btn"
-                onClick={() => setShowDetail(true)}
-                title={t("torrentDetail.open")}
-              >
-                <Info size={15} />
-              </button>
-            )}
-
-            {/* Open Download Folder */}
-            <button
-              type="button"
-              className="dl-row-btn"
-              onClick={async () => {
-                try {
-                  await openDownloadFolder(download.id);
-                } catch (err) {
-                  showToast(t("downloadRow.openFolderFailed", { error: String(err) }), "error");
-                }
-              }}
-              title={t("downloadRow.openFolder")}
-            >
-              <FolderIcon />
-            </button>
-
-            {/* Expand Files Tree Button (if torrent has files list) */}
+          <div className="dlrow-actions">
             {download.files && download.files.length > 0 && (
               <button
                 type="button"
-                className={`dl-row-btn${expanded ? " active" : ""}`}
+                className={`dlrow-icon dlrow-disclosure${expanded ? " is-open" : ""}`}
                 onClick={() => setExpanded(!expanded)}
                 title={expanded ? t("downloadRow.hideFiles") : t("downloadRow.showFiles")}
                 aria-expanded={expanded}
               >
-                <ChevronIcon style={{ transform: expanded ? "rotate(180deg)" : "none" }} />
+                <ChevronIcon style={{ width: 13, height: 13 }} />
               </button>
             )}
 
-            {/* Pause Action */}
-            {(status.kind === "downloading" || status.kind === "fetchingMetadata") && (
+            {primary && (
               <button
                 type="button"
-                className="dl-row-btn"
-                onClick={() => onPause(download.id)}
-                title={t("downloadRow.pause")}
+                className={`dlrow-primary dlrow-primary--${primary.tone}`}
+                onClick={primary.onSelect}
+                title={primary.label}
               >
-                <PauseIcon />
+                {primary.icon}
+                <span className="dlrow-primary-label">{primary.label}</span>
               </button>
             )}
 
-            {/* Resume Action */}
-            {isPaused && (
-              <button
-                type="button"
-                className="dl-row-btn"
-                onClick={() => onResume(download.id)}
-                title={t("downloadRow.resume")}
-              >
-                <PlayIcon />
-              </button>
-            )}
-
-            {/* Seeding Stop Toggle */}
-            {isSeeding && (
-              <button
-                type="button"
-                className="dl-row-btn"
-                onClick={async () => {
-                  try {
-                    await setSeeding(download.id, false);
-                  } catch (err) {
-                    showToast(t("downloadRow.stopSeedingFailed", { error: String(err) }), "error");
-                  }
-                }}
-                title={t("downloadRow.stopSeeding")}
-              >
-                <PauseIcon />
-              </button>
-            )}
-
-            {/* Remove / Cancel (Keep Files) */}
             <button
               type="button"
-              className="dl-row-btn danger"
-              onClick={() => onRemove(download.id)}
-              title={t("common.remove")}
+              className="dlrow-icon dlrow-more"
+              onClick={openMenuFromButton}
+              title={t("downloads.rowActions")}
+              aria-label={t("downloads.rowActions")}
+              aria-haspopup="menu"
             >
-              <RemoveIcon />
-            </button>
-
-            {/* Delete Files from Disk */}
-            <button
-              type="button"
-              className="dl-row-btn danger-fill"
-              onClick={() => onDeleteFiles(download)}
-              title={
-                download.autoExtract
-                  ? t("downloads.deleteArchivesHint")
-                  : t("downloadRow.deleteFromDisk")
-              }
-            >
-              <TrashIcon />
+              <MoreHorizontal size={15} />
             </button>
           </div>
         </div>
 
         {/* Collapsible Files Selection Drawer */}
         {expanded && download.files && download.files.length > 0 && (
-          <div className="dl-row-details">
+          <div className="dlrow-files">
             <div className="dl-files-list">
               {download.files.map((file, idx) => {
                 const isSkipped = !file.selected;
@@ -508,9 +452,7 @@ export const DownloadRow = React.memo(
                     >
                       {file.name}
                     </span>
-                    <span className="dl-file-size">
-                      {formatBytesShort(file.size, sizeUnit)}
-                    </span>
+                    <span className="dl-file-size">{formatBytesShort(file.size, sizeUnit)}</span>
                     <div className="dl-file-progress-bar">
                       <div
                         className="dl-file-progress-fill"
@@ -533,7 +475,7 @@ export const DownloadRow = React.memo(
           <ContextMenu
             x={downloadMenu.state.x}
             y={downloadMenu.state.y}
-            items={downloadMenuItems}
+            items={menuItems}
             onClose={downloadMenu.close}
             ariaLabel={displayName}
             header={

@@ -12,8 +12,8 @@ import {
   timeAxisTicks,
 } from "./bandwidthChart";
 
-const VIEW_HEIGHT = 160;
-const MARGIN = { top: 14, right: 16, bottom: 26, left: 68 };
+const VIEW_HEIGHT = 112;
+const MARGIN = { top: 8, right: 16, bottom: 20, left: 68 };
 const MIN_CHART_WIDTH = 320;
 
 type TimeWindow = 60 | 180 | 300;

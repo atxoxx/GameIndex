@@ -1735,6 +1735,7 @@ export const ru: TranslationDict = {
   "downloads.removedNamed": "Удалено: \"{name}\"",
   "downloads.resumeAria": "Возобновить загрузку",
   "downloads.resumeFailed": "Ошибка возобновления: {error}",
+  "downloads.rowActions": "Действия загрузки",
   "downloads.resumeTitle": "Возобновить",
   "downloads.seedAfterCompletion": "Раздавать (сидировать) после завершения",
   "downloads.seedingSettings": "Настройки раздачи",

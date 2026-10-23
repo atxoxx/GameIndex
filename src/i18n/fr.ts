@@ -1735,6 +1735,7 @@ export const fr: TranslationDict = {
   "downloads.removedNamed": "\"{name}\" supprimé",
   "downloads.resumeAria": "Reprendre le téléchargement",
   "downloads.resumeFailed": "Échec de la reprise : {error}",
+  "downloads.rowActions": "Actions du téléchargement",
   "downloads.resumeTitle": "Reprendre",
   "downloads.seedAfterCompletion": "Partager (seed) après la fin du téléchargement",
   "downloads.seedingSettings": "Préférences de partage",
