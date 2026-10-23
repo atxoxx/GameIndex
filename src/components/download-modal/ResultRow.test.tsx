@@ -63,3 +63,25 @@ describe("ResultRow platform + cache accents", () => {
     expect(screen.queryByText("Xbox 360")).not.toBeInTheDocument();
   });
 });
+
+describe("ResultRow update state", () => {
+  it("flags a newer release with the update badge in the status rail", () => {
+    const { container } = renderRow({
+      match: match({ title: "Game v2.0.0" }),
+      installedVersion: "v1.0.0",
+    });
+
+    const badge = container.querySelector(".dl-result-status .dl-badge--update");
+    expect(badge).toBeInTheDocument();
+    expect(badge?.textContent?.trim()).not.toBe("");
+  });
+
+  it("keeps the status rail empty when the release matches the install", () => {
+    const { container } = renderRow({
+      match: match({ title: "Game v1.0.0" }),
+      installedVersion: "v1.0.0",
+    });
+
+    expect(container.querySelector(".dl-result-status")).toBeNull();
+  });
+});

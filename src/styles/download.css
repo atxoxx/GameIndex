@@ -773,17 +773,18 @@
 }
 
 /* Status cluster — state badges sit apart from the identity tags, just
-   before the selection indicator. */
+   before the selection indicator. Stacked in a narrow rail: the row already
+   carries a lot of horizontal information, and squeezing a long localized
+   label ("Mise à jour") into the remaining width broke it into a tower. */
 .dl-result-status {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-xs);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2xs);
   flex-shrink: 0;
-  flex-wrap: wrap;
-  max-width: 42%;
-  padding-left: var(--space-sm);
-  border-left: 1px solid var(--color-border);
+  max-width: 34%;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--color-border-light);
 }
 
 .dl-source-pill-badge {
@@ -813,6 +814,18 @@
   padding: var(--space-3xs) var(--space-xs);
   border-radius: var(--radius-xs);
   text-transform: uppercase;
+  /* Micro-labels never wrap: a squeezed badge used to break its label over
+     three lines. Long locales get a wider pill instead. */
+  white-space: nowrap;
+}
+
+/* One icon size for every badge. Badges that carry an inline <svg> without
+   width/height attributes would otherwise fall back to the 300×150 default
+   intrinsic size and inflate the whole row. */
+.dl-badge svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
 }
 
 .dl-badge--format {
@@ -839,11 +852,6 @@
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
-.dl-badge--verified svg {
-  width: 10px;
-  height: 10px;
-}
-
 .dl-badge--new {
   color: var(--color-accent-contrast);
   background: var(--color-accent);
@@ -856,11 +864,6 @@
 }
 
 /* Per-row debrid cache availability indicator. */
-.dl-badge--cache svg {
-  width: 10px;
-  height: 10px;
-}
-
 .dl-badge--cache-checking {
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
@@ -940,11 +943,6 @@
   border: 1px solid var(--color-border);
 }
 
-.dl-badge--mirrors svg {
-  width: 10px;
-  height: 10px;
-}
-
 /* Calm, monochrome row badges: the accent is reserved for the source pill
    and the recommended mark so the list scans evenly. Scoped to the row so
    the detail panel keeps its semantic colors. */
@@ -952,6 +950,15 @@
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
+}
+
+/* "Newer than your install" is the one state badge that must win the eye:
+   it turns a browse row into an actionable update. Same success tone as the
+   version-comparison badge in the inspector. */
+.dl-result-card .dl-badge--update {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 34%, transparent);
 }
 
 .dl-result-card .dl-badge--recommended {
@@ -6733,11 +6740,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
-}
-
-.dl-badge--recommended svg {
-  width: 10px;
-  height: 10px;
 }
 
 .dl-reliability-badge {
