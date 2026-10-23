@@ -138,6 +138,8 @@ export default function FriendsProfileTab({
                   <span className="nostr-key-val">{nostrPublicKey}</span>
                   <Button variant="secondary" size="sm" iconOnly leftIcon={<CopyIcon />}
                     type="button"
+                    title={t("common.copy")}
+                    aria-label={t("common.copy")}
                     onClick={() => copyToClipboard(nostrPublicKey, t("friendsPage.nostrPublicKey"))}
                   ></Button>
                 </div>

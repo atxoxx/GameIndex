@@ -1698,3 +1698,230 @@
   box-shadow: none;
   transform: translateY(-1px);
 }
+
+/* ── My Profile: identity + share cards ─────────────────────────────── */
+
+/* The identity card is a flat, centred composition. The legacy banner and
+ * boxed stats strip are replaced by an accent-ringed avatar and a
+ * hairline-separated stats footer. */
+.profile-card-preview {
+  align-items: center;
+  padding: var(--space-xl);
+  gap: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.profile-card-banner {
+  display: none;
+}
+
+.profile-card-avatar-wrapper {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--space-md);
+}
+
+.profile-card-avatar-img,
+.profile-card-avatar-procedural {
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.profile-card-avatar-img {
+  border-radius: 50%;
+}
+
+.profile-card-avatar-procedural {
+  font-size: var(--text-2xl);
+}
+
+.profile-presence-dot {
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--color-surface);
+}
+
+.profile-card-identity {
+  padding: 0;
+  gap: var(--space-2xs);
+}
+
+.profile-card-name {
+  max-width: 100%;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.profile-card-region {
+  font-size: var(--text-xs);
+}
+
+.profile-card-status {
+  font-size: var(--text-xs);
+}
+
+.profile-card-bio {
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  max-width: 34ch;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.profile-card-fav-game {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-2xs);
+}
+
+.profile-card-stats-row {
+  width: 100%;
+  margin-top: var(--space-lg);
+  padding: var(--space-md) 0 0;
+  background: transparent;
+  border-top: 1px solid var(--color-border);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.profile-stat-box {
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.profile-stat-val {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-stat-lbl {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+}
+
+/* Share card: code, QR and public key in one column. */
+.friend-code-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.friend-code-title {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.friend-code-card .friends-modal-desc {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.my-code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.my-code-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  letter-spacing: normal;
+  color: var(--color-text-primary);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* The shared modal card stretches its single button; inside these inline
+ * rows the copy action must keep its intrinsic width so the code can wrap.
+ * The selectors outrank `.friend-code-card .ui-btn`. */
+.friend-code-card .my-code-box .ui-btn,
+.my-code-display .my-code-box .ui-btn {
+  width: auto;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-top: 0;
+}
+
+.friend-code-card .nostr-key-row .ui-btn,
+.my-code-display .nostr-key-row .ui-btn {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  padding: 0;
+  margin-top: 0;
+}
+
+.profile-qr-box {
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.friend-qr-img {
+  max-width: 168px;
+  max-height: 168px;
+  border-radius: var(--radius-sm);
+}
+
+.profile-qr-caption {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.nostr-key-box {
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.nostr-key-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.nostr-key-row {
+  align-items: flex-start;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.nostr-key-val {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  letter-spacing: normal;
+  color: var(--color-text-tertiary);
+  word-break: break-all;
+}
