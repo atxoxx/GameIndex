@@ -446,6 +446,7 @@ export default function AchievementsPage() {
               className={`ach-view-btn ${viewMode === "grid" ? "active" : ""}`}
               onClick={() => setViewMode("grid")}
               title={t("achievementsPage.viewGrid")}
+              aria-pressed={viewMode === "grid"}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
                 <rect x="3" y="3" width="7" height="7" />
@@ -459,6 +460,7 @@ export default function AchievementsPage() {
               className={`ach-view-btn ${viewMode === "list" ? "active" : ""}`}
               onClick={() => setViewMode("list")}
               title={t("achievementsPage.viewList")}
+              aria-pressed={viewMode === "list"}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
                 <line x1="8" y1="6" x2="21" y2="6" />
@@ -477,36 +479,64 @@ export default function AchievementsPage() {
           {/* Status Filter Dropdown */}
           <div className="achievements-sort">
             <label className="achievements-sort-label">{t("library.filter.status")}</label>
-            <select
-              value={completionFilter}
-              onChange={(e) => setCompletionFilter(e.target.value as CompletionFilter)}
-              className="achievements-sort-select"
-              aria-label={t("library.filter.status")}
-            >
-              <option value="all">{t("common.all")}</option>
-              <option value="perfect">{t("achievementsPage.filterPerfect")}</option>
-              <option value="in_progress">{t("achievementsPage.filterInProgress")}</option>
-              <option value="almost_done">{t("achievementsPage.filterAlmostDone")}</option>
-              <option value="not_started">{t("achievementsPage.filterNotStarted")}</option>
-            </select>
+            <div className="achievements-sort-control">
+              <select
+                value={completionFilter}
+                onChange={(e) => setCompletionFilter(e.target.value as CompletionFilter)}
+                className="achievements-sort-select"
+                aria-label={t("library.filter.status")}
+              >
+                <option value="all">{t("common.all")}</option>
+                <option value="perfect">{t("achievementsPage.filterPerfect")}</option>
+                <option value="in_progress">{t("achievementsPage.filterInProgress")}</option>
+                <option value="almost_done">{t("achievementsPage.filterAlmostDone")}</option>
+                <option value="not_started">{t("achievementsPage.filterNotStarted")}</option>
+              </select>
+              <svg
+                className="achievements-sort-chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
 
           {/* Source Filter Dropdown */}
           <div className="achievements-sort">
             <label className="achievements-sort-label">{t("library.filter.source")}</label>
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
-              className="achievements-sort-select"
-              aria-label={t("library.filter.source")}
-            >
-              <option value="all">{t("achievements.source.all")}</option>
-              {ACHIEVEMENT_SOURCES.map((src) => (
-                <option key={src} value={src}>
-                  {t(`achievements.source.${src}`)}
-                </option>
-              ))}
-            </select>
+            <div className="achievements-sort-control">
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+                className="achievements-sort-select"
+                aria-label={t("library.filter.source")}
+              >
+                <option value="all">{t("achievements.source.all")}</option>
+                {ACHIEVEMENT_SOURCES.map((src) => (
+                  <option key={src} value={src}>
+                    {t(`achievements.source.${src}`)}
+                  </option>
+                ))}
+              </select>
+              <svg
+                className="achievements-sort-chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
 
           {/* Search bar */}

@@ -773,39 +773,8 @@
   font-weight: var(--font-weight-medium);
 }
 
-.ach-view-mode-toggle {
-  display: inline-flex;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3xs);
-  gap: var(--space-3xs);
-}
-
-.ach-view-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: color var(--duration-fast), background var(--duration-fast);
-}
-
-.ach-view-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.ach-view-btn.active {
-  color: var(--color-accent);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
+/* `.ach-view-mode-toggle` / `.ach-view-btn` live in achievements.css so the
+   in-game Succès tab (which does not load this sheet) gets the same control. */
 
 /* Grid Cards Layout for Games */
 .ach-games-cards-grid {

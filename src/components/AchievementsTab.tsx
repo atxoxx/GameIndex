@@ -855,22 +855,37 @@ export default function AchievementsTab({ game }: { game: Game }) {
             />
           </div>
 
+          <div className="ach-toolbar-end">
           {/* Sort Dropdown */}
           <div className="achievements-sort">
             <label className="achievements-sort-label">{t("achievements.sort")}</label>
-            <select
-              ref={sortFocus.setRef}
-              tabIndex={sortFocus.tabIndex}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="achievements-sort-select"
-            >
-              <option value="default">{t("achievements.sortDefault")}</option>
-              <option value="rarity_rare_first">{t("achievements.sortRarestFirst")}</option>
-              <option value="rarity_common_first">{t("achievements.sortCommonFirst")}</option>
-              <option value="unlockDate">{t("achievements.sortUnlockDate")}</option>
-              <option value="name">{t("achievements.sortName")}</option>
-            </select>
+            <div className="achievements-sort-control">
+              <select
+                ref={sortFocus.setRef}
+                tabIndex={sortFocus.tabIndex}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="achievements-sort-select"
+              >
+                <option value="default">{t("achievements.sortDefault")}</option>
+                <option value="rarity_rare_first">{t("achievements.sortRarestFirst")}</option>
+                <option value="rarity_common_first">{t("achievements.sortCommonFirst")}</option>
+                <option value="unlockDate">{t("achievements.sortUnlockDate")}</option>
+                <option value="name">{t("achievements.sortName")}</option>
+              </select>
+              <svg
+                className="achievements-sort-chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
 
           {/* Reveal Secret Achievements Toggle */}
@@ -925,6 +940,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </ViewModeButton>
+          </div>
           </div>
         </div>
       </div>
@@ -1291,6 +1307,7 @@ function ViewModeButton({
       className={`ach-view-btn ${active ? "active" : ""}`}
       onClick={focus.onClick}
       title={title}
+      aria-pressed={active}
     >
       {children}
     </button>
