@@ -2314,13 +2314,98 @@
 }
 
 
-/* ── Undelimited section shell ──────────────────────────────────────────
-   Home sections become tonal panels: no stroke, no inset highlight, and the
-   icon loses its tile so the heading reads as type rather than chrome. */
-.home-section {
-  background: var(--panel-tint);
+/* ── Undelimited home surfaces ──────────────────────────────────────────
+   The dashboard stops drawing a box around every widget. The hero bleeds to
+   the panel edges, and the sections below sit directly on the page, separated
+   by rhythm and a single hairline. Only controls keep their own shape. */
+
+/* 1. Full-bleed cinematic hero */
+.home-page {
+  --home-gutter: var(--space-2xl);
+}
+
+/* Only a visible cinematic hero drops the top gutter. The simple header and
+   a Layout-Studio-hidden hero keep the normal page padding. */
+.home-page:has(.home-hero) {
+  padding-top: 0;
+}
+
+.home-page > .ui-item-hero:has(.home-hero) {
+  margin-inline: calc(-1 * var(--home-gutter));
+}
+
+.home-hero {
+  display: flex;
+  align-items: center;
+  min-height: clamp(380px, 52vh, 620px);
+  padding: clamp(var(--space-2xl), 6vh, var(--space-4xl))
+    clamp(24px, 4vw, 52px) clamp(var(--space-2xl), 5vh, 52px);
   border: 0;
-  border-radius: var(--radius-2xl);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* An empty library does not need a cinematic void: the welcome copy leads. */
+.home-hero--empty {
+  min-height: clamp(260px, 32vh, 360px);
+  padding-block: clamp(var(--space-xl), 5vh, var(--space-3xl));
+}
+
+/* The art dissolves into the page instead of ending on a hard edge. */
+.home-hero__mesh,
+.home-hero__collage {
+  mask-image: linear-gradient(180deg, black 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, black 62%, transparent 100%);
+}
+
+/* The featured cover inside the hero is artwork, not a framed widget. */
+.home-spotlight__cover {
+  border: 0;
+}
+
+.home-spotlight__chip,
+.home-spotlight__meta-item,
+.home-spotlight__friends .friends-playing {
+  border: 0;
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+.home-empty-card {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+/* 2. Dashboard sections: rhythm + hairlines, no boxes */
+.home-dashboard-header {
+  margin-top: 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.home-dashboard__sidebar,
+.home-dashboard__main {
+  gap: 0;
+}
+
+.home-dashboard__sidebar > *,
+.home-dashboard__main > * {
+  padding-block: var(--space-xl);
+  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.home-dashboard__sidebar > :first-child,
+.home-dashboard__main > :first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.home-section {
+  gap: var(--space-md);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -2330,4 +2415,80 @@
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+/* Dashboard chrome is text and tint, never a button tray. */
+.home-customize-btn {
+  padding: var(--space-2xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.home-customize-btn:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.home-section__view-all {
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.home-section__view-all:hover {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+/* 3. Rows inside the widgets lose their own surfaces */
+.home-quick-launch__item,
+.home-friends-feed__item,
+.home-achievement-row,
+.home-downloads__row,
+.home-news-card {
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.home-quick-launch__item:hover,
+.home-friends-feed__item:hover,
+.home-achievement-row:hover,
+.home-downloads__row:hover,
+.home-news-card:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.home-quick-launch__cover,
+.home-achievement-row__thumb,
+.home-friends-feed__avatar,
+.home-news-card__cover,
+.home-news-card__source,
+.home-deal-tile__cover {
+  border: 0;
+}
+
+.home-activity__stat {
+  border: 0;
+  background: transparent;
+}
+
+.home-activity__most-played {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+@media (max-width: 720px) {
+  .home-page {
+    --home-gutter: var(--space-md);
+  }
+
+  .home-hero {
+    padding-top: var(--space-xl);
+    padding-inline: var(--space-lg);
+  }
 }
