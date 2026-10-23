@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { Cpu, RefreshCw, Sparkles } from "lucide-react";
 import { useActivity } from "../../../context/ActivityContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSettings } from "../../../context/SettingsContext";
@@ -27,6 +27,7 @@ export default function HardwareStep() {
         ) : (
           <div className="setup-option-grid">
             <SetupOptionCard
+              icon={<Sparkles size={16} />}
               title={t("setup.hardware.gpuAuto")}
               selected={selectedGpu === null}
               onSelect={() => setSelectedGpu(null)}
@@ -34,6 +35,7 @@ export default function HardwareStep() {
             {availableGpus.map((gpu) => (
               <SetupOptionCard
                 key={gpu.id}
+                icon={<Cpu size={16} />}
                 title={gpu.name}
                 desc={gpu.vendor}
                 selected={selectedGpu?.id === gpu.id}

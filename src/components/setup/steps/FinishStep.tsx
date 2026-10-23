@@ -1,10 +1,9 @@
+import { Cpu, Languages, LayoutGrid, Palette } from "lucide-react";
 import { useActivity } from "../../../context/ActivityContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useLayoutSettings } from "../../../context/SettingsContext";
-import { useSetupWizard } from "../../../context/SetupWizardContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { NAV_TAB_ITEMS } from "../../../pages/settings/interfaceItems";
-import { Button } from "../../ui";
 
 /** Final step: a plain-language recap of the choices just made. */
 export default function FinishStep() {
@@ -12,7 +11,6 @@ export default function FinishStep() {
   const { interfaceVisibility } = useLayoutSettings();
   const { currentTheme, themes } = useTheme();
   const { selectedGpu } = useActivity();
-  const { finishWizard } = useSetupWizard();
 
   const visibleTabs = NAV_TAB_ITEMS.filter(
     (item) => interfaceVisibility[item.key] !== false,
@@ -23,9 +21,10 @@ export default function FinishStep() {
     themes.find((theme) => theme.id === currentTheme)?.meta.name ?? currentTheme;
 
   const rows = [
-    { label: t("setup.finish.language"), value: languageLabel },
-    { label: t("setup.finish.theme"), value: themeLabel },
+    { icon: Languages, label: t("setup.finish.language"), value: languageLabel },
+    { icon: Palette, label: t("setup.finish.theme"), value: themeLabel },
     {
+      icon: LayoutGrid,
       label: t("setup.finish.tabs"),
       value: t("setup.finish.tabsValue", {
         count: visibleTabs,
@@ -33,6 +32,7 @@ export default function FinishStep() {
       }),
     },
     {
+      icon: Cpu,
       label: t("setup.finish.gpu"),
       value: selectedGpu?.name ?? t("setup.finish.none"),
     },
@@ -44,19 +44,19 @@ export default function FinishStep() {
       <p className="setup-step__intro">{t("setup.finish.body")}</p>
 
       <ul className="setup-summary">
-        {rows.map((row) => (
-          <li key={row.label} className="setup-summary__row">
-            <span className="setup-summary__label">{row.label}</span>
-            <span className="setup-summary__value">{row.value}</span>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const Icon = row.icon;
+          return (
+            <li key={row.label} className="setup-summary__row">
+              <span className="setup-summary__label">
+                <Icon size={15} aria-hidden="true" />
+                {row.label}
+              </span>
+              <span className="setup-summary__value">{row.value}</span>
+            </li>
+          );
+        })}
       </ul>
-
-      <div className="setup-inline-actions">
-        <Button variant="primary" onClick={finishWizard}>
-          {t("setup.wizard.open")}
-        </Button>
-      </div>
     </div>
   );
 }

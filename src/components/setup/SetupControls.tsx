@@ -67,15 +67,15 @@ export function SetupToggle({
   onChange,
 }: SetupToggleProps) {
   return (
-    <div className={`setup-toggle${disabled ? " is-disabled" : ""}`}>
-      <div className="setup-toggle__text">
+    <label className={`setup-toggle${disabled ? " is-disabled" : ""}`}>
+      <span className="setup-toggle__text">
         <span className="setup-toggle__title">
           {title}
           {tip && <SetupInfo tip={tip} />}
         </span>
         {desc && <span className="setup-toggle__desc">{desc}</span>}
-      </div>
-      <label className="setup-switch">
+      </span>
+      <span className="setup-switch">
         <input
           type="checkbox"
           checked={checked}
@@ -83,8 +83,8 @@ export function SetupToggle({
           onChange={(e) => onChange(e.target.checked)}
         />
         <span className="setup-switch__track" aria-hidden="true" />
-      </label>
-    </div>
+      </span>
+    </label>
   );
 }
 
@@ -93,17 +93,19 @@ interface SetupOptionCardProps {
   desc?: ReactNode;
   badge?: ReactNode;
   tip?: ReactNode;
+  icon?: ReactNode;
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
 }
 
-/** A selectable card (single-choice) with an optional badge + info icon. */
+/** A selectable card (single-choice) with an optional glyph, badge and info icon. */
 export function SetupOptionCard({
   title,
   desc,
   badge,
   tip,
+  icon,
   selected,
   disabled,
   onSelect,
@@ -116,19 +118,26 @@ export function SetupOptionCard({
       disabled={disabled}
       onClick={onSelect}
     >
-      <span className="setup-option__head">
-        <span className="setup-option__title">
-          {title}
-          {tip && <SetupInfo tip={tip} />}
+      <span className="setup-option__top">
+        {icon && (
+          <span className="setup-option__icon" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <span className="setup-option__meta">
+          {badge && <span className="setup-option__badge">{badge}</span>}
+          {selected && (
+            <span className="setup-option__check" aria-hidden="true">
+              <Check size={12} />
+            </span>
+          )}
         </span>
-        {badge && <span className="setup-option__badge">{badge}</span>}
+      </span>
+      <span className="setup-option__title">
+        {title}
+        {tip && <SetupInfo tip={tip} />}
       </span>
       {desc && <span className="setup-option__desc">{desc}</span>}
-      {selected && (
-        <span className="setup-option__check" aria-hidden="true">
-          <Check size={14} />
-        </span>
-      )}
     </button>
   );
 }

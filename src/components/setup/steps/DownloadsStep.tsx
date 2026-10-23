@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Zap } from "lucide-react";
 import { useDownloads } from "../../../context/DownloadContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSetupWizard } from "../../../context/SetupWizardContext";
@@ -34,6 +34,9 @@ export default function DownloadsStep() {
     <div className="setup-step">
       <SetupSection title={t("setup.downloads.heading")} desc={t("setup.downloads.body")}>
         <div className="setup-folder">
+          <span className="setup-row__icon" aria-hidden="true">
+            <FolderOpen size={17} />
+          </span>
           <div className="setup-folder__text">
             <span className="setup-folder__label">
               {t("setup.downloads.folder")}
@@ -63,6 +66,9 @@ export default function DownloadsStep() {
         </div>
 
         <div className="setup-store">
+          <span className="setup-row__icon" aria-hidden="true">
+            <Zap size={17} />
+          </span>
           <span className="setup-store__name">
             {t("setup.downloads.debrid")}
             <SetupInfo tip={t("setup.downloads.debridTip")} />

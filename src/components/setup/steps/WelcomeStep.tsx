@@ -1,4 +1,4 @@
-import { Gamepad2, Library, MonitorPlay, ShieldCheck } from "lucide-react";
+import { Check, Gamepad2, Library, MonitorPlay, ShieldCheck } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { FlagIcon } from "../../ui";
 import { SetupSection } from "../SetupControls";
@@ -53,6 +53,11 @@ export default function WelcomeStep() {
               <FlagIcon code={l.flag} size={20} />
               <span className="setup-lang__label">{l.label}</span>
               <span className="setup-lang__code">{l.code.toUpperCase()}</span>
+              {l.code === language && (
+                <span className="setup-lang__check" aria-hidden="true">
+                  <Check size={12} />
+                </span>
+              )}
             </button>
           ))}
         </div>
