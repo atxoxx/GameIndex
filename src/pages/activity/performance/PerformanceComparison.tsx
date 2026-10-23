@@ -17,18 +17,14 @@ interface BarRow {
   label: string;
 }
 
-function rankOf(index: number): number | null {
-  return index < 3 ? index : null;
-}
-
 function barGradientFor(metric: ComparisonMetric): string {
   if (metric === "fps") {
-    return "linear-gradient(90deg, var(--color-brand-teal) 0%, color-mix(in srgb, var(--color-brand-teal) 70%, white) 100%)";
+    return "linear-gradient(90deg, color-mix(in srgb, var(--color-brand-teal) 62%, transparent) 0%, var(--color-brand-teal) 100%)";
   }
   if (metric === "temps") {
-    return "linear-gradient(90deg, var(--color-warning) 0%, var(--color-danger) 100%)";
+    return "linear-gradient(90deg, color-mix(in srgb, var(--color-warning) 48%, transparent) 0%, var(--color-warning) 100%)";
   }
-  return "linear-gradient(90deg, var(--color-brand-blue) 0%, color-mix(in srgb, var(--color-brand-blue) 75%, white) 100%)";
+  return "linear-gradient(90deg, color-mix(in srgb, var(--color-brand-blue) 55%, transparent) 0%, var(--color-brand-blue) 100%)";
 }
 
 export function PerformanceComparison({
@@ -121,11 +117,26 @@ export function PerformanceComparison({
       <div className="performance-compare-bar">
         {rows.map((row, index) => {
           const pct = Math.max(6, Math.min(100, (row.value / maxVal) * 100));
-          const rank = rankOf(index);
           const diffVsAvg = avgVal > 0 ? Math.round(((row.value - avgVal) / avgVal) * 100) : 0;
+          const isGood = metricTab === "fps" ? diffVsAvg > 0 : diffVsAvg < 0;
 
           return (
-            <div key={row.game.gameId} className="performance-compare-bar__row">
+            <div
+              key={row.game.gameId}
+              className={`performance-compare-bar__row${index < 3 ? " is-top" : ""}`}
+            >
+              <span
+                className={`performance-compare-bar__rank ${
+                  index < 3
+                    ? `performance-compare-bar__rank--${index}`
+                    : "performance-compare-bar__rank--rest"
+                }`}
+                title={t("activityPerf.rankTitle")}
+              >
+                {index === 0 && <Icons.Trophy size={10} />}
+                {index + 1}
+              </span>
+
               <div className="performance-compare-bar__identity">
                 <GameThumbnail
                   iconUrl={row.game.gameIconUrl}
@@ -138,38 +149,22 @@ export function PerformanceComparison({
                   {row.game.gameTitle}
                 </span>
               </div>
-              <div className="performance-compare-bar__track">
+
+              <span className="performance-compare-bar__value">{row.label}</span>
+
+              {diffVsAvg !== 0 && (
+                <span
+                  className={`performance-compare-bar__diff ${isGood ? "is-good" : "is-bad"}`}
+                >
+                  {diffVsAvg > 0 ? `+${diffVsAvg}%` : `${diffVsAvg}%`}
+                </span>
+              )}
+
+              <div className="performance-compare-bar__track" aria-hidden="true">
                 <div
                   className="performance-compare-bar__fill"
-                  style={{
-                    width: `${pct}%`,
-                    background: barBackground,
-                    boxShadow: "0 1px 4px rgba(0, 0, 0, 0.2)",
-                  }}
+                  style={{ width: `${pct}%`, background: barBackground }}
                 />
-              </div>
-              <div className="performance-compare-bar__meta">
-                {rank !== null && (
-                  <span
-                    className={`performance-compare-bar__rank performance-compare-bar__rank--${rank}`}
-                    title={t("activityPerf.rankTitle")}
-                  >
-                    {rank === 0 && <Icons.Trophy size={11} />}
-                    {rank + 1}
-                  </span>
-                )}
-                <span className="performance-compare-bar__value">{row.label}</span>
-                {diffVsAvg !== 0 && (
-                  <span
-                    className={`performance-compare-bar__diff ${
-                      (metricTab === "fps" ? diffVsAvg > 0 : diffVsAvg < 0)
-                        ? "is-good"
-                        : "is-bad"
-                    }`}
-                  >
-                    {diffVsAvg > 0 ? `+${diffVsAvg}%` : `${diffVsAvg}%`}
-                  </span>
-                )}
               </div>
             </div>
           );

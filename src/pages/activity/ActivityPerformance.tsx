@@ -121,9 +121,13 @@ export function ActivityPerformance({
           <div className="act-gpu-context-info">
             <Icons.Cpu size={14} className="act-gpu-context-icon" />
             <span className="act-gpu-context-text">
-              <strong>{selectedGpu.name}</strong> ({selectedGpu.vendor}) · {selectedGpu.vramMb} MB VRAM
-              {totalRamGb > 0 ? ` · ${totalRamGb} GB System RAM` : ""}
-            </span>
+                  <strong>{selectedGpu.name}</strong>
+                  <span className="act-gpu-context-vendor">({selectedGpu.vendor})</span>
+                  <span className="act-gpu-context-spec">{selectedGpu.vramMb} MB VRAM</span>
+                  {totalRamGb > 0 && (
+                    <span className="act-gpu-context-spec">{totalRamGb} GB System RAM</span>
+                  )}
+                </span>
           </div>
           <div className="act-gpu-context-actions">
             {sessionsWithTelemetry.length >= 2 && (
