@@ -1020,3 +1020,256 @@
   border: 0;
   border-radius: var(--radius-2xl);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tonal page pass
+   ──────────────────────────────────────────────────────────────────────
+   The saves hub stops drawing framed cards: content sits on tinted
+   surfaces, controls collapse into one borderless band, and semantic
+   tones (warning, danger, success) stay in ink and tint only.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.saves-page {
+  gap: var(--space-lg);
+}
+
+.saves-page .ui-subtabs {
+  padding: 0 var(--space-2xs);
+}
+
+.saves-page .ui-subtabs__strip {
+  justify-content: flex-start;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────── */
+
+.saves-card {
+  padding: var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+}
+
+.saves-card__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
+}
+
+.saves-card__count {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.saves-kpis {
+  gap: var(--space-md);
+}
+
+/* The hub uses the small KpiTile size, but a four-up summary strip needs
+   more presence than a compact metric row. */
+.saves-kpis .kpi-tile {
+  min-height: 84px;
+  padding: var(--space-md) var(--space-lg);
+  justify-content: center;
+}
+
+.saves-kpis .kpi-tile__value {
+  font-size: var(--text-2xl);
+}
+
+.saves-kpis .kpi-tile__subtext {
+  font-size: var(--text-xs);
+}
+
+/* ── Control band ───────────────────────────────────────────────────── */
+
+.saves-toolbar {
+  padding: var(--space-md);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.saves-input {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.saves-input:focus {
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 1px var(--color-accent-border),
+    0 0 0 3px var(--color-focus-ring);
+}
+
+.saves-filter-pill {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.saves-filter-pill:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+}
+
+.saves-filter-pill.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: transparent;
+  color: var(--color-accent);
+}
+
+.saves-view-toggles {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.saves-view-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.saves-sort-select {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.saves-toolbar__path {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.saves-toolbar__path:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.saves-filter-pill-badge {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* ── Game list / grid ───────────────────────────────────────────────── */
+
+.saves-game-card,
+.saves-game-row {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
+}
+
+.saves-game-card:hover,
+.saves-game-row:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 4.8%, transparent);
+  box-shadow: var(--elevation-2);
+}
+
+.saves-game-card {
+  border-radius: var(--radius-xl);
+}
+
+.saves-game-row {
+  border-radius: var(--radius-lg);
+}
+
+.saves-game-card__name,
+.saves-game-row__title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+.saves-cover {
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+/* ── Snapshot timeline ──────────────────────────────────────────────── */
+
+.saves-snapshot-card-rich {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
+}
+
+.saves-snapshot-card-rich:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 4.8%, transparent);
+  box-shadow: var(--elevation-2);
+  transform: none;
+}
+
+.saves-snapshot-card-game {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+
+/* ── Settings & system ──────────────────────────────────────────────── */
+
+.saves-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.saves-setting-row {
+  border-bottom: 0;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.saves-setting-row:last-child {
+  box-shadow: none;
+}
+
+.saves-setting-row__label {
+  font-family: var(--font-display);
+}
+
+.saves-setting-row__path {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.saves-system-wrapper {
+  border-radius: var(--radius-2xl);
+}
+
+/* ── Empty / progress ───────────────────────────────────────────────── */
+
+.saves-empty--page {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
+}
+
+.saves-empty {
+  padding: var(--space-xl) var(--space-md);
+}
+
+.saves-empty__title {
+  font-family: var(--font-display);
+}
+
+.saves-empty__text {
+  color: var(--color-text-secondary);
+}
+
+.saves-progress__bar {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .saves-toolbar {
+    padding: var(--space-sm);
+  }
+}

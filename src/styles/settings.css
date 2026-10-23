@@ -678,24 +678,29 @@ textarea.settings-input {
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-lg);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-xl);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-behavior-card:hover {
-  border-color: var(--color-border-light);
-  background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface));
+  border-color: transparent;
+  background: var(--panel-tint-raised);
 }
 
 .settings-behavior-card--warn {
-  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
-  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface));
+  border-color: transparent;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-warning) 8%, transparent) 0%,
+    color-mix(in srgb, var(--color-warning) 3%, transparent) 100%
+  );
 }
 
 .settings-behavior-card--warn:hover {
-  border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border));
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
 }
 
 /* Toggle-card checkbox sits on the right edge; text block takes the left.

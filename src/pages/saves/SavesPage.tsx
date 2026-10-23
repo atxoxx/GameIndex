@@ -367,7 +367,6 @@ export default function SavesPage() {
       {/* ─── Top Subtabs Strip ──────────────────────────────────────────── */}
       <SubTabs
         ariaLabel={t("saves.viewsLabel")}
-        className="saves-subtabs"
         value={subtab}
         onChange={handleSelectSubtab}
         items={[

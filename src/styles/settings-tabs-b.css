@@ -4652,3 +4652,161 @@
   color: var(--color-text-muted);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tonal pass for the Backup & Restore suite
+   ──────────────────────────────────────────────────────────────────────
+   The suite is embedded in Settings → Backup and in Storage → System, so
+   the pass lives with the component: subnav, cards and dropzones become
+   tinted surfaces. SettingsSection already supplies the outer panel.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.backup-suite {
+  gap: var(--space-lg);
+}
+
+.backup-subtabs-bar {
+  gap: var(--space-2xs);
+  padding: 0 var(--space-2xs);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.backup-subtab-pill {
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+
+.backup-subtab-pill:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.backup-subtab-pill.active {
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.backup-subtab-badge {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.backup-subtab-badge--highlight {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+}
+
+.backup-hero-protection-card,
+.backup-storage-meter-card,
+.backup-recent-picker-card,
+.backup-archive-comparison-card,
+.backup-folder-card,
+.backup-retention-card,
+.backup-archive-card,
+.backup-quick-pick-card,
+.backup-create-action-card,
+.backup-archive-meta-card,
+.backup-storage-config-card,
+.backup-inspect-container,
+.backup-verify-hero,
+.backup-verify-row,
+.backup-diff-table-container,
+.backup-health-hero,
+.backup-health-check-row,
+.backup-modal-card {
+  border: 0;
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.backup-hero-protection-card {
+  border-radius: var(--radius-2xl);
+}
+
+.backup-storage-meter-card,
+.backup-archive-card,
+.backup-recent-picker-card,
+.backup-folder-card,
+.backup-retention-card,
+.backup-quick-pick-card,
+.backup-create-action-card,
+.backup-archive-meta-card,
+.backup-storage-config-card,
+.backup-inspect-container,
+.backup-verify-row,
+.backup-health-check-row {
+  border-radius: var(--radius-xl);
+}
+
+.backup-archive-card:hover,
+.backup-quick-pick-card:hover,
+.backup-health-check-row:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.backup-hero-grade-badge--accent,
+.backup-hero-grade-badge--success,
+.backup-hero-grade-badge--warning,
+.backup-hero-grade-badge--danger,
+.backup-hero-grade-badge--default {
+  border: 0;
+}
+
+.backup-quick-note-strip {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.backup-dropzone {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 3.4%, transparent);
+}
+
+.backup-dropzone:hover,
+.backup-dropzone--active,
+.backup-dropzone.dragover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+.backup-dropzone.has-file {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+}
+
+.backup-archives-toolbar {
+  border: 0;
+  background: transparent;
+}
+
+.backup-filter-pills {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.backup-filter-pill.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.backup-sort-select,
+.backup-text-input {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.backup-restore-action-bar {
+  border-radius: var(--radius-xl);
+}
+
+.backup-modal-card {
+  border-radius: var(--radius-2xl);
+}
+
+.backup-error-banner {
+  border: 0;
+  background: color-mix(in srgb, var(--color-danger) 7%, transparent);
+}
