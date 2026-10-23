@@ -4182,3 +4182,188 @@ select.lib-filter-search option {
   box-shadow: none;
   transform: translateY(-1px);
 }
+
+/* ── Undelimited library surfaces ───────────────────────────────────────
+   The library now opens on a full-bleed hero and reads as one shelf: the
+   toolbar is a search-first band without a capsule stroke, the filter rail
+   is a tonal panel, and the cards are artwork plus type instead of framed
+   tiles. Stats keep the shared hairline treatment from the wave before. */
+
+.lib-page {
+  --lib-gutter: var(--space-2xl);
+}
+
+/* Only a visible hero drops the top gutter; hiding it in the Layout Studio
+   leaves the ordinary page padding in place. */
+.lib-page:has(.lib-hero) {
+  padding-top: 0;
+}
+
+.lib-page:not(.lib-page--bigscreen) > .lib-hero-stack > .ui-item-hero {
+  margin-inline: calc(-1 * var(--lib-gutter));
+}
+
+.lib-hero {
+  min-height: clamp(320px, 42vh, 470px);
+  padding: clamp(var(--space-2xl), 5vh, 56px) clamp(24px, 4vw, 52px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lib-hero::before {
+  display: none;
+}
+
+/* The collage dissolves into the page instead of ending on a hard edge. */
+.lib-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 34%;
+  z-index: 0;
+  background: linear-gradient(to bottom, transparent, var(--color-bg-primary));
+  pointer-events: none;
+}
+
+.lib-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Sticky control band: tint, blur, no capsule outline. */
+.lib-toolbar {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background:
+    var(--panel-tint),
+    color-mix(in srgb, var(--color-bg-primary) 90%, transparent);
+  box-shadow: none;
+}
+
+.lib-toolbar-count {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.lib-toolbar-count.is-filtered {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.lib-rail-toggle-btn {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Filter rail becomes a tonal panel, sections separated by hairlines. */
+.lib-filter {
+  border: 0;
+  background: var(--panel-tint);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.lib-filter-section {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.lib-chip {
+  border: 0;
+}
+
+.lib-chip-reset {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+/* Cards: bare shelf units. */
+.lib-card,
+.lib-card--list {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lib-card:hover,
+.lib-card--list:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  box-shadow: none;
+}
+
+.lib-card:active,
+.lib-card--list:active {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.lib-card.running {
+  border-color: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--color-success) !important;
+}
+
+.lib-cards--editorial > .lib-card--featured,
+.lib-cards--editorial > .lib-card--featured:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.lib-cards--editorial > .lib-card--featured::before {
+  display: none;
+}
+
+.lib-card-genre {
+  border: 0;
+}
+
+/* Empty states read as surface, not as a dashed placeholder. */
+.lib-empty,
+.lib-filtered-empty {
+  border: 0;
+  background: var(--panel-tint);
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.lib-empty-card {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.lib-empty-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  box-shadow: none;
+}
+
+.lib-empty-card-icon,
+.lib-empty-card-cta {
+  border: 0;
+}
+
+.lib-filtered-empty-reset {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .lib-page {
+    --lib-gutter: var(--space-xl);
+  }
+}
+
+@media (max-width: 800px) {
+  .lib-page {
+    --lib-gutter: var(--space-lg);
+  }
+
+  .lib-hero {
+    padding-top: var(--space-xl);
+  }
+}
