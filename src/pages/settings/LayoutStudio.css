@@ -2572,16 +2572,6 @@
   z-index: 10;
 }
 
-/* Mirrored store-detail cards are informational — they have no widget key. */
-.studio-preview .studio-detail-card.is-static {
-  cursor: default;
-}
-
-.studio-preview .studio-detail-card.is-static:hover {
-  border-color: var(--color-border-light);
-  box-shadow: var(--elevation-3);
-}
-
 .studio-detail-card__head {
   display: flex;
   align-items: center;

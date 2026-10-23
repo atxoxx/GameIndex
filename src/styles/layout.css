@@ -177,6 +177,16 @@ html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
   line-height: var(--line-height-relaxed);
 }
 
+/* Two-up actions under an empty-state message (Retry + Leave). */
+.main-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
 /* ── Frameless window resize handles (Linux WebKitGTK support) ──── */
 .window-resize-container {
   position: fixed;

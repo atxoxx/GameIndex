@@ -72,18 +72,22 @@
 }
 
 
-/* Alias .game-launch-btn → .ui-btn (primary + glow) */
+/* Alias .game-launch-btn → .ui-btn (primary + glow).
+ * Geometry follows the kit: `--radius-md` is the documented button radius
+ * (see theme.css) and `.game-download-btn`, `.store-add-btn` and `.ui-btn`
+ * all use it — the one pill in a row of rounded rectangles never sat
+ * straight next to its neighbours. */
 .game-launch-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-2xl);
+  padding: var(--space-md) var(--space-xl);
   background: var(--game-accent, var(--color-accent));
   color: var(--color-accent-contrast, #fff);
   border: 1px solid transparent;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.3px;
@@ -125,6 +129,65 @@
 }
 
 .game-launch-btn--chevron svg { width: 14px; height: 14px; }
+
+/* ── Hero CTA cluster ────────────────────────────────────────────────────
+ * The row is built from four primitives owned by three stylesheets (Launch,
+ * Add to library, Wishlist, Download). They must read as one row: same
+ * height, padding, type scale and corner radius, with hierarchy carried by
+ * colour alone — one filled primary, the rest quiet.
+ *
+ * Secondary controls sit on artwork, so they paint with the scrim tokens
+ * instead of surface ink (same rule as the floating top bar): page-coloured
+ * chrome would flip to dark text on light themes, straight onto dark art. */
+.game-hero__actions .game-launch-btn,
+.game-hero__actions .store-add-btn,
+.game-hero__actions .store-wishlist-btn,
+.game-hero__actions .game-download-btn {
+  min-height: 42px;
+  padding: 0 var(--space-xl);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
+  border-radius: var(--radius-md);
+}
+
+/* The split-launch pair keeps its shared seam. */
+.game-hero__actions .game-launch-btn--main {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+.game-hero__actions .game-launch-btn--chevron {
+  padding-inline: var(--space-sm);
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.game-hero__actions .game-download-btn:not(.game-download-btn--prominent):not(.game-download-btn--update),
+.game-hero__actions .store-wishlist-btn {
+  color: var(--scrim-text-muted);
+  background: color-mix(in srgb, var(--scrim-dark) 28%, transparent);
+  border-color: color-mix(in srgb, var(--scrim-text) 18%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
+}
+
+.game-hero__actions .game-download-btn:not(.game-download-btn--prominent):not(.game-download-btn--update):hover,
+.game-hero__actions .store-wishlist-btn:hover {
+  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--scrim-dark) 52%, transparent);
+  border-color: color-mix(in srgb, var(--scrim-text) 30%, transparent);
+  box-shadow: none;
+}
+
+/* Wishlisted is a state, not a destructive action: it wears the game accent
+ * in both the hero and the docked bar. */
+.game-hero__actions .store-wishlist-btn.active {
+  color: var(--game-accent, var(--color-accent));
+  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 22%, var(--scrim-dark));
+  border-color: color-mix(in srgb, var(--game-accent, var(--color-accent)) 60%, transparent);
+  box-shadow: none;
+}
 
 /* Detail tab navigation is the shared `.ui-subtabs` primitive
    (styles/ui.css); only page-level slot adjustments live in this file. */
@@ -2080,38 +2143,124 @@
   border-color: var(--color-accent);
 }
 
-/* Store Hero Skeleton */
-.store-hero-skeleton {
+/* ── Store detail loading state ──────────────────────────────────────────
+   The placeholder occupies the same boxes as the shell it resolves into:
+   full-bleed hero, undelimited tab strip, two-column panel grid. Sizes come
+   from the hero's own custom properties so the two can never drift apart. */
+.store-loading-skeleton {
+  pointer-events: none;
+}
+
+.store-skeleton-back {
+  pointer-events: none;
+}
+
+.store-skeleton-hero {
   display: flex;
-  gap: var(--space-xl);
-  padding: var(--space-xl);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
-  border: 1px solid var(--color-border-light);
-  margin-bottom: var(--space-xl);
+  align-items: flex-end;
+  gap: clamp(var(--space-lg), 2.4vw, var(--space-2xl));
+  min-height: clamp(340px, 46vh, 500px);
+  margin-inline: calc(-1 * var(--page-padding-inline, var(--space-2xl)));
+  padding: clamp(var(--space-2xl), 6vh, var(--space-4xl))
+    clamp(var(--space-lg), 2.6vw, var(--space-3xl))
+    clamp(var(--space-2xl), 5vh, 52px);
+  background: var(--panel-tint);
 }
 
-.store-hero-skeleton__poster {
-  width: 180px;
-  height: 270px;
-  flex-shrink: 0;
+.store-skeleton-hero__poster {
+  flex: 0 0 auto;
+  width: clamp(150px, 18vw, 210px);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
-.store-hero-skeleton__content {
-  flex: 1;
+.store-skeleton-hero__content {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.store-skeleton-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-2xs);
+}
+
+.store-skeleton-hero__footer {
+  display: flex;
+  align-items: flex-end;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.store-skeleton-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.store-skeleton-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* Tab strip: labels only, centered, exactly like `.ui-subtabs`. */
+.store-skeleton-tabs {
+  display: flex;
+  justify-content: safe center;
+  gap: var(--space-lg);
+  padding-block: var(--space-sm) var(--space-md);
+  margin-block: var(--space-md) var(--space-xl);
+  overflow: hidden;
+}
+
+.store-skeleton-media {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.store-skeleton-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.store-skeleton-rows,
+.store-skeleton-figures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.store-skeleton-figures {
+  flex-direction: row;
 }
 
 @media (max-width: 1100px) {
-  .store-hero-skeleton {
+  .store-skeleton-hero {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
   }
-  .store-hero-skeleton__poster {
-    width: 160px;
-    height: 240px;
+  .store-skeleton-hero__poster {
+    width: clamp(132px, 32vw, 172px);
+  }
+}
+
+@media (max-width: 600px) {
+  .store-skeleton-hero {
+    padding-inline: var(--space-md);
   }
 }
 

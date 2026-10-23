@@ -19,7 +19,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
-  WIDGET_LABEL_KEY,
   type DetailTabScope,
   type HeroElementKey,
   type PageWidgetKey,
@@ -27,7 +26,6 @@ import {
 import type { DetailSectionKey } from "../../../context/SettingsContext";
 import DetailSectionsHiddenNote from "../../../components/game/DetailSectionsHiddenNote";
 import { useOrderDrag } from "../useOrderDrag";
-import { WIDGET_ICON } from "./widgetIcons";
 import type { OrderListItem } from "./types";
 
 /**
@@ -51,10 +49,10 @@ import type { OrderListItem } from "./types";
  *   each card is a drag target here, and grouping would hide cards behind a
  *   panel the user is also trying to reorder.
  *
- *   `game` (library detail) is fully widget-addressable. `storeGame` (store
- *   detail) shares the side cards as real `PageWidgetSlot page="storeGame"`
- *   widgets, so its side column is interactive too; its hero/tab/stats shell
- *   and main column remain a static mirror.
+ *   Both scopes are fully widget-addressable: `game` (library detail) and
+ *   `storeGame` (store detail) render the same `PageWidget` /
+ *   `PageWidgetSlot` wrapper set, so every card can be hidden and reordered
+ *   here for either page.
  *
  * Reordering stays pointer-driven through the shared `useOrderDrag`: widget
  * rows carry `data-order-index` and the whole detail root is the drag
@@ -97,8 +95,7 @@ const SIDE_CARD_WIDGETS: PageWidgetKey[] = [
 /** The library game page leads its side column with the activity pulse. */
 const GAME_SIDE_WIDGETS: PageWidgetKey[] = ["gamePulse", ...SIDE_CARD_WIDGETS];
 
-/** The store detail has no activity pulse — the same cards without it. */
-const STORE_MAIN_WIDGETS: PageWidgetKey[] = GAME_MAIN_WIDGETS;
+/** The store detail has no activity pulse — the same side cards without it. */
 const STORE_SIDE_WIDGETS: PageWidgetKey[] = SIDE_CARD_WIDGETS;
 
 /** The exact `sections` lists the real pages hand to DetailSectionsHiddenNote. */
@@ -1171,7 +1168,6 @@ export function DetailPagePreview({
   const draggingWidgets = widgetDrag.dragIndex !== null;
 
   const indexOf = (id: string) => widgetItems.findIndex((item) => item.id === id);
-  const gameScope = scope === "game";
 
   const title = (label: string, hidden: boolean) =>
     inspectMode
@@ -1266,28 +1262,6 @@ export function DetailPagePreview({
     );
   };
 
-  /** Static mirror of a card the real store-detail shell doesn't expose as a
-   *  widget (the store main column). */
-  const renderStaticCard = (key: PageWidgetKey) => {
-    const Icon = WIDGET_ICON[key] ?? Sparkles;
-    const label = t(WIDGET_LABEL_KEY[key]);
-    return (
-      <div
-        key={key}
-        className="studio-detail-card is-static"
-        title={`${label} — ${t("settings.interface.studioAlwaysVisible")}`}
-      >
-        <span className="studio-detail-card__head">
-          <Icon size={13} className="studio-detail-card__icon" aria-hidden="true" />
-          <span className="studio-detail-card__title">{label}</span>
-        </span>
-        <span className="studio-detail-card__body">
-          <WidgetBody widget={key} />
-        </span>
-      </div>
-    );
-  };
-
   const renderFullSlot = (item: OrderListItem) => {
     const index = indexOf(item.id);
     const isStats = item.id === "gameQuickStats";
@@ -1352,20 +1326,10 @@ export function DetailPagePreview({
       )}
 
       {/* Full-width shell: hero, tab bar, quick stats — in the page's real order.
-       *  The library game page is fully widget-addressable; the store detail's
-       *  shell stays a static mirror. */}
+       *  Both detail pages expose these as real `PageWidget`s, so both are
+       *  draggable/toggleable here. */}
       <div className="studio-detail__full">
-        {gameScope ? (
-          fullItems.map(renderFullSlot)
-        ) : (
-          <>
-            <div className="studio-detail-slot studio-detail-slot--static">{heroMock}</div>
-            <div className="studio-detail-slot studio-detail-slot--static">{tabBar}</div>
-            <div className="studio-detail-slot studio-detail-slot--static">
-              <QuickStatsStrip />
-            </div>
-          </>
-        )}
+        {fullItems.map(renderFullSlot)}
       </div>
 
       {/* Two-column body, at the real `.game-content-grid` proportions. */}
@@ -1378,7 +1342,7 @@ export function DetailPagePreview({
               scope === "store" ? STORE_HIDDEN_NOTE_SECTIONS : GAME_HIDDEN_NOTE_SECTIONS
             }
           />
-          {gameScope ? mainItems.map(renderCard) : STORE_MAIN_WIDGETS.map(renderStaticCard)}
+          {mainItems.map(renderCard)}
         </div>
         {/* The side cards are their own `PageWidget`s on both detail pages, so
          *  they are addressed interactively for the store detail too. */}

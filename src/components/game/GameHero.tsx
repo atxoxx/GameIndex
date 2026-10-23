@@ -568,7 +568,7 @@ export default function GameHero({
       </>
     ),
     kpis: (
-      <PageWidget page="game" widget="kpis">
+      <PageWidget page={isGame ? "game" : "storeGame"} widget="kpis">
         {stats}
       </PageWidget>
     ),

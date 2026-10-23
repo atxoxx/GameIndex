@@ -7,9 +7,11 @@ import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
 import { usePresence } from "../context/PresenceContext";
-import { useSettings, useLayoutSettings, useDetailTabOrder, useDetailTopBarLayout, type DetailSectionKey } from "../context/SettingsContext";
+import { useSettings, useLayoutSettings, useDetailTabOrder, useDetailTopBarLayout, useWidgetVisible, type DetailSectionKey } from "../context/SettingsContext";
+import { isDetailTopBarKeyAvailable } from "../context/interfaceLayout";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { setActiveGameArtwork } from "../utils/activeGameArtwork";
+import PageWidget from "../components/PageWidget";
 import { Button } from "../components/ui";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
@@ -32,6 +34,7 @@ import {
   IconNewspaper,
   IconDlc,
   IconMap,
+  IconExternalLink,
 } from "../components/game/icons";
 import {
   GameHero,
@@ -80,7 +83,7 @@ function StoreGameError({ message, onRetry }: { message: string; onRetry: () => 
       </svg>
       <h2 className="main-empty-title">{t("store.failedToLoad")}</h2>
       <p className="main-empty-subtitle">{message}</p>
-      <div style={{ display: "flex", gap: "var(--space-md)", marginTop: "var(--space-md)" }}>
+      <div className="main-empty__actions">
         <Button variant="ghost" size="sm" onClick={onRetry}>
           {t("common.retry")}
         </Button>
@@ -137,11 +140,14 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit: sizeUnit } = useSizeUnit();
-  const { isSimpleUi, showDeckVerified } = useSettings();
+  const { isSimpleUi, showDeckVerified, showFullLinuxUi } = useSettings();
   const { detailSectionVisible } = useLayoutSettings();
   // Top-bar order/visibility, resolved before the loading/error early returns
   // so the hook order stays stable.
   const { order: topBarOrder, hidden: topBarHidden } = useDetailTopBarLayout("store");
+  // With the hero switched off in the Layout Studio there is nothing to
+  // scroll past, so the docked bar has to carry the actions on its own.
+  const heroVisible = useWidgetVisible("storeGame", "gameHero");
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -515,7 +521,7 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ width: 18, height: 18 }}
+        aria-hidden="true"
       >
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
@@ -527,11 +533,15 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
     activeTab !== "overview" && !isTabVisible(activeTab) ? "overview" : activeTab;
 
   return (
-    <div className="game-page game-page--immersive store-detail-page">
-      {/* Top Breadcrumb Bar — floats over the hero art. */}
+    <div className="game-page game-page--immersive">
+      {/* Top Breadcrumb Bar — floats over the hero art, same contract as the
+          Library detail page (persisted order, shared scrim ink). */}
       <div className="game-top-bar">
         {topBarOrder.map((key) => {
           if (topBarHidden[key]) return null;
+          // Shared capability gate — the Layout Studio hides the same keys
+          // through this helper, so the two detail pages never disagree.
+          if (!isDetailTopBarKeyAvailable(key, { showFullLinuxUi })) return null;
           if (key === "back") {
             if (hideBackLink) return null;
             return (
@@ -539,11 +549,12 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
                 key="back"
                 className="game-back-link game-top-bar__back"
                 onClick={() => navigate("/store")}
+                aria-label={t("store.backToStore")}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
-                <span className="brand-text">{t("nav.store")}</span>
+                <span>{t("nav.store")}</span>
               </button>
             );
           }
@@ -562,80 +573,94 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
       </div>
 
       {/* Cinematic Hero */}
-      <div className="store-detail-hero" ref={heroRef}>
-        <GameHero
-          name={data.title}
-          bannerUrl={data.images.hero ?? data.images.banner ?? null}
-          coverUrl={data.images.cover ?? null}
-          logoUrl={
-            data.images.logo ||
-            (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null)
-          }
-          accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
-          steamAppId={steamAppId ?? null}
-          rating={data.igdbRating || data.criticRating || null}
-          genres={data.genres}
-          screenshots={data.screenshots}
-          onTabChange={handleTabChange}
-          metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
-            (v): v is string => Boolean(v)
-          )}
-          actions={
-            isInLibrary ? (
-              <>
-                {wishlistBtn}
-                <button
-                  className="game-launch-btn"
-                  onClick={() => navigate(`/library/${libraryGameId}`)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  {t("store.viewInLibrary")}
-                </button>
-              </>
-            ) : (
-              <>
-                {wishlistBtn}
-                <button className="store-add-btn" onClick={handleAddToLibrary} disabled={adding}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  {adding ? t("store.adding") : t("store.addToLibrary")}
-                </button>
-                <DownloadButton
-                  gameName={data.title}
-                  gamePoster={data.images?.cover ?? data.images?.hero ?? data.images?.banner ?? undefined}
-                  steamAppId={steamAppId ?? undefined}
-                  variant="prominent"
-                  label={t("game.findDownload")}
-                />
-              </>
-            )
-          }
-        />
-      </div>
+      <PageWidget page="storeGame" widget="gameHero">
+        <div className="ui-item-gameHero store-detail-hero" ref={heroRef}>
+          <GameHero
+            name={data.title}
+            bannerUrl={data.images.hero ?? data.images.banner ?? null}
+            coverUrl={data.images.cover ?? null}
+            logoUrl={
+              data.images.logo ||
+              (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null)
+            }
+            accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
+            steamAppId={steamAppId ?? null}
+            rating={data.igdbRating || data.criticRating || null}
+            genres={data.genres}
+            screenshots={data.screenshots}
+            onTabChange={handleTabChange}
+            metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
+              (v): v is string => Boolean(v)
+            )}
+            actions={
+              isInLibrary ? (
+                <>
+                  {wishlistBtn}
+                  <button
+                    type="button"
+                    className="game-launch-btn"
+                    onClick={() => navigate(`/library/${libraryGameId}`)}
+                  >
+                    <IconExternalLink size={16} />
+                    {t("store.viewInLibrary")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {wishlistBtn}
+                  <button
+                    type="button"
+                    className="store-add-btn"
+                    onClick={handleAddToLibrary}
+                    disabled={adding}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    {adding ? t("store.adding") : t("store.addToLibrary")}
+                  </button>
+                  {/* The docked bar repeats this action with the neutral
+                      variant, so the hero ships the same one — one primary
+                      CTA per screen instead of two competing accent fills. */}
+                  <DownloadButton
+                    gameName={data.title}
+                    gamePoster={data.images?.cover ?? data.images?.hero ?? data.images?.banner ?? undefined}
+                    steamAppId={steamAppId ?? undefined}
+                    label={t("game.findDownload")}
+                  />
+                </>
+              )
+            }
+          />
+        </div>
+      </PageWidget>
 
       {/* Animated Sliding Tabs */}
-      <GameTabs
-        tabs={tabs}
-        activeTab={effectiveTab}
-        onChange={handleTabChange}
-      />
+      <PageWidget page="storeGame" widget="gameTabs">
+        <div className="ui-item-gameTabs">
+          <GameTabs
+            tabs={tabs}
+            activeTab={effectiveTab}
+            onChange={handleTabChange}
+          />
+        </div>
+      </PageWidget>
 
       {/* Tab Panels */}
       {effectiveTab === "overview" && (
         <>
           {/* Overview Quick Stats Command Bar */}
-          <GameQuickStatsBar
-            game={mockGame}
-            steamAppId={steamAppId}
-            sizeUnit={sizeUnit}
-            isStoreMode={true}
-          />
+          <PageWidget page="storeGame" widget="gameQuickStats">
+            <div className="ui-item-gameQuickStats">
+              <GameQuickStatsBar
+                game={mockGame}
+                steamAppId={steamAppId}
+                sizeUnit={sizeUnit}
+                isStoreMode={true}
+              />
+            </div>
+          </PageWidget>
 
           <DetailSectionsHiddenNote
             sections={[
@@ -657,38 +682,54 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
           <div className="game-content-grid">
             <div className="game-main-col">
               {/* Media leads the reading column, same as the library page. */}
-              <GameMediaSpotlight
-                game={mockGame}
-                onOpenLightbox={handleOpenScreenshot}
-                steamAppId={steamAppId}
-              />
+              <PageWidget page="storeGame" widget="gameMedia">
+                <div className="ui-item-gameMedia">
+                  <GameMediaSpotlight
+                    game={mockGame}
+                    onOpenLightbox={handleOpenScreenshot}
+                    steamAppId={steamAppId}
+                  />
+                </div>
+              </PageWidget>
 
-              <AboutSection
-                game={mockGame}
-                steamAppId={steamAppId}
-                igdbSlug={gameSlug}
-              />
+              <PageWidget page="storeGame" widget="gameAbout">
+                <div className="ui-item-gameAbout">
+                  <AboutSection
+                    game={mockGame}
+                    steamAppId={steamAppId}
+                    igdbSlug={gameSlug}
+                  />
+                </div>
+              </PageWidget>
 
-              <div className="ui-complete-only">
-                <StorylineSection game={mockGame} />
-              </div>
+              <PageWidget page="storeGame" widget="gameStoryline">
+                <div className="ui-complete-only ui-item-gameStoryline">
+                  <StorylineSection game={mockGame} />
+                </div>
+              </PageWidget>
 
               {detailSectionVisible.systemRequirements && (
-                <SystemRequirementsCard steamAppId={steamAppId ?? null} />
+                <PageWidget page="storeGame" widget="gameSysReq">
+                  <div className="ui-item-gameSysReq">
+                    <SystemRequirementsCard steamAppId={steamAppId ?? null} />
+                  </div>
+                </PageWidget>
               )}
 
-              <div className="ui-complete-only">
-                {detailSectionVisible.gameRelations && (
-                  <GameRelationsCard
-                    mode="store"
-                    currentGame={data}
-                    igdbId={data.igdbId ?? null}
-                    similarGames={data.similarGames}
-                    collectionId={data.collectionId}
-                    collectionName={data.collection}
-                  />
-                )}
-              </div>
+              <PageWidget page="storeGame" widget="gameRelations">
+                <div className="ui-complete-only ui-item-gameRelations">
+                  {detailSectionVisible.gameRelations && (
+                    <GameRelationsCard
+                      mode="store"
+                      currentGame={data}
+                      igdbId={data.igdbId ?? null}
+                      similarGames={data.similarGames}
+                      collectionId={data.collectionId}
+                      collectionName={data.collection}
+                    />
+                  )}
+                </div>
+              </PageWidget>
             </div>
 
             <DetailRail
@@ -786,7 +827,7 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
 
       {/* Docked actions, once the hero cluster is out of view */}
       <StoreActionBar
-        visible={!heroInView && !lightboxOpen}
+        visible={(!heroVisible || !heroInView) && !lightboxOpen}
         title={data.title}
         coverUrl={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
         steamAppId={steamAppId}

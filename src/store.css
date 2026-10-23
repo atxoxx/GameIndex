@@ -1215,7 +1215,7 @@
   padding: var(--space-md) var(--space-2xl);
   background: var(--game-accent, var(--color-accent));
   color: var(--color-accent-contrast);
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
@@ -1224,21 +1224,28 @@
     transform var(--transition-fast),
     background var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
+    box-shadow var(--transition-fast),
+    filter var(--transition-fast);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
   flex-shrink: 0;
 }
 
-.store-add-btn:hover {
-  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 85%, white 15%);
+.store-add-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
 }
 
 .store-add-btn.added {
   background: var(--color-text-muted);
   box-shadow: none;
   cursor: default;
+}
+
+.store-add-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
 }
 
 .store-add-btn svg {
@@ -3115,15 +3122,6 @@
 
 .store-filter-overlay-header {
   position: relative;
-}
-
-/* ── Store detail page: gentle page-level accents ─────────────────────── */
-.store-detail-page .game-top-bar {
-  padding-bottom: var(--space-sm);
-}
-
-.store-detail-page .game-back-link {
-  letter-spacing: 0.3px;
 }
 
 /* ── Store layout entrance ────────────────────────────────────────────────

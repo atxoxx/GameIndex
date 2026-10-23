@@ -1,96 +1,92 @@
 import { Skeleton, SkeletonText } from "../ui/Skeleton";
 import { useLanguage } from "../../context/LanguageContext";
 
+/**
+ * Loading placeholder for the Store detail route.
+ *
+ * It mirrors the shell it resolves into — a full-bleed hero, the undelimited
+ * tab strip and the two-column panel grid — so nothing jumps when the data
+ * lands. The previous version drew a bordered card with a pill tray of tabs,
+ * which the real page never renders.
+ */
 export default function StoreGameLoadingSkeleton() {
   const { t } = useLanguage();
 
   return (
-    <div className="game-page store-detail-page store-loading-skeleton" aria-busy="true" aria-label={t("store.loadingGameDetails")}>
-      {/* Top back button skeleton */}
+    <div
+      className="game-page game-page--immersive store-loading-skeleton"
+      aria-busy="true"
+      aria-label={t("store.loadingGameDetails")}
+    >
       <div className="game-top-bar">
-        <Skeleton shape="rect" width="100px" height="32px" style={{ borderRadius: "var(--radius-full)" }} />
+        <Skeleton shape="rect" width="104px" height="30px" className="store-skeleton-back" />
       </div>
 
-      {/* Cinematic Hero Skeleton */}
-      <div className="store-hero-skeleton">
-        <div className="store-hero-skeleton__poster">
-          <Skeleton shape="rect" width="100%" height="100%" style={{ borderRadius: "var(--radius-lg)" }} />
+      <div className="store-skeleton-hero" aria-hidden="true">
+        <div className="store-skeleton-hero__poster">
+          <Skeleton shape="rect" width="100%" height="100%" />
         </div>
-        <div className="store-hero-skeleton__content">
-          <div className="store-hero-skeleton__head">
-            <Skeleton shape="text" width="60%" height="38px" style={{ marginBottom: "var(--space-md)" }} />
-            <div style={{ display: "flex", gap: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
-              <Skeleton shape="rect" width="90px" height="22px" style={{ borderRadius: "var(--radius-full)" }} />
-              <Skeleton shape="rect" width="110px" height="22px" style={{ borderRadius: "var(--radius-full)" }} />
-              <Skeleton shape="rect" width="70px" height="22px" style={{ borderRadius: "var(--radius-full)" }} />
+        <div className="store-skeleton-hero__content">
+          <Skeleton shape="rect" width="min(400px, 70%)" height="44px" />
+          <div className="store-skeleton-hero__meta">
+            <Skeleton shape="text" width="74px" />
+            <Skeleton shape="text" width="96px" />
+            <Skeleton shape="text" width="64px" />
+          </div>
+          <Skeleton shape="text" width="min(260px, 50%)" />
+          <div className="store-skeleton-hero__footer">
+            <div className="store-skeleton-hero__stats">
+              <Skeleton shape="text" width="72px" />
+              <Skeleton shape="text" width="58px" />
+              <Skeleton shape="text" width="86px" />
+            </div>
+            <div className="store-skeleton-hero__actions">
+              <Skeleton shape="rect" width="132px" height="42px" />
+              <Skeleton shape="rect" width="124px" height="42px" />
             </div>
           </div>
-          <div className="store-hero-skeleton__footer">
-            <div style={{ display: "flex", gap: "var(--space-md)", flexWrap: "wrap" }}>
-              <Skeleton shape="rect" width="140px" height="64px" style={{ borderRadius: "var(--radius-md)" }} />
-              <Skeleton shape="rect" width="140px" height="64px" style={{ borderRadius: "var(--radius-md)" }} />
-            </div>
-            <div style={{ display: "flex", gap: "var(--space-md)", marginTop: "var(--space-md)" }}>
-              <Skeleton shape="rect" width="150px" height="42px" style={{ borderRadius: "var(--radius-full)" }} />
-              <Skeleton shape="rect" width="130px" height="42px" style={{ borderRadius: "var(--radius-full)" }} />
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Tabs bar skeleton */}
-      <div style={{ display: "flex", justifyContent: "center", margin: "var(--space-xl) 0" }}>
-        <div style={{ display: "flex", gap: "var(--space-sm)", padding: "var(--space-2xs)", background: "var(--color-surface-raised)", borderRadius: "var(--radius-full)", flexWrap: "wrap", justifyContent: "center" }}>
-          <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
-          <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
-          <Skeleton shape="rect" width="110px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
-          <Skeleton shape="rect" width="90px" height="34px" style={{ borderRadius: "var(--radius-full)" }} />
-        </div>
+      <div className="store-skeleton-tabs" aria-hidden="true">
+        <Skeleton shape="text" width="86px" />
+        <Skeleton shape="text" width="72px" />
+        <Skeleton shape="text" width="104px" />
+        <Skeleton shape="text" width="80px" />
+        <Skeleton shape="text" width="68px" />
       </div>
 
-      {/* 2-Column Overview Grid Skeleton */}
-      <div className="game-content-grid">
+      <div className="game-content-grid" aria-hidden="true">
         <div className="game-main-col">
-          {/* About Card */}
-          <div className="game-section" style={{ padding: "var(--space-xl)", borderRadius: "var(--radius-lg)", background: "var(--color-surface-raised)" }}>
-            <Skeleton shape="text" width="120px" height="24px" style={{ marginBottom: "var(--space-lg)" }} />
-            <div style={{ marginBottom: "var(--space-md)" }}>
-              <SkeletonText lines={4} />
+          <div className="game-section">
+            <div className="store-skeleton-media">
+              <Skeleton shape="rect" width="100%" height="100%" />
             </div>
-            <SkeletonText lines={3} />
           </div>
-
-          {/* Screenshots Carousel Skeleton */}
-          <div className="game-section" style={{ padding: "var(--space-xl)", borderRadius: "var(--radius-lg)", background: "var(--color-surface-raised)" }}>
-            <Skeleton shape="text" width="140px" height="24px" style={{ marginBottom: "var(--space-lg)" }} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "var(--space-md)" }}>
-              <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
-              <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
-              <Skeleton shape="rect" width="100%" height="120px" style={{ borderRadius: "var(--radius-md)" }} />
+          <div className="game-section">
+            <Skeleton shape="text" width="120px" height="20px" />
+            <div className="store-skeleton-copy">
+              <SkeletonText lines={4} />
+              <SkeletonText lines={3} lastLineWidth="42%" />
             </div>
           </div>
         </div>
 
         <div className="game-side-col">
-          {/* Side Info Card */}
-          <div className="game-section" style={{ padding: "var(--space-xl)", borderRadius: "var(--radius-lg)", background: "var(--color-surface-raised)" }}>
-            <Skeleton shape="text" width="100px" height="24px" style={{ marginBottom: "var(--space-lg)" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
-              <Skeleton shape="rect" width="100%" height="32px" style={{ borderRadius: "var(--radius-sm)" }} />
-              <Skeleton shape="rect" width="100%" height="32px" style={{ borderRadius: "var(--radius-sm)" }} />
-              <Skeleton shape="rect" width="100%" height="32px" style={{ borderRadius: "var(--radius-sm)" }} />
+          <div className="game-section">
+            <Skeleton shape="text" width="96px" height="20px" />
+            <div className="store-skeleton-rows">
+              <Skeleton shape="rect" width="100%" height="30px" />
+              <Skeleton shape="rect" width="100%" height="30px" />
+              <Skeleton shape="rect" width="100%" height="30px" />
             </div>
           </div>
-
-          {/* Ratings Card */}
-          <div className="game-section" style={{ padding: "var(--space-xl)", borderRadius: "var(--radius-lg)", background: "var(--color-surface-raised)" }}>
-            <Skeleton shape="text" width="110px" height="24px" style={{ marginBottom: "var(--space-lg)" }} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)", marginBottom: "var(--space-lg)" }}>
-              <Skeleton shape="rect" width="100%" height="70px" style={{ borderRadius: "var(--radius-md)" }} />
-              <Skeleton shape="rect" width="100%" height="70px" style={{ borderRadius: "var(--radius-md)" }} />
+          <div className="game-section">
+            <Skeleton shape="text" width="112px" height="20px" />
+            <div className="store-skeleton-figures">
+              <Skeleton shape="rect" width="100%" height="64px" />
+              <Skeleton shape="rect" width="100%" height="64px" />
             </div>
-            <Skeleton shape="rect" width="100%" height="12px" style={{ borderRadius: "var(--radius-full)", marginBottom: "var(--space-xs)" }} />
-            <Skeleton shape="rect" width="100%" height="12px" style={{ borderRadius: "var(--radius-full)" }} />
           </div>
         </div>
       </div>

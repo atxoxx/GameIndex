@@ -44,16 +44,6 @@
   color: var(--color-accent-contrast);
 }
 
-/* ── Detail-page primary "Add to Library" CTA tinted brand ──────── */
-.game-page .store-add-btn {
-  background: var(--color-accent);
-  border-color: transparent;
-  color: var(--color-accent-contrast);
-}
-.game-page .store-add-btn:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-}
-
 /* ── Store header (prominent search + sort + actions) ── */
 .store-header {
   position: sticky;
@@ -2342,7 +2332,7 @@
   color: var(--color-text-secondary);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -2362,23 +2352,25 @@
   border-color: var(--color-border-highlight);
 }
 
+/* Wishlisted is a positive state, so it wears the accent (like the hero
+   heart and the wishlist page) rather than the destructive-danger hue. */
 .store-action-bar__wish.is-active {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
 }
 
 .store-action-bar .store-action-bar__primary {
   height: 36px;
   padding: 0 var(--space-lg);
   font-size: var(--text-sm);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
 }
 
 .store-action-bar .game-download-btn {
   height: 36px;
   padding: 0 var(--space-lg);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
 }
 
 @media (max-width: 720px) {
