@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SubTabs } from "./SubTabs";
 
 const scrollToMock = vi.fn();
@@ -11,6 +11,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   scrollToMock.mockClear();
+  vi.restoreAllMocks();
 });
 
 const ITEMS = [
@@ -18,6 +19,21 @@ const ITEMS = [
   { id: "media", label: "Media" },
   { id: "specs", label: "Specs" },
 ];
+
+/** jsdom rects are all-zero; the stuck detector only reads `top`. */
+function rect(top: number): DOMRect {
+  return {
+    top,
+    bottom: top + 10,
+    left: 0,
+    right: 100,
+    width: 100,
+    height: 10,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
 
 describe("SubTabs", () => {
   it("marks the active tab and moves with the arrow keys", () => {
@@ -38,6 +54,28 @@ describe("SubTabs", () => {
 
     fireEvent.keyDown(screen.getByRole("tablist"), { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("media");
+  });
+
+  it("marks a sticky strip stuck against its scrollport edge, not the viewport", async () => {
+    const { container } = render(
+      <div style={{ overflowY: "auto" }}>
+        <SubTabs sticky items={ITEMS} value="overview" onChange={() => {}} ariaLabel="Scrolled sections" />
+      </div>,
+    );
+
+    const scroller = container.firstElementChild as HTMLElement;
+    const nav = container.querySelector("nav") as HTMLElement;
+    // The scroll container starts 60px down (below the top nav); the strip's
+    // CSS top offset resolves to 0 in jsdom, so "stuck" means rect.top <= 60.
+    vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue(rect(60));
+
+    vi.spyOn(nav, "getBoundingClientRect").mockReturnValue(rect(240));
+    fireEvent.scroll(scroller);
+    await waitFor(() => expect(nav.className).not.toContain("is-stuck"));
+
+    vi.spyOn(nav, "getBoundingClientRect").mockReturnValue(rect(60));
+    fireEvent.scroll(scroller);
+    await waitFor(() => expect(nav.className).toContain("is-stuck"));
   });
 
   it("renders an empty strip without throwing when there are no tabs", () => {

@@ -27,6 +27,56 @@
    every tone is a color-mix off an existing token.
    ========================================================================== */
 
+/* ── Sticky strip scrim ────────────────────────────────────────────────
+ * The sticky strip is pulled up over the hero's dissolve (game-page.css,
+ * negative margin), so `.ui-subtabs--sticky::before` paints its page-colored
+ * band straight onto the banner art — a grey rectangle bleeding onto the
+ * fade. The band exists for legibility once the strip floats over scrolling
+ * content; SubTabs flags that moment with `is-stuck`, so here the band
+ * stays dormant while the strip rests on the artwork and fades in only
+ * when it actually pins under the chrome. Other routes keep the default
+ * always-painted band (over a page background it's invisible anyway). */
+
+.game-page--immersive .ui-subtabs--sticky::before {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+/* Pinned over real content: a page-colored plate darkens/thickens with the
+   theme but always sits too close to the surfaces scrolling beneath it to
+   separate the labels. The engaged strip goes frosted glass instead — the
+   root blanks and blurs whatever is behind it, the feathered ::before band
+   is turned off so two plates don't stack. The plate hugs the tab row (a
+   centered capsule) rather than painting a full-width slab across the
+   page: both states center the row, so nothing jumps when it engages. */
+.game-page--immersive .ui-subtabs--sticky.is-stuck {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--space-lg);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  box-shadow: 0 8px 24px -16px color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck::before {
+  opacity: 0;
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__tab {
+  color: var(--color-text-secondary);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__tab:hover {
+  color: var(--color-text-primary);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__count {
+  color: var(--color-text-secondary);
+}
+
 /* ── Reviews ─────────────────────────────────────────────────────────── */
 
 /* Score board: Overview-panel surface, reading column rhythm. */
@@ -393,4 +443,146 @@
 
 .game-page--immersive .wl-urlbar-btn.active-pin {
   border-color: color-mix(in srgb, var(--wl-pin-gold) 40%, transparent);
+}
+
+/* ── Quick Stats band ──────────────────────────────────────────────────
+ * StatBand's default is figures floating free of any surface. On the
+ * immersive detail pages each metric steps up to a raised KPI chip of the
+ * Overview family: a wash, a tone-tinted icon chip and a hover lift, so
+ * the masthead reads as the page's own widgets without becoming boxes. */
+
+.game-page--immersive .ui-statband {
+  row-gap: var(--space-md);
+  column-gap: clamp(var(--space-xl), 3.5vw, var(--space-3xl));
+}
+
+.game-page--immersive .ui-statband__item {
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl) var(--space-lg);
+  background: var(--panel-tint);
+  border-radius: var(--radius-xl);
+  transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.game-page--immersive .ui-statband__item:hover {
+  background: var(--panel-tint-raised);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--statband-icon-tone, var(--color-text-muted)) 10%, transparent);
+}
+
+/* The metric glyph becomes a tone-tinted coin, giving the label row its
+   own figure to anchor on. */
+.game-page--immersive .ui-statband__icon {
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: calc(-1 * var(--space-2xs));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--statband-icon-tone, var(--color-text-muted)) 14%, transparent);
+  color: var(--statband-icon-tone);
+  opacity: 1;
+}
+
+.game-page--immersive .ui-statband__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.game-page--immersive .ui-statband__detail {
+  color: var(--color-text-secondary);
+}
+
+/* ── Review row detail pass ────────────────────────────────────────────
+ * The tonal base landed with the bridge above; this pass sharpens the
+ * row's own elements so a critic/community review reads with the same
+ * hierarchy Overview gives its sections. All geometry-preserving. */
+
+/* Source rail: identity at rest, full ink on attention. */
+.game-page--immersive .rv-row::before {
+  opacity: 0.35;
+}
+
+.game-page--immersive .rv-row:hover::before {
+  opacity: 0.95;
+}
+
+/* The verdict badge gets a glow of its own tone, like hero accents, and
+   grows with its label — a fixed 58px shell clipped "RECOMMANDÉ". */
+.game-page--immersive .rv-thumb-badge {
+  width: auto;
+  min-width: 74px;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-md);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 18px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.game-page--immersive .rv-thumb-label {
+  letter-spacing: 0.3px;
+}
+
+/* The header needs air between the badge and the signature block, and
+   the meta lines shouldn't stack on top of each other. */
+.game-page--immersive .rv-row-header,
+.game-page--immersive .rv-critic-header {
+  gap: var(--space-lg);
+}
+
+.game-page--immersive .rv-row-meta {
+  gap: var(--space-sm);
+}
+
+.game-page--immersive .rv-row-details {
+  gap: var(--space-sm);
+}
+
+/* Author line reads as the signature of the card. */
+.game-page--immersive .rv-row-name {
+  font-size: var(--text-md);
+  letter-spacing: -0.01em;
+}
+
+/* Quiet meter text: secondary, not tertiary, on the wash. */
+.game-page--immersive .rv-helpful-text {
+  color: var(--color-text-secondary);
+}
+
+/* Micro-controls sit on sunken wells: reactions, copy, reveal checks. */
+.game-page--immersive .rv-reaction-badge,
+.game-page--immersive .rv-reaction-show-more,
+.game-page--immersive .rv-copy-review-btn {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-reaction-badge:hover,
+.game-page--immersive .rv-reaction-show-more:hover,
+.game-page--immersive .rv-copy-review-btn:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+}
+
+.game-page--immersive .rv-reaction-show-more {
+  border-style: dashed;
+}
+
+/* BBCode artifacts (inline code, quotes) drop into the sunken well too,
+ * so quoted notes don't light up as boxes inside a wash. */
+.game-page--immersive .rv-bbcode {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-bbcode-quote {
+  background: var(--panel-tint-sunken);
+}
+
+/* Hardware disclosure rests quieter until pointed at. */
+.game-page--immersive .rv-hw-specs-toggle {
+  color: var(--color-text-secondary);
+}
+
+.game-page--immersive .rv-hw-specs-toggle:hover {
+  color: var(--color-accent);
 }

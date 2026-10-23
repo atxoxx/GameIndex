@@ -51,9 +51,15 @@ export function SubTabs<T extends string = string>({
   trailing,
   className,
 }: SubTabsProps<T>) {
+  const rootRef = useRef<HTMLElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [underline, setUnderline] = useState({ left: 0, width: 0, opacity: 0 });
+  // True once the strip has engaged its sticky offset. The feathered scrim
+  // is wanted exactly when the strip floats over scrolling content — at
+  // rest it may sit over hero artwork, where the scrim paints as a grey
+  // bleed onto the banner.
+  const [stuck, setStuck] = useState(false);
 
   // `items` is commonly rebuilt inline, so the array identity changes every
   // render. Depend on a cheap signature instead: running the measure effect
@@ -61,6 +67,52 @@ export function SubTabs<T extends string = string>({
   const itemsSignature = items
     .map((item) => `${item.id}|${item.label}|${item.count ?? ""}`)
     .join("~");
+
+  useEffect(() => {
+    if (!sticky) return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    // The strip sticks to its scrollport, not the viewport: `.app-main` is
+    // the scrolling element and it starts below the top nav (plus a
+    // gutter), so a stuck strip's viewport rect sits at that offset — not
+    // at the CSS `top`. Measure against the scrollport's own edge instead.
+    const findScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+      let el = node?.parentElement ?? null;
+      while (el) {
+        const { overflowY } = getComputedStyle(el);
+        if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
+          return el;
+        }
+        el = el.parentElement;
+      }
+      return null;
+    };
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const stickyTop = parseFloat(getComputedStyle(root).top) || 0;
+      const scrollParent = findScrollParent(root);
+      const scrollportTop = scrollParent?.getBoundingClientRect().top ?? 0;
+      setStuck(root.getBoundingClientRect().top <= scrollportTop + stickyTop + 1);
+    };
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(update);
+    };
+
+    update();
+    // Scroll events don't bubble, but capture still catches them from any
+    // scrolling ancestor container, not just the document.
+    document.addEventListener("scroll", schedule, true);
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", schedule, true);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [sticky]);
 
   useEffect(() => {
     const strip = stripRef.current;
@@ -200,9 +252,11 @@ export function SubTabs<T extends string = string>({
 
   return (
     <nav
+      ref={rootRef}
       className={[
         "ui-subtabs",
         sticky ? "ui-subtabs--sticky" : "",
+        stuck ? "is-stuck" : "",
         className ?? "",
       ]
         .filter(Boolean)
