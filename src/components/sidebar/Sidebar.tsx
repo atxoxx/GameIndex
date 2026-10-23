@@ -26,6 +26,7 @@ import SidebarFilterPopover from "../SidebarFilterPopover";
 import { SidebarHoverPreview } from "../SidebarHoverPreview";
 import SidebarShelves from "../shelves/SidebarShelves";
 import SidebarHeader from "./SidebarHeader";
+import SidebarImportDropdown from "./SidebarImportDropdown";
 import SidebarActiveFilters from "./SidebarActiveFilters";
 import SidebarSectionHeader from "./SidebarSectionHeader";
 import SidebarGameItem from "./SidebarGameItem";
@@ -211,9 +212,7 @@ export default function Sidebar() {
   const [importRootPath, setImportRootPath] = useState<string>("");
   const [randomPickedGameId, setRandomPickedGameId] = useState<string | null>(null);
 
-  const importBtnRef = useRef<HTMLButtonElement>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
-  const viewOptionsBtnRef = useRef<HTMLButtonElement>(null);
 
   // ── Multi-select state ───────────────────────────────────────────
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
@@ -859,10 +858,11 @@ export default function Sidebar() {
   }, [bulkSelectedIds.size, combinedVisibleGames]);
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar sbn">
       {searchVisible && <SidebarHeader
         isIconRail={isIconRail}
         onToggleIconRail={toggleIconRail}
+        gameCount={games.length}
         searchQuery={filterState.search}
         onSearchChange={setSearch}
         onClearSearch={() => setSearch("")}
@@ -870,16 +870,9 @@ export default function Sidebar() {
         showFilterPopover={showFilterPopover}
         onToggleFilterPopover={() => setShowFilterPopover((v) => !v)}
         filterButtonRef={filterBtnRef}
-        importButtonRef={importBtnRef}
-        viewOptionsButtonRef={viewOptionsBtnRef}
-        showImportMenu={showImportMenu}
-        importMenuAnchor={importMenuAnchor}
-        onToggleImportMenu={(anchor) => {
-          setImportMenuAnchor(anchor);
-          setShowImportMenu((v) => !v);
-        }}
         showViewOptionsMenu={showViewOptionsMenu}
-        onToggleViewOptionsMenu={() => setShowViewOptionsMenu((v) => !v)}
+        onOpenViewOptionsMenu={() => setShowViewOptionsMenu(true)}
+        onCloseViewOptionsMenu={() => setShowViewOptionsMenu(false)}
         onImportExe={handleImportExe}
         onImportFolder={handleImportFolder}
         onRandomGame={handleRandomGame}
@@ -897,6 +890,16 @@ export default function Sidebar() {
         onCollapseAllGroups={handleCollapseAllGroups}
         hasGroups={dynamicGroups.length > 0}
       />}
+
+      {/* Import picker for the empty-state CTA (anchored to that button). */}
+      {showImportMenu && (
+        <SidebarImportDropdown
+          anchorEl={importMenuAnchor}
+          onClose={() => setShowImportMenu(false)}
+          onImportExe={handleImportExe}
+          onImportFolder={handleImportFolder}
+        />
+      )}
 
       {activeFiltersVisible && <SidebarActiveFilters
         filterState={filterState}

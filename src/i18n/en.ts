@@ -4963,6 +4963,7 @@ export const en: TranslationDict = {
   "sidebar.pinSelected": "Pin selected",
   "sidebar.pinToTop": "Pin to top",
   "sidebar.playStatusOptions": "Play status options",
+  "sidebar.menuTitle": "Library sidebar actions",
   "sidebar.randomGame": "Surprise me (Roll random game)",
   "sidebar.randomGameRolled": "Rolled {name}!",
   "sidebar.refreshMetadata": "Refresh Metadata & Art",

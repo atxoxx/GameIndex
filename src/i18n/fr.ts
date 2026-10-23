@@ -4950,6 +4950,7 @@ export const fr: TranslationDict = {
   "sidebar.pinSelected": "Épingler la sélection",
   "sidebar.pinToTop": "Épingler en haut",
   "sidebar.playStatusOptions": "Options de statut de jeu",
+  "sidebar.menuTitle": "Actions de la barre latérale",
   "sidebar.randomGame": "Surprends-moi (Jeu aléatoire)",
   "sidebar.randomGameRolled": "{name} sélectionné !",
   "sidebar.refreshMetadata": "Actualiser les métadonnées et illustrations",

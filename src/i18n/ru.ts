@@ -4955,6 +4955,7 @@ export const ru: TranslationDict = {
   "sidebar.pinSelected": "Закрепить выбранное",
   "sidebar.pinToTop": "Закрепить сверху",
   "sidebar.playStatusOptions": "Варианты статуса игры",
+  "sidebar.menuTitle": "Действия боковой панели",
   "sidebar.randomGame": "Случайная игра",
   "sidebar.randomGameRolled": "Выбрано: {name}!",
   "sidebar.refreshMetadata": "Обновить метаданные и обложку",

@@ -86,6 +86,8 @@ export interface SidebarViewOptionsDropdownProps {
 export interface SidebarHeaderProps {
   isIconRail: boolean;
   onToggleIconRail: () => void;
+  /** Total games in the library — shown beside the rail title. */
+  gameCount: number;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   onClearSearch: () => void;
@@ -93,13 +95,11 @@ export interface SidebarHeaderProps {
   showFilterPopover: boolean;
   onToggleFilterPopover: () => void;
   filterButtonRef: React.RefObject<HTMLButtonElement | null>;
-  importButtonRef: React.RefObject<HTMLButtonElement | null>;
-  viewOptionsButtonRef: React.RefObject<HTMLButtonElement | null>;
-  showImportMenu: boolean;
-  importMenuAnchor: HTMLElement | null;
-  onToggleImportMenu: (anchor: HTMLElement) => void;
   showViewOptionsMenu: boolean;
-  onToggleViewOptionsMenu: (anchor: HTMLElement) => void;
+  /** Opens the view-options panel (explicit — never a toggle, so a stale open
+   *  state can't make the click a no-op). */
+  onOpenViewOptionsMenu: () => void;
+  onCloseViewOptionsMenu: () => void;
   onImportExe: () => void;
   onImportFolder: () => void;
   onRandomGame: () => void;
@@ -116,6 +116,17 @@ export interface SidebarHeaderProps {
   onExpandAllGroups?: () => void;
   onCollapseAllGroups?: () => void;
   hasGroups: boolean;
+}
+
+/** Props for the rail's overflow (…) menu. */
+export interface SidebarOverflowMenuProps {
+  anchorEl: HTMLElement | null;
+  onClose: () => void;
+  onImportExe: () => void;
+  onImportFolder: () => void;
+  onRandomGame: () => void;
+  /** Closes this menu and opens the view-options panel. */
+  onOpenViewOptions: () => void;
 }
 
 /** Active filter chip data bundle for rendering and removal. */

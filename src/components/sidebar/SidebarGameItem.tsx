@@ -14,18 +14,18 @@ import type { SidebarGameItemProps } from "./types";
 /**
  * SidebarGameItem
  * ───────────────
- * Single row in the sidebar's game list.
- * Features:
- *   • Multi-density rendering: Compact (28px), Standard (42px), Detailed (56px).
- *   • Lazy cover & icon metadata enrichment via IntersectionObserver.
- *   • Favorite / Pin star toggle button.
- *   • Dynamic emulator console tag & play-status micro-dots.
- *   • Steam / Retro achievement unlock progress badge.
- *   • Rating score badge in detailed mode.
- *   • Search match highlighting.
- *   • Pulsing running indicator with glow halo.
- *   • Smooth quick-play launch on hover.
- *   • Multi-select checkmark indicator.
+ * One game in the rail.
+ *
+ *   [art •]  Title ………………………………………                [pin][play]
+ *            ● Playing · PC · 42h · ★87
+ *
+ * The install/running state moved onto the artwork as a corner dot, which freed
+ * the right edge for the row actions and gave the title the full row width. The
+ * action cluster only exists on hover (or while pinned), so a resting list is
+ * just art, name and one quiet fact line.
+ *
+ * Densities: compact = name only (28px row), standard = two lines (44px),
+ * detailed = taller art and the play-status label (56px).
  */
 function SidebarGameItemBase({
   game,
@@ -110,15 +110,6 @@ function SidebarGameItemBase({
     },
   });
 
-  // Achievement stats if available
-  const achievementCount = game.steamAchievements ? game.steamAchievements.length : 0;
-  const unlockedCount = game.steamAchievements
-    ? game.steamAchievements.filter((a) => a.achieved).length
-    : 0;
-  const achievementPercent =
-    achievementCount > 0 ? Math.round((unlockedCount / achievementCount) * 100) : null;
-
-  // Rating
   const rating =
     typeof game.igdbRating === "number"
       ? Math.round(game.igdbRating)
@@ -128,8 +119,18 @@ function SidebarGameItemBase({
 
   const showPlaytime = viewOptions ? viewOptions.showPlaytime : true;
   const showPlatformBadge = viewOptions ? viewOptions.showPlatformBadge : true;
-  const showAchievements = viewOptions ? viewOptions.showAchievements : true;
   const showRatings = viewOptions ? viewOptions.showRatings : true;
+
+  const playStatus =
+    game.playStatus && game.playStatus !== "backlog"
+      ? PLAY_STATUS_DETAILS[game.playStatus]
+      : null;
+
+  const stateLabel = isRunning
+    ? t("game.running")
+    : game.installed
+      ? t("filter.installed")
+      : t("game.notInstalled");
 
   const rowClasses = [
     "sidebar-game-item",
@@ -166,7 +167,7 @@ function SidebarGameItemBase({
         {game.iconUrl ? (
           <img
             src={game.iconUrl}
-            alt={displayName}
+            alt=""
             loading="lazy"
             decoding="async"
             onError={(e) => {
@@ -189,7 +190,7 @@ function SidebarGameItemBase({
         ) : game.coverArtUrl ? (
           <img
             src={thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl}
-            alt={displayName}
+            alt=""
             loading="lazy"
             decoding="async"
             onError={(e) => {
@@ -210,18 +211,23 @@ function SidebarGameItemBase({
           />
         ) : (
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.5"
-            opacity={0.3}
+            strokeWidth="1.6"
             aria-hidden="true"
           >
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         )}
+
+        <span
+          className={`sidebar-game-status ${isRunning ? "running" : game.installed ? "installed" : "not-installed"}`}
+          title={stateLabel}
+          aria-label={stateLabel}
+        />
       </div>
 
       <div className="sidebar-game-info">
@@ -248,95 +254,77 @@ function SidebarGameItemBase({
 
         {density !== "compact" && (
           <div className="sidebar-game-meta">
-            {game.playStatus && game.playStatus !== "backlog" && (
+            {playStatus && (
               <span
                 className="sidebar-game-meta-dot"
-                style={{ background: PLAY_STATUS_DETAILS[game.playStatus].color }}
-                title={t(PLAY_STATUS_DETAILS[game.playStatus].labelKey)}
-                aria-hidden="true"
+                style={{ background: playStatus.color }}
+                title={t(playStatus.labelKey)}
+                aria-label={t(playStatus.labelKey)}
               />
             )}
-            <span className="sidebar-game-meta-text">
-              {showPlatformBadge && game.platform ? `${game.platform}` : ""}
-              {showPlatformBadge && showPlaytime && game.playTime ? " · " : ""}
-              {showPlaytime ? game.playTime : ""}
-            </span>
-
-            {/* Achievement badge in detailed mode */}
-            {density === "detailed" && showAchievements && achievementPercent !== null && (
-              <span
-                className="sidebar-game-achievement-badge"
-                title={`${unlockedCount}/${achievementCount} achievements unlocked (${achievementPercent}%)`}
-              >
-                🏆 {achievementPercent}%
-              </span>
+            {density === "detailed" && playStatus && (
+              <span className="sbn-meta sbn-meta--status">{t(playStatus.labelKey)}</span>
             )}
-
-            {/* Rating badge in detailed mode */}
-            {density === "detailed" && showRatings && rating !== null && (
-              <span className="sidebar-game-rating-badge" title={`Rating: ${rating}%`}>
-                ★ {rating}
+            {showPlatformBadge && game.platform && (
+              <span className="sbn-meta">{game.platform}</span>
+            )}
+            {showPlaytime && game.playTime && (
+              <span className="sbn-meta">{game.playTime}</span>
+            )}
+            {showRatings && rating !== null && (
+              <span className="sbn-meta sbn-meta--rating" title={`${t("ratings.title")}: ${rating}`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                {rating}
               </span>
             )}
           </div>
         )}
       </div>
 
-      {/* Favorite pin button */}
-      {onTogglePin && (
-        <button
-          type="button"
-          className={`sidebar-game-pin-btn${isPinned ? " is-pinned" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onTogglePin(game);
-          }}
-          title={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
-          aria-label={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
-        >
-          <svg viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-            <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
-          </svg>
-        </button>
-      )}
+      <div className="sidebar-game-actions">
+        {onTogglePin && (
+          <button
+            type="button"
+            className={`sidebar-game-pin-btn${isPinned ? " is-pinned" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onTogglePin(game);
+            }}
+            title={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
+            aria-label={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
+          >
+            <svg viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+              <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
+            </svg>
+          </button>
+        )}
 
-      {/* Install / running status dot */}
-      <div
-        className={`sidebar-game-status ${isRunning ? "running" : game.installed ? "installed" : "not-installed"}`}
-        aria-label={
-          isRunning
-            ? t("game.running")
-            : game.installed
-            ? t("filter.installed")
-            : t("game.notInstalled")
-        }
-      />
+        {!isRunning && (
+          <button
+            type="button"
+            className="sidebar-game-play"
+            aria-label={t("game.playGame")}
+            title={t("game.playGame")}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onQuickPlay(game);
+            }}
+            onContextMenu={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </button>
+        )}
+      </div>
 
-      {/* Quick Play hover button */}
-      {!isRunning && (
-        <button
-          type="button"
-          className="sidebar-game-play"
-          aria-label={t("game.playGame")}
-          title={t("game.playGame")}
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onQuickPlay(game);
-          }}
-          onContextMenu={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-          }}
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        </button>
-      )}
-
-      {/* Multi-select checkmark */}
       <div className="sidebar-game-item__check" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
           <polyline points="20 6 9 17 4 12" />

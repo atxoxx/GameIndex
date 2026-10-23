@@ -4955,6 +4955,7 @@ export const de: TranslationDict = {
   "sidebar.pinSelected": "Auswahl anheften",
   "sidebar.pinToTop": "Oben anheften",
   "sidebar.playStatusOptions": "Spielstatus-Optionen",
+  "sidebar.menuTitle": "Aktionen der Bibliotheks-Seitenleiste",
   "sidebar.randomGame": "Überrasche mich (Zufälliges Spiel)",
   "sidebar.randomGameRolled": "{name} ausgewählt!",
   "sidebar.refreshMetadata": "Metadaten & Artwork aktualisieren",

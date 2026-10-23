@@ -59,6 +59,7 @@ import { GameAccentSync } from "./components/GameAccentSync";
 import { Skeleton } from "./components/ui/Skeleton";
 import "./App.css";
 import "./store.css";
+import "./styles/sidebar-v2.css";
 import "./styles/page.css";
 
 function AppLayout() {

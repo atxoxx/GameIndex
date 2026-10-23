@@ -4955,6 +4955,7 @@ export const zhCN: TranslationDict = {
   "sidebar.pinSelected": "置顶所选",
   "sidebar.pinToTop": "置顶",
   "sidebar.playStatusOptions": "游玩状态选项",
+  "sidebar.menuTitle": "侧边栏操作",
   "sidebar.randomGame": "随机挑选一款游戏",
   "sidebar.randomGameRolled": "已随机抽中 {name}！",
   "sidebar.refreshMetadata": "刷新元数据与封面",

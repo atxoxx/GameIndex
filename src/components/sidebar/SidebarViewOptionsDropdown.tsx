@@ -49,20 +49,22 @@ export default function SidebarViewOptionsDropdown({
 
   useLayoutEffect(() => {
     const el = menuRef.current;
-    if (!el || !anchorEl) return;
-    const rect = anchorEl.getBoundingClientRect();
+    if (!el) return;
+    const rect = anchorEl?.getBoundingClientRect();
     const height = el.offsetHeight;
     setClampedTop(
-      Math.min(rect.bottom + 6, Math.max(8, window.innerHeight - height - 8))
+      rect
+        ? Math.min(rect.bottom + 6, Math.max(8, window.innerHeight - height - 8))
+        : 8,
     );
   }, [anchorEl]);
 
-  if (!anchorEl) return null;
-
-  const rect = anchorEl.getBoundingClientRect();
+  const rect = anchorEl?.getBoundingClientRect();
   const menuWidth = 280;
-  const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
-  const top = clampedTop ?? rect.bottom + 6;
+  const left = rect
+    ? Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+    : 8;
+  const top = clampedTop ?? (rect ? rect.bottom + 6 : 8);
 
   const GROUP_BY_OPTIONS: { id: SidebarGroupBy; labelKey: string }[] = [
     { id: "none", labelKey: "sidebar.groupBy.none" },
@@ -238,14 +240,6 @@ export default function SidebarViewOptionsDropdown({
               type="checkbox"
               checked={viewOptions.showPlatformBadge}
               onChange={() => onToggleOption("showPlatformBadge")}
-            />
-          </label>
-          <label className="sidebar-view-options-menu__toggle-item">
-            <span>{t("sidebar.metaShowAchievements")}</span>
-            <input
-              type="checkbox"
-              checked={viewOptions.showAchievements}
-              onChange={() => onToggleOption("showAchievements")}
             />
           </label>
           <label className="sidebar-view-options-menu__toggle-item">
