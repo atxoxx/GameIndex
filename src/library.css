@@ -4369,8 +4369,14 @@ select.lib-filter-search option {
 }
 
 /* ── Collapsed rail rhythm ──────────────────────────────────────────────
-   A collapsed rail is a header, not an empty content band: drop the body
-   margin so the section does not reserve a blank strip. */
+   A collapsed rail is a header, not an empty content band: the body is
+   removed from layout outright and the header carries its own padding, so
+   the section cannot reserve a blank strip below the title. */
+.lib-rail--collapsed .lib-rail-body {
+  display: none;
+}
+
 .lib-rail--collapsed .lib-rail-header {
   margin-bottom: 0;
+  padding-block: var(--space-sm);
 }

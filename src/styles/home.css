@@ -2549,9 +2549,9 @@
   }
 }
 
-/* A collapsed rail only carries its header, so the section keeps a tighter
-   vertical rhythm instead of leaving an empty-looking band. */
+/* A collapsed rail only carries its header. The header owns the section
+   padding, so the wrapper adds no band between it and the next section. */
 .home-dashboard__sidebar > *:has(.lib-rail--collapsed),
 .home-dashboard__main > *:has(.lib-rail--collapsed) {
-  padding-block: var(--space-md);
+  padding-block: 0;
 }
