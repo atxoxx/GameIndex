@@ -1,5 +1,4 @@
 import { useLanguage } from "../../context/LanguageContext";
-import { Button } from "../ui";
 
 export interface StatusChip {
   label: string;
@@ -7,8 +6,9 @@ export interface StatusChip {
 }
 
 /**
- * Modal identity bar: game artwork + name, live flow status, integrated
- * search-progress ribbon, and the close control.
+ * Modal identity bar: what is being downloaded, how the search is going, and
+ * the close control. Deliberately three lines of text at most — the old header
+ * split the same information between a flow tag and a detached status pill.
  */
 export function DownloadHeader({
   gameName,
@@ -31,7 +31,7 @@ export function DownloadHeader({
     <div className="dl-modal-header">
       <div className="dl-modal-header-game">
         {gameCover ? (
-          <img src={gameCover} alt={gameName} className="dl-modal-game-thumb" />
+          <img src={gameCover} alt="" className="dl-modal-game-thumb" />
         ) : (
           <div className="dl-modal-header-icon-box">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -41,39 +41,46 @@ export function DownloadHeader({
             </svg>
           </div>
         )}
+
         <div className="dl-modal-header-titles">
+          <span className="dl-modal-eyebrow">{t("downloadButton.download")}</span>
           <h2 className="dl-modal-game-name" title={gameName}>
             {gameName}
           </h2>
           <p className="dl-modal-flow-tag">
-            {t("downloadButton.download")}
-            {resultCount > 0 &&
-              ` · ${t("downloadModal.sourceResults", {
-                count: resultCount,
-                s: resultCount !== 1 ? "s" : "",
-              })}`}
+            <span
+              className={`dl-modal-status-dot dl-modal-status-dot--${statusChip.tone}`}
+              aria-hidden
+            />
+            <span className="dl-modal-flow-state">{statusChip.label}</span>
+            {resultCount > 0 && (
+              <>
+                <span className="dl-modal-flow-sep" aria-hidden>·</span>
+                <span>
+                  {t("downloadModal.sourceResults", {
+                    count: resultCount,
+                    s: resultCount !== 1 ? "s" : "",
+                  })}
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>
 
       <div className="dl-modal-header-right">
-        <span
-          className={`dl-modal-status-badge dl-modal-status-badge--${statusChip.tone}`}
-        >
-          <span className="dl-modal-status-dot" aria-hidden />
-          <span>{statusChip.label}</span>
-        </span>
-
-        <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>}
+        <button
           type="button"
-          
+          className="dl-modal-close"
           onClick={onClose}
           aria-label={t("common.close")}
           title={`${t("common.close")} (Esc)`}
-        ></Button>
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
 
       {searchProgress && searchProgress.total > 1 && (

@@ -96,26 +96,28 @@ export function QueuePreview({ downloads }: { downloads: TorrentDownload[] }) {
                 <span className="dl-queue-preview-name" title={d.name}>
                   {d.name}
                 </span>
-                <span className="dl-queue-preview-status">
-                  {getStatusLabel(d.status, t)}
+                <span className="dl-queue-preview-pct">
+                  {done ? "100%" : formatProgress(d.progress)}
                 </span>
-                <span className="dl-queue-preview-progress">
-                  <span className="dl-queue-preview-track">
-                    <span
-                      className={`dl-queue-preview-fill${done ? " is-done" : ""}`}
-                      style={{ width: `${Math.round((pct ?? 0) * 100)}%` }}
-                    />
+                <span className="dl-queue-preview-track">
+                  <span
+                    className={`dl-queue-preview-fill${done ? " is-done" : ""}`}
+                    style={{ width: `${Math.round((pct ?? 0) * 100)}%` }}
+                  />
+                </span>
+                <span className="dl-queue-preview-meta">
+                  <span className="dl-queue-preview-status">
+                    {getStatusLabel(d.status, t)}
                   </span>
-                  <span className="dl-queue-preview-pct">
-                    {done ? "100%" : formatProgress(d.progress)}
+                  {d.downloadSpeed > 0 && (
+                    <span className="dl-queue-preview-speed">
+                      {formatSpeed(d.downloadSpeed)}
+                    </span>
+                  )}
+                  <span className="dl-queue-preview-size">
+                    {formatBytesShort(d.downloaded, unit)}
+                    {d.totalSize ? ` / ${formatBytesShort(d.totalSize, unit)}` : ""}
                   </span>
-                </span>
-                <span className="dl-queue-preview-speed">
-                  {d.downloadSpeed > 0 ? formatSpeed(d.downloadSpeed) : ""}
-                </span>
-                <span className="dl-queue-preview-size">
-                  {formatBytesShort(d.downloaded, unit)}
-                  {d.totalSize ? ` / ${formatBytesShort(d.totalSize, unit)}` : ""}
                 </span>
               </li>
             );

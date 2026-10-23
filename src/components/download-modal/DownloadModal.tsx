@@ -1478,7 +1478,7 @@ export default function DownloadModal({
   return createPortal(
     <>
       <div
-        className="modal-backdrop dl-modal-backdrop"
+        className="modal-backdrop dl-modal-backdrop dlm-backdrop"
         onMouseDown={() => {
           if (step !== "starting" && !batchRunning) {
             handleCloseAttempt();
@@ -1486,7 +1486,7 @@ export default function DownloadModal({
         }}
       >
         <div
-          className="modal dl-modal"
+          className="modal dl-modal dlm"
           onMouseDown={(e) => e.stopPropagation()}
           role="dialog"
           aria-label={t("downloadButton.download")}
@@ -1711,18 +1711,38 @@ export default function DownloadModal({
                     total: batchProgress.total,
                   })}
                 </span>
-              ) : step === "results" && matches.length > 0 ? (
+              ) : batchMode ? (
                 <span className="dl-footer-count-text">
-                  {t("downloadModal.sourceResults", {
-                    count: matches.length,
-                    s: matches.length !== 1 ? "s" : "",
-                  })}
+                  {t("downloadModal.batchSelected", { count: batchSelected.size })}
+                </span>
+              ) : selectedMatch ? (
+                <span className="dl-footer-selection">
+                  <span className="dl-footer-source">{selectedMatch.sourceName}</span>
+                  <span className="dl-footer-sep" aria-hidden>·</span>
+                  <span className="dl-footer-meta">
+                    {selectedMatch.fileSize || t("downloadModal.unknownSize")}
+                  </span>
+                  {selectedMatch.matchScore > 0 && (
+                    <>
+                      <span className="dl-footer-sep" aria-hidden>·</span>
+                      <span className="dl-footer-meta">
+                        {Math.round(selectedMatch.matchScore * 100)}%
+                      </span>
+                    </>
+                  )}
                 </span>
               ) : step === "file_selection" ? (
                 <span className="dl-footer-count-text">
                   {t("downloadModal.totalFiles", {
                     count: (fetchedFiles ?? activeDownloads.find((d) => d.id === tempTorrentId)?.files ?? [])
                       .length,
+                  })}
+                </span>
+              ) : step === "results" && matches.length > 0 ? (
+                <span className="dl-footer-count-text">
+                  {t("downloadModal.sourceResults", {
+                    count: matches.length,
+                    s: matches.length !== 1 ? "s" : "",
                   })}
                 </span>
               ) : (

@@ -47,11 +47,11 @@ describe("ResultRow platform + cache accents", () => {
     expect(screen.getByText("Xbox 360")).toBeInTheDocument();
   });
 
-  it("carries the cache colour on the badge, not the card edge", () => {
+  it("carries the cache colour on the flag, not the card edge", () => {
     const { container } = renderRow({ cacheStatus: "cached" });
     const card = container.querySelector(".dl-result-card") as HTMLElement;
     expect(card.className).not.toContain("is-cache-");
-    expect(container.querySelector(".dl-badge--cache-cached")).toBeInTheDocument();
+    expect(container.querySelector(".dl-flag--cache-cached")).toBeInTheDocument();
   });
 
   it("leaves a platform-less source row unaccented", () => {
@@ -65,23 +65,42 @@ describe("ResultRow platform + cache accents", () => {
 });
 
 describe("ResultRow update state", () => {
-  it("flags a newer release with the update badge in the status rail", () => {
+  it("flags a newer release on the title line", () => {
     const { container } = renderRow({
       match: match({ title: "Game v2.0.0" }),
       installedVersion: "v1.0.0",
     });
 
-    const badge = container.querySelector(".dl-result-status .dl-badge--update");
-    expect(badge).toBeInTheDocument();
-    expect(badge?.textContent?.trim()).not.toBe("");
+    const flag = container.querySelector(".dl-result-flags .dl-flag--update");
+    expect(flag).toBeInTheDocument();
+    expect(flag?.textContent?.trim()).not.toBe("");
   });
 
-  it("keeps the status rail empty when the release matches the install", () => {
+  it("keeps the flags empty when the release matches the install", () => {
     const { container } = renderRow({
       match: match({ title: "Game v1.0.0" }),
       installedVersion: "v1.0.0",
     });
 
-    expect(container.querySelector(".dl-result-status")).toBeNull();
+    expect(container.querySelector(".dl-result-flags")?.childElementCount).toBe(0);
+  });
+
+  it("keeps every fact on one quiet line", () => {
+    const { container } = renderRow({
+      match: match({
+        title: "Game v2.0.0 DODI",
+        seeds: 24,
+        peers: 4,
+        uploadDate: "2026-08-28T00:00:00Z",
+      }),
+      installedVersion: "v1.0.0",
+    });
+
+    const facts = container.querySelector(".dl-result-facts");
+    expect(facts).toBeInTheDocument();
+    expect(facts?.querySelector(".dl-fact--source")?.textContent).toBe("Source");
+    expect(facts?.querySelector(".dl-fact--size")?.textContent).toContain("1 GB");
+    expect(facts?.querySelector(".dl-fact--health")?.textContent).toContain("24");
+    expect(facts?.querySelector(".dl-fact--match")?.textContent).toContain("90%");
   });
 });

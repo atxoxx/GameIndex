@@ -376,6 +376,36 @@ export function DetailPanel({
         </div>
       )}
 
+      {/* Save Location Section */}
+      {!webUrl && (
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.destinationFolder")}</span>
+          </div>
+          <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
+        </div>
+      )}
+
+      {/* Options Section */}
+      <div className="dl-panel-section">
+        <div className="dl-panel-section-header">
+          <span className="dl-panel-section-title">{t("downloadModal.options")}</span>
+        </div>
+        <OptionsSection
+          autoExtract={autoExtract}
+          onAutoExtract={onAutoExtract}
+          chooseFiles={chooseFiles}
+          onChooseFiles={onChooseFiles}
+          onSelectFiles={onSelectFiles}
+          isFetchingFiles={isFetchingFiles}
+          isDirect={isDirect}
+          useDebrid={useDebrid}
+          onUseDebrid={onUseDebrid}
+          debridAvailable={debridAvailable}
+          cacheStatus={cacheStatus}
+        />
+      </div>
+
       {/* Available Mirrors & Hosters Selector (Dropdown) */}
       {mirrors.length > 1 && (
         <div className="dl-panel-section">
@@ -421,36 +451,6 @@ export function DetailPanel({
           </div>
         </div>
       )}
-
-      {/* Save Location Section */}
-      {!webUrl && (
-        <div className="dl-panel-section">
-          <div className="dl-panel-section-header">
-            <span className="dl-panel-section-title">{t("downloadModal.destinationFolder")}</span>
-          </div>
-          <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
-        </div>
-      )}
-
-      {/* Options Section */}
-      <div className="dl-panel-section">
-        <div className="dl-panel-section-header">
-          <span className="dl-panel-section-title">{t("downloadModal.options")}</span>
-        </div>
-        <OptionsSection
-          autoExtract={autoExtract}
-          onAutoExtract={onAutoExtract}
-          chooseFiles={chooseFiles}
-          onChooseFiles={onChooseFiles}
-          onSelectFiles={onSelectFiles}
-          isFetchingFiles={isFetchingFiles}
-          isDirect={isDirect}
-          useDebrid={useDebrid}
-          onUseDebrid={onUseDebrid}
-          debridAvailable={debridAvailable}
-          cacheStatus={cacheStatus}
-        />
-      </div>
 
       {/* Resolver card for direct hoster links */}
       {isDirect && (
