@@ -111,7 +111,7 @@
   border-radius: var(--radius-sm);
   object-fit: cover;
   border: 1px solid var(--dlm-hairline);
-  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--color-text-primary) 70%, transparent);
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--color-scrim) 90%, transparent);
 }
 
 .dlm .dl-modal-header-icon-box {
@@ -325,7 +325,7 @@
 .dlm .dl-compact-switch-btn.active {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-scrim) 60%, transparent);
 }
 
 /* ── Toolbar ───────────────────────────────────────────────────────────── */
@@ -2012,7 +2012,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--color-bg-primary);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-scrim) 60%, transparent);
   transition: transform var(--duration-fast) var(--ease-standard);
 }
 

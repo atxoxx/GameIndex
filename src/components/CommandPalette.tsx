@@ -372,7 +372,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   return createPortal(
     <>
       <div
-        className="command-palette-backdrop"
+        className={`command-palette-backdrop cpal-backdrop`}
         onClick={onClose}
         onKeyDown={(e) => {
           if (e.key === "Escape" && !actionDrawerOpen && !cheatSheetOpen) {
@@ -385,7 +385,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         aria-label="Command Palette"
       >
         <div
-          className={`command-palette-panel${effectiveShowInspector ? " with-inspector" : ""}${
+          className={`command-palette-panel cpal-panel${effectiveShowInspector ? " with-inspector" : ""}${
             isSimpleMode ? " is-simple-palette" : ""
           }`}
           onClick={(e) => e.stopPropagation()}

@@ -96,45 +96,48 @@ export default function CommandPaletteItemRow({
         ) : null}
       </div>
 
-      {/* Main information: title, badges, subtitle */}
+      {/* Main information: title, badges, subtitle — one line in the compact
+          layout; the subtitle sits after the title as quiet context. */}
       <div className="command-palette-item-body">
-        <div className="cmd-item-title-row">
-          <HighlightedText
-            text={item.title}
-            query={cleanQuery}
-            className="command-palette-item-title"
-          />
-          {item.badge && (
-            <span
-              className={`command-palette-badge${
-                item.badgeType ? ` badge--${item.badgeType}` : ""
-              }`}
-            >
-              {item.badgeType === "success" && <span className="cmd-pulse-dot" />}
-              {item.badge}
-            </span>
-          )}
-          {item.gameData && (item.gameData.mo2LaunchEnabled || item.gameData.mo2Profile) && (
-            <span
-              className="command-palette-badge badge--mo2"
-              title={
-                item.gameData.mo2Profile
-                  ? `MO2 Profile: ${item.gameData.mo2Profile}`
-                  : "Mod Organizer 2 Enabled"
-              }
-            >
-              <Puzzle size={9} />
-              {item.gameData.mo2Profile ? item.gameData.mo2Profile : "MO2"}
-            </span>
-          )}
-        </div>
-
+        <HighlightedText
+          text={item.title}
+          query={cleanQuery}
+          className="command-palette-item-title"
+        />
+        {item.badge && (
+          <span
+            className={`command-palette-badge${
+              item.badgeType ? ` badge--${item.badgeType}` : ""
+            }`}
+          >
+            {item.badgeType === "success" && <span className="cmd-pulse-dot" />}
+            {item.badge}
+          </span>
+        )}
+        {item.gameData && (item.gameData.mo2LaunchEnabled || item.gameData.mo2Profile) && (
+          <span
+            className="command-palette-badge badge--mo2"
+            title={
+              item.gameData.mo2Profile
+                ? `MO2 Profile: ${item.gameData.mo2Profile}`
+                : "Mod Organizer 2 Enabled"
+            }
+          >
+            <Puzzle size={9} />
+            {item.gameData.mo2Profile ? item.gameData.mo2Profile : "MO2"}
+          </span>
+        )}
         {item.subtitle && (
-          <HighlightedText
-            text={item.subtitle}
-            query={cleanQuery}
-            className="command-palette-item-subtitle"
-          />
+          <>
+            <span className="cmd-item-sep" aria-hidden="true">
+              ·
+            </span>
+            <HighlightedText
+              text={item.subtitle}
+              query={cleanQuery}
+              className="command-palette-item-subtitle"
+            />
+          </>
         )}
       </div>
 
