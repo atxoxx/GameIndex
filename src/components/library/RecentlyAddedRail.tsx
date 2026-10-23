@@ -13,7 +13,9 @@ interface RecentlyAddedRailProps {
   onCardClick?: (game: Game) => void;
 }
 
-const COLLAPSED_STORAGE_KEY = "gamelib:rail:recently-added:collapsed:v1";
+// v2: expanded by default. The v1 key stored the old collapsed default for
+// every first visit, which made the rail look like an empty section.
+const COLLAPSED_STORAGE_KEY = "gamelib:rail:recently-added:collapsed:v2";
 
 /**
  * "Recently Added" horizontal rail: the N most recently imported games as
@@ -37,7 +39,7 @@ export default function RecentlyAddedRail({
   const [collapsed, toggleCollapsed] = useCollapsedState(
     COLLAPSED_STORAGE_KEY,
     recent.length > 0,
-    true
+    false
   );
 
   function handleClick(game: Game) {

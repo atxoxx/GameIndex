@@ -4367,3 +4367,10 @@ select.lib-filter-search option {
     padding-top: var(--space-xl);
   }
 }
+
+/* ── Collapsed rail rhythm ──────────────────────────────────────────────
+   A collapsed rail is a header, not an empty content band: drop the body
+   margin so the section does not reserve a blank strip. */
+.lib-rail--collapsed .lib-rail-header {
+  margin-bottom: 0;
+}
