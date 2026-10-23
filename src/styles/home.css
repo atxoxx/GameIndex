@@ -2334,22 +2334,78 @@
   margin-inline: calc(-1 * var(--home-gutter));
 }
 
+/* Compact two-column band: the copy and the spotlight share one row instead
+   of floating in a tall stage with empty space above and below. */
 .home-hero {
   display: flex;
   align-items: center;
-  min-height: clamp(380px, 52vh, 620px);
-  padding: clamp(var(--space-2xl), 6vh, var(--space-4xl))
-    clamp(24px, 4vw, 52px) clamp(var(--space-2xl), 5vh, 52px);
+  min-height: clamp(240px, 30vh, 320px);
+  padding-block: clamp(var(--space-lg), 3.2vh, var(--space-2xl));
+  padding-inline: clamp(24px, 4vw, 52px);
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
+.home-hero__grid {
+  width: 100%;
+  max-width: 1560px;
+  margin-inline: auto;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 32vw, 520px);
+  gap: clamp(var(--space-lg), 3vw, var(--space-2xl));
+}
+
+.home-spotlight-wrapper {
+  width: 100%;
+  max-width: none;
+  justify-self: end;
+}
+
+.home-spotlight {
+  height: auto;
+}
+
+/* Tighter type rhythm keeps the copy block and the artwork level. */
+.home-hero__title {
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+}
+
+.home-hero__subtitle {
+  margin-top: var(--space-xs);
+}
+
+.home-hero__spotlight-pills {
+  margin-top: var(--space-sm);
+}
+
+.home-hero__actions {
+  margin-top: var(--space-md);
+}
+
+/* Keep both columns for as long as they fit; only stack on narrow windows,
+   and then let the artwork fill the column instead of shrinking to a card. */
+@media (max-width: 900px) {
+  .home-hero__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .home-spotlight-wrapper {
+    max-width: min(100%, 620px);
+    justify-self: stretch;
+  }
+
+  .home-spotlight {
+    max-width: none;
+    margin: 0;
+  }
+}
+
 /* An empty library does not need a cinematic void: the welcome copy leads. */
 .home-hero--empty {
-  min-height: clamp(260px, 32vh, 360px);
-  padding-block: clamp(var(--space-xl), 5vh, var(--space-3xl));
+  min-height: clamp(240px, 30vh, 340px);
+  padding-block: clamp(var(--space-xl), 4vh, var(--space-2xl));
 }
 
 /* The art dissolves into the page instead of ending on a hard edge. */
