@@ -704,10 +704,6 @@ html[data-ui-mode="simple"] .store-layout {
   margin-top: var(--space-md);
 }
 
-html[data-ui-mode="simple"] .deals-subtabs {
-  margin-top: var(--space-md);
-}
-
 html[data-ui-mode="simple"] .home-dashboard {
   margin-top: var(--space-md);
 }

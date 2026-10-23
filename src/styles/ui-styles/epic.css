@@ -356,7 +356,7 @@
 [data-ui-style="epic"] .compare-vs-badge, [data-ui-style="epic"] .ctx-badge, [data-ui-style="epic"] .cw-status-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .deals-card-badge, [data-ui-style="epic"] .deals-detail-meta-pill, [data-ui-style="epic"] .deals-detail-owned-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .deals-detail-wishlisted-badge, [data-ui-style="epic"] .deals-giveaway-card-mature-badge, [data-ui-style="epic"] .deals-giveaway-card-timer-badge { border-radius: 0 !important; }
-[data-ui-style="epic"] .deals-spotlight-badge, [data-ui-style="epic"] .deals-spotlight-timer-chip, [data-ui-style="epic"] .deals-subtab-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .deals-spotlight-badge, [data-ui-style="epic"] .deals-spotlight-timer-chip { border-radius: 0 !important; }
 [data-ui-style="epic"] .dl-add-cache-badge, [data-ui-style="epic"] .dl-file-cat-pill, [data-ui-style="epic"] .dl-format-tag { border-radius: 0 !important; }
 [data-ui-style="epic"] .dl-hero-speed-badge, [data-ui-style="epic"] .dl-modal-status-badge, [data-ui-style="epic"] .dl-popover-tab-count { border-radius: 0 !important; }
 [data-ui-style="epic"] .dl-section-count, [data-ui-style="epic"] .dl-sparkline-stat-pill, [data-ui-style="epic"] .dl-stats-badge { border-radius: 0 !important; }
@@ -383,7 +383,7 @@
 [data-ui-style="epic"] .mods-conflict-status-pill, [data-ui-style="epic"] .mods-engine-chip, [data-ui-style="epic"] .mods-filter-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .mods-games-pane-count, [data-ui-style="epic"] .mods-nexus-domain-chip, [data-ui-style="epic"] .mods-state-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .mods-tab-preset-pill, [data-ui-style="epic"] .msd__option-count, [data-ui-style="epic"] .news-card-readtime-badge { border-radius: 0 !important; }
-[data-ui-style="epic"] .news-category-tab-badge, [data-ui-style="epic"] .news-hero-featured-chip, [data-ui-style="epic"] .news-hero-readtime-chip { border-radius: 0 !important; }
+[data-ui-style="epic"] .news-hero-featured-chip, [data-ui-style="epic"] .news-hero-readtime-chip { border-radius: 0 !important; }
 [data-ui-style="epic"] .news-hero-tag-clear, [data-ui-style="epic"] .news-hero-tag-pill, [data-ui-style="epic"] .news-source-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .note-tag, [data-ui-style="epic"] .note-tag-filter, [data-ui-style="epic"] .ownership-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .pdb-tier-badge, [data-ui-style="epic"] .performance-tier-chip, [data-ui-style="epic"] .performance-timeline__badge { border-radius: 0 !important; }

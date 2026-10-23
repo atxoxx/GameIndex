@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  CircleDollarSign,
+  Gamepad2,
+  Gift,
+  MonitorPlay,
+  type LucideIcon,
+} from "lucide-react";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { useToast } from "../../context/ToastContext";
 import type {
@@ -286,62 +293,35 @@ export default function DealsPage() {
     label: string;
     count: number;
     loading: boolean;
-    icon: React.ReactNode;
+    icon: LucideIcon;
   }[] = [
     {
       id: "gamepass",
       label: t("deals.gamepass"),
       count: gpGames.length,
       loading: gpLoading,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="6" width="20" height="12" rx="2" />
-          <line x1="7" y1="12" x2="11" y2="12" />
-          <line x1="9" y1="10" x2="9" y2="14" />
-          <line x1="15" y1="10" x2="17" y2="14" />
-          <line x1="17" y1="10" x2="15" y2="14" />
-        </svg>
-      ),
+      icon: Gamepad2,
     },
     {
       id: "isthereanydeal",
       label: t("deals.isthereanydeal"),
       count: deals.length,
       loading: dealsLoading,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23" />
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      ),
+      icon: CircleDollarSign,
     },
     {
       id: "giveaways",
       label: t("deals.freeGames"),
       count: giveaways.length,
       loading: giveawaysLoading,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 12 20 22 4 22 4 12" />
-          <rect x="2" y="7" width="20" height="5" />
-          <line x1="12" y1="22" x2="12" y2="7" />
-          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-        </svg>
-      ),
+      icon: Gift,
     },
     {
       id: "playtester",
       label: t("deals.playtester"),
       count: ptGames.length,
       loading: ptLoading,
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" />
-          <line x1="8" y1="21" x2="16" y2="21" />
-          <line x1="12" y1="17" x2="12" y2="21" />
-        </svg>
-      ),
+      icon: MonitorPlay,
     },
   ];
 
@@ -391,13 +371,12 @@ export default function DealsPage() {
       <div className="ui-item-subtabs">
         <SubTabs
           ariaLabel={t("deals.title")}
-          className="deals-subtabs"
           value={activeSubTab}
           onChange={setActiveSubTab}
           items={subtabs.map((tab) => ({
             id: tab.id,
             label: tab.label,
-            icon: () => <>{tab.icon}</>,
+            icon: tab.icon,
             count: tab.loading ? 0 : tab.count,
           }))}
         />
