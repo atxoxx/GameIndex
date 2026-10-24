@@ -40,7 +40,7 @@ const DocsPage = lazy(async () => {
   const [mod] = await Promise.all([import("../pages/DocsPage"), loadGuideStrings()]);
   return mod;
 });
-const FriendsPage = lazy(() => import("../pages/FriendsPage"));
+const FriendsPage = lazy(() => import("../pages/friends/FriendsPage"));
 const ActivityPage = lazy(() => import("../pages/ActivityPage"));
 const StoragePage = lazy(() => import("../pages/StoragePage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));

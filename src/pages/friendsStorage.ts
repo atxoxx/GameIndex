@@ -663,7 +663,7 @@ export function mergeDms(local: DmThread[], remote: DmThread[], myName: string):
 
 const LS_UNSEEN_TABS = "gamelib.friends.unseen_tabs";
 
-type UnseenTabKey = "sessions" | "recs" | "suggestions" | "activity" | "dms";
+export type UnseenTabKey = "sessions" | "recs" | "suggestions" | "activity" | "dms";
 
 function readUnseenTabs(): Record<UnseenTabKey, number> {
   try {

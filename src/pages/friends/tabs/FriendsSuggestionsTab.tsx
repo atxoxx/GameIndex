@@ -1,0 +1,277 @@
+import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useLanguage } from "../../../context/LanguageContext";
+import type { GameSuggestion, UserProfile, Friend, SuggestionReactionKind } from "../friendsTypes";
+import type { PendingSuggestion } from "../../friendSuggestionSignal";
+import SuggestionCard from "./SuggestionCard";
+import {
+  displayName,
+  SuggestionIcon,
+  PlusIcon,
+  XIcon,
+} from "../friendsUtils";
+import { Button } from "../../../components/ui";
+
+interface FriendsSuggestionsTabProps {
+  suggestions: GameSuggestion[];
+  profile: UserProfile;
+  friends: Friend[];
+  wishlistGames: any[];
+  /** Game requested from the Wishlist page's "share with friends" action. */
+  prefillShare?: PendingSuggestion | null;
+  /** Clears the prefill after it has been applied. */
+  onPrefillConsumed?: () => void;
+  onReact: (suggestionId: string, kind: SuggestionReactionKind) => void;
+  onToggleWishlist: (gameId: string, gameName: string) => void;
+  onAddComment: (suggestionId: string, text: string) => void;
+  onCreateSuggestion: (sug: Omit<GameSuggestion, "id" | "comments" | "createdAt" | "updatedAt">) => void;
+  onDeleteSuggestion: (suggestionId: string) => void;
+  onOpenGame?: (gameId: string, gameName: string, slug?: string) => void;
+}
+
+export default function FriendsSuggestionsTab({
+  suggestions,
+  profile,
+  friends,
+  wishlistGames,
+  prefillShare,
+  onPrefillConsumed,
+  onReact,
+  onToggleWishlist,
+  onAddComment,
+  onCreateSuggestion,
+  onDeleteSuggestion,
+  onOpenGame,
+}: FriendsSuggestionsTabProps) {
+  const { t } = useLanguage();
+  const [filterMode, setFilterMode] = useState<"all" | "by_me" | "to_me" | "added">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Form state
+  const [selectedWishlistGameId, setSelectedWishlistGameId] = useState("");
+  const [targetFriend, setTargetFriend] = useState("All Friends");
+  const [note, setNote] = useState("");
+
+  const activeSuggestions = useMemo(() => {
+    return suggestions.filter((s) => !s.deleted);
+  }, [suggestions]);
+
+  // A "share with friends" request from the Wishlist page opens this tab with
+  // the dialog already primed on that game.
+  useEffect(() => {
+    if (!prefillShare) return;
+    const keyOf = (g: any) => String(g.id || g.slug || g.name);
+    const match = wishlistGames.find(
+      (g) =>
+        (g.slug != null && String(g.slug) === prefillShare.gameId) ||
+        (g.id != null && String(g.id) === prefillShare.gameId) ||
+        (!!prefillShare.gameName && g.name === prefillShare.gameName)
+    );
+    if (match) setSelectedWishlistGameId(keyOf(match));
+    setShowCreateModal(true);
+    onPrefillConsumed?.();
+  }, [prefillShare, wishlistGames, onPrefillConsumed]);
+
+  const myWishlistGameIds = useMemo(() => {
+    return new Set(wishlistGames.map((g) => String(g.id || g.slug || g.name)));
+  }, [wishlistGames]);
+
+  const filteredSuggestions = useMemo(() => {
+    let list = [...activeSuggestions];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          (s.gameName || "").toLowerCase().includes(q) ||
+          (s.suggestedBy || "").toLowerCase().includes(q) ||
+          (s.note || "").toLowerCase().includes(q)
+      );
+    }
+
+    if (filterMode === "by_me") {
+      list = list.filter((s) => s.suggestedBy === profile.name);
+    } else if (filterMode === "to_me") {
+      list = list.filter(
+        (s) => s.suggestedTo === profile.name || s.suggestedTo === "All Friends"
+      );
+    } else if (filterMode === "added") {
+      list = list.filter((s) => myWishlistGameIds.has(s.gameId));
+    }
+
+    list.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+    return list;
+  }, [activeSuggestions, searchQuery, filterMode, profile.name, myWishlistGameIds]);
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const chosenGame = wishlistGames.find((g) => String(g.id || g.slug || g.name) === selectedWishlistGameId);
+    if (!chosenGame) return;
+
+    onCreateSuggestion({
+      gameId: String(chosenGame.id || chosenGame.slug || chosenGame.name),
+      gameName: chosenGame.name,
+      coverUrl: chosenGame.coverUrl || chosenGame.coverArtUrl,
+      slug: chosenGame.slug || undefined,
+      suggestedBy: profile.name,
+      suggestedTo: targetFriend,
+      note: note.trim(),
+      reactions: {},
+    });
+
+    setShowCreateModal(false);
+    setSelectedWishlistGameId("");
+    setTargetFriend("All Friends");
+    setNote("");
+  };
+
+  return (
+    <div className="friends-suggestions-section">
+      <div className="suggestions-toolbar">
+        <div className="suggestions-search-wrapper">
+          <input
+            type="text"
+            className="profile-input suggestions-search-input"
+            placeholder={t("friendsPage.searchSuggestionsPlaceholder")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="friends-sort-wrapper">
+          <select
+            className="friends-sort-select"
+            value={filterMode}
+            onChange={(e) => setFilterMode(e.target.value as any)}
+            aria-label={t("library.filter.status")}
+          >
+            <option value="all">{t("friends.all")}</option>
+            <option value="to_me">{t("friendsPage.sharedWithYou")}</option>
+            <option value="by_me">{t("friendsPage.sharedByYou")}</option>
+            <option value="added">{t("friendsPage.inWishlist")}</option>
+          </select>
+        </div>
+
+        <Button variant="primary" size="sm" leftIcon={<PlusIcon />}
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          disabled={wishlistGames.length === 0}
+        > {t("friendsPage.shareFromWishlist")} </Button>
+      </div>
+
+      {filteredSuggestions.length === 0 ? (
+        <div className="friends-empty-state">
+          <div className="friends-empty-icon">
+            <SuggestionIcon />
+          </div>
+          <h3 className="friends-empty-title">{t("friendsPage.noSuggestionsYet")}</h3>
+          <p className="friends-empty-desc">
+            {wishlistGames.length === 0
+              ? t("friendsPage.wishlistEmptyToAdd")
+              : t("friendsPage.noSuggestionsDesc")}
+          </p>
+          {wishlistGames.length > 0 && (
+            <Button variant="primary" size="md" leftIcon={<PlusIcon />}
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+            > {t("friendsPage.shareFromWishlist")} </Button>
+          )}
+        </div>
+      ) : (
+        <div className="suggestions-feed-grid">
+          {filteredSuggestions.map((sug) => (
+            <SuggestionCard
+              key={sug.id}
+              suggestion={sug}
+              currentUserName={profile.name}
+              inMyWishlist={myWishlistGameIds.has(sug.gameId)}
+              onReact={onReact}
+              onToggleWishlist={onToggleWishlist}
+              onAddComment={onAddComment}
+              onDelete={onDeleteSuggestion}
+              onOpenGame={onOpenGame}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Share from Wishlist Modal */}
+      {showCreateModal &&
+        createPortal(
+          <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
+          <div className="friends-modal-box friends-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="friends-modal-header">
+              <h2 className="friends-modal-title">
+                <SuggestionIcon /> {t("friendsPage.shareFromWishlist")}
+              </h2>
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
+                type="button"
+                
+                onClick={() => setShowCreateModal(false)}
+                title={t("common.close")}
+              ></Button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit}>
+              <div className="friends-modal-body">
+                <div className="form-group">
+                  <label className="form-label">{t("friendsPage.selectWishlistGame")}</label>
+                  <select
+                    className="profile-input"
+                    value={selectedWishlistGameId}
+                    onChange={(e) => setSelectedWishlistGameId(e.target.value)}
+                    required
+                  >
+                    <option value="">{t("friendsPage.chooseFromWishlist")}</option>
+                    {wishlistGames.map((g) => (
+                      <option key={String(g.id || g.slug || g.name)} value={String(g.id || g.slug || g.name)}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t("friendsPage.shareWithFriend")}</label>
+                  <select
+                    className="profile-input"
+                    value={targetFriend}
+                    onChange={(e) => setTargetFriend(e.target.value)}
+                  >
+                    <option value="All Friends">{t("friendsPage.allFriends")}</option>
+                    {friends.map((f) => (
+                      <option key={f.id} value={f.name}>
+                        {displayName(f)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t("friendsPage.whyShareThisGame")}</label>
+                  <textarea
+                    className="profile-input"
+                    rows={3}
+                    placeholder={t("friendsPage.suggestionNotePlaceholder")}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="friends-modal-footer">
+                <Button variant="secondary" size="md"
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                > {t("common.cancel")} </Button>
+                <Button variant="primary" size="md" leftIcon={<PlusIcon />} type="submit"  disabled={!selectedWishlistGameId}> {t("friendsPage.shareSuggestion")} </Button>
+              </div>
+            </form>
+          </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
