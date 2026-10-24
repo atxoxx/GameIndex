@@ -42,6 +42,8 @@ interface ModManagerProps {
   onModsSized?: (info: { totalBytes: number; folder?: string }) => void;
   /** Fired with a compact summary so the workspace header can show status. */
   onStats?: (stats: ModWorkspaceStats) => void;
+  /** The Mods page exposes MO2 as its own tab, so hide the inline switcher. */
+  hideMo2Switcher?: boolean;
 }
 
 export default function ModManager({
@@ -49,6 +51,7 @@ export default function ModManager({
   onChanged,
   onModsSized,
   onStats,
+  hideMo2Switcher = false,
 }: ModManagerProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -751,7 +754,7 @@ export default function ModManager({
       ]
     : [];
 
-  const showModeSwitcher = mo2.instances.length > 0;
+  const showModeSwitcher = mo2.instances.length > 0 && !hideMo2Switcher;
   const effectiveMode = showModeSwitcher ? managerMode : "standard";
 
   useEffect(() => {

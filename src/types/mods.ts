@@ -230,3 +230,52 @@ export const ENGINE_LABELS: Record<ModEngine, string> = {
   generic: "Mods folder",
   mo2: "Mod Organizer 2",
 };
+
+// ── Workspace diagnostics ───────────────────────────────────────────
+
+/** Mirrors `src-tauri/src/mods/mod.rs` `ModHealthFinding`. */
+export interface ModHealthFinding {
+  id: string;
+  kind: "missing_path" | "empty_mod" | "duplicate_mod" | "unlinked_source" | string;
+  severity: "error" | "warning" | "info" | string;
+  modId: string;
+  name: string;
+  path?: string;
+  detail?: string;
+}
+
+export interface ModHealthReport {
+  totalMods: number;
+  enabledMods: number;
+  errors: number;
+  warnings: number;
+  findings: ModHealthFinding[];
+  checkedAtMs: number;
+}
+
+/** Mirrors the backend `ModProfileRow` (db/mods.rs). */
+export interface ModProfile {
+  id: string;
+  gameId: string;
+  name: string;
+  modStates: Record<string, boolean>;
+  loadOrder: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ModUpdateProgress {
+  gameId: string;
+  done: number;
+  total: number;
+  name: string;
+  source: string;
+}
+
+export interface ModUpdateRunResult {
+  modId: string;
+  name: string;
+  ok: boolean;
+  message?: string;
+  url?: string;
+}

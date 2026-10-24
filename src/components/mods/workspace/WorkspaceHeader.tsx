@@ -1,11 +1,19 @@
-// WorkspaceHeader — the single, slim game identity bar shared by the main
-// Mods page and the game-detail Mods subtab. Replaces the old double banner
-// (page banner + workspace banner) with one row: cover, title, live status,
-// the Installed/Discover switch, and icon actions.
+// WorkspaceHeader — game identity plus the workspace tab strip. One slim row,
+// then the shared SubTabs so the Mods page reads like the rest of the app.
 
-import { Boxes, Compass, ExternalLink, FolderOpen, Maximize2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpCircle,
+  Boxes,
+  Compass,
+  ExternalLink,
+  FolderOpen,
+  Layers,
+  Maximize2,
+  Wrench,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import { Tooltip, Button } from "../../ui";
+import { Button, SubTabs, Tooltip } from "../../ui";
 import { gameDisplayName, type Game } from "../../../types/game";
 import type { ModWorkspaceStats } from "../../../types/mods";
 
@@ -16,7 +24,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
-export type WorkspaceTab = "installed" | "discover";
+export type WorkspaceTab =
+  | "installed"
+  | "discover"
+  | "updates"
+  | "conflicts"
+  | "profiles"
+  | "mo2";
 
 interface WorkspaceHeaderProps {
   game: Game;
@@ -25,6 +39,8 @@ interface WorkspaceHeaderProps {
   onTabChange: (tab: WorkspaceTab) => void;
   stats?: ModWorkspaceStats | null;
   presetCount: number;
+  conflictCount?: number;
+  healthCount?: number;
   onOpenFolder?: () => void;
   onViewGamePage?: () => void;
   onOpenDiscoverFull?: () => void;
@@ -37,6 +53,8 @@ export default function WorkspaceHeader({
   onTabChange,
   stats,
   presetCount,
+  conflictCount = 0,
+  healthCount = 0,
   onOpenFolder,
   onViewGamePage,
   onOpenDiscoverFull,
@@ -51,122 +69,128 @@ export default function WorkspaceHeader({
   const updates = stats?.updates ?? 0;
   const sizeBytes = stats?.sizeBytes ?? 0;
 
+  const pageTabs = [
+    { id: "installed" as const, label: t("mods.tab.installedMods"), icon: Boxes, count: total },
+    { id: "discover" as const, label: t("mods.discover.cta"), icon: Compass },
+    { id: "updates" as const, label: t("mods.tab.updates"), icon: ArrowUpCircle, count: updates },
+    {
+      id: "conflicts" as const,
+      label: t("mods.tab.conflicts"),
+      icon: AlertTriangle,
+      count: conflictCount + healthCount,
+    },
+    { id: "profiles" as const, label: t("mods.tab.profiles"), icon: Layers, count: presetCount },
+    { id: "mo2" as const, label: t("mods.tab.mo2"), icon: Wrench },
+  ];
+
+  const tabs = variant === "subtab" ? pageTabs.slice(0, 2) : pageTabs;
+
   return (
     <header className="mods-ws-header">
-      <div className="mods-ws-identity">
-        <div className="mods-ws-cover" aria-hidden>
-          {game.coverArtUrl ? (
-            <img src={game.coverArtUrl} alt="" loading="lazy" />
-          ) : (
-            <span>{initials}</span>
-          )}
-        </div>
-
-        <div className="mods-ws-meta">
-          <div className="mods-ws-title-row">
-            <h2 className="mods-ws-title" title={name}>
-              {name}
-            </h2>
-            <span className="mods-ws-platform">{game.platform}</span>
+      <div className="mods-ws-top">
+        <div className="mods-ws-identity">
+          <div className="mods-ws-cover" aria-hidden>
+            {game.coverArtUrl ? (
+              <img src={game.coverArtUrl} alt="" loading="lazy" />
+            ) : (
+              <span>{initials}</span>
+            )}
           </div>
 
-          <div className="mods-ws-status">
-            {stats ? (
-              hasMods ? (
-                <>
-                  <span className="mods-ws-stat">
-                    {t("mods.enabledCount", {
-                      enabled: String(enabled),
-                      total: String(total),
-                    })}
+          <div className="mods-ws-meta">
+            <div className="mods-ws-title-row">
+              <h2 className="mods-ws-title" title={name}>
+                {name}
+              </h2>
+              <span className="mods-ws-platform">{game.platform}</span>
+            </div>
+
+            <div className="mods-ws-status">
+              {stats ? (
+                hasMods ? (
+                  <>
+                    <span className="mods-ws-stat">
+                      {t("mods.enabledCount", {
+                        enabled: String(enabled),
+                        total: String(total),
+                      })}
+                    </span>
+                    {updates > 0 && (
+                      <span className="mods-ws-stat mods-ws-stat--updates">
+                        {t("mods.updatesAvailable", { count: String(updates) })}
+                      </span>
+                    )}
+                    {sizeBytes > 0 && (
+                      <span className="mods-ws-stat mods-ws-stat--muted">
+                        {formatBytes(sizeBytes)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="mods-ws-stat mods-ws-stat--muted">
+                    {t("mods.noModsYet")}
                   </span>
-                  {updates > 0 && (
-                    <span className="mods-ws-stat mods-ws-stat--updates">
-                      {t("mods.updatesAvailable", { count: String(updates) })}
-                    </span>
-                  )}
-                  {sizeBytes > 0 && (
-                    <span className="mods-ws-stat mods-ws-stat--muted">
-                      {formatBytes(sizeBytes)}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="mods-ws-stat mods-ws-stat--muted">
-                  {t("mods.noModsYet")}
+                )
+              ) : null}
+
+              {presetCount > 0 && (
+                <span className="mods-ws-chip">
+                  {presetCount} {t("mods.presets")}
                 </span>
-              )
-            ) : null}
+              )}
 
-            {presetCount > 0 && (
-              <span className="mods-ws-chip">
-                {presetCount} {t("mods.presets")}
-              </span>
-            )}
-
-            {game.modsFolder && onOpenFolder && (
-              <button
-                type="button"
-                className="mods-ws-folder"
-                onClick={onOpenFolder}
-                title={`${t("mods.openLocation")}: ${game.modsFolder}`}
-              >
-                <FolderOpen size={12} />
-                <span className="mods-ws-folder-text">{game.modsFolder}</span>
-              </button>
-            )}
+              {game.modsFolder && onOpenFolder && (
+                <button
+                  type="button"
+                  className="mods-ws-folder"
+                  onClick={onOpenFolder}
+                  title={`${t("mods.openLocation")}: ${game.modsFolder}`}
+                >
+                  <FolderOpen size={12} />
+                  <span className="mods-ws-folder-text">{game.modsFolder}</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="mods-ws-controls">
-        <div className="mods-ws-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "installed"}
-            className={`mods-ws-tab${tab === "installed" ? " is-active" : ""}`}
-            onClick={() => onTabChange("installed")}
-          >
-            <Boxes size={14} />
-            <span>{t("mods.tab.installedMods")}</span>
-            {total > 0 && <span className="mods-ws-tab-count">{total}</span>}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "discover"}
-            className={`mods-ws-tab${tab === "discover" ? " is-active" : ""}`}
-            onClick={() => onTabChange("discover")}
-          >
-            <Compass size={14} />
-            <span>{t("mods.discover.cta")}</span>
-          </button>
         </div>
 
         <div className="mods-ws-actions">
           {onViewGamePage && (
             <Tooltip content={t("mods.viewGamePage")}>
-              <Button variant="secondary" size="md" iconOnly leftIcon={<ExternalLink size={15} />}
+              <Button
+                variant="secondary"
+                size="sm"
+                iconOnly
+                leftIcon={<ExternalLink size={15} />}
                 type="button"
-                
                 onClick={onViewGamePage}
                 aria-label={t("mods.viewGamePage")}
-              ></Button>
+              />
             </Tooltip>
           )}
           {variant === "subtab" && onOpenDiscoverFull && (
             <Tooltip content={t("mods.discover.openFullScreen")}>
-              <Button variant="secondary" size="md" iconOnly leftIcon={<Maximize2 size={15} />}
+              <Button
+                variant="secondary"
+                size="sm"
+                iconOnly
+                leftIcon={<Maximize2 size={15} />}
                 type="button"
-                
                 onClick={onOpenDiscoverFull}
                 aria-label={t("mods.discover.openFullScreen")}
-              ></Button>
+              />
             </Tooltip>
           )}
         </div>
       </div>
+
+      <SubTabs
+        items={tabs}
+        value={tab}
+        onChange={onTabChange}
+        ariaLabel={t("mods.tabsAria")}
+        className="mods-ws-tabs"
+      />
     </header>
   );
 }

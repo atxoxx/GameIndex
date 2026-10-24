@@ -1,30 +1,38 @@
 // Main "Mods" page — a games rail on the left and the shared ModWorkspace on
-// the right, with a compact global stats strip that doubles as quick filters.
+// the right, with a quiet stat band that doubles as navigation. The selected
+// game and workspace tab live in the URL so a view can be shared or refreshed.
 
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePresence } from "../../context/PresenceContext";
 import {
-  ArrowUpCircle,
   Boxes,
-  CheckCircle2,
   Compass,
-  Gamepad2,
-  HardDrive,
-  Layers,
   Settings2,
 } from "lucide-react";
-import { Button, KpiTile, PageHeader } from "../../components/ui";
+import { Button, PageHeader } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
+import ModsCockpit from "../../components/mods/ModsCockpit";
 import GameRail, { type RailFilter, type RailSort } from "../../components/mods/GameRail";
 import ModWorkspace from "../../components/mods/workspace/ModWorkspace";
+import type { WorkspaceTab } from "../../components/mods/workspace/WorkspaceHeader";
 import type { ModsOverviewEntry } from "../../types/mods";
 import { gameDisplayName, type Game } from "../../types/game";
 import "../../styles/page-mods.css";
+import "../../styles/page-mods-workspace-v2.css";
 import "../../components/mods/discover/mods-discover.css";
+
+const TABS: WorkspaceTab[] = [
+  "installed",
+  "discover",
+  "updates",
+  "conflicts",
+  "profiles",
+  "mo2",
+];
 
 function formatStorage(bytes: number): string {
   if (bytes <= 0) return "0 MB";
@@ -37,17 +45,22 @@ export default function ModsPage() {
   const { games, updateGame } = useGames();
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
+  const [overviewReady, setOverviewReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [railFilter, setRailFilter] = useState<RailFilter>("all");
   const [railSort, setRailSort] = useState<RailSort>("mods");
   const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const { setModsGameName } = usePresence();
 
-  // Installed games we can scan or that already have mods. Steam titles are
-  // included via `steamAppId` even when `path` is empty.
+  const gameParam = searchParams.get("game");
+  const tabParam = searchParams.get("tab");
+  const tab: WorkspaceTab = TABS.includes(tabParam as WorkspaceTab)
+    ? (tabParam as WorkspaceTab)
+    : "installed";
+
   const candidates = useMemo(
     () =>
       games
@@ -60,15 +73,20 @@ export default function ModsPage() {
     [games, overview]
   );
 
-  const refreshOverview = () => {
+  const refreshOverview = useCallback(() => {
     setRefreshing(true);
     invoke<ModsOverviewEntry[]>("mods_overview")
       .then((rows) => setOverview(new Map(rows.map((r) => [r.gameId, r]))))
       .catch(() => setOverview(new Map()))
-      .finally(() => setRefreshing(false));
-  };
+      .finally(() => {
+        setOverviewReady(true);
+        setRefreshing(false);
+      });
+  }, []);
 
-  useEffect(refreshOverview, []);
+  useEffect(() => {
+    refreshOverview();
+  }, [refreshOverview]);
 
   const globalStats = useMemo(() => {
     let moddedGames = 0;
@@ -93,6 +111,60 @@ export default function ModsPage() {
     return { moddedGames, totalMods, enabledMods, activeRatio, totalUpdates, totalStorageBytes };
   }, [candidates, overview]);
 
+  const selectedGame: Game | null = useMemo(() => {
+    if (gameParam) {
+      const hit = games.find((g) => g.id === gameParam);
+      if (hit) return hit;
+    }
+    const withMods = candidates.find((g) => (overview.get(g.id)?.total ?? 0) > 0);
+    return withMods ?? candidates[0] ?? games[0] ?? null;
+  }, [gameParam, games, candidates, overview]);
+
+  // Canonicalise the URL once the default game resolves.
+  useEffect(() => {
+    if (!selectedGame || !overviewReady) return;
+    if (gameParam === selectedGame.id) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("game", selectedGame.id);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [selectedGame, gameParam, overviewReady, setSearchParams]);
+
+  const selectGame = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("game", id);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const setTab = useCallback(
+    (next: WorkspaceTab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === "installed") params.delete("tab");
+          else params.set("tab", next);
+          return params;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  // Every tab keeps the rail; only search expands the candidate pool when the
+  // query is non-empty, so the default list stays "games we can mod".
   const ordered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = q ? games : candidates;
@@ -139,19 +211,11 @@ export default function ModsPage() {
   }, [candidates, games, overview, search, railFilter, railSort]);
 
   useEffect(() => {
-    if (selectedGameId && games.some((g) => g.id === selectedGameId)) return;
-    const withMods = candidates.find((g) => (overview.get(g.id)?.total ?? 0) > 0);
-    setSelectedGameId((withMods ?? candidates[0] ?? games[0])?.id ?? null);
-  }, [candidates, games, overview, selectedGameId]);
-
-  const selectedGame: Game | null = games.find((g) => g.id === selectedGameId) ?? null;
-
-  useEffect(() => {
     setModsGameName(selectedGame ? gameDisplayName(selectedGame) : null);
   }, [selectedGame, setModsGameName]);
 
   return (
-    <div className="mods-page">
+    <div className="mods-page mods-page--v2">
       <PageWidget page="mods" widget="modsHeader">
         <div className="ui-item-modsHeader">
           <PageHeader
@@ -164,7 +228,13 @@ export default function ModsPage() {
                   variant="secondary"
                   size="sm"
                   leftIcon={<Compass size={14} />}
-                  onClick={() => navigate("/mods/discover")}
+                  onClick={() =>
+                    navigate(
+                      selectedGame
+                        ? `/mods/discover?gameId=${selectedGame.id}`
+                        : "/mods/discover"
+                    )
+                  }
                 >
                   {t("mods.discover.title")}
                 </Button>
@@ -184,74 +254,27 @@ export default function ModsPage() {
 
       {candidates.length > 0 && (
         <PageWidget page="mods" widget="modsCockpit">
-          <div className="mods-global-stats ui-item-modsCockpit" role="region" aria-label={t("mods.eyebrow")}>
-            <KpiTile
-              size="sm"
-              className={`mods-stat-tile${railFilter === "modded" ? " is-active" : ""}`}
-              label={t("mods.global.moddedGames")}
-              value={globalStats.moddedGames}
-              subtext={`/ ${candidates.length}`}
-              icon={<Gamepad2 size={16} />}
-              role="button"
-              tabIndex={0}
-              onClick={() => setRailFilter((prev) => (prev === "modded" ? "all" : "modded"))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ")
-                  setRailFilter((prev) => (prev === "modded" ? "all" : "modded"));
-              }}
-            />
-            <KpiTile
-              size="sm"
-              className="mods-stat-tile"
-              label={t("mods.global.totalMods")}
-              value={globalStats.totalMods}
-              icon={<Layers size={16} />}
-              role="button"
-              tabIndex={0}
-              onClick={() => setRailFilter("all")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setRailFilter("all");
-              }}
-            />
-            <KpiTile
-              size="sm"
-              className="mods-stat-tile"
-              intent="success"
-              label={t("mods.global.activeRate")}
-              value={`${globalStats.activeRatio}%`}
-              subtext={`${globalStats.enabledMods}/${globalStats.totalMods}`}
-              icon={<CheckCircle2 size={16} />}
-            />
-            {globalStats.totalUpdates > 0 && (
-              <KpiTile
-                size="sm"
-                className={`mods-stat-tile${railFilter === "updates" ? " is-active" : ""}`}
-                intent="warning"
-                label={t("mods.global.pendingUpdates")}
-                value={globalStats.totalUpdates}
-                icon={<ArrowUpCircle size={16} />}
-                role="button"
-                tabIndex={0}
-                onClick={() => setRailFilter((prev) => (prev === "updates" ? "all" : "updates"))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ")
-                    setRailFilter((prev) => (prev === "updates" ? "all" : "updates"));
-                }}
-              />
-            )}
-            <KpiTile
-              size="sm"
-              className="mods-stat-tile"
-              label={t("mods.global.totalStorage")}
-              value={formatStorage(globalStats.totalStorageBytes)}
-              icon={<HardDrive size={16} />}
+          <div className="ui-item-modsCockpit mods-v2-cockpit">
+            <ModsCockpit
+              moddedGames={globalStats.moddedGames}
+              totalGames={candidates.length}
+              totalMods={globalStats.totalMods}
+              enabledMods={globalStats.enabledMods}
+              activeRatio={globalStats.activeRatio}
+              updates={globalStats.totalUpdates}
+              storageLabel={formatStorage(globalStats.totalStorageBytes)}
+              onToggleModded={() =>
+                setRailFilter((prev) => (prev === "modded" ? "all" : "modded"))
+              }
+              onOpenUpdates={() => setTab("updates")}
+              onFilterAll={() => setRailFilter("all")}
             />
           </div>
         </PageWidget>
       )}
 
       {candidates.length === 0 ? (
-        <div className="mods-empty">
+        <div className="mods-empty ui-item-modsWorkspace">
           <div className="mods-empty-glyph">
             <Boxes size={44} strokeWidth={1.5} />
           </div>
@@ -269,8 +292,8 @@ export default function ModsPage() {
                 games={ordered}
                 totalGames={candidates.length}
                 overview={overview}
-                selectedGameId={selectedGameId}
-                onSelect={setSelectedGameId}
+                selectedGameId={selectedGame?.id ?? null}
+                onSelect={selectGame}
                 search={search}
                 onSearchChange={setSearch}
                 filter={railFilter}
@@ -294,6 +317,8 @@ export default function ModsPage() {
                   key={selectedGame.id}
                   game={selectedGame}
                   variant="page"
+                  tab={tab}
+                  onTabChange={setTab}
                   onChanged={refreshOverview}
                   onModsSized={(info) =>
                     updateGame(selectedGame.id, {

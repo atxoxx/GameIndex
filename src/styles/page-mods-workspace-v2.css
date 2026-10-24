@@ -1,0 +1,650 @@
+/* ============================================================================
+   Mods workspace v2 — tabbed workspace, updates, conflicts/integrity and the
+   central profiles hub. Loaded after page-mods.css so it can reshape the
+   shared workspace header without touching the manager internals.
+   ============================================================================ */
+
+.mods-page--v2 .mods-page__split {
+  gap: var(--space-lg);
+}
+
+.mods-v2-cockpit {
+  margin-bottom: var(--space-md);
+}
+
+.mods-cockpit {
+  display: grid;
+  grid-template-columns: minmax(236px, 300px) minmax(0, 1fr);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.mods-cockpit__lead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3xs);
+  min-width: 0;
+  padding: var(--space-lg);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background:
+    radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 68%),
+    transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.mods-cockpit__lead:hover {
+  background:
+    radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--color-accent) 15%, transparent) 0%, transparent 70%),
+    var(--color-bg-secondary);
+}
+
+.mods-cockpit__lead-top {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.mods-cockpit__lead-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 2.4vw, 2.25rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mods-cockpit__lead-value span {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  letter-spacing: 0;
+}
+
+.mods-cockpit__lead-detail,
+.mods-cockpit__summary {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.mods-cockpit__track {
+  display: block;
+  width: 100%;
+  height: var(--space-2xs);
+  margin-top: var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.mods-cockpit__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.mods-cockpit__fill--success {
+  background: var(--color-success);
+}
+
+.mods-cockpit__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.mods-cockpit__metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3xs);
+  min-width: 0;
+  padding: var(--space-lg);
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.mods-cockpit__metric:first-child {
+  border-left: 0;
+}
+
+button.mods-cockpit__metric {
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+button.mods-cockpit__metric:hover {
+  background: var(--color-bg-hover);
+}
+
+.mods-cockpit__metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.mods-cockpit__metric-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1.7vw, 1.65rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mods-cockpit__metric-value--success {
+  color: var(--color-success);
+}
+
+.mods-cockpit__metric.is-warning .mods-cockpit__metric-value {
+  color: var(--color-warning);
+}
+
+.mods-cockpit__metric-detail {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+.mods-cockpit__metric .mods-cockpit__track {
+  margin-top: var(--space-2xs);
+}
+
+@media (max-width: 1300px) {
+  .mods-cockpit {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  }
+  .mods-cockpit__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mods-cockpit__metric:nth-child(3) {
+    border-left: 0;
+  }
+  .mods-cockpit__metric:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+  .mods-cockpit__lead,
+  .mods-cockpit__metric {
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 1000px) {
+  .mods-cockpit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mods-cockpit__lead {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+@media (max-width: 640px) {
+  .mods-cockpit__metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mods-cockpit__metric {
+    border-left: 0;
+  }
+  .mods-cockpit__metric:nth-child(n + 2) {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* The header becomes identity row + shared tab strip. */
+.mods-ws-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.mods-ws-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.mods-ws-header .mods-ws-identity {
+  flex: 1 1 320px;
+}
+
+.mods-ws-tabs.ui-subtabs {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.mods-ws-tabs .ui-subtabs__strip {
+  gap: var(--space-md);
+}
+
+.mods-ws-tabs .ui-subtabs__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.mods-tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.mods-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Updates ──────────────────────────────────────────────────────── */
+
+.mods-updates-head,
+.mods-profiles-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.mods-updates-head h3,
+.mods-profiles-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.mods-updates-head p,
+.mods-profiles-head p {
+  margin: var(--space-3xs) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.mods-updates-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.mods-updates-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.mods-updates-progress-track {
+  width: 140px;
+  height: 4px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.mods-updates-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--duration-fast) var(--ease-standard);
+}
+
+.mods-updates-progress > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mods-updates-count,
+.mods-profiles-count,
+.mods-issues-count {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mods-updates-list,
+.mods-updates-results,
+.mods-issues-list,
+.mods-issues-conflicts,
+.mods-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mods-updates-row,
+.mods-issues-row,
+.mods-profiles-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.mods-updates-icon {
+  display: inline-flex;
+  color: var(--color-warning);
+}
+
+.mods-updates-info,
+.mods-issues-info,
+.mods-profiles-info {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 0;
+  flex: 1;
+}
+
+.mods-updates-info strong,
+.mods-issues-info strong,
+.mods-profiles-info strong {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mods-updates-info span,
+.mods-issues-info span,
+.mods-profiles-info span {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mods-updates-row-actions,
+.mods-issues-actions,
+.mods-profiles-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-shrink: 0;
+}
+
+.mods-updates-empty,
+.mods-profiles-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.mods-updates-clean,
+.mods-issues-clean {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+}
+
+.mods-updates-clean p,
+.mods-issues-clean p {
+  margin: var(--space-3xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.mods-updates-results li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.mods-updates-results li.is-ok svg {
+  color: var(--color-success);
+}
+
+.mods-updates-results li.is-warn svg {
+  color: var(--color-warning);
+}
+
+.mods-updates-results em {
+  color: var(--color-text-muted);
+  font-style: normal;
+  font-size: var(--text-2xs);
+}
+
+/* ── Conflicts & integrity ───────────────────────────────────────── */
+
+.mods-issues-band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.mods-issues-metric {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+}
+
+.mods-issues-metric-value {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.mods-issues-metric.is-error .mods-issues-metric-value {
+  color: var(--color-danger);
+}
+
+.mods-issues-metric.is-warning .mods-issues-metric-value {
+  color: var(--color-warning);
+}
+
+.mods-issues-metric-label {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.mods-issues-band-actions {
+  margin-left: auto;
+}
+
+.mods-issues-icon {
+  display: inline-flex;
+  color: var(--color-info);
+}
+
+.mods-issues-row.is-error .mods-issues-icon {
+  color: var(--color-danger);
+}
+
+.mods-issues-row.is-warning .mods-issues-icon {
+  color: var(--color-warning);
+}
+
+.mods-issues-info code {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.mods-issues-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.mods-issues-conflict code {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.mods-issues-providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.mods-issues-provider {
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+}
+
+.mods-issues-provider.is-winner {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Profiles hub ────────────────────────────────────────────────── */
+
+.mods-profiles-scope {
+  display: inline-flex;
+  padding: var(--space-3xs);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.mods-profiles-scope button {
+  padding: var(--space-2xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.mods-profiles-scope button.is-active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.mods-profiles-save {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.mods-profiles-save input {
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.mods-profiles-save input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.mods-profiles-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+.mods-profiles-date {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-3xs) * 1.5);
+}
+
+.mods-profiles-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 1100px) {
+  .mods-updates-head,
+  .mods-profiles-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mods-updates-progress-fill {
+    transition: none;
+  }
+}
