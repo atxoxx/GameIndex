@@ -104,6 +104,12 @@ export interface RestoreResult {
   warnings: string[];
 }
 
+/** Filesystem state of one save location, probed on demand. */
+export interface SaveLocationHealth {
+  id: string;
+  exists: boolean;
+}
+
 /** One location as recorded in a snapshot manifest. */
 export interface BackupManifestLocation {
   index: number;

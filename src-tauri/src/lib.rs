@@ -519,6 +519,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             saves::saves_summary,
             saves::saves_list_locations,
             saves::saves_list_all_locations,
+            saves::saves_location_health,
             saves::saves_detect_locations,
             saves::saves_detect_all,
             saves::saves_add_location,

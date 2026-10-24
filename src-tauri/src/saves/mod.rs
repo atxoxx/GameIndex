@@ -127,6 +127,18 @@ pub struct SavesSummary {
     pub retention: u32,
 }
 
+/// Filesystem state of one stored save location.
+///
+/// Location lists stay cheap (no disk probes); the hub asks for this
+/// separately so a disconnected or slow drive never delays rendering the
+/// page or a game's location rows.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveLocationHealth {
+    pub id: String,
+    pub exists: bool,
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 fn state_db(app: &AppHandle) -> Result<Db, String> {
@@ -304,6 +316,40 @@ pub fn saves_list_locations(app: AppHandle, game_id: String) -> Result<Vec<SaveL
 pub fn saves_list_all_locations(app: AppHandle) -> Result<Vec<SaveLocation>, String> {
     let db = state_db(&app)?;
     saves::list_all_locations(&db)
+}
+
+/// Probe whether each stored save location still exists on disk.
+///
+/// Optionally scoped to one game (the per-game Saves tab only needs its own
+/// rows). Probing runs on a blocking thread because `Path::exists` can stall
+/// on removable or network drives.
+#[tauri::command]
+pub async fn saves_location_health(
+    app: AppHandle,
+    game_id: Option<String>,
+) -> Result<Vec<SaveLocationHealth>, String> {
+    let db = state_db(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let locations = match game_id.as_deref() {
+            Some(id) if !id.is_empty() => saves::list_locations(&db, id)?,
+            _ => saves::list_all_locations(&db)?,
+        };
+        Ok(probe_location_health(locations))
+    })
+    .await
+    .map_err(|e| format!("saves_location_health task: {e}"))?
+}
+
+/// Filesystem probe for a location list, split out so it can be tested
+/// without a Tauri app handle.
+fn probe_location_health(locations: Vec<SaveLocation>) -> Vec<SaveLocationHealth> {
+    locations
+        .into_iter()
+        .map(|location| SaveLocationHealth {
+            exists: Path::new(&location.path).exists(),
+            id: location.id,
+        })
+        .collect()
 }
 
 /// Detect and persist locations for one game, returning the merged set.
@@ -734,4 +780,41 @@ pub fn saves_open_location(app: AppHandle, id: String) -> Result<(), String> {
     app.opener()
         .open_path(target, None::<&str>)
         .map_err(|e| format!("open location: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn location(id: &str, path: String) -> SaveLocation {
+        SaveLocation {
+            id: id.into(),
+            game_id: "game".into(),
+            path,
+            label: id.into(),
+            kind: "dir".into(),
+            source: "manual".into(),
+            include: true,
+            created_at: 0,
+            updated_at: 0,
+            last_backup_at: None,
+            last_restore_at: None,
+        }
+    }
+
+    #[test]
+    fn location_health_distinguishes_present_and_missing_paths() {
+        let temp = std::env::temp_dir();
+        let missing = temp.join("gameindex-missing-save-location-9f7c1a");
+        let health = probe_location_health(vec![
+            location("present", temp.to_string_lossy().to_string()),
+            location("missing", missing.to_string_lossy().to_string()),
+        ]);
+
+        assert_eq!(health.len(), 2);
+        assert_eq!(health[0].id, "present");
+        assert!(health[0].exists);
+        assert_eq!(health[1].id, "missing");
+        assert!(!health[1].exists);
+    }
 }
