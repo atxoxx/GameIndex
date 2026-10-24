@@ -9,7 +9,6 @@ import {
 import { setStoreCardHover } from "../components/store/storeCardHover";
 import StoreHeader from "../components/store/StoreHeader";
 import StoreToolbar from "../components/store/StoreToolbar";
-import StoreFilterPanel from "../components/store/StoreFilterPanel";
 import StoreFilterChips, {
   type StoreFilterChipType,
 } from "../components/store/StoreFilterChips";
@@ -57,6 +56,7 @@ export default function StorePage() {
   // The hero is a browse-on-entry surface, not a permanent masthead. Once it
   // scrolls away, a slim sticky banner takes over so the current pick and
   // its CTA stay reachable while the catalogue keeps the rest of the height.
+  // Filters now open as a popover from the command bar.
   const [heroAnchor, setHeroAnchor] = useState<HTMLDivElement | null>(null);
   const heroControlsRef = useRef<StoreHeroControls | null>(null);
   const [heroGame, setHeroGame] = useState<StoreGameSummary | null>(null);
@@ -307,10 +307,6 @@ export default function StorePage() {
           </div>
         </PageWidget>
       </div>
-
-      <PageWidget page="store" widget="storeFilters">
-        <StoreFilterPanel catalogue={c} />
-      </PageWidget>
 
       {c.bulkMode && (
         <StoreBulkBar

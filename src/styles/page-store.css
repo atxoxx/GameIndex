@@ -3007,72 +3007,58 @@
   color: var(--color-text-tertiary);
 }
 
-/* ── Filter drawer ──────────────────────────────────────────────────────── */
+/* ── Filter popover ────────────────────────────────────────────────────── */
 
-.store-filter-drawer-scrim {
+.store-filter-popover {
   position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  background: color-mix(in srgb, var(--color-bg-primary) 52%, transparent);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-normal);
-}
-
-.store-filter-drawer-scrim.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.store-filter-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: calc(var(--z-modal) + 1);
+  z-index: calc(var(--z-popover) + 1);
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  width: min(410px, 94vw);
+  overflow: hidden;
   background: var(--color-bg-primary);
-  border-left: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--elevation-4);
-  transform: translateX(100%);
-  visibility: hidden;
-  transition: transform var(--transition-normal) var(--ease-standard), visibility var(--transition-normal);
+  transform-origin: top right;
+  animation: store-filter-popover-in 140ms var(--ease-standard);
 }
 
-.store-filter-drawer.open {
-  transform: none;
-  visibility: visible;
+@keyframes store-filter-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.store-filter-drawer-header {
+.store-filter-popover-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: var(--space-lg) var(--space-lg) var(--space-sm);
+  flex-shrink: 0;
+  padding: var(--space-md) var(--space-md) var(--space-xs) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
 }
 
-.store-filter-drawer-header h3 {
+.store-filter-popover-header h3 {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
-.store-filter-drawer-close {
+.store-filter-popover-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border);
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-secondary);
@@ -3080,19 +3066,19 @@
   flex-shrink: 0;
 }
 
-.store-filter-drawer-close:hover {
+.store-filter-popover-close:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
 }
 
-.store-filter-drawer-body {
+.store-filter-popover-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-sm);
 }
 
-.store-filter-drawer .store-filter-sidebar {
+.store-filter-popover .store-filter-sidebar {
   position: static;
   width: 100%;
   max-height: none;
@@ -3105,43 +3091,49 @@
   box-shadow: none;
 }
 
-.store-filter-drawer-footer {
+/* The popover footer owns apply/clear, so the sidebar keeps only its facets. */
+.store-filter-popover .store-filter-actions {
+  display: none;
+}
+
+.store-filter-popover-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-lg);
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
 }
 
-.store-filter-drawer-clear {
+.store-filter-popover-clear {
   border: 0;
   background: none;
   color: var(--color-text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
 }
 
-.store-filter-drawer-clear:hover {
+.store-filter-popover-clear:hover {
   color: var(--color-danger);
 }
 
-.store-filter-drawer-apply {
+.store-filter-popover-apply {
   flex: 1;
-  max-width: 240px;
-  height: 38px;
+  max-width: 220px;
+  height: 34px;
   border: 0;
   border-radius: var(--radius-md);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
 
-.store-filter-drawer-apply:hover {
+.store-filter-popover-apply:hover {
   background: var(--color-accent-hover);
 }
 
@@ -3588,8 +3580,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .store-hero-banner,
-  .store-filter-drawer,
-  .store-filter-drawer-scrim {
+  .store-filter-popover {
     animation: none;
     transition: none;
   }
