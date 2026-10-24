@@ -1,4 +1,4 @@
-import type { NewsArticle } from "../../../hooks/useNewsFeeds";
+import type { NewsArticle } from "../../../types/news";
 
 export type GameNewsFilterCategory =
   | "all"

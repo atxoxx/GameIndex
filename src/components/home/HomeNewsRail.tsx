@@ -1,11 +1,8 @@
-import { useMemo, useState } from "react";
-import {
-  useNewsFeeds,
-  formatArticleDate,
-  type NewsArticle,
-} from "../../hooks/useNewsFeeds";
+import { useMemo } from "react";
+import { useNewsDemand } from "../../context/NewsContext";
+import { formatArticleDate } from "../../utils/news/feed";
+import type { NewsArticle } from "../../types/news";
 import { useLanguage } from "../../context/LanguageContext";
-import { loadSavedArticles, toggleSavedArticle } from "../../pages/communityStorage";
 import HomeSection from "./HomeSection";
 
 const MAX_ITEMS = 6;
@@ -29,13 +26,12 @@ export default function HomeNewsRail({ onSelectArticle }: HomeNewsRailProps) {
     readLinks,
     markRead,
     addToHistory,
-  } = useNewsFeeds();
-  const [savedLinks, setSavedLinks] = useState<Set<string>>(
-    () => new Set(loadSavedArticles().map((s) => s.link))
-  );
+    savedLinks,
+    toggleSaved,
+  } = useNewsDemand();
 
   const latest = useMemo(() => {
-    const withImages = articles.filter((a) => a.imageUrl);
+    const withImages = articles.filter((article) => article.imageUrl);
     const pool = withImages.length >= 3 ? withImages : articles;
     return pool.slice(0, MAX_ITEMS);
   }, [articles]);
@@ -47,16 +43,7 @@ export default function HomeNewsRail({ onSelectArticle }: HomeNewsRailProps) {
   };
 
   const handleToggleSave = (article: NewsArticle) => {
-    setSavedLinks((prev) => {
-      const next = new Set(prev);
-      if (next.has(article.link)) {
-        next.delete(article.link);
-      } else {
-        next.add(article.link);
-      }
-      return next;
-    });
-    toggleSavedArticle(article);
+    void toggleSaved(article);
   };
 
   return (
@@ -112,7 +99,7 @@ function HomeNewsCard({
   onClick: () => void;
   onToggleSave: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   return (
     <article
       className={`home-news-card${read ? " is-read" : ""}`}
@@ -145,7 +132,7 @@ function HomeNewsCard({
         </h4>
         <div className="home-news-card__footer">
           <span className="home-news-card__date">
-            {article.pubDate ? formatArticleDate(article.pubDate) : ""}
+            {article.pubDate ? formatArticleDate(article.pubDate, language) : ""}
           </span>
           <button
             type="button"

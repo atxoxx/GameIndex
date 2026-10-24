@@ -74,7 +74,7 @@ const LS_NOSTR_PRIVKEY = "gamelib.friends.nostr_privkey";
 
 /** True inside the Tauri webview (as opposed to a plain browser via
  *  `npm run dev`). Same pattern the rest of the codebase uses
- *  (e.g. useNewsFeeds.ts). */
+ *  (e.g. utils/news/feed.ts). */
 function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI__" in window;
 }

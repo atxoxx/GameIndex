@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { NewsArticle } from "../../../hooks/useNewsFeeds";
-import { formatArticleDate, estimateReadingTime } from "../../../hooks/useNewsFeeds";
+import type { NewsArticle } from "../../../types/news";
+import { formatArticleDate, estimateReadingTime } from "../../../utils/news/feed";
 import { useLanguage } from "../../../context/LanguageContext";
 import {
   classifyArticle,
@@ -25,7 +25,7 @@ export default function GameNewsListView({
   onToggleSave,
   onToggleRead,
 }: GameNewsListViewProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const handleCopy = async (e: React.MouseEvent, link: string) => {
@@ -133,7 +133,7 @@ export default function GameNewsListView({
             {/* Right Meta & Actions */}
             <div className="game-news-list-meta-actions">
               <div className="game-news-list-date-info">
-                {article.pubDate && <span>{formatArticleDate(article.pubDate)}</span>}
+                {article.pubDate && <span>{formatArticleDate(article.pubDate, language)}</span>}
                 <span className="game-news-list-readtime">
                   {t("game.news.readTime", { min: readTime })}
                 </span>

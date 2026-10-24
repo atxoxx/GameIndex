@@ -1,199 +1,162 @@
-import type { NewsArticle, NewsCategory } from "../../hooks/useNewsFeeds";
+import { useEffect, useRef } from "react";
+import { Bookmark, Clock, Search, Rss, SlidersHorizontal } from "lucide-react";
+import type {
+  NewsCardItem,
+  NewsTab,
+  NewsTopicId,
+} from "../../types/news";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import NewsArticleCard, { NewsArticleCardSkeleton } from "./NewsArticleCard";
 import NewsEmptyState, { NewsErrorState } from "./NewsEmptyState";
 
-const SKELETON_COUNT = 8;
-
 interface NewsArticleGridProps {
-  articles: NewsArticle[];
-  totalCount: number;
-  hasMore: boolean;
+  items: NewsCardItem[];
+  total: number;
+  tab: Exclude<NewsTab, "overview">;
+  density: ViewDensity;
   loading: boolean;
   error: string | null;
-  density: ViewDensity;
-  readLinks: Set<string>;
+  hasMore: boolean;
+  searching: boolean;
+  filtering: boolean;
+  sourceCount: number;
   savedLinks: Set<string>;
-  sourceNames: string[];
-  activeSource: string | null;
-  activeCategory: NewsCategory;
-  searchQuery: string;
-  activeTag: string | null;
-  relatedGameNames?: Map<string, string>;
-  onCardClick: (article: NewsArticle) => void;
-  onToggleSave?: (article: NewsArticle) => void;
-  onToggleRead?: (article: NewsArticle) => void;
+  relatedGames: Map<string, string>;
+  onOpen: (item: NewsCardItem) => void;
+  onToggleSave: (item: NewsCardItem) => void;
+  onToggleRead: (item: NewsCardItem) => void;
+  onSelectTopic: (topic: NewsTopicId) => void;
   onLoadMore: () => void;
   onRetry: () => void;
-  onOpenSettings: () => void;
-  onClearSearch: () => void;
-  onClearTag?: () => void;
-  onSwitchToAll: () => void;
-  onSelectTag?: (tag: string) => void;
+  onResetFilters: () => void;
+  onOpenSources: () => void;
+  onGoToFeed: () => void;
 }
 
+const SKELETON_COUNT = 8;
+
+/**
+ * NewsArticleGrid — the result surface for Feed, Saved and History.
+ *
+ * Mounts the first page immediately and pulls the next page when the sentinel
+ * enters the viewport (the button stays for keyboards and reduced-motion
+ * users). Empty states name the reason instead of showing one generic message.
+ */
 export default function NewsArticleGrid({
-  articles,
-  totalCount,
-  hasMore,
+  items,
+  total,
+  tab,
+  density,
   loading,
   error,
-  density,
-  readLinks,
+  hasMore,
+  searching,
+  filtering,
+  sourceCount,
   savedLinks,
-  sourceNames,
-  activeSource,
-  activeCategory,
-  searchQuery,
-  activeTag,
-  relatedGameNames,
-  onCardClick,
+  relatedGames,
+  onOpen,
   onToggleSave,
   onToggleRead,
+  onSelectTopic,
   onLoadMore,
   onRetry,
-  onOpenSettings,
-  onClearSearch,
-  onClearTag,
-  onSwitchToAll,
-  onSelectTag,
+  onResetFilters,
+  onOpenSources,
+  onGoToFeed,
 }: NewsArticleGridProps) {
   const { t } = useLanguage();
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  if (loading && totalCount === 0) {
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, onLoadMore]);
+
+  if (loading && items.length === 0) {
     return (
-      <div className={`news-article-grid density-${density}`}>
-        {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-          <NewsArticleCardSkeleton key={i} density={density} />
+      <div className={`news-grid density-${density}`} aria-busy="true">
+        {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
+          <NewsArticleCardSkeleton key={index} density={density} />
         ))}
       </div>
     );
   }
 
-  if (error && totalCount === 0) {
+  if (error && items.length === 0) {
     return <NewsErrorState message={error} onRetry={onRetry} />;
   }
 
-  if (totalCount === 0) {
-    if (sourceNames.length === 0) {
+  if (total === 0) {
+    if (tab === "saved") {
       return (
         <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 11a9 9 0 0 1 9 9" />
-              <path d="M4 4a16 16 0 0 1 16 16" />
-              <circle cx="5" cy="19" r="1" />
-            </svg>
-          }
-          title={t("news.noArticles")}
-          message={t("news.noArticlesSources")}
-          actionLabel={t("news.addFeed")}
-          onAction={onOpenSettings}
-        />
-      );
-    }
-
-    if (searchQuery.trim()) {
-      return (
-        <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          }
-          title={t("news.noSearchResults")}
-          actionLabel={t("common.clear")}
-          onAction={onClearSearch}
-        />
-      );
-    }
-
-    if (activeTag) {
-      return (
-        <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-              <polyline points="17 6 23 6 23 12" />
-            </svg>
-          }
-          title={t("news.noTagResults", { tag: activeTag })}
-          actionLabel={t("common.clear")}
-          onAction={onClearTag}
-        />
-      );
-    }
-
-    if (activeCategory === "saved") {
-      return (
-        <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-            </svg>
-          }
+          icon={<Bookmark size={22} />}
           title={t("news.noSavedArticles")}
           message={t("news.noSavedArticlesHint")}
           actionLabel={t("news.openFeed")}
-          onAction={onSwitchToAll}
+          onAction={onGoToFeed}
         />
       );
     }
-
-    if (activeCategory === "history") {
+    if (tab === "history") {
       return (
         <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-          }
+          icon={<Clock size={22} />}
           title={t("news.noHistoryYet")}
           message={t("news.noHistoryHint")}
           actionLabel={t("news.openFeed")}
-          onAction={onSwitchToAll}
+          onAction={onGoToFeed}
         />
       );
     }
-
-    if (activeCategory === "for_you") {
+    if (sourceCount === 0) {
       return (
         <NewsEmptyState
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <line x1="6" y1="12" x2="10" y2="12" />
-              <line x1="8" y1="10" x2="8" y2="14" />
-              <line x1="15" y1="11" x2="15.01" y2="11" />
-              <line x1="18" y1="13" x2="18.01" y2="13" />
-            </svg>
-          }
-          title={t("news.noForYouMatches")}
-          message={t("news.noForYouHint")}
-          actionLabel={t("news.openFeed")}
-          onAction={onSwitchToAll}
+          icon={<Rss size={22} />}
+          title={t("news.noArticles")}
+          message={t("news.noArticlesSources")}
+          actionLabel={t("news.manageSources")}
+          onAction={onOpenSources}
         />
       );
     }
-
+    if (searching) {
+      return (
+        <NewsEmptyState
+          icon={<Search size={22} />}
+          title={t("news.noSearchResults")}
+          actionLabel={t("common.clearSearch")}
+          onAction={onResetFilters}
+        />
+      );
+    }
+    if (filtering) {
+      return (
+        <NewsEmptyState
+          icon={<SlidersHorizontal size={22} />}
+          title={t("news.noFilterResults")}
+          message={t("news.noFilterResultsHint")}
+          actionLabel={t("news.resetFilters")}
+          onAction={onResetFilters}
+        />
+      );
+    }
     return (
       <NewsEmptyState
-        icon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 11a9 9 0 0 1 9 9" />
-            <path d="M4 4a16 16 0 0 1 16 16" />
-            <circle cx="5" cy="19" r="1" />
-          </svg>
-        }
+        icon={<Rss size={22} />}
         title={t("news.noArticles")}
-        message={
-          activeSource
-            ? t("news.noArticlesFromSource", { source: activeSource })
-            : t("news.noArticlesGeneric")
-        }
+        message={t("news.noArticlesGeneric")}
         actionLabel={t("common.refresh")}
         onAction={onRetry}
       />
@@ -202,62 +165,33 @@ export default function NewsArticleGrid({
 
   return (
     <>
-      {/* Category banner info for 'for_you' stream */}
-      {activeCategory === "for_you" && (
-        <div className="news-for-you-banner">
-          <div className="news-for-you-icon">🎮</div>
-          <div className="news-for-you-text">
-            <strong>{t("news.forYouTitle")}</strong>
-            <span>{t("news.forYouSubtitle")}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Tag filter active chip banner */}
-      {activeTag && (
-        <div className="news-tag-filter-banner">
-          <span>{t("news.filteringByTag", { tag: activeTag })}</span>
-          <button type="button" className="news-tag-banner-clear" onClick={onClearTag}>
-            ✕ {t("common.clear")}
-          </button>
-        </div>
-      )}
-
-      <div className={`news-article-grid density-${density}`}>
-        {articles.map((article, i) => {
-          const related = relatedGameNames?.get(article.link) ?? null;
-          return (
-            <NewsArticleCard
-              key={`${article.link}-${i}`}
-              article={article}
-              density={density}
-              read={readLinks.has(article.link)}
-              saved={savedLinks.has(article.link)}
-              relatedGameName={related}
-              onClick={onCardClick}
-              onToggleSave={onToggleSave}
-              onToggleRead={onToggleRead}
-              onSelectTag={onSelectTag}
-            />
-          );
-        })}
+      <div className={`news-grid density-${density}`}>
+        {items.map((item) => (
+          <NewsArticleCard
+            key={item.key}
+            item={item}
+            density={density}
+            saved={savedLinks.has(item.article.link)}
+            relatedGameName={relatedGames.get(item.article.link) ?? null}
+            onOpen={onOpen}
+            onToggleSave={onToggleSave}
+            onToggleRead={onToggleRead}
+            onSelectTopic={onSelectTopic}
+          />
+        ))}
       </div>
 
-      {totalCount > 20 && (
-        <div className="news-pagination">
-          <span className="news-pagination-info">
-            {t("news.ofArticles", { visible: articles.length, total: totalCount })}
-          </span>
-          {hasMore && (
-            <button type="button" className="news-pagination-btn" onClick={onLoadMore}>
-              {t("news.loadMore")}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          )}
-        </div>
-      )}
+      <div className="news-grid__footer">
+        <span className="news-grid__count">
+          {t("news.ofArticles", { visible: items.length, total })}
+        </span>
+        {hasMore && (
+          <button type="button" className="news-grid__more" onClick={onLoadMore}>
+            {t("news.loadMore")}
+          </button>
+        )}
+      </div>
+      {hasMore && <div ref={sentinelRef} aria-hidden className="news-grid__sentinel" />}
     </>
   );
 }

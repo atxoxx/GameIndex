@@ -44,7 +44,7 @@ const FriendsPage = lazy(() => import("../pages/friends/FriendsPage"));
 const ActivityPage = lazy(() => import("../pages/ActivityPage"));
 const StoragePage = lazy(() => import("../pages/StoragePage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
-const NewsPage = lazy(() => import("../pages/NewsPage"));
+const NewsPage = lazy(() => import("../pages/news/NewsPage"));
 const DealsPage = lazy(() => import("../pages/deals/DealsPage"));
 const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
 const SavesPage = lazy(() => import("../pages/saves/SavesPage"));

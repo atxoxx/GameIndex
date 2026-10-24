@@ -16,6 +16,7 @@ import { GameProvider, useRunningIds } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
+import { NewsProvider } from "./context/NewsContext";
 import { DensityProvider } from "./context/DensityContext";
 import { LibraryFilterProvider } from "./context/LibraryFilterContext";
 import { ShelfProvider } from "./context/ShelfContext";
@@ -241,6 +242,7 @@ function App() {
                         <LibraryFilterProvider>
                           <ShelfProvider>
                           <WishlistProvider>
+                            <NewsProvider>
                             <SourceProvider>
                               <DownloadProvider>
                                 <BandwidthRecorder />
@@ -271,6 +273,7 @@ function App() {
                                 </SavesProvider>
                               </DownloadProvider>
                             </SourceProvider>
+                            </NewsProvider>
                           </WishlistProvider>
                           </ShelfProvider>
                         </LibraryFilterProvider>

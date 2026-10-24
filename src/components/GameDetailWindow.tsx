@@ -17,6 +17,7 @@ import { DensityProvider } from "../context/DensityContext";
 import { LibraryFilterProvider } from "../context/LibraryFilterContext";
 import { ShelfProvider } from "../context/ShelfContext";
 import { WishlistProvider } from "../context/WishlistContext";
+import { NewsProvider } from "../context/NewsContext";
 import { SourceProvider } from "../context/SourceContext";
 import { DownloadProvider } from "../context/DownloadContext";
 import { SavesProvider } from "../context/SavesContext";
@@ -144,6 +145,7 @@ export default function GameDetailWindow() {
                     <LibraryFilterProvider>
                       <ShelfProvider>
                         <WishlistProvider>
+                          <NewsProvider>
                           <SourceProvider>
                             <DownloadProvider>
                               <SavesProvider>
@@ -185,6 +187,7 @@ export default function GameDetailWindow() {
                               </SavesProvider>
                             </DownloadProvider>
                           </SourceProvider>
+                          </NewsProvider>
                         </WishlistProvider>
                       </ShelfProvider>
                     </LibraryFilterProvider>

@@ -160,6 +160,8 @@ pub const KV_DDL: &str = include_str!("schema_kv.sql");
 
 /// DDL for the `news` domain.
 pub const NEWS_DDL: &str = include_str!("schema_news.sql");
+pub const NEWS_V2_DDL: &str = include_str!("schema_news_v2.sql");
+pub const NEWS_V3_DDL: &str = include_str!("schema_news_v3.sql");
 
 /// DDL for the `mods` domain: `mods` + `game_mod_settings`.
 pub const MODS_DDL: &str = include_str!("schema_mods.sql");
@@ -261,7 +263,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "news",
-        versions: &[("v1", NEWS_DDL)],
+        versions: &[("v1", NEWS_DDL), ("v2", NEWS_V2_DDL), ("v3", NEWS_V3_DDL)],
     },
     DomainSchema {
         label: "game_notes",

@@ -4,8 +4,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Webview } from "@tauri-apps/api/webview";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
-import type { NewsArticle } from "../../hooks/useNewsFeeds";
-import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
+import type { NewsArticle } from "../../types/news";
+import { countWords, estimateReadingTime, formatArticleDate } from "../../utils/news/feed";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
@@ -16,8 +16,11 @@ import { Button } from "../ui";
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
   saved?: boolean;
+  isRead?: boolean;
+  relatedOutlets?: NewsArticle[];
   onClose: () => void;
   onToggleSave?: (article: NewsArticle) => void;
+  onToggleRead?: () => void;
   onPrevArticle?: () => void;
   onNextArticle?: () => void;
   hasPrev?: boolean;
@@ -32,15 +35,19 @@ type FontFamily = "sans" | "serif" | "mono";
 export default function NewsArticlePreview({
   article,
   saved = false,
+  isRead = false,
+  relatedOutlets = [],
   onClose,
   onToggleSave,
+  onToggleRead,
   onPrevArticle,
   onNextArticle,
   hasPrev = false,
   hasNext = false,
 }: NewsArticlePreviewProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
+  const articleLink = article?.link ?? "";
   const placeholderRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
@@ -72,16 +79,14 @@ export default function NewsArticlePreview({
   const [ttsSpeed, setTtsSpeed] = useState<number>(1.0);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const readTimeMinutes = useMemo(() => {
-    if (!article) return 1;
+  const readTimeMinutes = useMemo(() => {    if (!article) return 1;
     const text = (article.content || article.description || "") + " " + article.title;
     return estimateReadingTime(text);
   }, [article]);
 
   const wordCount = useMemo(() => {
     if (!article) return 0;
-    const text = article.content || article.description || "";
-    return text.trim().split(/\s+/).filter(Boolean).length;
+    return countWords(article.content || article.description || "");
   }, [article]);
 
   // Clean plain text for TTS and Markdown copy
@@ -103,7 +108,7 @@ export default function NewsArticlePreview({
     return () => {
       stopTts();
     };
-  }, [article, stopTts]);
+  }, [articleLink, stopTts]);
 
   const handleToggleTts = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window) || !article) {
@@ -205,9 +210,10 @@ export default function NewsArticlePreview({
     setReadProgress(current);
   };
 
-  // Webview lifecycle
+  // Webview lifecycle. Keyed on the link, not the article object: loading the
+  // body updates the object and must not tear down an open full-page webview.
   useEffect(() => {
-    if (!article) return;
+    if (!articleLink) return;
 
     let active = true;
     setWebviewReady(false);
@@ -242,7 +248,7 @@ export default function NewsArticlePreview({
         try {
           await invoke("create_preview_webview", {
             label: uniqueLabel,
-            url: article.link,
+            url: articleLink,
             x: rect.left,
             y: rect.top,
             width: rect.width,
@@ -300,7 +306,7 @@ export default function NewsArticlePreview({
         }).catch(() => {});
       }
     };
-  }, [article, handleKeyDown, previewMode, contentFilterEnabled, reloadNonce]);
+  }, [articleLink, handleKeyDown, previewMode, contentFilterEnabled, reloadNonce]);
 
   // Geometry sync
   useEffect(() => {
@@ -405,7 +411,7 @@ export default function NewsArticlePreview({
                 {article.pubDate && (
                   <>
                     <span className="news-preview-meta-dot" aria-hidden="true" />
-                    <span>{formatArticleDate(article.pubDate)}</span>
+                    <span>{formatArticleDate(article.pubDate, language)}</span>
                   </>
                 )}
                 <span className="news-preview-meta-dot" aria-hidden="true" />
@@ -690,6 +696,24 @@ export default function NewsArticlePreview({
           </div>
         )}
 
+        {previewMode === "reader" && relatedOutlets.length > 0 && (
+          <div className="news-preview-outlets">
+            <span>{t("news.alsoCoveredByShort")}</span>
+            {relatedOutlets.map((outlet) => (
+              <button
+                key={outlet.link}
+                type="button"
+                onClick={() => {
+                  openUrl(outlet.link).catch(() => undefined);
+                }}
+                title={outlet.title}
+              >
+                {outlet.sourceName}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="news-preview-footer">
           <Button variant="ghost" size="md"
@@ -702,6 +726,21 @@ export default function NewsArticlePreview({
           > {t("newsArticle.close")} </Button>
 
           <div className="news-preview-footer-actions">
+            {onToggleRead && (
+              <button
+                type="button"
+                className={`news-preview-action-btn${isRead ? " is-read" : ""}`}
+                onClick={onToggleRead}
+                title={isRead ? t("news.markAsUnread") : t("news.markAsRead")}
+                aria-label={isRead ? t("news.markAsUnread") : t("news.markAsRead")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {isRead ? t("news.markAsUnread") : t("news.markAsRead")}
+              </button>
+            )}
+
             {onToggleSave && (
               <button
                 type="button"

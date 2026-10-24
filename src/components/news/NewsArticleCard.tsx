@@ -1,91 +1,89 @@
-import { useMemo, useState } from "react";
-import { Bookmark, BookmarkX, Check, Copy, ExternalLink, Eye } from "lucide-react";
+import { useMemo } from "react";
+import {
+  Bookmark,
+  Check,
+  Copy,
+  ExternalLink,
+  Eye,
+  ImageOff,
+  Layers,
+  Timer,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { NewsArticle } from "../../hooks/useNewsFeeds";
-import { formatArticleDate, estimateReadingTime, extractArticleTags } from "../../hooks/useNewsFeeds";
+import type { NewsCardItem, NewsTopicId } from "../../types/news";
 import type { ViewDensity } from "../../types/game";
+import { estimateReadingTime, formatArticleDate } from "../../utils/news/feed";
+import { NEWS_TOPICS } from "../../utils/news/topics";
 import { useLanguage } from "../../context/LanguageContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 
 interface NewsArticleCardProps {
-  article: NewsArticle;
-  onClick: (article: NewsArticle) => void;
-  onToggleSave?: (article: NewsArticle) => void;
-  onToggleRead?: (article: NewsArticle) => void;
+  item: NewsCardItem;
   density?: ViewDensity;
-  read?: boolean;
   saved?: boolean;
   relatedGameName?: string | null;
-  onSelectTag?: (tag: string) => void;
+  onOpen: (item: NewsCardItem) => void;
+  onToggleSave?: (item: NewsCardItem) => void;
+  onToggleRead?: (item: NewsCardItem) => void;
+  onSelectTopic?: (topic: NewsTopicId) => void;
 }
 
+const TOPIC_LABEL = new Map(NEWS_TOPICS.map((topic) => [topic.id, topic.labelKey]));
+
+/**
+ * One story card.
+ *
+ * Shows the lead article, the outlets that ran the same story, inferred topics
+ * and the reader state. All four app densities are supported by CSS alone —
+ * the DOM stays identical so the card never re-mounts when density changes.
+ */
 export default function NewsArticleCard({
-  article,
-  onClick,
-  onToggleSave,
-  onToggleRead,
-  density = "cinematic",
-  read = false,
+  item,
+  density = "cozy",
   saved = false,
   relatedGameName = null,
-  onSelectTag,
+  onOpen,
+  onToggleSave,
+  onToggleRead,
+  onSelectTopic,
 }: NewsArticleCardProps) {
-  const { t } = useLanguage();
-  const newsMenu = useContextMenu();
+  const { t, language } = useLanguage();
+  const menu = useContextMenu();
   const copy = useCopyToClipboard();
-  const [copied, setCopied] = useState(false);
-  const isList = density === "list";
-  const isCompact = density === "compact";
-  const showBody = !isCompact || isList;
 
-  const readTimeMinutes = useMemo(() => {
-    const text = (article.content || article.description || "") + " " + article.title;
-    return estimateReadingTime(text);
-  }, [article.content, article.description, article.title]);
+  const { article, related, topics, unread } = item;
 
-  const tags = useMemo(() => {
-    return extractArticleTags(article).slice(0, 3);
-  }, [article]);
+  const readTime = useMemo(
+    () => estimateReadingTime(`${article.content} ${article.description} ${article.title}`),
+    [article.content, article.description, article.title],
+  );
 
-  const handleSaveClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleSave?.(article);
+  const outletNames = useMemo(
+    () => [...new Set(related.map((entry) => entry.sourceName))],
+    [related],
+  );
+
+  const handleSave = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onToggleSave?.(item);
   };
 
-  const handleReadClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleRead?.(article);
-  };
-
-  const handleCopyLink = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(article.link);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const newsMenuItems: ContextMenuItem[] = [
+  const menuItems: ContextMenuItem[] = [
     {
       id: "read",
       label: t("news.readNow"),
       icon: <Eye size={15} />,
       accent: true,
-      onSelect: () => onClick(article),
+      onSelect: () => onOpen(item),
     },
     {
       id: "open-browser",
       label: t("weblinks.openBrowser"),
       icon: <ExternalLink size={15} />,
       onSelect: () => {
-        openUrl(article.link).catch(() => undefined);
+        void openUrl(article.link).catch(() => undefined);
       },
     },
     { id: "sep-1", separator: true },
@@ -93,9 +91,9 @@ export default function NewsArticleCard({
       ? [
           {
             id: "toggle-read",
-            label: read ? t("news.markAsUnread") : t("news.markAsRead"),
+            label: unread ? t("news.markAsRead") : t("news.markAsUnread"),
             icon: <Check size={15} />,
-            onSelect: () => onToggleRead(article),
+            onSelect: () => onToggleRead(item),
           } as ContextMenuItem,
         ]
       : []),
@@ -104,8 +102,8 @@ export default function NewsArticleCard({
           {
             id: "toggle-save",
             label: saved ? t("news.removeBookmark") : t("news.saveForLater"),
-            icon: saved ? <BookmarkX size={15} /> : <Bookmark size={15} />,
-            onSelect: () => onToggleSave(article),
+            icon: <Bookmark size={15} />,
+            onSelect: () => onToggleSave(item),
           } as ContextMenuItem,
         ]
       : []),
@@ -114,173 +112,121 @@ export default function NewsArticleCard({
       id: "copy-link",
       label: t("news.copyLink"),
       icon: <Copy size={15} />,
-      onSelect: () => copy(article.link),
+      onSelect: () => void copy(article.link),
     },
     {
       id: "copy-title",
       label: t("gameMenu.copyName"),
       icon: <Copy size={15} />,
-      onSelect: () => copy(article.title),
+      onSelect: () => void copy(article.title),
     },
   ];
 
+  const cover = article.imageUrl ? (
+    <img src={article.imageUrl} alt="" loading="lazy" />
+  ) : (
+    <span className="news-card__placeholder" aria-hidden>
+      <ImageOff size={22} />
+    </span>
+  );
+
   return (
     <article
-      className={`news-article-card density-${density}${isList ? " news-article-card-list" : ""}${
-        read ? " is-read" : ""
-      }`}
-      onClick={() => onClick(article)}
+      className={`news-card density-${density}${unread ? " is-unread" : " is-read"}`}
+      data-density={density}
       role="button"
       tabIndex={0}
       aria-label={t("news.readArticle", { title: article.title })}
-      data-density={density}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick(article);
+      onClick={() => onOpen(item)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(item);
         }
       }}
-      onContextMenu={(e) => newsMenu.open(e)}
+      onContextMenu={(event) => menu.open(event)}
     >
-      <div className="news-card-cover">
-        {article.imageUrl ? (
-          <img
-            src={article.imageUrl}
-            alt=""
-            loading="lazy"
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = "none";
-              const placeholder = target.parentElement?.querySelector(
-                ".news-card-cover-placeholder"
-              ) as HTMLElement | null;
-              if (placeholder) placeholder.style.display = "flex";
-            }}
-          />
-        ) : null}
-        <div
-          className="news-card-cover-placeholder"
-          style={{ display: article.imageUrl ? "none" : "flex" }}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-          </svg>
-        </div>
-
-        {/* Gradient backdrop overlay for readability in cinematic mode */}
-        <div className="news-card-cover-overlay" />
-
-        {/* Source badge */}
-        <span className="news-card-source-badge">{article.sourceName}</span>
-
-        {/* Read time badge */}
-        <span className="news-card-readtime-badge">
-          ⏱ {readTimeMinutes} min
-        </span>
-
-        {/* Unread indicator */}
-        {!read && <span className="news-card-unread-dot" title={t("news.statsUnread")} />}
-
-        {/* Hover Quick Actions */}
-        <div className="news-card-quick-actions">
-          {onToggleSave && (
-            <button
-              type="button"
-              className={`news-card-action-btn ${saved ? "active" : ""}`}
-              onClick={handleSaveClick}
-              title={saved ? t("news.removeBookmark") : t("news.saveForLater")}
-              aria-label={saved ? t("news.removeBookmark") : t("news.saveForLater")}
-            >
-              <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-            </button>
-          )}
-
-          {onToggleRead && (
-            <button
-              type="button"
-              className={`news-card-action-btn ${read ? "is-read" : ""}`}
-              onClick={handleReadClick}
-              title={read ? t("news.markAsUnread") : t("news.markAsRead")}
-              aria-label={read ? t("news.markAsUnread") : t("news.markAsRead")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </button>
-          )}
-
+      <div className="news-card__cover">
+        {cover}
+        <span className="news-card__source">{article.sourceName}</span>
+        {!unread && (
+          <span className="news-card__read-mark" title={t("news.markAsRead")}>
+            <Check size={11} />
+          </span>
+        )}
+        {onToggleSave && (
           <button
             type="button"
-            className="news-card-action-btn"
-            onClick={handleCopyLink}
-            title={copied ? t("gameInfo.copied") : t("news.copyLink")}
-            aria-label={t("news.copyLink")}
+            className={`news-card__save${saved ? " is-saved" : ""}`}
+            onClick={handleSave}
+            title={saved ? t("news.removeBookmark") : t("news.saveForLater")}
+            aria-label={saved ? t("news.removeBookmark") : t("news.saveForLater")}
           >
-            {copied ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-              </svg>
-            )}
+            <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
           </button>
+        )}
+      </div>
+
+      <div className="news-card__body">
+        {(relatedGameName || topics.length > 0) && (
+          <div className="news-card__chips">
+            {relatedGameName && (
+              <span className="news-chip news-chip--game" title={t("news.relatedToGame", { game: relatedGameName })}>
+                {relatedGameName}
+              </span>
+            )}
+            {topics.slice(0, 2).map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                className="news-chip news-chip--topic"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectTopic?.(topic);
+                }}
+              >
+                {TOPIC_LABEL.has(topic) ? t(TOPIC_LABEL.get(topic) as string) : topic}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <h3 className="news-card__title">{article.title}</h3>
+
+        {density !== "compact" && article.description && (
+          <p className="news-card__snippet">{article.description}</p>
+        )}
+
+        <div className="news-card__meta">
+          <span className="news-card__meta-source">{article.sourceName}</span>
+          {article.pubDate && (
+            <>
+              <span className="news-card__dot" aria-hidden />
+              <span>{formatArticleDate(article.pubDate, language)}</span>
+            </>
+          )}
+          <span className="news-card__dot" aria-hidden />
+          <span className="news-card__readtime">
+            <Timer size={11} aria-hidden />
+            {t("news.minRead", { count: readTime })}
+          </span>
+          {outletNames.length > 0 && (
+            <span
+              className="news-card__outlets"
+              title={t("news.alsoCoveredBy", { sources: outletNames.join(", ") })}
+            >
+              <Layers size={11} aria-hidden />+{outletNames.length}
+            </span>
+          )}
         </div>
       </div>
 
-      {showBody && (
-        <div className="news-card-body">
-          {/* Related game / tags header */}
-          <div className="news-card-badges-row">
-            {relatedGameName && (
-              <span className="news-card-related-badge" title={t("news.relatedToGame", { game: relatedGameName })}>
-                🎮 {relatedGameName}
-              </span>
-            )}
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="news-card-tag-pill"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectTag?.(tag);
-                }}
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-
-          <h3 className="news-card-title" title={article.title}>
-            {article.title}
-          </h3>
-
-          {!isCompact && article.description && (
-            <p className="news-card-snippet">{article.description}</p>
-          )}
-
-          <div className="news-card-meta">
-            <span className="news-card-source-name">{article.sourceName}</span>
-            {article.pubDate && (
-              <>
-                <span className="news-card-meta-dot" aria-hidden="true" />
-                <span>{formatArticleDate(article.pubDate)}</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {newsMenu.state && (
+      {menu.state && (
         <ContextMenu
-          x={newsMenu.state.x}
-          y={newsMenu.state.y}
-          items={newsMenuItems}
-          onClose={newsMenu.close}
+          x={menu.state.x}
+          y={menu.state.y}
+          items={menuItems}
+          onClose={menu.close}
           ariaLabel={article.title}
           header={
             <>
@@ -296,25 +242,16 @@ export default function NewsArticleCard({
   );
 }
 
-/** Skeleton loader for news article cards shown during loading. */
-export function NewsArticleCardSkeleton({ density = "cinematic" }: { density?: ViewDensity }) {
-  const isList = density === "list";
-  const showBody = density !== "compact" || isList;
+/** Skeleton with the same box model as a real card. */
+export function NewsArticleCardSkeleton({ density = "cozy" }: { density?: ViewDensity }) {
   return (
-    <div
-      className={`news-article-card news-article-card-skeleton density-${density}${
-        isList ? " news-article-card-list" : ""
-      }`}
-      aria-hidden="true"
-    >
-      <div className="news-card-cover-skeleton" />
-      {showBody && (
-        <div className="news-card-body-skeleton">
-          <div className="skeleton-line skeleton-title" />
-          <div className="skeleton-line skeleton-subtitle" />
-          <div className="skeleton-line skeleton-subtitle short" />
-        </div>
-      )}
+    <div className={`news-card news-card--skeleton density-${density}`} aria-hidden>
+      <div className="news-card__cover news-card__cover--skeleton" />
+      <div className="news-card__body">
+        <div className="news-skeleton-line" style={{ width: "78%", height: 14 }} />
+        <div className="news-skeleton-line" style={{ width: "94%", height: 10 }} />
+        <div className="news-skeleton-line" style={{ width: "61%", height: 10 }} />
+      </div>
     </div>
   );
 }

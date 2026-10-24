@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import type { NewsArticle } from "../../../hooks/useNewsFeeds";
-import { formatArticleDate, estimateReadingTime } from "../../../hooks/useNewsFeeds";
+import type { NewsArticle } from "../../../types/news";
+import { formatArticleDate, estimateReadingTime } from "../../../utils/news/feed";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Button } from "../../ui";
 import {
@@ -24,7 +24,7 @@ export default function GameNewsHero({
   saved,
   read,
 }: GameNewsHeroProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const category = useMemo<ArticleClassification>(
@@ -184,7 +184,7 @@ export default function GameNewsHero({
                   <line x1="8" y1="2" x2="8" y2="6" />
                   <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
-                {formatArticleDate(article.pubDate)}
+                {formatArticleDate(article.pubDate, language)}
               </span>
             )}
 

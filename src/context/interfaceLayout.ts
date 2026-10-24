@@ -85,6 +85,7 @@ export type PageWidgetKey =
   // News
   | "newsHeader"
   | "newsToolbar"
+  | "newsOverview"
   | "newsGrid"
   // Activity
   | "activityHeader"
@@ -206,6 +207,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   // News
   "newsHeader",
   "newsToolbar",
+  "newsOverview",
   "newsGrid",
   // Activity
   "activityHeader",
@@ -329,6 +331,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   // News
   newsHeader: "ui-item-newsHeader",
   newsToolbar: "ui-item-newsToolbar",
+  newsOverview: "ui-item-newsOverview",
   newsGrid: "ui-item-newsGrid",
   // Activity
   activityHeader: "ui-item-activityHeader",
@@ -452,6 +455,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   // News
   newsHeader: "settings.interface.widgetNewsHeader",
   newsToolbar: "settings.interface.widgetNewsToolbar",
+  newsOverview: "settings.interface.widgetNewsOverview",
   newsGrid: "settings.interface.widgetNewsGrid",
   // Activity
   activityHeader: "settings.interface.widgetActivityHeader",
@@ -676,9 +680,8 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     routes: ["/news"],
     items: [
       "newsHeader",
-      "hero",
       "newsToolbar",
-      "filters",
+      "newsOverview",
       "newsGrid",
     ],
   },

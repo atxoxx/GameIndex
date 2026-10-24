@@ -1,314 +1,296 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AlignJustify,
   Bookmark,
-  CirclePlay,
   Clock,
-  Cpu,
-  Gamepad2,
-  Joystick,
-  Monitor,
+  LayoutGrid,
+  Newspaper,
+  PanelTop,
+  Rows3,
   Rss,
-  Tag,
+  Search,
+  SlidersHorizontal,
+  X,
   type LucideIcon,
 } from "lucide-react";
-import type { NewsCategory } from "../../hooks/useNewsFeeds";
+import type {
+  NewsFilterState,
+  NewsTab,
+  NewsTimeRange,
+  NewsTopicId,
+} from "../../types/news";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { SubTabs } from "../ui";
+import { NEWS_TOPICS } from "../../utils/news/topics";
+import { activeFilterCount } from "../../utils/news/filters";
+import NewsFilterPopover from "./NewsFilterPopover";
 
-export type NewsTimeFilter = "all" | "today" | "3days" | "week" | "month";
-export type NewsReadTimeFilter = "all" | "quick" | "medium" | "long";
-export type NewsSortOption = "newest" | "oldest" | "read_time" | "source" | "title";
-
-interface NewsToolbarProps {
-  activeCategory: NewsCategory;
-  onCategoryChange: (category: NewsCategory) => void;
-  countsByCategory: Record<NewsCategory, number>;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  timeFilter: NewsTimeFilter;
-  onTimeFilterChange: (time: NewsTimeFilter) => void;
-  readTimeFilter: NewsReadTimeFilter;
-  onReadTimeFilterChange: (rt: NewsReadTimeFilter) => void;
-  sortBy: NewsSortOption;
-  onSortByChange: (sort: NewsSortOption) => void;
-  hasImagesOnly: boolean;
-  onToggleHasImagesOnly: () => void;
-  unreadOnly: boolean;
-  onToggleUnreadOnly: () => void;
-  unreadTotal: number;
+export interface NewsToolbarProps {
+  tab: NewsTab;
+  onTabChange: (tab: NewsTab) => void;
+  counts: Record<NewsTab, number>;
+  filters: NewsFilterState;
+  onFiltersChange: (patch: Partial<NewsFilterState>) => void;
+  onResetFilters: () => void;
+  topics: { id: NewsTopicId; count: number }[];
+  followedTopics: Set<NewsTopicId>;
+  mutedTopics: Set<NewsTopicId>;
+  onToggleFollowTopic: (id: NewsTopicId) => void;
+  onToggleMuteTopic: (id: NewsTopicId) => void;
+  sourceNames: string[];
   density: ViewDensity;
   onDensityChange: (density: ViewDensity) => void;
 }
 
+const TAB_ICONS: Record<NewsTab, LucideIcon> = {
+  overview: PanelTop,
+  feed: Newspaper,
+  saved: Bookmark,
+  history: Clock,
+};
+
+const DENSITIES: { id: ViewDensity; labelKey: string; icon: LucideIcon }[] = [
+  { id: "cinematic", labelKey: "news.densityCinematic", icon: PanelTop },
+  { id: "cozy", labelKey: "news.densityCozy", icon: LayoutGrid },
+  { id: "compact", labelKey: "news.densityCompact", icon: Rows3 },
+  { id: "list", labelKey: "news.densityList", icon: AlignJustify },
+];
+
+const TIME_RANGES: { id: NewsTimeRange; labelKey: string }[] = [
+  { id: "all", labelKey: "news.timeAll" },
+  { id: "today", labelKey: "news.timeToday" },
+  { id: "3days", labelKey: "news.time3Days" },
+  { id: "week", labelKey: "news.timeWeek" },
+];
+
+const TOPIC_LABEL = new Map(NEWS_TOPICS.map((topic) => [topic.id, topic.labelKey]));
+
+/**
+ * NewsToolbar — destinations plus one control band.
+ *
+ * The tab strip carries only four destinations; search stays visible because it
+ * is used constantly; topics get their own quiet row; everything occasional
+ * lives in one popover anchored under its trigger that reports how many filters
+ * are on.
+ */
 export default function NewsToolbar({
-  activeCategory,
-  onCategoryChange,
-  countsByCategory,
-  searchQuery,
-  onSearchChange,
-  timeFilter,
-  onTimeFilterChange,
-  readTimeFilter,
-  onReadTimeFilterChange,
-  sortBy,
-  onSortByChange,
-  hasImagesOnly,
-  onToggleHasImagesOnly,
-  unreadOnly,
-  onToggleUnreadOnly,
-  unreadTotal,
+  tab,
+  onTabChange,
+  counts,
+  filters,
+  onFiltersChange,
+  onResetFilters,
+  topics,
+  followedTopics,
+  mutedTopics,
+  onToggleFollowTopic,
+  onToggleMuteTopic,
+  sourceNames,
   density,
   onDensityChange,
 }: NewsToolbarProps) {
   const { t } = useLanguage();
-
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const activeFilterCount = [
-    timeFilter !== "all",
-    readTimeFilter !== "all",
-    sortBy !== "newest",
-    hasImagesOnly,
-    unreadOnly,
-  ].filter(Boolean).length;
-  const showFiltersRow = filtersOpen || activeFilterCount > 0;
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [filtersOpen]);
 
-  const categories: { id: NewsCategory; labelKey: string; icon: LucideIcon }[] = [
-    { id: "all", labelKey: "news.tabAll", icon: Rss },
-    { id: "for_you", labelKey: "news.tabForYou", icon: Gamepad2 },
-    { id: "pc", labelKey: "news.tabPc", icon: Monitor },
-    { id: "console", labelKey: "news.tabConsole", icon: Joystick },
-    { id: "tech", labelKey: "news.tabTech", icon: Cpu },
-    { id: "indie", labelKey: "news.tabIndie", icon: CirclePlay },
-    { id: "deals", labelKey: "news.tabDeals", icon: Tag },
-    { id: "saved", labelKey: "news.tabSaved", icon: Bookmark },
-    { id: "history", labelKey: "news.tabHistory", icon: Clock },
-  ];
+  const filterCount = activeFilterCount(filters);
+  const showTopics = tab === "feed";
+  const showDensity = tab !== "overview";
+
+  const tabItems = useMemo(
+    () =>
+      (["overview", "feed", "saved", "history"] as NewsTab[]).map((id) => ({
+        id,
+        label: t(`news.tab${id.charAt(0).toUpperCase()}${id.slice(1)}`),
+        icon: TAB_ICONS[id],
+        count: counts[id] ?? 0,
+      })),
+    [counts, t],
+  );
+
+  const toggleTopic = (id: NewsTopicId) => {
+    const active = filters.topics.includes(id);
+    onFiltersChange({
+      topics: active ? filters.topics.filter((topic) => topic !== id) : [...filters.topics, id],
+    });
+  };
 
   return (
     <div className="news-toolbar">
-      <SubTabs
-        ariaLabel={t("news.categoriesLabel")}
-        className="news-category-subtabs"
-        value={activeCategory}
-        onChange={onCategoryChange}
-        items={categories.map((cat) => ({
-          id: cat.id,
-          label: t(cat.labelKey),
-          icon: cat.icon,
-          count: countsByCategory[cat.id] ?? 0,
-        }))}
-      />
+      <div className="news-toolbar__row">
+        <SubTabs
+          ariaLabel={t("news.title")}
+          value={tab}
+          onChange={onTabChange}
+          items={tabItems}
+        />
 
-      <div className="news-toolbar-band">
-        {/* Main Row: Search, Unread Toggle, Filters Trigger, Density */}
-        <div className="news-toolbar-main-row">
-        <div className="news-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="news-search-icon" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="search"
-            className="news-search-input"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onSearchChange("");
-            }}
-            placeholder={t("news.searchPlaceholder")}
-            aria-label={t("news.searchPlaceholder")}
-          />
-          {searchQuery && (
+        <div className="news-toolbar__actions">
+          <label className="news-search">
+            <Search size={15} aria-hidden />
+            <input
+              type="search"
+              value={filters.query}
+              onChange={(event) => onFiltersChange({ query: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") onFiltersChange({ query: "" });
+              }}
+              placeholder={t("news.searchPlaceholder")}
+              aria-label={t("news.searchPlaceholder")}
+            />
+            {filters.query && (
+              <button
+                type="button"
+                className="news-search__clear"
+                onClick={() => onFiltersChange({ query: "" })}
+                aria-label={t("common.clearSearch")}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </label>
+
+          <div className="news-filter-anchor">
             <button
               type="button"
-              className="news-search-clear"
-              onClick={() => onSearchChange("")}
-              aria-label={t("common.clearSearch")}
-              title={t("common.clearSearch")}
+              className={`news-filter-trigger${filterCount > 0 ? " is-active" : ""}`}
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              aria-controls="news-filter-popover"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <SlidersHorizontal size={15} aria-hidden />
+              <span>{t("news.filtersTitle")}</span>
+              {filterCount > 0 && <span className="news-filter-trigger__count">{filterCount}</span>}
             </button>
+
+            {filtersOpen && (
+              <NewsFilterPopover
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+                onResetFilters={onResetFilters}
+                sourceNames={sourceNames}
+                followedTopics={followedTopics}
+                mutedTopics={mutedTopics}
+                onToggleFollowTopic={onToggleFollowTopic}
+                onToggleMuteTopic={onToggleMuteTopic}
+              />
+            )}
+          </div>
+
+          {showDensity && (
+            <div className="news-density" role="radiogroup" aria-label={t("news.viewTabsLabel")}>
+              {DENSITIES.map(({ id, labelKey, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={density === id}
+                  className={density === id ? "is-active" : ""}
+                  onClick={() => onDensityChange(id)}
+                  title={t(labelKey)}
+                  aria-label={t(labelKey)}
+                >
+                  <Icon size={15} />
+                </button>
+              ))}
+            </div>
           )}
-        </div>
-
-        {/* View Density Switcher */}
-        <div className="news-density-picker" role="radiogroup" aria-label="Layout density">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={density === "cinematic"}
-            className={`news-density-btn ${density === "cinematic" ? "active" : ""}`}
-            onClick={() => onDensityChange("cinematic")}
-            title="Cinematic Magazine View"
-            aria-label="Cinematic Magazine View"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="3" y1="14" x2="21" y2="14" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={density === "cozy"}
-            className={`news-density-btn ${density === "cozy" ? "active" : ""}`}
-            onClick={() => onDensityChange("cozy")}
-            title="Cozy Cards View"
-            aria-label="Cozy Cards View"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={density === "compact"}
-            className={`news-density-btn ${density === "compact" ? "active" : ""}`}
-            onClick={() => onDensityChange("compact")}
-            title="Compact View"
-            aria-label="Compact View"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={density === "list"}
-            className={`news-density-btn ${density === "list" ? "active" : ""}`}
-            onClick={() => onDensityChange("list")}
-            title="Editorial List View"
-            aria-label="Editorial List View"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Unread toggle + advanced filters trigger */}
-        <div className="news-toolbar-actions">
-          <button
-            type="button"
-            className={`news-toggle-pill ${unreadOnly ? "active" : ""}`}
-            onClick={onToggleUnreadOnly}
-            aria-pressed={unreadOnly}
-            title={t("news.unreadOnlyTitle")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10" />
-              <polyline points="16 2 22 8 16 8" />
-              <line x1="22" y1="2" x2="16" y2="8" />
-            </svg>
-            {t("news.unreadOnly")}
-            {unreadTotal > 0 && <span className="news-toggle-unread-badge">{unreadTotal}</span>}
-          </button>
-
-          <button
-            type="button"
-            className={`news-toggle-pill news-filters-toggle${activeFilterCount > 0 ? " active" : ""}`}
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={showFiltersRow}
-            aria-controls="news-filter-row"
-            title={t(showFiltersRow ? "news.hideFilters" : "news.showFilters")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-            {t(showFiltersRow ? "news.hideFilters" : "news.showFilters")}
-            {activeFilterCount > 0 && <span className="news-toggle-unread-badge">{activeFilterCount}</span>}
-          </button>
         </div>
       </div>
 
-      {/* Advanced filters row — collapsible from the main row */}
-      {showFiltersRow && (
-        <div className="news-toolbar-filters-row" id="news-filter-row">
-          {/* Time filter */}
-          <div className="news-filter-group">
-            <label htmlFor="news-time-filter">{t("news.timeFilterLabel")}</label>
-            <select
-              id="news-time-filter"
-              className="news-filter-select"
-              value={timeFilter}
-              onChange={(e) => onTimeFilterChange(e.target.value as NewsTimeFilter)}
-            >
-              <option value="all">{t("news.timeAll")}</option>
-              <option value="today">{t("news.timeToday")}</option>
-              <option value="3days">{t("news.time3Days")}</option>
-              <option value="week">{t("news.timeWeek")}</option>
-              <option value="month">{t("news.timeMonth")}</option>
-            </select>
-          </div>
-
-          {/* Read time filter */}
-          <div className="news-filter-group">
-            <label htmlFor="news-readtime-filter">{t("news.readTimeLabel")}</label>
-            <select
-              id="news-readtime-filter"
-              className="news-filter-select"
-              value={readTimeFilter}
-              onChange={(e) => onReadTimeFilterChange(e.target.value as NewsReadTimeFilter)}
-            >
-              <option value="all">{t("news.readTimeAll")}</option>
-              <option value="quick">{t("news.readTimeQuick")}</option>
-              <option value="medium">{t("news.readTimeMedium")}</option>
-              <option value="long">{t("news.readTimeLong")}</option>
-            </select>
-          </div>
-
-          {/* Sort filter */}
-          <div className="news-filter-group">
-            <label htmlFor="news-sort-filter">{t("news.sortByLabel")}</label>
-            <select
-              id="news-sort-filter"
-              className="news-filter-select"
-              value={sortBy}
-              onChange={(e) => onSortByChange(e.target.value as NewsSortOption)}
-            >
-              <option value="newest">{t("news.sortNewest")}</option>
-              <option value="oldest">{t("news.sortOldest")}</option>
-              <option value="read_time">{t("news.sortReadTime")}</option>
-              <option value="source">{t("news.sortSource")}</option>
-              <option value="title">{t("news.sortTitle")}</option>
-            </select>
-          </div>
-
-          {/* Images only toggle */}
+      {showTopics && topics.length > 0 && (
+        <div className="news-topic-row" role="group" aria-label={t("news.topicsLabel")}>
           <button
             type="button"
-            className={`news-toggle-pill ${hasImagesOnly ? "active" : ""}`}
-            onClick={onToggleHasImagesOnly}
-            aria-pressed={hasImagesOnly}
-            title={t("news.hasImagesOnly")}
+            className={`news-topic${filters.topics.length === 0 ? " is-active" : ""}`}
+            onClick={() => onFiltersChange({ topics: [] })}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-            {t("news.hasImagesOnly")}
+            {t("news.allTopics")}
+          </button>
+          {topics.map((topic) => {
+            const active = filters.topics.includes(topic.id);
+            const followed = followedTopics.has(topic.id);
+            const muted = mutedTopics.has(topic.id);
+            return (
+              <button
+                key={topic.id}
+                type="button"
+                className={`news-topic${active ? " is-active" : ""}${muted ? " is-muted" : ""}`}
+                aria-pressed={active}
+                onClick={() => toggleTopic(topic.id)}
+                title={t(TOPIC_LABEL.get(topic.id) ?? topic.id)}
+              >
+                {followed && <span className="news-topic__follow" aria-hidden />}
+                {t(TOPIC_LABEL.get(topic.id) ?? topic.id)}
+                <span className="news-topic__count">{topic.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {filtersOpen && (
+        <button
+          type="button"
+          className="news-filter-scrim"
+          aria-label={t("common.close")}
+          onClick={() => setFiltersOpen(false)}
+        />
+      )}
+
+      {filterCount > 0 && (
+        <div className="news-active-filters">
+          <Rss size={13} aria-hidden />
+          {filters.source && (
+            <button type="button" onClick={() => onFiltersChange({ source: null })}>
+              {filters.source}
+              <X size={11} />
+            </button>
+          )}
+          {filters.topics.map((topic) => (
+            <button key={topic} type="button" onClick={() => toggleTopic(topic)}>
+              {t(TOPIC_LABEL.get(topic) ?? topic)}
+              <X size={11} />
+            </button>
+          ))}
+          {filters.unreadOnly && (
+            <button type="button" onClick={() => onFiltersChange({ unreadOnly: false })}>
+              {t("news.unreadOnly")}
+              <X size={11} />
+            </button>
+          )}
+          {filters.hasImagesOnly && (
+            <button type="button" onClick={() => onFiltersChange({ hasImagesOnly: false })}>
+              {t("news.hasImagesOnly")}
+              <X size={11} />
+            </button>
+          )}
+          {filters.timeRange !== "all" && (
+            <button type="button" onClick={() => onFiltersChange({ timeRange: "all" })}>
+              {t(TIME_RANGES.find((range) => range.id === filters.timeRange)?.labelKey ?? "news.timeAll")}
+              <X size={11} />
+            </button>
+          )}
+          {filters.sort !== "signal" && (
+            <button type="button" onClick={() => onFiltersChange({ sort: "signal" })}>
+              {t(filters.sort === "newest" ? "news.sortNewest" : filters.sort === "oldest" ? "news.sortOldest" : "news.sortSource")}
+              <X size={11} />
+            </button>
+          )}
+          <button type="button" className="news-active-filters__reset" onClick={onResetFilters}>
+            {t("news.resetFilters")}
           </button>
         </div>
       )}
-      </div>
     </div>
   );
 }

@@ -112,6 +112,7 @@ mod webview;
 mod map_sources;
 mod friends;
 mod setup;
+mod news;
 
 use crate::games::*;
 use crate::game_notes::*;
@@ -125,6 +126,7 @@ use crate::sessions::*;
 use crate::steam_stats::*;
 use crate::webview::*;
 use crate::friends::*;
+use crate::news::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -285,6 +287,18 @@ pub fn run() {
             map_sources::fetch_game_maps,
             map_sources::search_map_games,
             fetch_url,
+            news_snapshot,
+            news_replace_feeds,
+            news_ingest,
+            news_article,
+            news_set_read,
+            news_mark_all_read,
+            news_toggle_saved,
+            news_add_history,
+            news_clear_history,
+            news_remove_history,
+            news_set_pref,
+            news_clear_articles,
             webview_history_navigate,
             webview_current_url,
             create_preview_webview,

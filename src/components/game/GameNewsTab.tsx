@@ -3,24 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
-import {
-  useNewsFeeds,
-  parseRSS,
-  type NewsArticle,
-} from "../../hooks/useNewsFeeds";
+import type { NewsArticle } from "../../types/news";
+import { parseRSS } from "../../utils/news/feed";
+import { useNewsDemand } from "../../context/NewsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
-import NewsArticleCard, {
-  NewsArticleCardSkeleton,
-} from "../news/NewsArticleCard";
+import GameNewsCard from "./news/GameNewsCard";
 import NewsArticlePreview from "../news/NewsArticlePreview";
-import {
-  loadSavedArticles,
-  toggleSavedArticle,
-  type SavedArticle,
-} from "../../pages/communityStorage";
 
 import {
   classifyArticle,
@@ -110,14 +101,19 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const steamAppId = resolvedSteamAppId ?? game.steamAppId ?? null;
 
   const {
-    allArticles,
+    articles: allArticles,
     loading: feedsLoading,
     error: feedsError,
     refresh: refreshGlobalFeeds,
     markRead,
+    setRead,
     addToHistory,
     readLinks,
-  } = useNewsFeeds();
+    savedLinks,
+    saved: savedArticles,
+    toggleSaved,
+    loadArticle,
+  } = useNewsDemand();
 
   // ── State for custom per-game feeds ─────────────────────────────────
   const [customFeeds, setCustomFeeds] = useState<CustomGameFeed[]>(() =>
@@ -155,9 +151,6 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const [sortOption, setSortOption] = useState<GameNewsSortOption>("newest");
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
-  const [savedArticles, setSavedArticles] = useState<SavedArticle[]>(() =>
-    loadSavedArticles()
-  );
 
   const handleViewModeChange = (mode: GameNewsViewMode) => {
     setViewMode(mode);
@@ -347,7 +340,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
       if (classification === "press") {
         pressCount++;
       }
-      if (savedArticles.some((s) => s.link === a.link)) {
+      if (savedLinks.has(a.link)) {
         savedCount++;
       }
     }
@@ -359,7 +352,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
       press: pressCount,
       saved: savedCount,
     };
-  }, [allMergedArticles, savedArticles]);
+  }, [allMergedArticles, savedLinks]);
 
   // ── Filtered & Sorted Articles ──────────────────────────────────────
   const displayedArticles = useMemo(() => {
@@ -380,7 +373,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
     } else if (activeCategory === "press") {
       list = list.filter((a) => classifyArticle(a) === "press");
     } else if (activeCategory === "saved") {
-      list = list.filter((a) => savedArticles.some((s) => s.link === a.link));
+      list = list.filter((a) => savedLinks.has(a.link));
     }
 
     // Filter by Search Query
@@ -402,7 +395,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
       // default: newest
       return articleDateMs(b) - articleDateMs(a);
     });
-  }, [allMergedArticles, activeCategory, searchQuery, sortOption, savedArticles]);
+  }, [allMergedArticles, activeCategory, searchQuery, sortOption, savedLinks]);
 
   // ── Pagination: reveal the merged pool in pages, fetching more Steam
   // news beyond the RSS 10-item cap when the window is exhausted ───────
@@ -452,8 +445,15 @@ export default function GameNewsTab({ game }: { game: Game }) {
       markRead(article.link);
       addToHistory(article);
       setSelectedArticle(article);
+      if (!article.content) {
+        void loadArticle(article.link).then((full) => {
+          if (full) {
+            setSelectedArticle((prev) => (prev && prev.link === full.link ? full : prev));
+          }
+        });
+      }
     },
-    [markRead, addToHistory]
+    [addToHistory, loadArticle, markRead]
   );
 
   const handleClosePreview = useCallback(() => {
@@ -462,14 +462,14 @@ export default function GameNewsTab({ game }: { game: Game }) {
   }, [selectedArticle, markRead]);
 
   const handleToggleSave = useCallback((article: NewsArticle) => {
-    setSavedArticles(toggleSavedArticle(article));
-  }, []);
+    void toggleSaved(article);
+  }, [toggleSaved]);
 
   const handleToggleRead = useCallback(
     (article: NewsArticle) => {
-      markRead(article.link);
+      setRead(article.link, !readLinks.has(article.link));
     },
-    [markRead]
+    [readLinks, setRead]
   );
 
   const handleMarkAllRead = useCallback(() => {
@@ -480,7 +480,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
   }, [displayedArticles, markRead, showToast, t]);
 
   const handleRefresh = useCallback(() => {
-    refreshGlobalFeeds();
+    void refreshGlobalFeeds(true);
     void fetchCustomFeeds();
     setVisibleCount(LIST_PAGE_SIZE);
     setSteamApiArticles([]);
@@ -550,10 +550,9 @@ export default function GameNewsTab({ game }: { game: Game }) {
           <GameNewsListSkeleton />
         ) : (
           <div className="game-news-grid" aria-hidden="true">
-            <NewsArticleCardSkeleton density="cinematic" />
-            <NewsArticleCardSkeleton density="cozy" />
-            <NewsArticleCardSkeleton density="cozy" />
-            <NewsArticleCardSkeleton density="cozy" />
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="game-news-grid-card game-news-grid-card--skeleton" />
+            ))}
           </div>
         )
       ) : displayedArticles.length === 0 ? (
@@ -617,7 +616,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
               article={heroArticle}
               onOpenArticle={handleOpenArticle}
               onToggleSave={handleToggleSave}
-              saved={savedArticles.some((s) => s.link === heroArticle.link)}
+              saved={savedLinks.has(heroArticle.link)}
               read={readLinks.has(heroArticle.link)}
             />
           )}
@@ -646,15 +645,14 @@ export default function GameNewsTab({ game }: { game: Game }) {
             /* Grid View */
             <div className="game-news-grid">
               {gridArticles.map((article) => (
-                <NewsArticleCard
+                <GameNewsCard
                   key={article.link}
                   article={article}
-                  onClick={handleOpenArticle}
+                  onOpen={handleOpenArticle}
                   onToggleSave={handleToggleSave}
                   onToggleRead={handleToggleRead}
-                  density="cozy"
                   read={readLinks.has(article.link)}
-                  saved={savedArticles.some((s) => s.link === article.link)}
+                  saved={savedLinks.has(article.link)}
                 />
               ))}
             </div>
@@ -707,7 +705,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
         article={selectedArticle}
         saved={
           selectedArticle
-            ? savedArticles.some((s) => s.link === selectedArticle.link)
+            ? savedLinks.has(selectedArticle.link)
             : false
         }
         onClose={handleClosePreview}
@@ -715,9 +713,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
         onPrevArticle={() => {
           if (selectedIndex > 0) {
             const prev = displayedArticles[selectedIndex - 1];
-            markRead(prev.link);
-            addToHistory(prev);
-            setSelectedArticle(prev);
+            handleOpenArticle(prev);
           }
         }}
         onNextArticle={() => {
@@ -725,10 +721,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
             selectedIndex >= 0 &&
             selectedIndex < displayedArticles.length - 1
           ) {
-            const next = displayedArticles[selectedIndex + 1];
-            markRead(next.link);
-            addToHistory(next);
-            setSelectedArticle(next);
+            handleOpenArticle(displayedArticles[selectedIndex + 1]);
           }
         }}
         hasPrev={selectedIndex > 0}

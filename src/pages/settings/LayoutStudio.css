@@ -7100,3 +7100,108 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── News briefing preview ──────────────────────────────────────────── */
+
+.studio-news-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-news-briefing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.studio-news-briefing-lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-news-briefing-eyebrow {
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-news-briefing-lead strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.studio-news-briefing-cta {
+  align-self: flex-start;
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, var(--color-bg-primary));
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-news-briefing-stats {
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+.studio-news-briefing-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-news-rails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-news-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.studio-news-rail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-news-rail-track {
+  display: flex;
+  gap: var(--space-2xs);
+  overflow: hidden;
+}
+
+.studio-news-rail-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+  flex: 1;
+}
+
+.studio-news-rail-thumb {
+  height: 26px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}

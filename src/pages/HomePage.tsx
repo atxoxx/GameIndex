@@ -8,8 +8,8 @@ import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { type Game } from "../types/game";
 import type { DealItem } from "../types/deals";
-import type { NewsArticle } from "../hooks/useNewsFeeds";
-import { loadSavedArticles, toggleSavedArticle } from "./communityStorage";
+import type { NewsArticle } from "../types/news";
+import { useNews } from "../context/NewsContext";
 import PageWidget from "../components/PageWidget";
 import HomeHero from "../components/hero/HomeHero";
 import HomeQuickStats from "../components/home/HomeQuickStats";
@@ -34,6 +34,7 @@ import DealDetailModal, {
 import NewsArticlePreview from "../components/news/NewsArticlePreview";
 import "../styles/home.css";
 import "../library.css";
+import "../styles/game-news.css";
 
 /**
  * HomePage — the app's refined central dashboard.
@@ -52,7 +53,7 @@ export default function HomePage() {
 
   const [dealTarget, setDealTarget] = useState<ModalDealTarget | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
-  const [savedArticles, setSavedArticles] = useState(() => loadSavedArticles());
+  const { savedLinks, toggleSaved, loadArticle } = useNews();
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [sectionsConfig, setSectionsConfig] = useState<HomeSectionsConfig>(() =>
     loadHomeSectionsConfig()
@@ -84,11 +85,18 @@ export default function HomePage() {
 
   const handleSelectArticle = useCallback((article: NewsArticle) => {
     setSelectedArticle(article);
-  }, []);
+    if (!article.content) {
+      void loadArticle(article.link).then((full) => {
+        if (full) {
+          setSelectedArticle((prev) => (prev && prev.link === full.link ? full : prev));
+        }
+      });
+    }
+  }, [loadArticle]);
 
   const handleToggleSaveArticle = useCallback((article: NewsArticle) => {
-    setSavedArticles(toggleSavedArticle(article));
-  }, []);
+    void toggleSaved(article);
+  }, [toggleSaved]);
 
   const handleCloseArticle = useCallback(() => {
     setSelectedArticle(null);
@@ -259,7 +267,7 @@ export default function HomePage() {
         article={selectedArticle}
         saved={
           selectedArticle
-            ? savedArticles.some((s) => s.link === selectedArticle.link)
+            ? savedLinks.has(selectedArticle.link)
             : false
         }
         onClose={handleCloseArticle}

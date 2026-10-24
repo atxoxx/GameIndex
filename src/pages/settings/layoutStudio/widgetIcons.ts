@@ -116,6 +116,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   // News
   newsHeader: Newspaper,
   newsToolbar: SlidersHorizontal,
+  newsOverview: LayoutTemplate,
   newsGrid: LayoutGrid,
   // Activity
   activityHeader: Activity,

@@ -2,32 +2,26 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import BigScreenNews from "./BigScreenNews";
 
-vi.mock("../../hooks/useNewsFeeds", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../hooks/useNewsFeeds")>();
-  return {
-    ...actual,
-    useNewsFeeds: () => ({
-      articles: [
-        {
-          title: "Headline one",
-          link: "https://example.com/1",
-          description: "Summary text",
-          content: "",
-          pubDate: "2026-01-01",
-          sourceName: "Source A",
-          sourceUrl: "https://example.com",
-          imageUrl: null,
-        },
-      ],
-      loading: false,
-      error: null,
-      activeSource: null,
-      sourceNames: ["Source A"],
-      setSourceFilter: () => {},
-      refresh: () => {},
-    }),
-  };
-});
+vi.mock("../../context/NewsContext", () => ({
+  useNewsDemand: () => ({
+    articles: [
+      {
+        title: "Headline one",
+        link: "https://example.com/1",
+        description: "Summary text",
+        content: "",
+        pubDate: "2026-01-01",
+        sourceName: "Source A",
+        sourceUrl: "https://example.com",
+        imageUrl: null,
+      },
+    ],
+    loading: false,
+    error: null,
+    refresh: () => {},
+    loadArticle: async () => null,
+  }),
+}));
 vi.mock("../../context/LanguageContext", () => ({
   useLanguage: () => ({ t: (key: string) => key }),
 }));

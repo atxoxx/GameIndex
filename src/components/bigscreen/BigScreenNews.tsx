@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
-import { useNewsFeeds, formatArticleDate, type NewsArticle } from "../../hooks/useNewsFeeds";
+import { useNewsDemand } from "../../context/NewsContext";
+import { formatArticleDate } from "../../utils/news/feed";
+import type { NewsArticle } from "../../types/news";
 import { useFocusable } from "../../hooks/useFocusable";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BigScreenPill from "./BigScreenPill";
@@ -13,16 +15,28 @@ import {
 export default function BigScreenNews() {
   const { t } = useLanguage();
   const {
-    articles,
+    articles: allArticles,
     loading,
     error,
-    activeSource,
-    sourceNames,
-    setSourceFilter,
     refresh,
-  } = useNewsFeeds();
+    loadArticle,
+  } = useNewsDemand();
 
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
+  const [activeSource, setSourceFilter] = useState<string | null>(null);
+
+  const sourceNames = useMemo(
+    () => [...new Set(allArticles.map((article) => article.sourceName))].sort(),
+    [allArticles],
+  );
+
+  const articles = useMemo(
+    () =>
+      activeSource
+        ? allArticles.filter((article) => article.sourceName === activeSource)
+        : allArticles,
+    [allArticles, activeSource],
+  );
 
   // Left Sidebar Sources
   const allSources = useMemo(() => ["All Sources", ...sourceNames], [sourceNames]);
@@ -55,7 +69,7 @@ export default function BigScreenNews() {
         <div className="bigscreen-system-section-view bigscreen-news-content">
           <div className="bigscreen-news-toolbar">
             <h3>{t("bigscreen.news.latestArticles")}</h3>
-            <NewsRefreshButton onRefresh={refresh} />
+            <NewsRefreshButton onRefresh={() => void refresh(true)} />
           </div>
 
           {loading ? (
@@ -63,7 +77,7 @@ export default function BigScreenNews() {
           ) : hasFatalError ? (
             <BigScreenErrorState
               message={t("bigscreen.news.loadError", { error })}
-              onRetry={refresh}
+              onRetry={() => void refresh(true)}
             />
           ) : articles.length === 0 ? (
             <BigScreenEmptyState message={t("bigscreen.news.noArticles")} />
@@ -73,7 +87,18 @@ export default function BigScreenNews() {
                 <NewsArticleCard
                   key={`${article.link}-${index}`}
                   article={article}
-                  onSelect={() => setSelectedArticle(article)}
+                  onSelect={() => {
+                    setSelectedArticle(article);
+                    if (!article.content) {
+                      void loadArticle(article.link).then((full) => {
+                        if (full) {
+                          setSelectedArticle((prev) =>
+                            prev && prev.link === full.link ? full : prev,
+                          );
+                        }
+                      });
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -165,6 +190,7 @@ function NewsArticleCard({
   article: NewsArticle;
   onSelect: () => void;
 }) {
+  const { language } = useLanguage();
   const focusProps = useFocusable(onSelect);
 
   return (
@@ -192,7 +218,7 @@ function NewsArticleCard({
         <div className="bigscreen-news-card-meta">
           <span className="bigscreen-news-source">{article.sourceName}</span>
           {article.pubDate && (
-            <span className="bigscreen-news-date">{formatArticleDate(article.pubDate)}</span>
+            <span className="bigscreen-news-date">{formatArticleDate(article.pubDate, language)}</span>
           )}
         </div>
       </div>
@@ -209,7 +235,7 @@ function BigScreenNewsReader({
   article: NewsArticle;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const handleOpenBrowser = useCallback(async () => {
     try {
       await openUrl(article.link);
@@ -271,7 +297,7 @@ function BigScreenNewsReader({
             <BigScreenPill tone="accent" size="sm">{article.sourceName}</BigScreenPill>
             {article.pubDate && (
               <span className="bigscreen-news-reader-date">
-                {formatArticleDate(article.pubDate)}
+                {formatArticleDate(article.pubDate, language)}
               </span>
             )}
           </div>

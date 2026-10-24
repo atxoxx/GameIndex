@@ -115,9 +115,9 @@ describe("normalizePageItemOrderMap", () => {
 describe("normalizePageItemVisibilityMap", () => {
   it("keeps only OFF entries for keys the page renders", () => {
     const result = normalizePageItemVisibilityMap({
-      news: { hero: false, dashboard: false, filters: true },
+      news: { newsOverview: false, dashboard: false, filters: true },
     });
-    expect(result.news).toEqual({ hero: false });
+    expect(result.news).toEqual({ newsOverview: false });
   });
 
   it("drops pages and keys that do not exist", () => {
