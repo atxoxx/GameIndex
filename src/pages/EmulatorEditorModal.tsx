@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Cpu,
+  ExternalLink,
+  FolderOpen,
+  Gamepad2,
+  HardDrive,
+  Play,
+  RefreshCw,
+  Save,
+  StickyNote,
+  Terminal,
+  X,
+} from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { useToast } from "../context/ToastContext";
@@ -14,6 +29,7 @@ import {
   linuxLaunchPresets,
 } from "../types/emulator";
 import { Button } from "../components/ui";
+import "../styles/emulator-editor.css";
 
 interface Props {
   /** Existing emulator to edit, or null/undefined to add a new one. */
@@ -24,15 +40,19 @@ interface Props {
   onSaved: (emulator: Emulator, scanAfter: boolean) => void;
 }
 
-const ICON = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": true,
-} as const;
+const ARG_PRESETS = [
+  '"%ROM%"',
+  '-f "%ROM%"',
+  '-g "%ROM%"',
+  '--fullscreen "%ROM%"',
+  '-L "%ROM%"',
+];
+
+function baseName(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) return "";
+  return trimmed.split(/[\\\\/]/).filter(Boolean).pop() ?? trimmed;
+}
 
 export default function EmulatorEditorModal({
   emulator,
@@ -52,7 +72,7 @@ export default function EmulatorEditorModal({
       );
       return hit?.key ?? "custom";
     }
-    return presetKnown?.key ?? "";
+    return presetKnown?.key ?? "custom";
   });
   const [name, setName] = useState(emulator?.name ?? presetKnown?.name ?? "");
   const [platform, setPlatform] = useState(emulator?.platform ?? presetKnown?.platform ?? "");
@@ -89,10 +109,31 @@ export default function EmulatorEditorModal({
     [knownKey]
   );
 
+  const sortedKnown = useMemo(
+    () => [...KNOWN_EMULATORS].sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
+
   const linuxPresets = useMemo(
     () => (isLinuxHost && selectedKnown ? linuxLaunchPresets(selectedKnown) : []),
     [isLinuxHost, selectedKnown]
   );
+
+  const missing = useMemo(() => {
+    const out: string[] = [];
+    if (!name.trim()) out.push(t("emulators.name"));
+    if (!executablePath.trim()) out.push(t("emulators.executable"));
+    if (!romFolder.trim()) out.push(t("emulators.romFolder"));
+    return out;
+  }, [name, executablePath, romFolder, t]);
+
+  const complete = missing.length === 0;
+
+  const preview = useMemo(() => {
+    const exe = baseName(executablePath) || (isLinuxHost ? "emulator" : "emulator.exe");
+    const args = (argumentsTemplate.trim() || '"%ROM%"').replace(/%ROM%/g, "Game.iso");
+    return `${exe} ${args}`.trim();
+  }, [executablePath, argumentsTemplate, isLinuxHost]);
 
   async function pickExecutable() {
     try {
@@ -113,7 +154,7 @@ export default function EmulatorEditorModal({
       if (typeof p !== "string") return;
       setExecutablePath(p);
       if (!name.trim()) {
-        const base = p.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+        const base = p.split(/[\\\\/]/).pop()?.toLowerCase() ?? "";
         const hit = KNOWN_EMULATORS.find(
           (k) =>
             k.executableName.toLowerCase() === base ||
@@ -128,7 +169,11 @@ export default function EmulatorEditorModal({
 
   async function pickFolder() {
     try {
-      const p = await open({ multiple: false, directory: true, title: t("emulators.browseFolder") });
+      const p = await open({
+        multiple: false,
+        directory: true,
+        title: t("emulators.browseFolder"),
+      });
       if (typeof p === "string") setRomFolder(p);
     } catch (err) {
       console.error(err);
@@ -141,6 +186,15 @@ export default function EmulatorEditorModal({
       if (typeof p === "string") set(p);
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  async function openFolder(path: string) {
+    if (!path.trim()) return;
+    try {
+      await invoke("open_folder", { path: path.trim() });
+    } catch (err) {
+      showToast(String(err), "error");
     }
   }
 
@@ -158,16 +212,8 @@ export default function EmulatorEditorModal({
   }
 
   async function handleSave() {
-    if (!name.trim()) {
-      showToast(t("emulators.name") + " required", "error");
-      return;
-    }
-    if (!executablePath.trim()) {
-      showToast(t("emulators.launcherNotSet"), "error");
-      return;
-    }
-    if (!romFolder.trim()) {
-      showToast(t("emulators.folderNotSet"), "error");
+    if (!complete) {
+      showToast(missing.join(" · "), "error");
       return;
     }
     setSaving(true);
@@ -182,7 +228,7 @@ export default function EmulatorEditorModal({
       notes: notes.trim() || undefined,
       biosFolder: biosFolder.trim() || undefined,
       savesFolder: savesFolder.trim() || undefined,
-      autoScan: autoScan,
+      autoScan,
       iconUrl: emulator?.iconUrl ?? selectedKnown?.logo,
       createdAt: emulator?.createdAt ?? now,
       updatedAt: now,
@@ -196,308 +242,476 @@ export default function EmulatorEditorModal({
       onSaved(payload, scanAfter);
     } catch (err) {
       showToast(String(err), "error");
-    } finally {
       setSaving(false);
     }
   }
 
-  const argPresets = ['"%ROM%"', '-f "%ROM%"', '-g "%ROM%"', '--fullscreen "%ROM%"', '-L "%ROM%"'];
+  const accentStyle = {
+    ["--emu-accent" as string]: selectedKnown?.accent ?? "var(--color-accent)",
+  };
 
   return createPortal(
     <div className="modal-overlay emulators-modal-overlay" onMouseDown={onClose}>
       <div
-        className="modal emulators-modal"
+        className="modal emulators-modal emu-editor"
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? t("emulators.editor.title.edit") : t("emulators.editor.title.add")}
         onMouseDown={(e) => e.stopPropagation()}
+        style={accentStyle}
       >
-        <div className="modal-header">
-          <div className="modal-header-text">
-            <h2>
-              {isEdit ? t("emulators.editor.title.edit") : t("emulators.editor.title.add")}
-            </h2>
-            <p className="modal-subtitle">
-              {isEdit ? selectedKnown?.name || name : t("emulators.knownHint")}
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" iconOnly  aria-label={t("common.close")} onClick={onClose} className="modal-close"> × </Button>
-        </div>
-
-        <div className="modal-body emulators-editor-body">
-          <label className="emulators-field">
-            <span>{t("emulators.selectKnown")}</span>
-            <select
-              value={knownKey}
-              onChange={(e) => {
-                const k = e.target.value;
-                if (k === "custom") {
-                  setKnownKey("custom");
-                  return;
-                }
-                const hit = KNOWN_EMULATORS.find((x) => x.key === k);
-                if (hit) applyKnown(hit);
-              }}
-            >
-              <option value="custom">{t("emulators.custom")}</option>
-              {KNOWN_EMULATORS.map((k) => (
-                <option key={k.key} value={k.key}>
-                  {k.glyph} {k.name} — {k.platform}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedKnown && (
-            <p className="emulators-known-hint">{selectedKnown.description}</p>
-          )}
-
-          {selectedKnown?.logo && (
-            <div
-              className="emulators-known-logo"
-              style={{ ["--emu-accent" as string]: selectedKnown.accent }}
-            >
+        <header className="emu-editor__head">
+          <div className="emu-editor__mark" aria-hidden>
+            {selectedKnown?.logo ? (
               <img src={selectedKnown.logo} alt="" />
-              <div className="emulators-known-logo-info">
-                <span className="emulators-known-logo-name">{selectedKnown.name}</span>
-                <span className="emulators-known-logo-platform">{selectedKnown.platform}</span>
-              </div>
-            </div>
-          )}
+            ) : selectedKnown ? (
+              <span>{selectedKnown.glyph}</span>
+            ) : (
+              <Gamepad2 size={24} />
+            )}
+          </div>
+          <div className="emu-editor__title">
+            <span className="emu-editor__eyebrow">
+              {isEdit ? t("emulators.editor.title.edit") : t("emulators.editor.title.add")}
+            </span>
+            <h2>{name.trim() || t("emulators.custom")}</h2>
+            <p>
+              {platform.trim() || t("emulators.knownHint")}
+              <span className={`emu-editor__status-dot${complete ? " is-ready" : ""}`} aria-hidden />
+              {complete ? t("emulators.editor.ready") : t("emulators.editor.missingFields", { count: missing.length })}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={t("common.close")}
+            onClick={onClose}
+            leftIcon={<X size={18} />}
+          />
+        </header>
 
-          <div className="emulators-field-row">
-            <label className="emulators-field">
-              <span>{t("emulators.name")}</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Dolphin"
-              />
-            </label>
-            <label className="emulators-field">
-              <span>{t("emulators.platform")}</span>
-              <input
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                placeholder="GameCube"
-              />
-            </label>
+        <div className="emu-editor__body">
+          <div className="emu-editor__main">
+            <section className="emu-editor__section">
+              <header className="emu-editor__section-head">
+                <span className="emu-editor__section-icon"><Gamepad2 size={15} /></span>
+                <div>
+                  <h3>{t("emulators.editor.section.identity")}</h3>
+                  <p>{t("emulators.editor.identityHint")}</p>
+                </div>
+              </header>
+
+              <label className="emu-editor__field">
+                <span>{t("emulators.selectKnown")}</span>
+                <select
+                  value={knownKey}
+                  autoFocus={!isEdit && !presetKnown}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    if (key === "custom") {
+                      setKnownKey("custom");
+                      return;
+                    }
+                    const hit = KNOWN_EMULATORS.find((x) => x.key === key);
+                    if (hit) applyKnown(hit);
+                  }}
+                >
+                  <option value="custom">{t("emulators.custom")}</option>
+                  {sortedKnown.map((k) => (
+                    <option key={k.key} value={k.key}>
+                      {k.glyph} {k.name} — {k.platform}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedKnown ? (
+                <div className="emu-editor__known">
+                  <div className="emu-editor__known-mark" aria-hidden>
+                    {selectedKnown.logo ? (
+                      <img src={selectedKnown.logo} alt="" />
+                    ) : (
+                      <span>{selectedKnown.glyph}</span>
+                    )}
+                  </div>
+                  <div className="emu-editor__known-text">
+                    <strong>{selectedKnown.name}</strong>
+                    <span>{selectedKnown.description}</span>
+                    <div className="emu-editor__chips">
+                      <span className="emu-editor__chip">{selectedKnown.platform}</span>
+                      {selectedKnown.extensions.slice(0, 6).map((ext) => (
+                        <span key={ext} className="emu-editor__chip emu-editor__chip--mono">.{ext}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="emu-editor__known-actions">
+                    {selectedKnown.githubUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        leftIcon={<ExternalLink size={14} />}
+                        aria-label={t("emulators.github")}
+                        title={t("emulators.github")}
+                        onClick={() => void openUrl(selectedKnown.githubUrl!)}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      leftIcon={<RefreshCw size={13} />}
+                      title={t("emulators.editor.resetPreset")}
+                      onClick={() => applyKnown(selectedKnown)}
+                    >
+                      {t("emulators.editor.resetPreset")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="emu-editor__hint">{t("emulators.knownHint")}</p>
+              )}
+
+              <div className="emu-editor__grid">
+                <label className="emu-editor__field">
+                  <span>
+                    {t("emulators.name")}
+                    <em className="emu-editor__req">{t("emulators.editor.required")}</em>
+                  </span>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Dolphin"
+                    aria-invalid={!name.trim()}
+                  />
+                </label>
+                <label className="emu-editor__field">
+                  <span>{t("emulators.platform")}</span>
+                  <input
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value)}
+                    placeholder="GameCube"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="emu-editor__section">
+              <header className="emu-editor__section-head">
+                <span className="emu-editor__section-icon"><Cpu size={15} /></span>
+                <div>
+                  <h3>{t("emulators.editor.section.application")}</h3>
+                  <p>{t("emulators.editor.executableHint")}</p>
+                </div>
+              </header>
+
+              <label className="emu-editor__field">
+                <span>
+                  {t("emulators.executable")}
+                  <em className="emu-editor__req">{t("emulators.editor.required")}</em>
+                </span>
+                <div className="emu-editor__path">
+                  <input
+                    value={executablePath}
+                    onChange={(e) => setExecutablePath(e.target.value)}
+                    placeholder={isLinuxHost ? "/usr/bin/retroarch" : "C:\\emu\\dolphin.exe"}
+                    aria-invalid={!executablePath.trim()}
+                  />
+                  {executablePath.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      leftIcon={<Play size={14} />}
+                      aria-label={t("emulators.editor.testLaunch")}
+                      title={t("emulators.editor.testLaunch")}
+                      onClick={() => void testLaunch()}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FolderOpen size={14} />}
+                    onClick={() => void pickExecutable()}
+                  >
+                    {t("emulators.browseExe")}
+                  </Button>
+                </div>
+              </label>
+
+              <div className="emu-editor__field">
+                <div className="emu-editor__field-head">
+                  <span>{t("emulators.argumentsTemplate")}</span>
+                  <button
+                    type="button"
+                    className="emu-editor__insert"
+                    onClick={() =>
+                      setArgumentsTemplate((v) =>
+                        `${v}${v && !v.endsWith(" ") ? " " : ""}%ROM%`
+                      )
+                    }
+                    title={t("emulators.editor.insertRom")}
+                  >
+                    + %ROM%
+                  </button>
+                </div>
+                <input
+                  className="emu-editor__mono"
+                  value={argumentsTemplate}
+                  aria-label={t("emulators.argumentsTemplate")}
+                  onChange={(e) => setArgumentsTemplate(e.target.value)}
+                  placeholder='"%ROM%"'
+                />
+                <div className="emu-editor__presets">
+                  {ARG_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`emu-editor__preset${argumentsTemplate === preset ? " is-active" : ""}`}
+                      onClick={() => setArgumentsTemplate(preset)}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <small className="emu-editor__hint">{t("emulators.argumentsHint")}</small>
+                <div className="emu-editor__preview">
+                  <span>{t("emulators.editor.commandPreview")}</span>
+                  <code title={preview}>{preview}</code>
+                </div>
+              </div>
+
+              {isLinuxHost && linuxPresets.length > 0 && (
+                <div className="emu-editor__field">
+                  <span>{t("emulators.linux.launchCommands")}</span>
+                  <div className="emu-editor__presets">
+                    {linuxPresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className="emu-editor__preset"
+                        onClick={() => {
+                          setExecutablePath(preset.executablePath);
+                          setArgumentsTemplate(preset.argumentsTemplate);
+                        }}
+                      >
+                        {t(preset.labelKey)}
+                      </button>
+                    ))}
+                  </div>
+                  <small className="emu-editor__hint">{t("emulators.linux.launchHint")}</small>
+                </div>
+              )}
+            </section>
           </div>
 
-          <label className="emulators-field">
-            <span>{t("emulators.executable")}</span>
-            <div className="emulators-path-row">
-              <input
-                value={executablePath}
-                onChange={(e) => setExecutablePath(e.target.value)}
-                placeholder={isLinuxHost ? "/usr/bin/retroarch" : "C:\\emu\\dolphin.exe"}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                leftIcon={
-                  <svg {...ICON}>
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  </svg>
-                }
-                onClick={pickExecutable}
-              >
-                {t("emulators.browseExe")}
-              </Button>
-            </div>
-          </label>
+          <aside className="emu-editor__side">
+            <section className="emu-editor__section">
+              <header className="emu-editor__section-head">
+                <span className="emu-editor__section-icon"><HardDrive size={15} /></span>
+                <div>
+                  <h3>{t("emulators.editor.section.library")}</h3>
+                  <p>{t("emulators.editor.romFolderHint")}</p>
+                </div>
+              </header>
 
-          <label className="emulators-field">
-            <span>{t("emulators.romFolder")}</span>
-            <div className="emulators-path-row">
-              <input
-                value={romFolder}
-                onChange={(e) => setRomFolder(e.target.value)}
-                placeholder={isLinuxHost ? "/home/user/ROMs/gamecube" : "C:\\roms\\gamecube"}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                leftIcon={
-                  <svg {...ICON}>
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  </svg>
-                }
-                onClick={pickFolder}
-              >
-                {t("emulators.browseFolder")}
-              </Button>
-            </div>
-          </label>
-
-          <label className="emulators-field">
-            <div className="emulators-field-header">
-              <span>{t("emulators.argumentsTemplate")}</span>
-              <div className="emulators-presets-row">
-                {argPresets.map((p) => (
-                  <button
-                    key={p}
+              <label className="emu-editor__field">
+                <span>
+                  {t("emulators.romFolder")}
+                  <em className="emu-editor__req">{t("emulators.editor.required")}</em>
+                </span>
+                <div className="emu-editor__path">
+                  <input
+                    value={romFolder}
+                    onChange={(e) => setRomFolder(e.target.value)}
+                    placeholder={isLinuxHost ? "/home/user/ROMs/gamecube" : "C:\\roms\\gamecube"}
+                    aria-invalid={!romFolder.trim()}
+                  />
+                  {romFolder.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      leftIcon={<FolderOpen size={14} />}
+                      aria-label={t("emulators.openFolder")}
+                      title={t("emulators.openFolder")}
+                      onClick={() => void openFolder(romFolder)}
+                    />
+                  )}
+                  <Button
                     type="button"
-                    className="emu-preset-pill"
-                    onClick={() => setArgumentsTemplate(p)}
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FolderOpen size={14} />}
+                    onClick={() => void pickFolder()}
                   >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <input
-              value={argumentsTemplate}
-              onChange={(e) => setArgumentsTemplate(e.target.value)}
-              placeholder='"%ROM%"'
-            />
-            <small className="emulators-hint">{t("emulators.argumentsHint")}</small>
-          </label>
+                    {t("emulators.browseFolder")}
+                  </Button>
+                </div>
+              </label>
 
-          {isLinuxHost && linuxPresets.length > 0 && (
-            <label className="emulators-field">
-              <span>{t("emulators.linux.launchCommands")}</span>
-              <div className="emulators-presets-row">
-                {linuxPresets.map((preset) => (
-                  <button
-                    key={preset.id}
+              <label className="emu-editor__toggle">
+                <input
+                  type="checkbox"
+                  checked={autoScan}
+                  onChange={(e) => setAutoScan(e.target.checked)}
+                />
+                <span>
+                  <strong>{t("emulators.editor.autoScan")}</strong>
+                  <small>{t("emulators.editor.autoScanHint")}</small>
+                </span>
+              </label>
+
+              {!isEdit && (
+                <label className="emu-editor__toggle">
+                  <input
+                    type="checkbox"
+                    checked={scanAfter}
+                    onChange={(e) => setScanAfter(e.target.checked)}
+                  />
+                  <span>
+                    <strong>{t("emulators.editor.scanAfter")}</strong>
+                    <small>{t("emulators.editor.scanAfterHint")}</small>
+                  </span>
+                </label>
+              )}
+            </section>
+
+            <section className="emu-editor__section">
+              <header className="emu-editor__section-head">
+                <span className="emu-editor__section-icon"><Terminal size={15} /></span>
+                <div>
+                  <h3>{t("emulators.editor.section.firmware")}</h3>
+                  <p>{t("emulators.bios.optional")}</p>
+                </div>
+              </header>
+
+              <label className="emu-editor__field">
+                <span>{t("emulators.bios.title")}</span>
+                <div className="emu-editor__path">
+                  <input
+                    value={biosFolder}
+                    onChange={(e) => setBiosFolder(e.target.value)}
+                    placeholder={
+                      isLinuxHost ? "/usr/share/dolphin-emu/Sys/GC" : "C:\\emu\\dolphin\\Sys\\GC"
+                    }
+                  />
+                  {biosFolder.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      leftIcon={<FolderOpen size={14} />}
+                      aria-label={t("emulators.openFolder")}
+                      title={t("emulators.openFolder")}
+                      onClick={() => void openFolder(biosFolder)}
+                    />
+                  )}
+                  <Button
                     type="button"
-                    className="emu-preset-pill"
-                    onClick={() => {
-                      setExecutablePath(preset.executablePath);
-                      setArgumentsTemplate(preset.argumentsTemplate);
-                    }}
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FolderOpen size={14} />}
+                    onClick={() => void pickDir(setBiosFolder, t("emulators.bios.title"))}
                   >
-                    {t(preset.labelKey)}
-                  </button>
-                ))}
-              </div>
-              <small className="emulators-hint">{t("emulators.linux.launchHint")}</small>
-            </label>
-          )}
+                    {t("emulators.browseFolder")}
+                  </Button>
+                </div>
+                <small className="emu-editor__hint">{t("emulators.bios.docsHint")}</small>
+              </label>
 
-          {selectedKnown && (
-            <p className="emulators-extensions">
-              {t("emulators.extensions")}:{" "}
-              {selectedKnown.extensions.map((e) => `.${e}`).join(" ")}
-            </p>
-          )}
+              <label className="emu-editor__field">
+                <span>{t("emulators.saves.title")}</span>
+                <div className="emu-editor__path">
+                  <input
+                    value={savesFolder}
+                    onChange={(e) => setSavesFolder(e.target.value)}
+                    placeholder={
+                      isLinuxHost
+                        ? "/home/user/.local/share/dolphin-emu/GC/USA/Card A"
+                        : "C:\\emu\\dolphin\\User\\GC\\USA\\Card A"
+                    }
+                  />
+                  {savesFolder.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      leftIcon={<FolderOpen size={14} />}
+                      aria-label={t("emulators.openFolder")}
+                      title={t("emulators.openFolder")}
+                      onClick={() => void openFolder(savesFolder)}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FolderOpen size={14} />}
+                    onClick={() => void pickDir(setSavesFolder, t("emulators.saves.title"))}
+                  >
+                    {t("emulators.browseFolder")}
+                  </Button>
+                </div>
+                <small className="emu-editor__hint">{t("emulators.saves.folderHint")}</small>
+              </label>
+            </section>
 
-          <label className="emulators-field">
-            <span>{t("emulators.bios.title")}</span>
-            <div className="emulators-path-row">
-              <input
-                value={biosFolder}
-                onChange={(e) => setBiosFolder(e.target.value)}
-                placeholder={
-                  isLinuxHost ? "/usr/share/dolphin-emu/Sys/GC" : "C:\\emu\\dolphin\\Sys\\GC"
-                }
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                leftIcon={
-                  <svg {...ICON}>
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  </svg>
-                }
-                onClick={() => pickDir(setBiosFolder, t("emulators.bios.title"))}
-              >
-                {t("emulators.browseFolder")}
-              </Button>
-            </div>
-            <small className="emulators-hint">{t("emulators.bios.docsHint")}</small>
-          </label>
-
-          <label className="emulators-field">
-            <span>{t("emulators.saves.title")}</span>
-            <div className="emulators-path-row">
-              <input
-                value={savesFolder}
-                onChange={(e) => setSavesFolder(e.target.value)}
-                placeholder={
-                  isLinuxHost
-                    ? "/home/user/.local/share/dolphin-emu/GC/USA/Card A"
-                    : "C:\\emu\\dolphin\\User\\GC\\USA\\Card A"
-                }
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                leftIcon={
-                  <svg {...ICON}>
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                  </svg>
-                }
-                onClick={() => pickDir(setSavesFolder, t("emulators.saves.title"))}
-              >
-                {t("emulators.browseFolder")}
-              </Button>
-            </div>
-            <small className="emulators-hint">{t("emulators.saves.folderHint")}</small>
-          </label>
-
-          <label className="emulators-checkbox">
-            <input
-              type="checkbox"
-              checked={autoScan}
-              onChange={(e) => setAutoScan(e.target.checked)}
-            />
-            <span>{t("emulators.editor.autoScan")}</span>
-          </label>
-
-          <label className="emulators-field">
-            <span>{t("emulators.notes")}</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              placeholder="Optional notes or configuration tweaks..."
-            />
-          </label>
-
-          {!isEdit && (
-            <label className="emulators-checkbox">
-              <input
-                type="checkbox"
-                checked={scanAfter}
-                onChange={(e) => setScanAfter(e.target.checked)}
-              />
-              <span>{t("emulators.editor.scanAfter")}</span>
-            </label>
-          )}
+            <section className="emu-editor__section">
+              <header className="emu-editor__section-head">
+                <span className="emu-editor__section-icon"><StickyNote size={15} /></span>
+                <div>
+                  <h3>{t("emulators.notes")}</h3>
+                  <p>{t("emulators.editor.notesHint")}</p>
+                </div>
+              </header>
+              <label className="emu-editor__field">
+                <textarea
+                  value={notes}
+                  aria-label={t("emulators.notes")}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder={t("emulators.editor.notesPlaceholder")}
+                />
+              </label>
+            </section>
+          </aside>
         </div>
 
-        <div className="modal-footer">
-          <div className="modal-footer-left">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={testLaunch}
-              disabled={!executablePath.trim()}
-              title={t("emulators.editor.testLaunch")}
-              leftIcon={
-                <svg {...ICON}>
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-              }
-            >
-              {t("emulators.editor.testLaunch")}
-            </Button>
+        <footer className="emu-editor__foot">
+          <div
+            className={`emu-editor__validation${complete ? " is-ready" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            {complete ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+            <span>
+              {complete
+                ? t("emulators.editor.ready")
+                : t("emulators.editor.missingList", { fields: missing.join(", ") })}
+            </span>
           </div>
-          <div className="modal-footer-actions">
+          <div className="emu-editor__foot-actions">
             <Button variant="ghost" onClick={onClose}>
               {t("common.cancel")}
             </Button>
-            <Button variant="primary" onClick={handleSave} isLoading={saving}>
+            <Button
+              variant="primary"
+              leftIcon={<Save size={16} />}
+              onClick={() => void handleSave()}
+              isLoading={saving}
+              disabled={!complete}
+              title={complete ? undefined : t("emulators.editor.missingFields", { count: missing.length })}
+            >
               {t("emulators.editor.save")}
             </Button>
           </div>
-        </div>
+        </footer>
       </div>
     </div>,
     document.body
