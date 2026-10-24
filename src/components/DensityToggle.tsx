@@ -8,6 +8,12 @@ interface DensityToggleProps {
   onChange: (density: ViewDensity) => void;
   /** Optional className for the outer container. */
   className?: string;
+  /**
+   * Restricts the visible options. Surfaces with their own density vocabulary
+   * (the Library drops cinematic) pass the subset they support; the active
+   * value is still owned by the caller.
+   */
+  options?: readonly ViewDensity[];
 }
 
 interface DensityOption {
@@ -17,14 +23,7 @@ interface DensityOption {
   icon: ReactNode;
 }
 
-const DENSITY_TOOLTIP: Record<ViewDensity, string> = {
-  compact: "Compact — small cards",
-  cozy: "Cozy — large cards",
-  cinematic: "Cinematic — cover focus",
-  list: "List — detailed rows",
-};
-
-const OPTIONS: DensityOption[] = [
+const ALL_OPTIONS: DensityOption[] = [
   {
     value: "compact",
     ariaLabelKey: "density.compact",
@@ -87,28 +86,31 @@ const OPTIONS: DensityOption[] = [
 ];
 
 /**
- * DensityToggle: segmented 3-button control that switches the Store page
- * card layout between Compact, Cozy, and Cinematic.
- *
- * Plays a radio role so screen readers announce the group state. The
- * currently active button is highlighted via accent color.
+ * DensityToggle: segmented control that switches a card grid between the
+ * supported layouts. Plays a radio role so screen readers announce the group
+ * state; the active button is highlighted via accent color.
  */
 export default function DensityToggle({
   density,
   onChange,
   className,
+  options,
 }: DensityToggleProps) {
   const { t } = useLanguage();
+  const visible = options
+    ? ALL_OPTIONS.filter((option) => options.includes(option.value))
+    : ALL_OPTIONS;
+
   return (
     <div
       className={`store-density-toggle${className ? " " + className : ""}`}
       role="radiogroup"
       aria-label={t("density.groupLabel")}
     >
-      {OPTIONS.map((opt) => {
+      {visible.map((opt) => {
         const active = density === opt.value;
         return (
-          <Tooltip key={opt.value} content={DENSITY_TOOLTIP[opt.value] || t(opt.ariaLabelKey)} placement="top">
+          <Tooltip key={opt.value} content={t(opt.ariaLabelKey)} placement="top">
             <button
               type="button"
               role="radio"

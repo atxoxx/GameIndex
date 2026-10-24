@@ -1,19 +1,20 @@
 import { useMemo } from "react";
 import {
-  Bookmark,
-  Check,
-  Filter,
+  ArrowDownToLine,
+  CheckSquare,
   Grid3x3,
+  LayoutGrid,
+  Plus,
   SlidersHorizontal,
+  Store,
+  Table2,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useOrderDrag } from "../useOrderDrag";
 import { StudioPageWidgetCard } from "./StudioPageWidgetCard";
 import {
-  SchematicCardRail,
   SchematicFilterChips,
   SchematicGameGrid,
-  SchematicHero,
   SchematicSearchBar,
 } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
@@ -27,6 +28,13 @@ export interface LibraryPagePreviewProps {
   onInspectElement?: (id: string) => void;
 }
 
+/**
+ * Layout Studio preview for the Library page.
+ *
+ * Mirrors the shipped order: header, stats, resume strip, sticky command bar,
+ * filter chips and grid. Widgets are schematics, not the real components, so
+ * the studio stays light while still showing what each switch hides.
+ */
 export function LibraryPagePreview({
   widgetItems,
   inspectMode = false,
@@ -83,119 +91,130 @@ export function LibraryPagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
-      {/* 1. Library Spotlight Hero */}
-      <div className="studio-page-full">
-        {renderCard("hero", "slot", <SchematicHero variant="library" />)}
-      </div>
-
-      {/* 2. Continue Playing Rail */}
+      {/* 1. Page header */}
       <div className="studio-page-full">
         {renderCard(
-          "libContinuePlaying",
-          "card",
-          <SchematicCardRail variant="progress" count={4} />,
-        )}
-      </div>
-
-      {/* 3. Recently Added Rail */}
-      <div className="studio-page-full">
-        {renderCard(
-          "libRecentlyAdded",
-          "card",
-          <SchematicCardRail variant="standard" count={4} />,
-        )}
-      </div>
-
-      {/* 4. Toolbar */}
-      <div className="studio-page-full">
-        {renderCard(
-          "libToolbar",
+          "libHeader",
           "slot",
-          <div className="studio-lib-toolbar-mock">
-            <SchematicSearchBar placeholder="Search library..." />
-            <div className="studio-lib-toolbar-actions">
-              <span className="studio-lib-pill">
-                <SlidersHorizontal size={9} />
-                <span>Sort: Last Played</span>
+          <div className="studio-lib-header-mock">
+            <div className="studio-lib-header-text">
+              <span className="studio-lib-eyebrow">Collection</span>
+              <span className="studio-lib-title">Library</span>
+            </div>
+            <div className="studio-lib-header-actions">
+              <span className="studio-lib-btn studio-lib-btn--primary">
+                <Plus size={9} />
+                <span>Import</span>
               </span>
-              <span className="studio-lib-density-icons">
-                <Grid3x3 size={10} />
+              <span className="studio-lib-btn">
+                <Store size={9} />
+                <span>Store</span>
               </span>
-              <span className="studio-lib-filter-trigger">
-                <Filter size={9} />
-                <span>Filters (2)</span>
+              <span className="studio-lib-icon-btn">
+                <ArrowDownToLine size={10} />
+              </span>
+              <span className="studio-lib-icon-btn">
+                <CheckSquare size={10} />
               </span>
             </div>
           </div>,
         )}
       </div>
 
-      {/* 5. Filter Chips */}
+      {/* 2. Library stats */}
       <div className="studio-page-full">
         {renderCard(
-          "libFilterChips",
+          "libKpis",
           "card",
-          <SchematicFilterChips chips={["Action", "Steam", "Installed"]} />,
-        )}
-      </div>
-
-      {/* 6. Filter Presets */}
-      <div className="studio-page-full">
-        {renderCard(
-          "libPresets",
-          "card",
-          <div className="studio-lib-presets-mock">
-            <Bookmark size={10} className="studio-lib-preset-icon" />
-            <span className="studio-lib-preset-tag is-active">Favorites</span>
-            <span className="studio-lib-preset-tag">Backlog</span>
-            <span className="studio-lib-preset-tag">RPG Top</span>
-            <span className="studio-lib-preset-add">+ Preset</span>
+          <div className="studio-lib-stats-mock">
+            {[
+              { value: "312", label: "Games" },
+              { value: "210", label: "Installed" },
+              { value: "1,284h", label: "Played" },
+              { value: "+7", label: "This week" },
+            ].map((stat) => (
+              <span key={stat.label} className="studio-lib-stat">
+                <span className="studio-lib-stat-value">{stat.value}</span>
+                <span className="studio-lib-stat-label">{stat.label}</span>
+              </span>
+            ))}
           </div>,
         )}
       </div>
 
-      {/* 7. Split Layout: Filter Rail + Virtual Grid */}
-      <div className="studio-lib-split">
-        {/* Left Filter Rail */}
-        <aside className="studio-lib-rail-col">
-          {renderCard(
-            "libFilterRail",
-            "card",
-            <div className="studio-lib-rail-body">
-              <div className="studio-lib-rail-sec">
-                <span className="studio-lib-rail-title">Sources</span>
-                {["Steam", "GOG", "Epic"].map((src, i) => (
-                  <span key={src} className="studio-lib-rail-row">
-                    <span className={`studio-lib-rail-check${i === 0 ? " is-checked" : ""}`}>
-                      {i === 0 && <Check size={7} />}
-                    </span>
-                    <span className="studio-lib-rail-name">{src}</span>
-                    <span className="studio-lib-rail-count">48</span>
-                  </span>
-                ))}
-              </div>
-              <div className="studio-lib-rail-sec">
-                <span className="studio-lib-rail-title">Status</span>
-                {["Playing", "Completed"].map((st) => (
-                  <span key={st} className="studio-lib-rail-row">
-                    <span className="studio-lib-rail-check" />
-                    <span className="studio-lib-rail-name">{st}</span>
-                    <span className="studio-lib-rail-count">12</span>
-                  </span>
-                ))}
-              </div>
-            </div>,
-          )}
-        </aside>
+      {/* 3. Jump back in strip */}
+      <div className="studio-page-full">
+        {renderCard(
+          "libResume",
+          "card",
+          <div className="studio-lib-resume-mock">
+            <span className="studio-lib-resume-title">Jump back in</span>
+            <div className="studio-lib-resume-track">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="studio-lib-resume-card">
+                  <span className="studio-lib-resume-art" />
+                  <span className="studio-lib-resume-name" />
+                </span>
+              ))}
+            </div>
+          </div>,
+        )}
+      </div>
 
-        {/* Right Game Grid */}
-        <div className="studio-lib-grid-col">
-          {renderCard(
-            "libGrid",
-            "slot",
-            <SchematicGameGrid variant="library" columns={4} rows={2} />,
-          )}
-        </div>
+      {/* 4. Sticky command bar */}
+      <div className="studio-page-full">
+        {renderCard(
+          "libToolbar",
+          "slot",
+          <div className="studio-lib-command-mock">
+            <div className="studio-lib-scope-row">
+              {["All 312", "Playing 12", "Backlog 180", "Completed 41", "Installed 210", "Shelves"].map(
+                (scope, i) => (
+                  <span
+                    key={scope}
+                    className={`studio-lib-scope${i === 0 ? " is-active" : ""}`}
+                  >
+                    {scope}
+                  </span>
+                ),
+              )}
+            </div>
+            <div className="studio-lib-command-row">
+              <SchematicSearchBar placeholder="Search your library..." />
+              <div className="studio-lib-toolbar-actions">
+                <span className="studio-lib-filter-trigger">
+                  <SlidersHorizontal size={9} />
+                  <span>Filters</span>
+                </span>
+                <span className="studio-lib-pill">Sort</span>
+                <span className="studio-lib-pill">Group</span>
+                <span className="studio-lib-density-icons">
+                  <LayoutGrid size={10} />
+                  <Grid3x3 size={10} />
+                  <Table2 size={10} />
+                </span>
+              </div>
+            </div>
+          </div>,
+        )}
+      </div>
+
+      {/* 5. Active filter chips */}
+      <div className="studio-page-full">
+        {renderCard(
+          "libFilterChips",
+          "card",
+          <SchematicFilterChips chips={["Shelf: Backlog", "Action", "Steam"]} />,
+        )}
+      </div>
+
+      {/* 6. Game grid */}
+      <div className="studio-page-full">
+        {renderCard(
+          "libGrid",
+          "slot",
+          <SchematicGameGrid variant="library" columns={5} rows={2} />,
+        )}
       </div>
     </div>
   );

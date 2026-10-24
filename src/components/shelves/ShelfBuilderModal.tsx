@@ -8,7 +8,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useShelves } from "../../context/ShelfContext";
 import { filterGamesByShelf } from "../../hooks/shelfRules";
-import { SORT_LABELS, SORT_OPTIONS, type LibrarySort } from "../../hooks/libraryFilters";
+import { SORT_LABEL_KEYS, SORT_OPTIONS, type LibrarySort } from "../../hooks/libraryFilters";
 import { PLAY_STATUS_DETAILS, type LibrarySource, type PlayStatus } from "../../types/game";
 import { ShelfIcon } from "./ShelfIcon";
 import {
@@ -312,7 +312,7 @@ export function ShelfBuilderModal({ open, shelf, initialRules, onClose }: ShelfB
         <SelectField label={t("sidebarFilter.sort")} value={sort} onChange={(v) => setSort(v as LibrarySort)}>
           {SORT_OPTIONS.map((option) => (
             <option key={option} value={option}>
-              {SORT_LABELS[option]}
+              {t(SORT_LABEL_KEYS[option])}
             </option>
           ))}
         </SelectField>

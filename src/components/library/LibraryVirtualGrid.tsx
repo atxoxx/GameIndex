@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Game } from "../../types/game";
+import type { Game, LibraryDensity } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
-import type { LibraryGroupBy } from "./LibraryToolbar";
+import type { LibraryGroupBy } from "./LibraryGroupMenu";
 
 const VIRTUALIZE_THRESHOLD = 40;
 
 interface LibraryVirtualGridProps {
   items: Game[];
-  density: string;
+  density: LibraryDensity;
   isBigScreen: boolean;
-  editorial?: boolean;
   groupBy?: LibraryGroupBy;
   resetKey?: string;
   renderItem: (game: Game, index: number) => React.ReactNode;
@@ -35,7 +34,6 @@ interface GameGroup {
   title: string;
   count: number;
   games: Game[];
-  accentColor?: string;
 }
 
 interface GridMetrics {
@@ -207,7 +205,6 @@ export default function LibraryVirtualGrid({
   items,
   density,
   isBigScreen,
-  editorial,
   groupBy = "none",
   resetKey = "",
   renderItem,
@@ -221,38 +218,37 @@ export default function LibraryVirtualGrid({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLElement | Window | null>(null);
-
   const isList = density === "list";
   const useGrouping = groupBy !== "none";
 
   const isNarrow = containerW > 0 && containerW <= 950;
   const isUltraWide = containerW >= 2200;
 
-  // List rows render `.lib-card--list` (~66px tall + 6px margin); a fixed
-  // 72px track keeps the stride exact so virtual offsets never drift.
+  // Row heights drive both the CSS grid (`gridAutoRows`) and the virtual
+  // window, so the two can never drift: every card fills its track, NO
+  // matter how the cover resolves.
   const rowHeight = isList
-    ? 72
+    ? 68
     : density === "compact"
-    ? (isNarrow ? 195 : isUltraWide ? 260 : 220)
-    : density === "cinematic"
-    ? (isNarrow ? 360 : isUltraWide ? 510 : 420)
-    : (isNarrow ? 370 : isUltraWide ? 490 : 424);
+      ? isNarrow
+        ? 216
+        : isUltraWide
+          ? 264
+          : 236
+      : isNarrow
+        ? 322
+        : isUltraWide
+          ? 396
+          : 348;
 
-  const gap = isList
-    ? 0
-    : density === "compact"
-    ? (isNarrow ? 10 : isUltraWide ? 16 : 12)
-    : density === "cinematic"
-    ? (isNarrow ? 16 : isUltraWide ? 28 : 24)
-    : (isNarrow ? 12 : isUltraWide ? 20 : 16);
+  const gap = isList ? 6 : density === "compact" ? (isNarrow ? 10 : isUltraWide ? 16 : 12) : isNarrow ? 12 : isUltraWide ? 20 : 16;
 
-  const minCol = density === "compact"
-    ? (isNarrow ? 115 : isUltraWide ? 155 : 130)
-    : density === "cinematic"
-    ? (isNarrow ? 205 : isUltraWide ? 290 : 240)
-    : density === "list"
-    ? 99999
-    : (isNarrow ? 150 : isUltraWide ? 215 : 180);
+  const minCol = density === "compact" ? (isNarrow ? 112 : isUltraWide ? 152 : 128) : isList ? 99999 : isNarrow ? 148 : isUltraWide ? 214 : 176;
+
+  // Latest row stride for the scroll handler (which must not re-subscribe on
+  // every density change).
+  const strideRef = useRef(rowHeight + gap);
+  strideRef.current = rowHeight + gap;
 
   // Build grouped structure when groupBy is active
   const groups: GameGroup[] = useMemo(() => {
@@ -294,7 +290,7 @@ export default function LibraryVirtualGrid({
           title = "2000–2009";
         } else {
           key = "retro";
-          title = "Retro (< 2000)";
+          title = t("library.groupBy.before2000");
         }
       } else if (groupBy === "alphabetical") {
         const firstChar = (g.name || "").trim().charAt(0).toUpperCase();
@@ -303,7 +299,7 @@ export default function LibraryVirtualGrid({
           title = firstChar;
         } else {
           key = "#";
-          title = "# (0–9 / Symbols)";
+          title = t("library.groupBy.symbols");
         }
       }
 
@@ -476,15 +472,23 @@ export default function LibraryVirtualGrid({
     window.addEventListener("resize", measure);
 
     let rafId = 0;
+
+    // Only commit a new scroll offset when the visible row window actually
+    // changes. Without this every wheel frame re-rendered the grid and its
+    // ~40 cards even though the DOM stayed identical.
+    let lastRow = -1;
     const computeScrollTop = () => {
       const elRect = el.getBoundingClientRect();
       const containerRect = isWindow(container)
         ? { top: 0, height: window.innerHeight }
         : { top: container.getBoundingClientRect().top, height: container.clientHeight };
       const relativeTop = Math.max(0, containerRect.top - elRect.top);
-      setScrollTop(relativeTop);
-      if (containerRect.height > 0) setViewportH(containerRect.height);
-      setContainerW(el.clientWidth);
+      const stride = strideRef.current;
+      const row = stride > 0 ? Math.floor(relativeTop / stride) : 0;
+      if (row !== lastRow) {
+        lastRow = row;
+        setScrollTop(relativeTop);
+      }
     };
     computeScrollTop();
 
@@ -543,6 +547,13 @@ export default function LibraryVirtualGrid({
       role="button"
       tabIndex={0}
       aria-expanded={!isCollapsed}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggleGroup(group.id);
+        }
+      }}
     >
       <div className="lib-group-header-left">
         <span className="lib-group-icon-badge" aria-hidden="true">
@@ -568,6 +579,7 @@ export default function LibraryVirtualGrid({
   );
 
   const cardsClassName = `lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${isList ? " lib-cards--list" : ""}`;
+  const gridStyle = { ["--lib-row-h" as string]: `${rowHeight}px`, gap: `${gap}px` };
 
   // Grouped Mode — small libraries keep the original fully-mounted layout.
   if (useGrouping && !useVirtualGrouped) {
@@ -583,7 +595,7 @@ export default function LibraryVirtualGrid({
               {renderGroupHeader(group, isCollapsed)}
 
               {!isCollapsed && (
-                <div className={cardsClassName}>
+                <div className={cardsClassName} style={gridStyle}>
                   {group.games.map((g, i) => renderItem(g, i))}
                 </div>
               )}
@@ -614,7 +626,7 @@ export default function LibraryVirtualGrid({
               {renderGroupHeader(group, collapsed)}
 
               {!collapsed && (
-                <div className={cardsClassName}>
+                <div className={cardsClassName} style={gridStyle}>
                   {topSpace > 0 && (
                     <div
                       className="lib-group-row-spacer"
@@ -644,9 +656,7 @@ export default function LibraryVirtualGrid({
     return (
       <div className="lib-grid-container">
         {isList && renderListHeader()}
-        <div
-          className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""}${isList ? " lib-cards--list" : ""}`}
-        >
+        <div className={cardsClassName} style={gridStyle}>
           {items.map((g, i) => renderItem(g, i))}
         </div>
       </div>
@@ -678,12 +688,11 @@ export default function LibraryVirtualGrid({
       <div className="lib-grid-scroll" ref={scrollRef}>
         <div className="lib-grid-spacer" style={{ height: totalHeight }}>
           <div
-            className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""} lib-cards--virtual${isList ? " lib-cards--list" : ""}`}
+            className={`${cardsClassName} lib-cards--virtual`}
             style={{
+              ...gridStyle,
               transform: `translateY(${firstRow * rowStride}px)`,
               gridTemplateColumns: isList ? "1fr" : `repeat(${cols}, minmax(0, 1fr))`,
-              gap: `${gap}px`,
-              gridAutoRows: isList ? `${rowHeight}px` : undefined,
             }}
           >
             {visible}

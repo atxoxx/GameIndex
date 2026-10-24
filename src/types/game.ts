@@ -1502,6 +1502,12 @@ export interface SteamPlayerHistory {
  */
 export type ViewDensity = "compact" | "cozy" | "cinematic" | "list";
 
+/** Densities the Library page offers (no cinematic tier). */
+export type LibraryDensity = "cozy" | "compact" | "list";
+
+export const LIBRARY_DENSITIES: readonly LibraryDensity[] = ["cozy", "compact", "list"];
+
+
 /** localStorage key for the user's chosen density. */
 export const VIEW_DENSITY_STORAGE_KEY = "gamelib_store_density_v1";
 

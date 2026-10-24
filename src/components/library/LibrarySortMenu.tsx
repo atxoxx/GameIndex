@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   SORT_OPTIONS,
-  SORT_LABELS,
+  SORT_LABEL_KEYS,
   type LibrarySort,
 } from "../../hooks/useLibraryFilters";
 import { useLanguage } from "../../context/LanguageContext";
@@ -109,14 +109,14 @@ export default function LibrarySortMenu({
         title={t("library.sortLibrary")}
       >
         <span className="lib-sort-trigger-icon" aria-hidden="true">{SORT_ICONS[value]}</span>
-        <span className="lib-sort-trigger-label">{SORT_LABELS[value]}</span>
+        <span className="lib-sort-trigger-label">{t(SORT_LABEL_KEYS[value])}</span>
         <svg className="lib-sort-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
       {open && (
-        <ul className="lib-sort-list" role="listbox" aria-label={t("library.sortOrder")}>
+        <ul className="lib-sort-list" role="listbox" aria-label={t("library.sortLibrary")}>
           {SORT_OPTIONS.map((opt) => (
             <li key={opt} role="option" aria-selected={opt === value}>
               <button
@@ -128,7 +128,7 @@ export default function LibrarySortMenu({
                 }}
               >
                 <span className="lib-sort-option-icon" aria-hidden="true">{SORT_ICONS[opt]}</span>
-                <span>{SORT_LABELS[opt]}</span>
+                <span>{t(SORT_LABEL_KEYS[opt])}</span>
                 {opt === value && (
                   <svg className="lib-sort-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" />

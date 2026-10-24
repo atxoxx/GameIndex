@@ -15,17 +15,38 @@ export type LibrarySort =
   | "longest"
   | "recently_completed";
 
-/** Label for each sort option (used in dropdown). */
-export const SORT_LABELS: Record<LibrarySort, string> = {
-  alphabetical: "Alphabetical (A–Z)",
-  date_added: "Date Added (Newest)",
-  most_played: "Most Played",
-  recently_played: "Recently Played",
-  rating: "Highest Rated",
-  shortest: "Shortest Main Story",
-  longest: "Longest Main Story",
-  recently_completed: "Recently Completed",
+/** Translation key for each sort option (resolve with `t()` at the call site). */
+export const SORT_LABEL_KEYS: Record<LibrarySort, string> = {
+  alphabetical: "library.sort.alphabetical",
+  date_added: "library.sort.dateAdded",
+  most_played: "library.sort.mostPlayed",
+  recently_played: "library.sort.recentlyPlayed",
+  rating: "library.sort.rating",
+  shortest: "library.sort.shortest",
+  longest: "library.sort.longest",
+  recently_completed: "library.sort.recentlyCompleted",
 };
+
+/** Every source facet value, so persistence can validate the full set. */
+export const LIBRARY_SOURCES: readonly LibrarySource[] = [
+  "all",
+  "steam",
+  "local",
+  "gog",
+  "epic",
+  "humble",
+  "rockstar",
+  "ubisoft",
+  "battlenet",
+  "ea",
+  "xbox",
+  "itch",
+];
+
+/** Type guard for a stored source facet. */
+export function isLibrarySource(value: unknown): value is LibrarySource {
+  return (LIBRARY_SOURCES as readonly string[]).includes(value as string);
+}
 
 /** All sort options in dropdown order. */
 export const SORT_OPTIONS: readonly LibrarySort[] = [
@@ -346,16 +367,7 @@ export function parseStoredFilters(raw: unknown): LibraryFilters {
     yearMax: typeof obj.yearMax === "number" && Number.isFinite(obj.yearMax) ? obj.yearMax : null,
     ratingMin: typeof obj.ratingMin === "number" && Number.isFinite(obj.ratingMin) ? obj.ratingMin : null,
     status: obj.status === "installed" || obj.status === "not_installed" ? obj.status : "all",
-    source:
-      obj.source === "steam" ||
-      obj.source === "local" ||
-      obj.source === "gog" ||
-      obj.source === "epic" ||
-      obj.source === "humble" ||
-      obj.source === "rockstar" ||
-      obj.source === "ubisoft"
-        ? obj.source
-        : "all",
+    source: isLibrarySource(obj.source) ? obj.source : "all",
     playStatus:
       obj.playStatus === "backlog" ||
       obj.playStatus === "playing" ||
@@ -472,16 +484,7 @@ export function parseStoredPreset(raw: unknown): FilterPreset | null {
     yearMax: typeof f.yearMax === "number" && Number.isFinite(f.yearMax) ? f.yearMax : null,
     ratingMin: typeof f.ratingMin === "number" && Number.isFinite(f.ratingMin) ? f.ratingMin : null,
     status: f.status === "installed" || f.status === "not_installed" ? f.status : "all",
-    source:
-      f.source === "steam" ||
-      f.source === "local" ||
-      f.source === "gog" ||
-      f.source === "epic" ||
-      f.source === "humble" ||
-      f.source === "rockstar" ||
-      f.source === "ubisoft"
-        ? (f.source as LibrarySource)
-        : "all",
+    source: isLibrarySource(f.source) ? (f.source as LibrarySource) : "all",
     playStatus:
       f.playStatus === "backlog" ||
       f.playStatus === "playing" ||

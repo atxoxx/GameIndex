@@ -5,7 +5,6 @@ import {
   BarChart2,
   BarChart3,
   BookOpen,
-  Bookmark,
   Boxes,
   Calendar,
   CalendarClock,
@@ -71,12 +70,11 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   homeNews: Newspaper,
   homeShelves: Layers,
   // Library
-  libContinuePlaying: PlayCircle,
-  libRecentlyAdded: Clock,
+  libHeader: LayoutTemplate,
+  libKpis: BarChart3,
+  libResume: PlayCircle,
   libToolbar: SlidersHorizontal,
   libFilterChips: Filter,
-  libPresets: Bookmark,
-  libFilterRail: PanelLeft,
   libGrid: LayoutGrid,
   // Game Detail
   gameHero: Sparkles,

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LibraryStatus, LibrarySort } from "../hooks/useLibraryFilters";
-import { SORT_LABELS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
+import { SORT_LABEL_KEYS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
 import type { PlayStatus } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 import MultiSelectDropdown from "./ui/MultiSelectDropdown";
@@ -492,7 +492,7 @@ export default function SidebarFilterPopover({
             onChange={(e) => onSortChange(e.target.value as LibrarySort)}
           >
             {SORT_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{SORT_LABELS[opt]}</option>
+              <option key={opt} value={opt}>{t(SORT_LABEL_KEYS[opt])}</option>
             ))}
           </select>
         </section>

@@ -8,7 +8,7 @@ import {
   getSearchRelevanceScore,
   hasActiveFilters,
   sortGames,
-  SORT_LABELS,
+  SORT_LABEL_KEYS,
   SORT_OPTIONS,
   tokenizeSearchQuery,
   type LibraryFilters,
@@ -18,12 +18,17 @@ import {
 
 export {
   EMPTY_LIBRARY_FILTERS,
-  SORT_LABELS,
+  SORT_LABEL_KEYS,
   SORT_OPTIONS,
   type LibraryFilters,
   type LibrarySort,
   type LibraryStatus,
 };
+
+export interface UseLibraryFiltersOptions {
+  /** Completion timestamps for the `recently_completed` sort. */
+  completedAtOf?: (gameId: string) => number | undefined;
+}
 
 /**
  * useLibraryFilters: filter state + derivation for the Library surface.
@@ -35,15 +40,16 @@ export {
  * `games` array it's called with:
  *   - **filteredGames** — narrowed + sorted game list
  *   - **availableGenres** / **availablePlatforms** — unique facet
- *     values from the source array (populate the filter rail)
+ *     values from the source array (populate the filter drawer)
  *   - **hasFilters** — true when any facet is active
  *
  * The return shape is deliberately identical to the pre-context hook so
  * swapping the implementation didn't ripple through callers.
  */
-export function useLibraryFilters(games: Game[]) {
+export function useLibraryFilters(games: Game[], options: UseLibraryFiltersOptions = {}) {
   const state = useLibraryFilterState();
   const { filters, ...handlers } = state;
+  const { completedAtOf } = options;
 
   // Defer the expensive derivations (search narrowing + sorting over the
   // whole library) behind React's `useDeferredValue`: keystrokes update
@@ -54,7 +60,7 @@ export function useLibraryFilters(games: Game[]) {
   // cheap.
   const deferredFilters = useDeferredValue(filters);
 
-  // Build unique, sorted facet lists from the source array so the sidebar
+  // Build unique, sorted facet lists from the source array so the drawer
   // only shows values that actually exist in the user's library.
   const availableGenres = useMemo(() => {
     const set = new Set<string>();
@@ -104,6 +110,8 @@ export function useLibraryFilters(games: Game[]) {
             return (playtimes?.get(b.id) ?? 0) - (playtimes?.get(a.id) ?? 0);
           case "recently_played":
             return (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0);
+          case "recently_completed":
+            return (completedAtOf?.(b.id) ?? 0) - (completedAtOf?.(a.id) ?? 0);
           case "rating": {
             const ra = a.igdbRating ?? a.criticRating ?? 0;
             const rb = b.igdbRating ?? b.criticRating ?? 0;
@@ -115,8 +123,8 @@ export function useLibraryFilters(games: Game[]) {
       });
       return ranked;
     }
-    return sortGames(narrowed, deferredFilters.sort);
-  }, [games, deferredFilters]);
+    return sortGames(narrowed, deferredFilters.sort, { completedAtOf });
+  }, [games, deferredFilters, completedAtOf]);
 
   const hasFilters = useMemo(
     () => hasActiveFilters(deferredFilters),

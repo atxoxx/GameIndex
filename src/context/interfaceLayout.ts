@@ -41,12 +41,11 @@ export type PageWidgetKey =
   | "homeNews"
   | "homeShelves"
   // Library
-  | "libContinuePlaying"
-  | "libRecentlyAdded"
+  | "libHeader"
+  | "libKpis"
+  | "libResume"
   | "libToolbar"
   | "libFilterChips"
-  | "libPresets"
-  | "libFilterRail"
   | "libGrid"
   // Game Detail
   | "gameHero"
@@ -163,12 +162,11 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "homeNews",
   "homeShelves",
   // Library
-  "libContinuePlaying",
-  "libRecentlyAdded",
+  "libHeader",
+  "libKpis",
+  "libResume",
   "libToolbar",
   "libFilterChips",
-  "libPresets",
-  "libFilterRail",
   "libGrid",
   // Game Detail
   "gameHero",
@@ -287,12 +285,11 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   homeNews: "ui-item-homeNews",
   homeShelves: "ui-item-homeShelves",
   // Library
-  libContinuePlaying: "ui-item-libContinuePlaying",
-  libRecentlyAdded: "ui-item-libRecentlyAdded",
+  libHeader: "ui-item-libHeader",
+  libKpis: "ui-item-libKpis",
+  libResume: "ui-item-libResume",
   libToolbar: "ui-item-libToolbar",
   libFilterChips: "ui-item-libFilterChips",
-  libPresets: "ui-item-libPresets",
-  libFilterRail: "ui-item-libFilterRail",
   libGrid: "ui-item-libGrid",
   // Game Detail
   gameHero: "ui-item-gameHero",
@@ -411,12 +408,11 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   homeNews: "settings.interface.widgetHomeNews",
   homeShelves: "settings.interface.widgetHomeShelves",
   // Library
-  libContinuePlaying: "settings.interface.widgetLibContinuePlaying",
-  libRecentlyAdded: "settings.interface.widgetLibRecentlyAdded",
+  libHeader: "settings.interface.widgetLibHeader",
+  libKpis: "settings.interface.widgetLibKpis",
+  libResume: "settings.interface.widgetLibResume",
   libToolbar: "settings.interface.widgetLibToolbar",
   libFilterChips: "settings.interface.widgetLibFilterChips",
-  libPresets: "settings.interface.widgetLibPresets",
-  libFilterRail: "settings.interface.widgetLibFilterRail",
   libGrid: "settings.interface.widgetLibGrid",
   // Game Detail
   gameHero: "settings.interface.widgetGameHero",
@@ -576,16 +572,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "library",
     labelKey: "nav.library",
     routes: ["/library"],
-    items: [
-      "hero",
-      "libContinuePlaying",
-      "libRecentlyAdded",
-      "libToolbar",
-      "libFilterChips",
-      "libPresets",
-      "libFilterRail",
-      "libGrid",
-    ],
+    items: ["libHeader", "libKpis", "libResume", "libToolbar", "libFilterChips", "libGrid"],
   },
   {
     key: "game",

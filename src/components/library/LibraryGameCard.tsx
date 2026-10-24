@@ -1,6 +1,6 @@
-import { memo, useRef, useState } from "react";
-import { Badge } from "../ui";
-import type { Game } from "../../types/game";
+import { memo, useEffect, useRef, useState } from "react";
+import { MoreHorizontal, Play } from "lucide-react";
+import type { Game, LibraryDensity } from "../../types/game";
 import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
 import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -9,13 +9,15 @@ import { useGameCardArt } from "../../hooks/useGameCardArt";
 import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibility";
 import { ArtworkImage } from "../ui/ArtworkImage";
 import { playLaunchSound } from "../../utils/soundEffects";
+import { isLibraryScrolling } from "./libraryScroll";
 
 interface LibraryGameCardProps {
   game: Game;
-  density: string;
+  density: LibraryDensity;
   isRunning: boolean;
   onClick: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
+  /** Right-click or the ⋯ button — both open the same page-level menu. */
+  onContextMenu: (event: React.MouseEvent) => void;
   onLaunch?: (game: Game) => void;
   className?: string;
   selectable?: boolean;
@@ -23,7 +25,10 @@ interface LibraryGameCardProps {
   onToggleSelect?: (game: Game) => void;
 }
 
-function formatRelativeTime(timestamp: number | undefined, t: (key: string, vars?: Record<string, unknown>) => string): string {
+function formatRelativeTime(
+  timestamp: number | undefined,
+  t: (key: string, vars?: Record<string, unknown>) => string
+): string {
   if (!timestamp) return t("lib.rail.continue.never");
   const diffMs = Date.now() - timestamp;
   if (diffMs < 0) return t("lib.rail.continue.justNow");
@@ -49,20 +54,31 @@ function LibraryGameCardBase({
 }: LibraryGameCardProps) {
   const { enqueueEnrich, launchGame } = useGameCardActions();
   const { t } = useLanguage();
-  const {
-    showCardBadges,
-    isSimpleUi,
-    badgePlatform,
-    badgeInstall,
-    badgePlaytime,
-    badgeRating,
-  } = useCardDisplaySettings();
+  const { showCardBadges, isSimpleUi, badgePlatform, badgeInstall, badgePlaytime, badgeRating } =
+    useCardDisplaySettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
 
-  const displayName = gameDisplayName(game);
+  // Skip the hover state (and the animated poster it enables) while the grid
+  // is still moving under the pointer.
+  const handlePointerEnter = () => {
+    if (isLibraryScrolling()) return;
+    setHovered(true);
+  };
 
+  // A card can enter its hover state and then be scrolled under the sticky bar
+  // without ever receiving mouseleave. Drop the state as soon as the page
+  // moves so no animated poster decodes during the scroll.
+  useEffect(() => {
+    if (!hovered) return;
+    const onScroll = () => setHovered(false);
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [hovered]);
+
+  const displayName = gameDisplayName(game);
   const isList = density === "list";
+
   const { displayUrl, isIcon, handleError, staticPosterUrl, animatedPosterUrl } = useGameCardArt({
     game,
     isHovered: hovered,
@@ -74,36 +90,46 @@ function LibraryGameCardBase({
     (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
-  // One shared observer for every mounted card (see the hook) instead of
-  // an IntersectionObserver per card, and the missing-cover fetch rides
-  // the paced background queue: a 300-card import scrolling into view no
-  // longer fires 300 concurrent IGDB pipelines, the queue's 350ms pacing
-  // + attempt guard apply instead.
+  // One shared observer for every mounted card (see the hook) instead of an
+  // IntersectionObserver per card, and the missing-cover fetch rides the paced
+  // background queue so a 300-card import scrolling into view can't fire 300
+  // concurrent IGDB pipelines.
   useSharedViewportVisibility({
     targetRef: coverRef,
     enabled: canAutoFetchCover,
     dep: game.id,
     onVisible: () =>
-      enqueueEnrich(
-        { id: game.id, name: game.name, steamAppId: game.steamAppId },
-        true
-      ),
+      enqueueEnrich({ id: game.id, name: game.name, steamAppId: game.steamAppId }, true),
   });
-
-  const handleLaunch = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    playLaunchSound();
-    if (onLaunch) onLaunch(game);
-    else launchGame(game);
-  };
 
   const rating = game.igdbRating ?? game.criticRating;
   const isVr = gameIsVr(game);
   const playStatus = game.playStatus || "backlog";
   const statusMeta = PLAY_STATUS_DETAILS[playStatus];
 
-  // List view mode
-  if (density === "list") {
+  const handleActivate = () => {
+    if (selectable && onToggleSelect) onToggleSelect(game);
+    else onClick();
+  };
+
+  const handleLaunch = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    playLaunchSound();
+    if (onLaunch) onLaunch(game);
+    else launchGame(game);
+  };
+
+  const activateKey = (event: React.KeyboardEvent) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleActivate();
+    }
+  };
+
+  const launchLabel = isRunning ? t("game.resume") : t("game.play");
+
+  if (isList) {
     return (
       <div
         role="button"
@@ -111,40 +137,23 @@ function LibraryGameCardBase({
         className={`lib-card lib-card--list${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
         data-game-detail-route={`/library/${game.id}`}
         data-game-detail-title={displayName}
-        onClick={() => {
-          if (selectable && onToggleSelect) {
-            onToggleSelect(game);
-          } else {
-            onClick();
-          }
-        }}
+        onClick={handleActivate}
         onContextMenu={onContextMenu}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={handlePointerEnter}
         onMouseLeave={() => setHovered(false)}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            if (selectable && onToggleSelect) {
-              onToggleSelect(game);
-            } else {
-              onClick();
-            }
-          }
-        }}
+        onKeyDown={activateKey}
         aria-label={displayName}
       >
-        {selectable && (
-          <span className={`lib-card-select${selected ? " checked" : ""}`} aria-hidden="true">
-            {selected && (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            )}
-          </span>
-        )}
-
         <div className={`lib-card-list-thumb${isIcon ? " has-icon" : ""}`}>
+          {selectable && (
+            <span className={`lib-card-select${selected ? " checked" : ""}`} aria-hidden="true">
+              {selected && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+          )}
           {displayUrl ? (
             <img
               src={displayUrl}
@@ -172,82 +181,71 @@ function LibraryGameCardBase({
           )}
         </div>
 
-        {showCardBadges && badgePlatform && (
-          <div className="lib-card-list-platform">
-            <Badge variant="info" size="sm" className="lib-card-platform">
-              {game.platform}
-            </Badge>
-            {game.emulatorId && game.romPath && (
-              <Badge variant="default" size="sm" className="lib-card-platform lib-card-rom-badge">
-                🕹️ {t("library.romBadge")}
-              </Badge>
-            )}
-            {isVr && (
-              <Badge variant="accent" size="sm" className="lib-card-platform lib-card-vr-badge">
-                🥽 {t("library.vrBadge")}
-              </Badge>
-            )}
-          </div>
-        )}
+        <div className="lib-card-list-platform">
+          <span className="lib-card-chip lib-card-chip--platform">{game.platform}</span>
+        </div>
 
-        {showCardBadges && badgeInstall && !isSimpleUi && (
-          <div className="lib-card-list-status">
-            <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
+        <div className="lib-card-list-status">
+          {showCardBadges && badgeInstall && !isSimpleUi ? (
+            <span className={`lib-card-chip lib-card-chip--status is-${statusMeta.variant}`}>
+              <span className="lib-card-chip-dot" aria-hidden="true" />
               {t(statusMeta.labelKey)}
-            </Badge>
-          </div>
-        )}
+            </span>
+          ) : (
+            <span className="lib-card-list-muted">–</span>
+          )}
+        </div>
 
-        {showCardBadges && badgePlaytime && (
-          <div className="lib-card-list-playtime">
-            <Badge variant="default" size="sm" className="lib-card-badge--playtime">
-              <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <span>{game.playTime}</span>
-            </Badge>
-          </div>
-        )}
+        <div className="lib-card-list-playtime">
+          {showCardBadges && badgePlaytime ? (
+            <span className="lib-card-list-mono">{game.playTime}</span>
+          ) : (
+            <span className="lib-card-list-muted">–</span>
+          )}
+        </div>
 
-        {showCardBadges && badgeRating && !isSimpleUi && (
-          <div className="lib-card-list-rating">
-            {rating != null && rating > 0 ? (
-              <Badge variant="accent" size="sm" className="lib-card-rating">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                <span>{Math.round(rating)}%</span>
-              </Badge>
-            ) : (
-              <span className="lib-card-list-muted">–</span>
-            )}
-          </div>
-        )}
+        <div className="lib-card-list-rating">
+          {showCardBadges && badgeRating && !isSimpleUi && rating != null && rating > 0 ? (
+            <span className="lib-card-list-mono">{Math.round(rating)}%</span>
+          ) : (
+            <span className="lib-card-list-muted">–</span>
+          )}
+        </div>
 
         <div className="lib-card-list-last-played">
           <span>{formatRelativeTime(game.lastPlayed, t)}</span>
         </div>
 
-        <div className="lib-card-list-actions" onClick={(e) => e.stopPropagation()}>
+        <div className="lib-card-list-actions" onClick={(event) => event.stopPropagation()}>
           <button
             type="button"
-            className={`lib-card-list-play-btn${isRunning ? " running" : ""}`}
+            className={`lib-card-icon-btn lib-card-icon-btn--play${isRunning ? " running" : ""}`}
             onClick={handleLaunch}
-            title={isRunning ? t("game.resume") : t("game.play")}
-            aria-label={isRunning ? t("game.resumeAria", { name: displayName }) : t("game.playAria", { name: displayName })}
+            title={launchLabel}
+            aria-label={
+              isRunning
+                ? t("game.resumeAria", { name: displayName })
+                : t("game.playAria", { name: displayName })
+            }
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" aria-hidden="true">
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-            <span>{isRunning ? t("library.running") : t("game.play")}</span>
+            <Play size={12} fill="currentColor" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="lib-card-icon-btn"
+            onClick={onContextMenu}
+            title={t("library.moreActions")}
+            aria-label={`${t("library.moreActions")}: ${displayName}`}
+          >
+            <MoreHorizontal size={15} aria-hidden="true" />
           </button>
         </div>
       </div>
     );
   }
 
-  // Grid, Compact, Cinematic modes
+  const isCompact = density === "compact";
+
   return (
     <div
       role="button"
@@ -255,28 +253,13 @@ function LibraryGameCardBase({
       className={`lib-card density-${density}${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
       data-game-detail-route={`/library/${game.id}`}
       data-game-detail-title={displayName}
-      onClick={() => {
-        if (selectable && onToggleSelect) {
-          onToggleSelect(game);
-        } else {
-          onClick();
-        }
-      }}
+      onClick={handleActivate}
       onContextMenu={onContextMenu}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handlePointerEnter}
       onMouseLeave={() => setHovered(false)}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (selectable && onToggleSelect) {
-            onToggleSelect(game);
-          } else {
-            onClick();
-          }
-        }
-      }}
+      onKeyDown={activateKey}
       aria-label={displayName}
+      aria-current={isRunning ? "true" : undefined}
     >
       <div className="lib-card-cover" ref={coverRef}>
         {selectable && (
@@ -289,10 +272,10 @@ function LibraryGameCardBase({
           </span>
         )}
 
-        {(staticPosterUrl || displayUrl) ? (
+        {staticPosterUrl || displayUrl ? (
           <>
             <ArtworkImage
-              src={staticPosterUrl || displayUrl!}
+              src={(staticPosterUrl || displayUrl)!}
               alt={displayName}
               onError={handleError}
               className="lib-card-cover-static"
@@ -310,106 +293,87 @@ function LibraryGameCardBase({
           </>
         ) : (
           <div className="lib-card-placeholder">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
+            <span className="lib-card-placeholder-letter">{displayName.charAt(0)}</span>
           </div>
         )}
 
-        {showCardBadges &&
-          (badgeInstall || badgePlaytime) && (
-          <div className="lib-card-badges">
-            {isRunning && badgeInstall && (
-              <Badge variant="success" size="sm" dot className="lib-card-badge lib-card-badge--running">
-                <span className="lib-card-running-pulse" aria-hidden="true" />
-                {t("library.running")}
-              </Badge>
-            )}
-            {badgePlaytime && (
-              <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
-                <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span>{game.playTime}</span>
-              </Badge>
-            )}
-          </div>
+        <span className="lib-card-cover-scrim" aria-hidden="true" />
+
+        {isRunning && (
+          <span className="lib-card-running">
+            <span className="lib-card-running-dot" aria-hidden="true" />
+            {t("library.running")}
+          </span>
         )}
 
-        <button
-          type="button"
-          className="lib-card-fab"
-          onClick={handleLaunch}
-          aria-label={isRunning ? t("game.resumeAria", { name: displayName }) : t("game.playAria", { name: displayName })}
-          title={isRunning ? t("game.resume") : t("game.play")}
-        >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        </button>
+        <div className="lib-card-actions" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            className={`lib-card-play${isRunning ? " running" : ""}`}
+            onClick={handleLaunch}
+            title={launchLabel}
+            aria-label={
+              isRunning
+                ? t("game.resumeAria", { name: displayName })
+                : t("game.playAria", { name: displayName })
+            }
+          >
+            <Play size={12} fill="currentColor" aria-hidden="true" />
+            <span>{launchLabel}</span>
+          </button>
+          <button
+            type="button"
+            className="lib-card-more"
+            onClick={onContextMenu}
+            title={t("library.moreActions")}
+            aria-label={`${t("library.moreActions")}: ${displayName}`}
+          >
+            <MoreHorizontal size={16} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <div className="lib-card-body">
         <h3 className="lib-card-name" title={displayName}>
           {displayName}
         </h3>
-        {showCardBadges &&
-          (badgePlatform ||
-            badgeInstall ||
-            badgeRating ||
-            isVr) && (
-          <div className="lib-card-meta">
-            {badgePlatform && (
-              <Badge variant="info" size="sm" className="lib-card-platform">
-                {game.platform}
-              </Badge>
+
+        {isCompact ? (
+          <p className="lib-card-meta">
+            <span>{game.platform}</span>
+            {showCardBadges && badgePlaytime && game.playTime ? (
+              <>
+                <span className="lib-card-meta-sep" aria-hidden="true">·</span>
+                <span>{game.playTime}</span>
+              </>
+            ) : null}
+          </p>
+        ) : (
+          <div className="lib-card-chips">
+            {showCardBadges && badgePlatform && game.platform && (
+              <span className="lib-card-chip lib-card-chip--platform">{game.platform}</span>
             )}
-            {isVr && (
-              <Badge variant="accent" size="sm" className="lib-card-vr-badge">
-                🥽 {t("library.vrBadge")}
-              </Badge>
-            )}
-            {badgeInstall && !isSimpleUi && (
-              <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
-                {t(statusMeta.labelKey)}
-              </Badge>
-            )}
-            {badgeRating && !isSimpleUi && rating != null && rating > 0 && (
-              <Badge
-                variant="accent"
-                size="sm"
-                className="lib-card-rating"
+            {showCardBadges && badgeRating && !isSimpleUi && rating != null && rating > 0 && (
+              <span
+                className="lib-card-chip lib-card-chip--rating"
                 title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
               >
-                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden="true">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                <span>{Math.round(rating)}%</span>
-              </Badge>
+                {Math.round(rating)}%
+              </span>
+            )}
+            {showCardBadges && badgeInstall && !isSimpleUi && (
+              <span className={`lib-card-chip lib-card-chip--status is-${statusMeta.variant}`}>
+                <span className="lib-card-chip-dot" aria-hidden="true" />
+                {t(statusMeta.labelKey)}
+              </span>
+            )}
+            {isVr && (
+              <span className="lib-card-chip lib-card-chip--vr">{t("library.vrBadge")}</span>
+            )}
+            {game.emulatorId && game.romPath && (
+              <span className="lib-card-chip lib-card-chip--rom">{t("library.romBadge")}</span>
             )}
           </div>
-        )}
-        {!isSimpleUi && game.developer && (
-          <p className="lib-card-developer" title={game.developer}>
-            {game.developer}
-          </p>
-        )}
-        {!isSimpleUi && game.genres && game.genres.length > 0 && (
-          <div className="lib-card-genres">
-            {game.genres.slice(0, 3).map((g) => (
-              <span key={g} className="lib-card-genre">
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-        {game.notes ? (
-          <p className="lib-card-notes">{game.notes}</p>
-        ) : game.description ? (
-          <p className="lib-card-notes">{game.description.slice(0, 80)}{game.description.length > 80 ? "..." : ""}</p>
-        ) : (
-          <p className="lib-card-notes is-empty">{t("library.noNotes")}</p>
         )}
       </div>
     </div>

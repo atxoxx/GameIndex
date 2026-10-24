@@ -25,7 +25,7 @@ import type {
   LibraryStatus,
   LibrarySort,
 } from "../../hooks/useLibraryFilters";
-import { useLibraryFilters, SORT_LABELS } from "../../hooks/useLibraryFilters";
+import { useLibraryFilters, SORT_LABEL_KEYS } from "../../hooks/useLibraryFilters";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
@@ -171,7 +171,7 @@ export default function BigScreenLibrary() {
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...sortChip}>
-            {t("bigscreen.library.chipSort", { value: SORT_LABELS[filters.sort] })}
+            {t("bigscreen.library.chipSort", { value: t(SORT_LABEL_KEYS[filters.sort]) })}
           </button>
 
           {(filters.search ||
@@ -404,7 +404,7 @@ function DropdownOptionsList({
         {sorts.map((srt) => (
           <FilterOption
             key={srt}
-            label={SORT_LABELS[srt]}
+            label={t(SORT_LABEL_KEYS[srt])}
             active={filters.sort === srt}
             type={type}
             onSelect={() => setSort(srt)}

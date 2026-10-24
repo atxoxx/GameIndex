@@ -1,120 +1,47 @@
-import type { LibraryFilters, LibraryStatus } from "../../hooks/useLibraryFilters";
-import type { LibrarySource } from "../../types/game";
-import { PLAY_STATUS_DETAILS } from "../../types/game";
+import { Bookmark, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import type { LibraryFilters, LibraryStatus } from "../../hooks/useLibraryFilters";
+import { PLAY_STATUS_DETAILS, type LibrarySource } from "../../types/game";
+import { shelfDisplayName, type Shelf } from "../../types/shelf";
+import { sourceLabel } from "./librarySources";
 
 interface LibraryFilterChipsProps {
   filters: LibraryFilters;
   resultCount: number;
+  /** Applied shelf, shown as its own dismissable chip. */
+  activeShelf: Shelf | null;
   onRemoveSearch: () => void;
-  onRemoveGenre: (g: string) => void;
-  onRemovePlatform: (p: string) => void;
+  onRemoveGenre: (genre: string) => void;
+  onRemovePlatform: (platform: string) => void;
   onRemoveYear: () => void;
   onRemoveRating: () => void;
   onRemoveStatus: () => void;
   onRemovePlayStatus: () => void;
   onRemoveSource: () => void;
   onRemoveVrOnly: () => void;
+  onClearShelf: () => void;
+  onSaveAsShelf: () => void;
   onResetAll: () => void;
 }
 
-const statusLabelKey: Record<LibraryStatus, string> = {
+const STATUS_LABEL_KEYS: Record<LibraryStatus, string> = {
   all: "common.all",
   installed: "filter.installed",
   not_installed: "filter.notInstalled",
 };
 
-// Brand names stay untranslated; "all" / "local" resolve via i18n keys.
-const sourceLabel: Record<LibrarySource, string | { key: string }> = {
-  all: { key: "common.all" },
-  steam: "Steam",
-  local: { key: "common.local" },
-  gog: "GOG",
-  epic: "Epic",
-  humble: "Humble",
-  rockstar: "Rockstar",
-  ubisoft: "Ubisoft",
-  battlenet: "Battle.net",
-  ea: "EA",
-  xbox: "Xbox",
-  itch: "itch.io",
-};
-
-const CloseIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-const chipIcons: Record<string, React.ReactNode> = {
-  search: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  ),
-  status: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  ),
-  playStatus: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  ),
-  source: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    </svg>
-  ),
-  genre: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-      <line x1="7" y1="7" x2="7.01" y2="7" />
-    </svg>
-  ),
-  platform: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <line x1="2" y1="9" x2="22" y2="9" />
-    </svg>
-  ),
-  year: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  ),
-  rating: (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  ),
-  vr: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 12a9 9 0 0 1 18 0v3a3 3 0 0 1-3 3h-1a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h2" />
-      <path d="M3 12v3a3 3 0 0 0 3 3h1a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2H5" />
-      <circle cx="8" cy="12" r="1" />
-      <circle cx="16" cy="12" r="1" />
-    </svg>
-  ),
-};
-
 /**
- * LibraryFilterChips: horizontal row of dismissable chips summarizing the
- * active filter set, with a live result count. Renders nothing when no
- * filters are applied.
+ * LibraryFilterChips — the dismissable summary of everything currently
+ * narrowing the grid, including the applied shelf.
+ *
+ * The row only exists while a filter is active, so the page never spends
+ * vertical space on an empty band. Chips remove one facet at a time; "Save as
+ * shelf" turns the whole set into a reusable collection.
  */
 export default function LibraryFilterChips({
   filters,
   resultCount,
+  activeShelf,
   onRemoveSearch,
   onRemoveGenre,
   onRemovePlatform,
@@ -124,10 +51,14 @@ export default function LibraryFilterChips({
   onRemovePlayStatus,
   onRemoveSource,
   onRemoveVrOnly,
+  onClearShelf,
+  onSaveAsShelf,
   onResetAll,
 }: LibraryFilterChipsProps) {
   const { t } = useLanguage();
+
   const hasAny =
+    activeShelf !== null ||
     filters.search.length > 0 ||
     filters.genres.length > 0 ||
     filters.platforms.length > 0 ||
@@ -141,90 +72,90 @@ export default function LibraryFilterChips({
 
   if (!hasAny) return null;
 
+  const chip = (key: string, label: string, onRemove: () => void) => (
+    <span key={key} className="library-chip">
+      <span className="library-chip-label" title={label}>
+        {label}
+      </span>
+      <button
+        type="button"
+        className="library-chip-remove"
+        onClick={onRemove}
+        aria-label={`${t("library.removeFilter")}: ${label}`}
+      >
+        <X size={12} aria-hidden="true" />
+      </button>
+    </span>
+  );
+
+  const sourceChipLabel = (source: LibrarySource) => sourceLabel(source, t);
+
   return (
-    <div className="lib-chips">
-      <span className="lib-chip-count">
-        {t("storage.gamesCount", { count: resultCount, plural: resultCount !== 1 ? "s" : "" })}
+    <div className="library-chips" role="group" aria-label={t("library.filtersAria")}>
+      <span className="library-chips-count">
+        {t("storage.gamesCount", {
+          count: resultCount,
+          plural: resultCount !== 1 ? "s" : "",
+        })}
       </span>
 
-      {filters.search && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.search}</span>
-          &ldquo;{filters.search}&rdquo;
-          <button type="button" onClick={onRemoveSearch} aria-label={t("friends.clearSearch")}>{CloseIcon}</button>
-        </span>
-      )}
+      <div className="library-chips-list">
+        {activeShelf &&
+          chip(
+            `shelf-${activeShelf.id}`,
+            t("library.chips.shelf", { name: shelfDisplayName(activeShelf.name, t) }),
+            onClearShelf
+          )}
 
-      {filters.status !== "all" && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.status}</span>
-          {t(statusLabelKey[filters.status])}
-          <button type="button" onClick={onRemoveStatus} aria-label={t("library.clearStatusFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {filters.search &&
+          chip("search", `“${filters.search}”`, onRemoveSearch)}
 
-      {filters.playStatus !== "all" && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.playStatus}</span>
-          {t(PLAY_STATUS_DETAILS[filters.playStatus].labelKey)}
-          <button type="button" onClick={onRemovePlayStatus} aria-label={t("library.clearPlayStatusFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {filters.playStatus !== "all" &&
+          chip(
+            "playStatus",
+            t(PLAY_STATUS_DETAILS[filters.playStatus].labelKey),
+            onRemovePlayStatus
+          )}
 
-      {filters.source !== "all" && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.source}</span>
-          {(() => {
-            const label = sourceLabel[filters.source];
-            return typeof label === "string" ? label : t(label.key);
-          })()}
-          <button type="button" onClick={onRemoveSource} aria-label={t("library.clearSourceFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {filters.status !== "all" &&
+          chip("status", t(STATUS_LABEL_KEYS[filters.status]), onRemoveStatus)}
 
-      {filters.vrOnly && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.vr}</span>
-          {t("library.filter.vrOnly")}
-          <button type="button" onClick={onRemoveVrOnly} aria-label={t("library.clearVrFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {filters.source !== "all" &&
+          chip("source", sourceChipLabel(filters.source), onRemoveSource)}
 
-      {filters.genres.map((genre) => (
-        <span key={`g-${genre}`} className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.genre}</span>
-          {genre}
-          <button type="button" onClick={() => onRemoveGenre(genre)} aria-label={t("library.removeFilter", { name: genre })}>{CloseIcon}</button>
-        </span>
-      ))}
+        {filters.genres.map((genre) => chip(`genre-${genre}`, genre, () => onRemoveGenre(genre)))}
 
-      {filters.platforms.map((platform) => (
-        <span key={`p-${platform}`} className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.platform}</span>
-          {platform}
-          <button type="button" onClick={() => onRemovePlatform(platform)} aria-label={t("library.removeFilter", { name: platform })}>{CloseIcon}</button>
-        </span>
-      ))}
+        {filters.platforms.map((platform) =>
+          chip(`platform-${platform}`, platform, () => onRemovePlatform(platform))
+        )}
 
-      {(filters.yearMin != null || filters.yearMax != null) && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.year}</span>
-          {filters.yearMin ?? "..."} – {filters.yearMax ?? "..."}
-          <button type="button" onClick={onRemoveYear} aria-label={t("library.clearYearFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {(filters.yearMin != null || filters.yearMax != null) &&
+          chip(
+            "year",
+            `${filters.yearMin ?? "…"} – ${filters.yearMax ?? "…"}`,
+            onRemoveYear
+          )}
 
-      {filters.ratingMin != null && (
-        <span className="lib-chip">
-          <span className="lib-chip-icon" aria-hidden>{chipIcons.rating}</span>
-          {filters.ratingMin}+
-          <button type="button" onClick={onRemoveRating} aria-label={t("library.clearRatingFilter")}>{CloseIcon}</button>
-        </span>
-      )}
+        {filters.ratingMin != null &&
+          chip("rating", `${filters.ratingMin}+`, onRemoveRating)}
 
-      <button type="button" className="lib-chip-reset" onClick={onResetAll}>
-        {t("wishlist.clearAll")}
-      </button>
+        {filters.vrOnly && chip("vr", t("library.filter.vrOnly"), onRemoveVrOnly)}
+      </div>
+
+      <div className="library-chips-actions">
+        <button
+          type="button"
+          className="library-chips-action"
+          onClick={onSaveAsShelf}
+          title={t("shelves.createFromFilters")}
+        >
+          <Bookmark size={13} aria-hidden="true" />
+          <span>{t("library.chips.saveAsShelf")}</span>
+        </button>
+        <button type="button" className="library-chips-action" onClick={onResetAll}>
+          {t("page.library.clearFilters")}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibrarySort } from "../../hooks/useLibraryFilters";
-import { SORT_LABELS, SORT_OPTIONS } from "../../hooks/useLibraryFilters";
+import { SORT_LABEL_KEYS, SORT_OPTIONS } from "../../hooks/useLibraryFilters";
 import type {
   SidebarDensity,
   SidebarGroupBy,
@@ -106,7 +106,7 @@ export default function SidebarViewOptionsPanel({
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
-                {SORT_LABELS[opt]}
+                {t(SORT_LABEL_KEYS[opt])}
               </option>
             ))}
           </select>
