@@ -37,6 +37,8 @@ mod beta_stores;
 mod size;
 mod scan;
 mod library_health;
+mod storage_scan;
+mod storage_history;
 // New modules for the download feature. See each module's
 // top-of-file doc comment for the design rationale.
 mod source_manager;
@@ -165,6 +167,7 @@ pub fn run() {
             Some(vec![]),
         ))
         .invoke_handler(tauri::generate_handler![library_health::scan_orphaned_artwork, library_health::delete_orphaned_artwork,
+storage_scan::scan_leftover_folders, storage_history::storage_history_load, storage_history::storage_history_record, storage_history::storage_history_snapshot, storage_history::storage_history_clear,
             // Crash diagnostics — persist + read the crash log/reports, and
             // let the webview report JS errors and route breadcrumbs.
             crashlog::crashlog_status,
