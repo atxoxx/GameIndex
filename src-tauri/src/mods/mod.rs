@@ -645,6 +645,15 @@ pub fn mods_delete(app: tauri::AppHandle, mod_id: String) -> Result<(), String> 
     Ok(())
 }
 
+/// Remove a mod from the library without touching its files. Used by the
+/// integrity report for broken/empty installs where deleting the folder is
+/// not what the user asked for.
+#[tauri::command]
+pub fn mods_unlink(app: tauri::AppHandle, mod_id: String) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    db::mods::delete(&db, &mod_id)
+}
+
 /// Relative file listing for the detail pane (capped at 1000 files).
 #[tauri::command]
 pub async fn mods_list_files(app: tauri::AppHandle, mod_id: String) -> Result<Vec<String>, String> {
@@ -1001,6 +1010,356 @@ pub fn mo2_launch_game(
         &executable,
         run_as_admin.unwrap_or(false),
     )
+}
+
+// ─── Update checks (all sources) ───────────────────────────────────────────
+
+/// Compare two version strings. Returns true when `latest` looks newer
+/// than `installed`. Numeric segments compare numerically, everything
+/// else case-insensitively; a missing installed version is never
+/// treated as outdated (we would be guessing).
+pub(crate) fn version_is_newer(installed: Option<&str>, latest: &str) -> bool {
+    let Some(installed) = installed.map(str::trim).filter(|v| !v.is_empty()) else {
+        return false;
+    };
+    let latest = latest.trim();
+    if installed.eq_ignore_ascii_case(latest) {
+        return false;
+    }
+    let a = version_tokens(installed);
+    let b = version_tokens(latest);
+    let len = a.len().max(b.len());
+    for i in 0..len {
+        match (a.get(i), b.get(i)) {
+            (None, Some(_)) => return true,
+            (Some(_), None) => return false,
+            (Some(x), Some(y)) => {
+                let ord = match (x.parse::<u64>(), y.parse::<u64>()) {
+                    (Ok(nx), Ok(ny)) => nx.cmp(&ny),
+                    _ => x.to_lowercase().cmp(&y.to_lowercase()),
+                };
+                if ord.is_ne() {
+                    return ord.is_lt();
+                }
+            }
+            (None, None) => break,
+        }
+    }
+    false
+}
+
+fn version_tokens(v: &str) -> Vec<String> {
+    v.trim_start_matches(['v', 'V'])
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Check every installed mod against its source and refresh
+/// `latestVersion` / `updateAvailable`. Nexus keeps its MD5-identification
+/// pass; the other sites use the stored source link and the mod's remote id.
+#[tauri::command]
+pub async fn mods_check_updates(
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<GameModsPayload, String> {
+    let db = app.state::<db::Db>().inner().clone();
+
+    // Nexus first: tolerate a missing key so the other sources still run.
+    let _ = nexus_check_updates(app.clone(), game_id.clone()).await;
+
+    let links = db::mods::list_source_links(&db, &game_id)?;
+    let settings = db::mods::get_settings(&db, &game_id)?;
+    let steam_app_id = db::games::get(&db, &game_id)?.and_then(|g| g.steam_app_id);
+    let mods = db::mods::list_for_game(&db, &game_id)?;
+    let total = mods.len() as u32;
+
+    for (index, mut m) in mods.into_iter().enumerate() {
+        let Some(source) = m.source.clone() else { continue };
+        let Some(remote_id) = m.source_mod_id.clone() else { continue };
+        if source == "nexus" {
+            continue;
+        }
+        let external_id = links
+            .iter()
+            .find(|l| l.source == source)
+            .map(|l| l.external_id.clone())
+            .or_else(|| {
+                (source == "nexus")
+                    .then(|| settings.as_ref().and_then(|s| s.nexus_domain.clone()))
+                    .flatten()
+            })
+            .or_else(|| (source == "workshop").then(|| steam_app_id.map(|id| id.to_string())).flatten());
+        let Some(external_id) = external_id else { continue };
+
+        let Ok(detail) = sources::detail(&source, &external_id, &remote_id).await else {
+            continue;
+        };
+        let latest = detail
+            .summary
+            .version
+            .clone()
+            .or_else(|| {
+                detail
+                    .files
+                    .iter()
+                    .find(|f| f.is_primary)
+                    .and_then(|f| f.version.clone())
+            })
+            .or_else(|| detail.files.iter().find_map(|f| f.version.clone()));
+        let Some(latest) = latest else { continue };
+
+        let update = version_is_newer(m.version.as_deref(), &latest);
+        if m.latest_version.as_deref() != Some(latest.as_str()) || m.update_available != update {
+            m.latest_version = Some(latest);
+            m.update_available = update;
+            m.updated_at = now_secs();
+            db::mods::upsert_one(&db, &m)?;
+        }
+        let _ = app.emit(
+            "mods-update-progress",
+            serde_json::json!({
+                "gameId": game_id,
+                "done": index + 1,
+                "total": total,
+                "name": m.name,
+                "source": source,
+            }),
+        );
+    }
+
+    payload_from_db(&db, &game_id)
+}
+
+/// Download and install the latest version of one Discover-installed mod.
+/// Returns the installer result: `installed` when the archive unpacked into
+/// the game's mods folder, `manual` when it had to be kept as an archive for
+/// the install modal (e.g. an existing file conflict), or the browser/Steam
+/// fallback for sources that cannot hand out a file.
+#[tauri::command]
+pub async fn mods_update_mod(
+    app: tauri::AppHandle,
+    mod_id: String,
+) -> Result<sources::RemoteInstallResult, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let m = db::mods::get(&db, &mod_id)?.ok_or_else(|| format!("Mod not found: {mod_id}"))?;
+    let source = m
+        .source
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| "update_source_missing: this mod has no remote source".to_string())?;
+    let remote_id = m
+        .source_mod_id
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| "update_source_missing: this mod has no remote id".to_string())?;
+
+    let links = db::mods::list_source_links(&db, &m.game_id)?;
+    let settings = db::mods::get_settings(&db, &m.game_id)?;
+    let steam_app_id = db::games::get(&db, &m.game_id)?.and_then(|g| g.steam_app_id);
+    let external_id = links
+        .iter()
+        .find(|l| l.source == source)
+        .map(|l| l.external_id.clone())
+        .or_else(|| {
+            (source == "workshop")
+                .then(|| steam_app_id.map(|id| id.to_string()))
+                .flatten()
+        })
+        .or_else(|| {
+            (source == "nexus")
+                .then(|| settings.as_ref().and_then(|s| s.nexus_domain.clone()))
+                .flatten()
+        })
+        .ok_or_else(|| "update_source_missing: no game mapping for this source".to_string())?;
+
+    let detail = sources::detail(&source, &external_id, &remote_id).await?;
+    let file = detail
+        .files
+        .iter()
+        .find(|f| f.is_primary)
+        .or_else(|| detail.files.first())
+        .ok_or_else(|| "update_source_missing: the source lists no files".to_string())?;
+    let destination = settings
+        .as_ref()
+        .and_then(|s| s.custom_root.clone())
+        .or_else(|| settings.as_ref().and_then(|s| s.mods_root.clone()));
+
+    sources::mods_source_download(
+        app,
+        m.game_id.clone(),
+        source,
+        external_id,
+        remote_id,
+        Some(file.id.clone()),
+        Some(m.name.clone()),
+        m.author.clone(),
+        file.version.clone().or(detail.summary.version.clone()),
+        Some(detail.summary.url.clone()),
+        destination,
+    )
+    .await
+}
+
+// ─── Health check ───────────────────────────────────────────────────────────
+
+/// One integrity finding for the installed mods of a game.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModHealthFinding {
+    pub id: String,
+    /// `missing_path` | `empty_mod` | `duplicate_mod` | `unlinked_source`
+    pub kind: String,
+    /// `error` | `warning` | `info`
+    pub severity: String,
+    pub mod_id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModHealthReport {
+    pub total_mods: u32,
+    pub enabled_mods: u32,
+    pub errors: u32,
+    pub warnings: u32,
+    pub findings: Vec<ModHealthFinding>,
+    pub checked_at_ms: u64,
+}
+
+/// Filesystem-level integrity check for one game's mods. Version checks and
+/// file conflicts have their own surfaces; this is about mods that cannot
+/// possibly work (folder gone, empty install, duplicate folder names).
+#[tauri::command]
+pub fn mods_health_check(app: tauri::AppHandle, game_id: String) -> Result<ModHealthReport, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let mods = db::mods::list_for_game(&db, &game_id)?;
+    let mut report = ModHealthReport {
+        total_mods: mods.len() as u32,
+        enabled_mods: mods.iter().filter(|m| m.enabled).count() as u32,
+        checked_at_ms: now_secs() * 1000,
+        ..Default::default()
+    };
+    let mut seen_names: HashMap<String, String> = HashMap::new();
+
+    for m in &mods {
+        let path = Path::new(&m.path);
+        if !path.exists() {
+            report.findings.push(ModHealthFinding {
+                id: format!("missing:{}", m.id),
+                kind: "missing_path".into(),
+                severity: "error".into(),
+                mod_id: m.id.clone(),
+                name: m.name.clone(),
+                path: Some(m.path.clone()),
+                detail: None,
+            });
+        } else if m.size_bytes.unwrap_or(1) == 0 {
+            report.findings.push(ModHealthFinding {
+                id: format!("empty:{}", m.id),
+                kind: "empty_mod".into(),
+                severity: "warning".into(),
+                mod_id: m.id.clone(),
+                name: m.name.clone(),
+                path: Some(m.path.clone()),
+                detail: None,
+            });
+        }
+
+        let key = m
+            .name
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect::<String>();
+        if !key.is_empty() {
+            if let Some(first) = seen_names.get(&key) {
+                if first != &m.id {
+                    report.findings.push(ModHealthFinding {
+                        id: format!("dup:{}:{}", first, m.id),
+                        kind: "duplicate_mod".into(),
+                        severity: "warning".into(),
+                        mod_id: m.id.clone(),
+                        name: m.name.clone(),
+                        path: Some(m.path.clone()),
+                        detail: Some(first.clone()),
+                    });
+                }
+            } else {
+                seen_names.insert(key, m.id.clone());
+            }
+        }
+
+        if m.source.is_some() && m.source_mod_id.is_none() {
+            report.findings.push(ModHealthFinding {
+                id: format!("unlinked:{}", m.id),
+                kind: "unlinked_source".into(),
+                severity: "info".into(),
+                mod_id: m.id.clone(),
+                name: m.name.clone(),
+                path: Some(m.path.clone()),
+                detail: None,
+            });
+        }
+    }
+
+    report.errors = report
+        .findings
+        .iter()
+        .filter(|f| f.severity == "error")
+        .count() as u32;
+    report.warnings = report
+        .findings
+        .iter()
+        .filter(|f| f.severity == "warning")
+        .count() as u32;
+    Ok(report)
+}
+
+/// Every saved mod profile across the library, for the central Profiles hub.
+#[tauri::command]
+pub fn mods_profiles_all(
+    app: tauri::AppHandle,
+) -> Result<Vec<db::mods::ModProfileRow>, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    db::mods::list_all_profiles(&db)
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::version_is_newer;
+
+    #[test]
+    fn numeric_segments_compare_as_numbers() {
+        assert!(version_is_newer(Some("1.9"), "1.10"));
+        assert!(!version_is_newer(Some("1.10"), "1.9"));
+        assert!(version_is_newer(Some("1.0"), "1.0.1"));
+        assert!(!version_is_newer(Some("1.0.1"), "1.0"));
+    }
+
+    #[test]
+    fn leading_v_and_case_do_not_claim_an_update() {
+        assert!(!version_is_newer(Some("v1.2"), "1.2"));
+        assert!(!version_is_newer(Some("1.2.0"), "1.2"));
+        assert!(!version_is_newer(Some("1.2-BETA"), "1.2-beta"));
+    }
+
+    #[test]
+    fn unknown_installed_version_is_not_guessed() {
+        assert!(!version_is_newer(None, "2.0"));
+        assert!(!version_is_newer(Some(""), "2.0"));
+    }
+
+    #[test]
+    fn date_like_versions_still_compare() {
+        assert!(version_is_newer(Some("2024-01-02"), "2024-02-01"));
+        assert!(!version_is_newer(Some("2024-02-01"), "2024-01-02"));
+    }
 }
 
 #[cfg(test)]

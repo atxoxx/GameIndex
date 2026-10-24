@@ -553,6 +553,15 @@ pub fn delete_rom_file(app: tauri::AppHandle, game_id: String) -> Result<u64, St
     Ok(freed)
 }
 
+/// Remove a ROM from the library without touching the file on disk. Used
+/// by the Health tab for stale rows whose file disappeared (or that the
+/// user wants to keep on disk but stop tracking).
+#[tauri::command]
+pub fn unlink_rom_file(app: tauri::AppHandle, game_id: String) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::games::delete(db_state.inner(), &game_id)
+}
+
 /// Lightweight ROM-folder watcher. Polls every configured emulator's
 /// ROM folder every 25 s; when a folder's file signature (name, size,
 /// mtime of top-level entries) changes it emits a `rom-folder-changed`

@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::db;
 use crate::emulator_install;
@@ -238,7 +238,7 @@ pub fn crc32_file(path: &Path) -> std::io::Result<String> {
 }
 
 /// Compute (and persist) a ROM's hash when missing. Returns the hash.
-fn ensure_rom_hash(db_state: &db::Db, game: &GameData) -> Result<Option<String>, String> {
+pub(crate) fn ensure_rom_hash(db_state: &db::Db, game: &GameData) -> Result<Option<String>, String> {
     if let Some(h) = &game.rom_hash {
         return Ok(Some(h.clone()));
     }
@@ -420,6 +420,96 @@ pub fn rom_apply_metadata(
     game.metadata_source = Some("manual".to_string());
     persist_game(db_state.inner(), &game)?;
     Ok(game)
+}
+
+/// Outcome of a batch metadata pass for one emulator.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RomEnrichSummary {
+    pub requested: u32,
+    pub matched: u32,
+    pub failed: u32,
+    pub skipped: u32,
+}
+
+/// Enrich every ROM of one emulator with IGDB metadata (cover, description,
+/// release data, screenshots). Only rows that are still missing artwork are
+/// touched unless `onlyMissing` is false. Progress is streamed on
+/// `rom-enrich-progress` so the Health tab can show a live counter.
+#[tauri::command]
+pub async fn enrich_emulator_metadata(
+    app: tauri::AppHandle,
+    emulator_id: String,
+    only_missing: Option<bool>,
+) -> Result<RomEnrichSummary, String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let rows = db::games::list_by_emulator(&db, &emulator_id)?;
+    let only_missing = only_missing.unwrap_or(true);
+    let total = rows.len().min(500) as u32;
+    let mut summary = RomEnrichSummary {
+        requested: total,
+        ..Default::default()
+    };
+
+    for (index, row) in rows.into_iter().take(500).enumerate() {
+        let mut game = GameData::from(row);
+        if only_missing && (game.cover_art_url.is_some() || game.description.is_some()) {
+            summary.skipped += 1;
+            continue;
+        }
+        let search_term = game
+            .rom_path
+            .as_deref()
+            .and_then(|p| Path::new(p).file_stem())
+            .and_then(|s| s.to_str())
+            .map(clean_rom_name)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| game.name.clone());
+        if search_term.trim().is_empty() {
+            summary.skipped += 1;
+            continue;
+        }
+
+        let results = crate::game_scraper::search_igdb(&search_term).await;
+        let Some(best) = results.into_iter().next() else {
+            summary.failed += 1;
+            continue;
+        };
+
+        if game.cover_art_url.is_none() {
+            game.cover_art_url = best.images.cover.clone();
+        }
+        if game.banner_url.is_none() {
+            game.banner_url = best.images.hero.clone().or(best.images.banner.clone());
+        }
+        game.description = game.description.or(best.description);
+        game.developer = game.developer.or(best.developer);
+        game.publisher = game.publisher.or(best.publisher);
+        game.release_date = game.release_date.or(best.release_date);
+        if game.genres.as_ref().map(|g| g.is_empty()).unwrap_or(true) {
+            game.genres = Some(best.genres);
+        }
+        if game.screenshots.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
+            game.screenshots = best.screenshots;
+        }
+        game.igdb_id = game.igdb_id.or(best.igdb_id);
+        game.metadata_source = Some(best.source_name);
+        game.metadata_url = Some(best.source_url);
+        persist_game(&db, &game)?;
+
+        summary.matched += 1;
+        let _ = app.emit(
+            "rom-enrich-progress",
+            serde_json::json!({
+                "emulatorId": emulator_id,
+                "done": index + 1,
+                "total": total,
+                "title": game.name,
+            }),
+        );
+    }
+
+    Ok(summary)
 }
 
 // ─── Command: save-state / save-file management ─────────────────────────────
@@ -993,7 +1083,7 @@ pub struct BiosBoardEntry {
 /// Shared body of the BIOS check, used by the single-emulator command
 /// and the batch board command. Pure filesystem work — call inside
 /// `spawn_blocking`.
-fn bios_check_blocking(emu: &db::emulators::EmulatorRow) -> BiosCheckResult {
+pub(crate) fn bios_check_blocking(emu: &db::emulators::EmulatorRow) -> BiosCheckResult {
     let reqs = bios_requirements(&emu.platform);
     let folder = emu.bios_folder.clone().filter(|f| !f.trim().is_empty());
     let configured = folder.is_some();

@@ -93,6 +93,7 @@ mod shelves;
 mod reels;
 mod saves;
 mod emulation;
+mod emulator_health;
 mod roms;
 mod system;
 mod launcher;
@@ -398,7 +399,10 @@ pub fn run() {
             add_rom_file,
             rename_rom_file,
             delete_rom_file,
+            unlink_rom_file,
             recalc_rom_sizes,
+            emulator_health::emulator_health_scan,
+            roms::enrich_emulator_metadata,
             // ROM management — identification & metadata, saves,
             // profiles, BIOS, discovery, duplicates, archives, config.
             roms::rom_identify,
@@ -439,6 +443,7 @@ pub fn run() {
             mods::mods_set_enabled,
             mods::mods_reorder,
             mods::mods_delete,
+            mods::mods_unlink,
             mods::mods_list_files,
             mods::mods_conflicts,
             mods::mods_overview,
@@ -446,11 +451,15 @@ pub fn run() {
             mods::mods_set_custom_root,
             mods::mods_install_archive,
             mods::mods_profiles_list,
+            mods::mods_profiles_all,
             mods::mods_profile_save,
             mods::mods_profile_delete,
+            mods::mods_health_check,
             mods::nexus_set_api_key,
             mods::nexus_get_status,
             mods::nexus_check_updates,
+            mods::mods_check_updates,
+            mods::mods_update_mod,
             mods::mo2_detect_instances,
             mods::mo2_get_profile_details,
             mods::mo2_set_mod_enabled,
