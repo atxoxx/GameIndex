@@ -1,4 +1,15 @@
 import { useMemo } from "react";
+import {
+  CalendarDays,
+  CalendarRange,
+  Flag,
+  Flame,
+  Gamepad2,
+  Medal,
+  Sparkles,
+  Tag,
+  Timer,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card } from "../../../components/ui";
 import {
@@ -9,6 +20,7 @@ import {
   computeStreaks,
   computeTimeOfDay,
 } from "../statsCalculations";
+import { MilestoneIcon, PersonaIcon } from "../statsIcons";
 import type { Game, GameSession, DayCell } from "../statsTypes";
 
 interface MilestonesTabProps {
@@ -56,11 +68,11 @@ export function MilestonesTab({
     <div className="stats-tab-milestones">
       {/* ── Personal Records Wall ──────────────────────────────────── */}
       <section className="stats-section">
-        <h2 className="stats-section-title">🏆 {t("stats.records.title")}</h2>
+        <h2 className="stats-section-title"><Medal size={16} aria-hidden="true" /> {t("stats.records.title")}</h2>
         <div className="stats-records-grid">
           {/* Longest Session */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">⏱️</span>
+            <span className="stats-record-icon"><Timer size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("community.longestSession")}</span>
               <span className="stats-record-value">
@@ -76,7 +88,7 @@ export function MilestonesTab({
 
           {/* Best Single Day */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">🌟</span>
+            <span className="stats-record-icon"><CalendarDays size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("communityExtras.bestDay")}</span>
               <span className="stats-record-value">
@@ -92,7 +104,7 @@ export function MilestonesTab({
 
           {/* Longest Streak */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">🔥</span>
+            <span className="stats-record-icon"><Flame size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("stats.records.longestStreak")}</span>
               <span className="stats-record-value">
@@ -104,7 +116,7 @@ export function MilestonesTab({
 
           {/* Most Active Month */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">📅</span>
+            <span className="stats-record-icon"><CalendarRange size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("stats.records.peakMonth")}</span>
               <span className="stats-record-value">
@@ -118,7 +130,7 @@ export function MilestonesTab({
 
           {/* Top Genre */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">⚔️</span>
+            <span className="stats-record-icon"><Tag size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("communityExtras.topGenreLabel")}</span>
               <span className="stats-record-value">
@@ -132,7 +144,7 @@ export function MilestonesTab({
 
           {/* Games Conquered */}
           <div className="stats-record-card">
-            <span className="stats-record-icon">🎯</span>
+            <span className="stats-record-icon"><Gamepad2 size={20} aria-hidden="true" /></span>
             <div className="stats-record-content">
               <span className="stats-record-label">{t("community.gamesPlayed")}</span>
               <span className="stats-record-value">{records.totalGamesConquered}</span>
@@ -144,10 +156,12 @@ export function MilestonesTab({
 
       {/* ── Gamer Persona & Playstyle Attributes ──────────────────── */}
       <section className="stats-section">
-        <h2 className="stats-section-title">🧠 {t("stats.persona.playstyleTitle")}</h2>
+        <h2 className="stats-section-title"><Sparkles size={16} aria-hidden="true" /> {t("stats.persona.playstyleTitle")}</h2>
         <Card variant="surface" elevation="1" className="stats-persona-card">
           <div className="stats-persona-card-header">
-            <div className="stats-persona-badge-lg">{persona.badgeEmoji}</div>
+            <div className="stats-persona-badge-lg">
+              <PersonaIcon persona={persona} size={30} />
+            </div>
             <div className="stats-persona-info">
               <h3>{t(persona.titleKey)}</h3>
               <p>{t(persona.subtitleKey)}</p>
@@ -177,7 +191,7 @@ export function MilestonesTab({
       {/* ── Milestones Progression ─────────────────────────────────── */}
       <section className="stats-section">
         <div className="stats-section-header-row">
-          <h2 className="stats-section-title">🎖️ {t("stats.milestones.title")}</h2>
+          <h2 className="stats-section-title"><Flag size={16} aria-hidden="true" /> {t("stats.milestones.title")}</h2>
           <span className="stats-section-badge">
             {unlockedMilestonesCount} / {milestones.length} {t("stats.milestones.unlocked")}
           </span>
@@ -189,7 +203,9 @@ export function MilestonesTab({
             return (
               <div key={m.id} className={`stats-milestone-card${m.unlocked ? " unlocked" : ""}`}>
                 <div className="stats-milestone-header">
-                  <span className="stats-milestone-icon">{m.icon}</span>
+                  <span className="stats-milestone-icon">
+                    <MilestoneIcon category={m.category} size={18} />
+                  </span>
                   {m.unlocked && <span className="stats-milestone-stamp">✓ UNLOCKED</span>}
                 </div>
                 <span className="stats-milestone-title">{t(m.titleKey)}</span>

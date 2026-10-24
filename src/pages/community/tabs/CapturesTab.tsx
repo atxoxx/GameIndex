@@ -1,5 +1,15 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import {
+  AlertTriangle,
+  Camera,
+  FolderOpen,
+  Gamepad2,
+  Pause,
+  Play,
+  Star,
+  X,
+} from "lucide-react";
 import { open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -176,7 +186,7 @@ function CaptureThumb({
         )
       ) : (
         <div className="stats-capture-thumb-fallback">
-          <span>📷</span>
+          <span><Camera size={14} aria-hidden="true" /></span>
           <span className="stats-fallback-name">{path.split(/[\\/]/).pop()}</span>
         </div>
       )}
@@ -198,7 +208,7 @@ function CaptureThumb({
         }}
         aria-label={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
       >
-        {isFavorite ? "★" : "☆"}
+        <Star size={14} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
       </button>
     </div>
   );
@@ -216,7 +226,9 @@ function LightboxMedia({ path }: LightboxMediaProps) {
   if (failed) {
     return (
       <div className="stats-lightbox-failed">
-        <span className="stats-lightbox-failed-icon">⚠️</span>
+        <span className="stats-lightbox-failed-icon">
+          <AlertTriangle size={22} aria-hidden="true" />
+        </span>
         <p>{path.split(/[\\/]/).pop()}</p>
       </div>
     );
@@ -272,7 +284,9 @@ function CarouselThumb({ path, active, onClick }: CarouselThumbProps) {
           <img src={src} alt="" loading="lazy" onError={handleError} />
         )
       ) : (
-        <span className="stats-carousel-thumb-fallback">📷</span>
+        <span className="stats-carousel-thumb-fallback">
+          <Camera size={16} aria-hidden="true" />
+        </span>
       )}
       {isVid && !failed && <span className="stats-carousel-vid-badge">▶</span>}
     </button>
@@ -756,7 +770,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
 
           {customFolders.length > 0 && (
             <span className="stats-captures-folder-badge">
-              📁 {customFolders.length}
+              <FolderOpen size={14} aria-hidden="true" /> {customFolders.length}
             </span>
           )}
         </div>
@@ -813,7 +827,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
               className={`stats-filter-pill${showFavOnly ? " active" : ""}`}
               onClick={() => setShowFavOnly((v) => !v)}
             >
-              ★ {t("common.favorites")} {favorites.size > 0 && `(${favorites.size})`}
+              <Star size={14} aria-hidden="true" /> {t("common.favorites")} {favorites.size > 0 && `(${favorites.size})`}
             </button>
 
             {/* Media Type Dropdown */}
@@ -824,8 +838,8 @@ export function CapturesTab({ games }: CapturesTabProps) {
               aria-label={t("deals.type")}
             >
               <option value="all">{t("common.all")} ({t("game.tab.media")})</option>
-              <option value="images">🖼️ {t("stats.captures.screenshotsOnly")}</option>
-              <option value="videos">🎬 {t("stats.captures.clipsOnly")}</option>
+              <option value="images">{t("stats.captures.screenshotsOnly")}</option>
+              <option value="videos">{t("stats.captures.clipsOnly")}</option>
             </select>
 
             {/* Source Dropdown */}
@@ -870,7 +884,9 @@ export function CapturesTab({ games }: CapturesTabProps) {
       {/* ── Empty & Loading States ──────────────────────────────── */}
       {!hasContent && (
         <Card variant="surface" elevation="1" className="stats-empty-card stats-captures-empty-box">
-          <span className="stats-empty-icon">📸</span>
+          <span className="stats-empty-icon">
+            <Camera size={26} aria-hidden="true" />
+          </span>
           <h3>{t("community.browseScreenshots")}</h3>
           <p>{t("community.screenshotsHint")}</p>
         </Card>
@@ -909,7 +925,13 @@ export function CapturesTab({ games }: CapturesTabProps) {
                     {group.coverArtUrl ? (
                       <img src={group.coverArtUrl} alt="" loading="lazy" />
                     ) : (
-                      <div className="stats-capture-group-fallback">{isCustom ? "📁" : "🎮"}</div>
+                      <div className="stats-capture-group-fallback">
+                        {isCustom ? (
+                          <FolderOpen size={20} aria-hidden="true" />
+                        ) : (
+                          <Gamepad2 size={20} aria-hidden="true" />
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="stats-capture-group-info">
@@ -935,7 +957,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
                         title={t("community.removeFolder")}
                         aria-label={t("community.removeFolder")}
                       >
-                        ✕
+                        <X size={18} aria-hidden="true" />
                       </button>
                     )}
                     <span className="stats-capture-count">
@@ -1027,7 +1049,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
             title={t("community.quit")}
             aria-label={t("community.quit")}
           >
-            ✕
+            <X size={18} aria-hidden="true" />
           </button>
 
           <div className="stats-lightbox-header" onClick={(e) => e.stopPropagation()}>
@@ -1045,7 +1067,11 @@ export function CapturesTab({ games }: CapturesTabProps) {
                 onClick={() => setSlideshow((s) => !s)}
                 title={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
               >
-                {slideshow ? "❚❚" : "▶"}
+                {slideshow ? (
+                  <Pause size={16} aria-hidden="true" />
+                ) : (
+                  <Play size={16} aria-hidden="true" />
+                )}
               </button>
 
               <button
@@ -1054,7 +1080,15 @@ export function CapturesTab({ games }: CapturesTabProps) {
                 onClick={() => toggleFavorite(allCaptures[lightboxIndex].path)}
                 title={t("community.addFavorite")}
               >
-                {favorites.has(allCaptures[lightboxIndex].path) ? "★" : "☆"}
+                <Star
+                  size={16}
+                  fill={
+                    favorites.has(allCaptures[lightboxIndex].path)
+                      ? "currentColor"
+                      : "none"
+                  }
+                  aria-hidden="true"
+                />
               </button>
 
               <button
@@ -1069,7 +1103,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
                 }}
                 title={t("community.openFolder")}
               >
-                📁
+                <FolderOpen size={16} aria-hidden="true" />
               </button>
             </div>
           </div>

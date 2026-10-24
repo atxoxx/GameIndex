@@ -2743,7 +2743,7 @@
 
 /* Section tabs use the shared .ui-subtabs strip. */
 .stats-subtabs {
-  margin-bottom: var(--space-lg);
+  margin-bottom: 0;
 }
 
 /* Undelimited summary strip. */
@@ -2756,3 +2756,406 @@
   );
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tonal cockpit pass
+   ──────────────────────────────────────────────────────────────────────
+   The stats hub reads as one surface: tinted hero, tinted cards, no
+   frames at rest. Medal, rarity, streak and chart colors stay semantic.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.stats-page-container {
+  gap: var(--space-xl);
+}
+
+.stats-page-container .ui-subtabs {
+  padding: 0 var(--space-2xs);
+}
+
+.stats-page-container .ui-subtabs__strip {
+  justify-content: flex-start;
+}
+
+/* ── Hero cockpit ───────────────────────────────────────────────────── */
+
+.stats-cockpit-banner {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-xl);
+  background:
+    radial-gradient(
+      62% 90% at 6% 0%,
+      color-mix(in srgb, var(--color-accent) 10%, transparent) 0%,
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+      color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+    );
+  box-shadow: none;
+}
+
+.stats-persona-badge {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.stats-player-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
+}
+
+.stats-level-title {
+  border: 0;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.stats-xp-bar-track {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.stats-cockpit-metrics .ui-statband {
+  justify-content: flex-start;
+}
+
+.stats-action-btn {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.stats-action-btn:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-accent);
+}
+
+.stats-timeframe-selector {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.stats-timeframe-pill.active {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+/* ── Sections & shared cards ────────────────────────────────────────── */
+
+.stats-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: -0.01em;
+}
+
+.stats-section-title svg {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.stats-card,
+.stats-summary-strip-card,
+.stats-goal-card,
+.stats-ranked-list-card,
+.stats-trend-chart-card,
+.stats-habit-matrix-card,
+.stats-performance-card,
+.stats-achievements-hero-card,
+.stats-persona-card,
+.stats-record-card,
+.stats-milestone-card,
+.stats-capture-group-item,
+.stats-perfect-game-card,
+.stats-near-game-card,
+.stats-rarest-card,
+.stats-recent-ach-card,
+.stats-smoothest-card {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  box-shadow: none;
+}
+
+.stats-summary-strip-card,
+.stats-achievements-hero-card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-accent) 8%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 2%, transparent) 100%
+  );
+}
+
+.stats-card:hover,
+.stats-ranked-list-card:hover,
+.stats-trend-chart-card:hover,
+.stats-habit-matrix-card:hover {
+  border-color: transparent;
+}
+
+/* ── Overview ───────────────────────────────────────────────────────── */
+
+.stats-summary-strip-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+.stats-summary-cell {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.stats-summary-cell + .stats-summary-cell {
+  border-left: 1px solid color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.stats-summary-val {
+  font-family: var(--font-display);
+}
+
+.stats-heatmap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.stats-goal-card {
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.stats-goal-edit-box {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.stats-goal-num-input {
+  border: 0;
+  background: transparent;
+}
+
+.stats-podium-card {
+  border: 0;
+  background: var(--panel-tint);
+}
+
+.stats-podium-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  box-shadow: var(--elevation-3);
+  transform: translateY(-2px);
+}
+
+.stats-podium-card.gold {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-gold) 30%, transparent);
+}
+
+.stats-podium-card.silver {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-silver) 28%, transparent);
+}
+
+.stats-podium-card.bronze {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-bronze) 30%, transparent);
+}
+
+.stats-podium-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.stats-ranked-row {
+  border-color: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.stats-ranked-row:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+/* ── Trends ─────────────────────────────────────────────────────────── */
+
+.stats-trend-pill {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.stats-trend-pill.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.stats-perf-metric-box {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 3.6%, transparent);
+}
+
+.stats-perf-icon {
+  color: var(--color-accent);
+}
+
+.stats-smoothest-card {
+  border-radius: var(--radius-xl);
+}
+
+.stats-smoothest-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+/* ── Achievements ───────────────────────────────────────────────────── */
+
+.stats-ach-hero-icon {
+  color: var(--color-accent);
+}
+
+.stats-perfect-game-card,
+.stats-near-game-card,
+.stats-rarest-card,
+.stats-recent-ach-card {
+  border-radius: var(--radius-xl);
+}
+
+.stats-perfect-game-card:hover,
+.stats-near-game-card:hover,
+.stats-rarest-card:hover,
+.stats-recent-ach-card:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+  box-shadow: var(--elevation-2);
+}
+
+.stats-perfect-game-card {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-gold) 25%, transparent);
+}
+
+.stats-rarest-card.tier-diamond {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-diamond) 32%, transparent);
+}
+
+.stats-rarest-card.tier-gold {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-gold) 32%, transparent);
+}
+
+.stats-rarest-card.tier-silver {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stats-medal-silver) 30%, transparent);
+}
+
+.stats-rarest-icon-fallback {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+/* ── Captures ───────────────────────────────────────────────────────── */
+
+.stats-captures-toolbar,
+.stats-captures-filter-bar {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
+  border-radius: var(--radius-xl);
+}
+
+.stats-captures-search-input,
+.stats-captures-select {
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 4.5%, transparent);
+}
+
+.stats-capture-group-item {
+  border-radius: var(--radius-xl);
+}
+
+.stats-capture-group-item:hover {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.stats-capture-thumb {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.stats-capture-thumb:hover {
+  border-color: transparent;
+}
+
+.stats-captures-pills-row .filter-pill,
+.stats-captures-pills-row button {
+  border: 0;
+}
+
+.stats-empty-card {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+}
+
+.stats-empty-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+/* ── Records, persona, milestones ───────────────────────────────────── */
+
+.stats-record-card {
+  border-radius: var(--radius-xl);
+}
+
+.stats-record-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.stats-persona-card {
+  border-radius: var(--radius-2xl);
+}
+
+.stats-persona-badge-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.stats-persona-trait-track {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.stats-milestone-card {
+  border-radius: var(--radius-xl);
+}
+
+.stats-milestone-card.unlocked {
+  background: color-mix(in srgb, var(--color-success) 5%, transparent);
+}
+
+.stats-milestone-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.stats-milestone-track {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .stats-cockpit-banner {
+    padding: var(--space-lg);
+  }
+
+  .stats-page-container .ui-subtabs {
+    padding-inline: 0;
+  }
+}

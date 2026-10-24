@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Gamepad2, Monitor, Settings, Thermometer, Zap } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card } from "../../../components/ui";
 import { usePersistedState } from "../../../hooks/usePersistedState";
@@ -270,32 +271,32 @@ export function TrendsTab({ sessions, games }: TrendsTabProps) {
           </div>
           {performance.avgFpsOverall > 0 && (
             <span className="stats-fps-overall-pill">
-              ⚡ {performance.avgFpsOverall} FPS {t("stats.perf.avgFps")}
+              <Zap size={13} aria-hidden="true" /> {performance.avgFpsOverall} FPS {t("stats.perf.avgFps")}
             </span>
           )}
         </div>
 
         <div className="stats-perf-grid">
           <div className="stats-perf-metric-box">
-            <span className="stats-perf-icon">🖥️</span>
+            <span className="stats-perf-icon"><Monitor size={16} aria-hidden="true" /></span>
             <span className="stats-perf-val">{performance.avgFpsOverall > 0 ? `${performance.avgFpsOverall} FPS` : "—"}</span>
             <span className="stats-perf-lbl">{t("stats.perf.avgFps")}</span>
           </div>
 
           <div className="stats-perf-metric-box">
-            <span className="stats-perf-icon">⚙️</span>
+            <span className="stats-perf-icon"><Settings size={16} aria-hidden="true" /></span>
             <span className="stats-perf-val">{performance.avgCpuUsage > 0 ? `${performance.avgCpuUsage}%` : "—"}</span>
             <span className="stats-perf-lbl">{t("stats.perf.avgCpu")}</span>
           </div>
 
           <div className="stats-perf-metric-box">
-            <span className="stats-perf-icon">🎮</span>
+            <span className="stats-perf-icon"><Gamepad2 size={16} aria-hidden="true" /></span>
             <span className="stats-perf-val">{performance.avgGpuUsage > 0 ? `${performance.avgGpuUsage}%` : "—"}</span>
             <span className="stats-perf-lbl">{t("stats.perf.avgGpu")}</span>
           </div>
 
           <div className="stats-perf-metric-box">
-            <span className="stats-perf-icon">🌡️</span>
+            <span className="stats-perf-icon"><Thermometer size={16} aria-hidden="true" /></span>
             <span className="stats-perf-val">{performance.avgGpuTemp > 0 ? `${performance.avgGpuTemp}°C` : "—"}</span>
             <span className="stats-perf-lbl">{t("stats.perf.avgGpuTemp")}</span>
           </div>
@@ -311,7 +312,9 @@ export function TrendsTab({ sessions, games }: TrendsTabProps) {
                     {g.coverArtUrl ? (
                       <img src={g.coverArtUrl} alt="" loading="lazy" />
                     ) : (
-                      <div className="stats-smoothest-fallback">🎮</div>
+                      <div className="stats-smoothest-fallback">
+                        <Gamepad2 size={18} aria-hidden="true" />
+                      </div>
                     )}
                   </div>
                   <div className="stats-smoothest-info">

@@ -1,8 +1,10 @@
 import { useCallback } from "react";
+import { Clock, Flame, Gamepad2, Snowflake } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { formatHours } from "./statsCalculations";
+import { PersonaIcon } from "./statsIcons";
 import { StatBand } from "../../components/ui/StatBand";
 import type { GamerLevelInfo, GamerPersona, StreakInfo, TimeframePreset } from "./statsTypes";
 
@@ -78,7 +80,7 @@ export function StatsHeader({
         {/* Gamer Persona Avatar / Level Ring */}
         <div className="stats-persona-avatar-wrap">
           <div className="stats-persona-badge" title={t(persona.subtitleKey)}>
-            <span className="stats-persona-emoji">{persona.badgeEmoji}</span>
+            <PersonaIcon persona={persona} size={30} />
           </div>
           <div className="stats-level-pill">
             <span className="stats-level-text">LVL {levelInfo.level}</span>
@@ -118,21 +120,26 @@ export function StatsHeader({
               id: "playtime",
               label: t("community.totalPlaytime"),
               value: formatHours(totalPlaytimeMin),
-              icon: <span aria-hidden="true">⏱️</span>,
+              icon: <Clock size={14} aria-hidden="true" />,
               tone: "info",
             },
             {
               id: "sessions",
               label: t("community.sessions"),
               value: totalSessions,
-              icon: <span aria-hidden="true">🎮</span>,
+              icon: <Gamepad2 size={14} aria-hidden="true" />,
             },
             {
               id: "streak",
               label: t("communityExtras.dayStreak"),
               value: streak.current,
               detail: t("communityExtras.longest", { days: streak.longest }),
-              icon: <span aria-hidden="true">{streak.current > 0 ? "🔥" : "❄️"}</span>,
+              icon:
+                streak.current > 0 ? (
+                  <Flame size={14} aria-hidden="true" />
+                ) : (
+                  <Snowflake size={14} aria-hidden="true" />
+                ),
               tone: "warning",
             },
           ]}

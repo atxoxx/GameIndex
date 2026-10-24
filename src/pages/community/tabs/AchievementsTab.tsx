@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Crown, Gamepad2, Gem, Medal, Target, Trophy } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card } from "../../../components/ui";
 import {
@@ -90,7 +91,7 @@ export function AchievementsTab({
       <Card variant="glass" elevation="glow" className="stats-achievements-hero-card">
         <div className="stats-achievements-hero-grid">
           <div className="stats-ach-hero-stat">
-            <span className="stats-ach-hero-icon">🏆</span>
+            <span className="stats-ach-hero-icon"><Trophy size={20} aria-hidden="true" /></span>
             <div className="stats-ach-hero-content">
               <span className="stats-ach-hero-val">{unlockedAchievements} / {totalAchievements}</span>
               <span className="stats-ach-hero-lbl">{t("community.achievements")} ({completionPct}%)</span>
@@ -98,7 +99,7 @@ export function AchievementsTab({
           </div>
 
           <div className="stats-ach-hero-stat">
-            <span className="stats-ach-hero-icon">💎</span>
+            <span className="stats-ach-hero-icon"><Gem size={20} aria-hidden="true" /></span>
             <div className="stats-ach-hero-content">
               <span className="stats-ach-hero-val">{totalGamerscore.toLocaleString()} G</span>
               <span className="stats-ach-hero-lbl">{t("stats.ach.gamerscoreScore")}</span>
@@ -106,7 +107,7 @@ export function AchievementsTab({
           </div>
 
           <div className="stats-ach-hero-stat">
-            <span className="stats-ach-hero-icon">👑</span>
+            <span className="stats-ach-hero-icon"><Crown size={20} aria-hidden="true" /></span>
             <div className="stats-ach-hero-content">
               <span className="stats-ach-hero-val">{perfectGames.length}</span>
               <span className="stats-ach-hero-lbl">{t("stats.ach.perfectGamesCount")}</span>
@@ -114,7 +115,7 @@ export function AchievementsTab({
           </div>
 
           <div className="stats-ach-hero-stat">
-            <span className="stats-ach-hero-icon">🎯</span>
+            <span className="stats-ach-hero-icon"><Target size={20} aria-hidden="true" /></span>
             <div className="stats-ach-hero-content">
               <span className="stats-ach-hero-val">{nearCompletionGames.length}</span>
               <span className="stats-ach-hero-lbl">{t("stats.ach.nearCompletionCount")}</span>
@@ -134,7 +135,7 @@ export function AchievementsTab({
       {/* ── 100% Perfect Games Wall of Fame ───────────────────────── */}
       <section className="stats-section">
         <div className="stats-section-header-row">
-          <h2 className="stats-section-title">👑 {t("stats.ach.wallOfFame")}</h2>
+          <h2 className="stats-section-title"><Crown size={16} aria-hidden="true" /> {t("stats.ach.wallOfFame")}</h2>
           <span className="stats-section-badge">{perfectGames.length} {t("stats.ach.perfected")}</span>
         </div>
 
@@ -154,7 +155,9 @@ export function AchievementsTab({
                   {g.coverArtUrl ? (
                     <img src={g.coverArtUrl} alt="" loading="lazy" />
                   ) : (
-                    <div className="stats-perfect-cover-fallback">🎮</div>
+                    <div className="stats-perfect-cover-fallback">
+                      <Gamepad2 size={20} aria-hidden="true" />
+                    </div>
                   )}
                   <span className="stats-perfect-badge">100%</span>
                 </div>
@@ -182,7 +185,7 @@ export function AchievementsTab({
       {/* ── Near-Completion Radar (Close to 100%) ─────────────────── */}
       {nearCompletionGames.length > 0 && (
         <section className="stats-section">
-          <h2 className="stats-section-title">🎯 {t("stats.ach.nearCompletionTitle")}</h2>
+          <h2 className="stats-section-title"><Target size={16} aria-hidden="true" /> {t("stats.ach.nearCompletionTitle")}</h2>
           <div className="stats-near-games-grid">
             {nearCompletionGames.map((g) => (
               <div
@@ -198,7 +201,9 @@ export function AchievementsTab({
                   {g.coverArtUrl ? (
                     <img src={g.coverArtUrl} alt="" loading="lazy" />
                   ) : (
-                    <div className="stats-near-cover-fallback">🎮</div>
+                    <div className="stats-near-cover-fallback">
+                      <Gamepad2 size={20} aria-hidden="true" />
+                    </div>
                   )}
                 </div>
                 <div className="stats-near-card-info">
@@ -222,7 +227,7 @@ export function AchievementsTab({
       {/* ── Rarest Achievements Unlocked ──────────────────────────── */}
       {rarestAchievements.length > 0 && (
         <section className="stats-section">
-          <h2 className="stats-section-title">💎 {t("stats.ach.rarestUnlocksTitle")}</h2>
+          <h2 className="stats-section-title"><Gem size={16} aria-hidden="true" /> {t("stats.ach.rarestUnlocksTitle")}</h2>
           <div className="stats-rarest-grid">
             {rarestAchievements.map((ach) => {
               const rarityTier =
@@ -239,7 +244,9 @@ export function AchievementsTab({
                     {ach.iconUrl ? (
                       <img src={ach.iconUrl} alt="" loading="lazy" />
                     ) : (
-                      <div className="stats-rarest-icon-fallback">🏅</div>
+                      <div className="stats-rarest-icon-fallback">
+                        <Medal size={18} aria-hidden="true" />
+                      </div>
                     )}
                   </div>
                   <div className="stats-rarest-info">
@@ -260,7 +267,7 @@ export function AchievementsTab({
       {/* ── Recently Unlocked Achievements Timeline Rail ───────────── */}
       {recentUnlocksList.length > 0 && (
         <section className="stats-section">
-          <h2 className="stats-section-title">🏅 {t("communityExtras.recentlyUnlocked")}</h2>
+          <h2 className="stats-section-title"><Medal size={16} aria-hidden="true" /> {t("communityExtras.recentlyUnlocked")}</h2>
           <div className="stats-recent-ach-rail">
             {recentUnlocksList.map((a, i) => (
               <div key={`${a.gameName}-${a.name}-${i}`} className="stats-recent-ach-card">
@@ -268,7 +275,9 @@ export function AchievementsTab({
                   {a.coverArtUrl ? (
                     <img src={a.coverArtUrl} alt="" loading="lazy" />
                   ) : (
-                    <div className="stats-recent-ach-cover-fallback">🎮</div>
+                    <div className="stats-recent-ach-cover-fallback">
+                      <Gamepad2 size={18} aria-hidden="true" />
+                    </div>
                   )}
                 </div>
                 <div className="stats-recent-ach-body">

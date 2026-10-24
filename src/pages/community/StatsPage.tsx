@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { Camera, ChartColumn, Flag, TrendingUp, Trophy } from "lucide-react";
 import { useActivity } from "../../context/ActivityContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useGames } from "../../context/GameContext";
@@ -178,14 +179,14 @@ export default function StatsPage() {
             {
               id: "overview",
               label: t("stats.tab.overview"),
-              icon: () => <span className="stats-subtab-icon">📊</span>,
+              icon: ChartColumn,
             },
             ...(subtabsVisible
               ? [
                   {
                     id: "trends" as const,
                     label: t("stats.tab.trends"),
-                    icon: () => <span className="stats-subtab-icon">📈</span>,
+                    icon: TrendingUp,
                     className: "ui-complete-only ui-item-subtabs",
                   },
                 ]
@@ -193,20 +194,20 @@ export default function StatsPage() {
             {
               id: "achievements",
               label: t("stats.tab.achievements"),
-              icon: () => <span className="stats-subtab-icon">🏆</span>,
+              icon: Trophy,
             },
             ...(subtabsVisible
               ? [
                   {
                     id: "captures" as const,
                     label: t("stats.tab.captures"),
-                    icon: () => <span className="stats-subtab-icon">📸</span>,
+                    icon: Camera,
                     className: "ui-complete-only ui-item-subtabs",
                   },
                   {
                     id: "milestones" as const,
                     label: t("stats.tab.milestones"),
-                    icon: () => <span className="stats-subtab-icon">🎖️</span>,
+                    icon: Flag,
                     className: "ui-complete-only ui-item-subtabs",
                   },
                 ]

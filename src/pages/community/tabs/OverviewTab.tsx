@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChartColumn, Gamepad2, Medal, Trophy } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card, KpiTile } from "../../../components/ui";
 import DonutChart from "../../../components/charts/DonutChart";
@@ -304,7 +305,9 @@ export function OverviewTab({
       {/* ── Year in Review / Scoreboard Summary Strip ───────────── */}
       <Card variant="glass" elevation="glow" className="stats-summary-strip-card">
         <div className="stats-summary-strip-header">
-          <span className="stats-summary-strip-icon">📊</span>
+          <span className="stats-summary-strip-icon">
+            <ChartColumn size={16} aria-hidden="true" />
+          </span>
           <h3>{t("community.yearInReview")}</h3>
         </div>
         <div className="stats-summary-strip-grid">
@@ -356,7 +359,7 @@ export function OverviewTab({
               </div>
               {bestDay && (
                 <span className="stats-heatmap-badge">
-                  🏆 {bestDay.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {formatHours(bestDay.minutes)}
+                  <Trophy size={13} aria-hidden="true" /> {bestDay.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {formatHours(bestDay.minutes)}
                 </span>
               )}
             </div>
@@ -606,7 +609,6 @@ export function OverviewTab({
             {/* Top 3 Podium */}
             <div className="stats-podium-grid">
               {top3.map((g, idx) => {
-                const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
                 const rankClass = idx === 0 ? "gold" : idx === 1 ? "silver" : "bronze";
                 return (
                   <div
@@ -618,12 +620,16 @@ export function OverviewTab({
                     role="button"
                     tabIndex={0}
                   >
-                    <div className="stats-podium-rank-badge">{medal} #{idx + 1}</div>
+                    <div className="stats-podium-rank-badge">
+                      <Medal size={14} aria-hidden="true" /> #{idx + 1}
+                    </div>
                     <div className="stats-podium-cover">
                       {g.coverArtUrl ? (
                         <img src={g.coverArtUrl} alt="" loading="lazy" />
                       ) : (
-                        <div className="stats-podium-cover-fallback">🎮</div>
+                        <div className="stats-podium-cover-fallback">
+                          <Gamepad2 size={20} aria-hidden="true" />
+                        </div>
                       )}
                     </div>
                     <div className="stats-podium-meta">
@@ -658,7 +664,9 @@ export function OverviewTab({
                         {g.coverArtUrl ? (
                           <img src={g.coverArtUrl} alt="" loading="lazy" />
                         ) : (
-                          <div className="stats-ranked-cover-fallback">🎮</div>
+                          <div className="stats-ranked-cover-fallback">
+                            <Gamepad2 size={18} aria-hidden="true" />
+                          </div>
                         )}
                       </div>
                       <div className="stats-ranked-info">
