@@ -54,6 +54,8 @@ interface SavesContextValue {
   deleteBackup: (backupId: string) => Promise<void>;
   openBackup: (backupId: string) => Promise<void>;
   openPath: (path: string) => Promise<void>;
+  /** Reveal a stored save location in the OS file manager. */
+  openLocation: (locationId: string) => Promise<void>;
 }
 
 const SavesContext = createContext<SavesContextValue | null>(null);
@@ -172,6 +174,10 @@ export function SavesProvider({ children }: { children: ReactNode }) {
     await invoke("saves_open_path", { path });
   }, []);
 
+  const openLocation = useCallback(async (locationId: string) => {
+    await invoke("saves_open_location", { id: locationId });
+  }, []);
+
   // ── Back up on game exit ────────────────────────────────────────────
   // Only games that already have configured locations are backed up, so
   // an exit never triggers an error toast for a game with no save data.
@@ -220,6 +226,7 @@ export function SavesProvider({ children }: { children: ReactNode }) {
       deleteBackup,
       openBackup,
       openPath,
+      openLocation,
     }),
     [
       settings,
@@ -234,6 +241,7 @@ export function SavesProvider({ children }: { children: ReactNode }) {
       deleteBackup,
       openBackup,
       openPath,
+      openLocation,
     ]
   );
 

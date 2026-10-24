@@ -3,64 +3,61 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Archive,
-  Clock,
   Database,
-  FolderOpen,
   Gamepad2,
   HardDrive,
-  LayoutGrid,
-  List,
   RefreshCw,
-  Search,
   SlidersHorizontal,
   Zap,
 } from "lucide-react";
-import { useGames } from "../../context/GameContext";
-import { useSaves } from "../../context/SavesContext";
-import { useLanguage } from "../../context/LanguageContext";
-import { useToast } from "../../context/ToastContext";
-import { useSizeUnit } from "../../hooks/useSizeUnit";
-import { usePersistedState } from "../../hooks/usePersistedState";
-import { Badge, Button, ConfirmModal, KpiTile, PageHeader, Skeleton } from "../../components/ui";
-import { SubTabs } from "../../components/ui/SubTabs";
+import {
+  Button,
+  ConfirmModal,
+  PageHeader,
+  Panel,
+  Skeleton,
+  SubTabs,
+} from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
-import { formatRelative } from "../../components/game/SaveBackupTab";
-import { SAVE_KIND_LABEL_KEY, type SaveBackup, type SaveBackupKind, type SaveLocation } from "../../types/saves";
-import { gameDisplayName, type Game } from "../../types/game";
+import { useGames } from "../../context/GameContext";
+import { useLanguage } from "../../context/LanguageContext";
+import { useSaves } from "../../context/SavesContext";
+import { useToast } from "../../context/ToastContext";
+import type { SaveBackup, SaveLocation } from "../../types/saves";
+import { formatRelative } from "../../utils/savesTime";
 import BackupTab from "../settings/BackupTab";
-import SettingsToggleCard from "../settings/SettingsToggleCard";
-import "../../styles/saves.css";
+import GamesTab from "./GamesTab";
+import SavesBackupAllDialog from "./SavesBackupAllDialog";
+import SavesSettingsTab from "./SavesSettingsTab";
+import SavesSummaryBand from "./SavesSummaryBand";
+import SnapshotsTab from "./SnapshotsTab";
+import SnapshotDrawer from "./SnapshotDrawer";
+import { buildSavesOverview, protectionRank, type TrackedSaveGame } from "./savesData";
+import { useSavesLibrary } from "./useSavesLibrary";
 
-type SavesSubtab = "games" | "snapshots" | "system" | "settings";
-type GameFilter = "all" | "backedUp" | "needsBackup" | "attention";
-type GameSort = "name" | "recent" | "count";
-type SnapshotSort = "newest" | "oldest" | "size";
+type SavesTab = "games" | "snapshots" | "system" | "settings";
 
-/** Square cover thumbnail with a graceful first-letter fallback. */
-function GameCoverThumb({ game }: { game: Game }) {
-  const [failed, setFailed] = useState(false);
-  const cover = game.coverArtUrl;
-  return (
-    <span className="saves-cover" aria-hidden>
-      {cover && !failed ? (
-        <img src={cover} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
-      ) : (
-        <span className="saves-cover__fallback">
-          {gameDisplayName(game).charAt(0).toUpperCase() || "?"}
-        </span>
-      )}
-    </span>
-  );
+type SavesDialog =
+  | { kind: "restore"; backup: SaveBackup }
+  | { kind: "delete"; backups: SaveBackup[] }
+  | { kind: "deleteGame"; entry: TrackedSaveGame }
+  | { kind: "backupAll"; entries: TrackedSaveGame[] }
+  | null;
+
+const TAB_IDS: SavesTab[] = ["games", "snapshots", "system", "settings"];
+
+function readTab(value: string | null): SavesTab {
+  return value && (TAB_IDS as string[]).includes(value) ? (value as SavesTab) : "games";
 }
 
 /**
- * SavesPage — the unified, library-wide Save Backups and System Protection Hub.
+ * SavesPage — the library-wide protection hub.
  *
- * Provides a modular, 4-subtab experience:
- *   1. Tracked Games: Scannable grid/list of games, backup health, and 1-click snapshot creation.
- *   2. Snapshot History: Chronological archive timeline with game/kind filtering, restoration, and deletion.
- *   3. Library & System: Full database and application state backups (embedded BackupTab suite).
- *   4. Settings & Storage: In-place automation rules, retention configuration, and maintenance tools.
+ * Games opens as a master–detail roster: the rail is for scanning every
+ * tracked game, the pane manages the selected game's locations and snapshots
+ * without leaving the page. Snapshots is the library-wide, day-grouped archive
+ * with a manifest slide-over; Library & Database embeds the existing backup
+ * suite; Settings shares its controls with Settings → Saves.
  */
 export default function SavesPage() {
   const navigate = useNavigate();
@@ -71,7 +68,6 @@ export default function SavesPage() {
   const {
     enabled,
     ready,
-    settings,
     summary,
     progress,
     refresh,
@@ -79,219 +75,265 @@ export default function SavesPage() {
     restoreBackup,
     deleteBackup,
     openBackup,
-    pickBackupDir,
+    openLocation,
     updateSettings,
   } = useSaves();
-  const { formatBytes } = useSizeUnit();
+  const { locations, backups, health, loading, error, reload } = useSavesLibrary(enabled);
 
-  // Active subtab synchronized with URL ?tab=
-  const tabParam = searchParams.get("tab");
-  const subtab: SavesSubtab =
-    tabParam === "snapshots" || tabParam === "system" || tabParam === "settings"
-      ? tabParam
-      : "games";
+  const [busy, setBusy] = useState<null | "scan">(null);
+  const [busyGameId, setBusyGameId] = useState<string | null>(null);
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
+  const [dialog, setDialog] = useState<SavesDialog>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [drawer, setDrawer] = useState<SaveBackup | null>(null);
+  const [backupAllBusy, setBackupAllBusy] = useState(false);
 
-  const handleSelectSubtab = (newTab: SavesSubtab) => {
+  const tab = readTab(searchParams.get("tab"));
+  const gameParam = searchParams.get("game");
+
+  const overview = useMemo(
+    () =>
+      buildSavesOverview({
+        games,
+        locations: locations ?? [],
+        backups: backups ?? [],
+        health,
+      }),
+    [games, locations, backups, health],
+  );
+
+  const healthById = useMemo(
+    () => new Map(health.map((entry) => [entry.id, entry.exists])),
+    [health],
+  );
+
+  const selectedEntry = gameParam ? (overview.byId.get(gameParam) ?? null) : null;
+  const defaultEntry = useMemo(
+    () =>
+      [...overview.tracked].sort(
+        (a, b) => protectionRank(a.state) - protectionRank(b.state) || a.name.localeCompare(b.name),
+      )[0] ?? null,
+    [overview.tracked],
+  );
+
+  const eligibleEntries = useMemo(
+    () => overview.tracked.filter((entry) => entry.includedLocations.length > 0),
+    [overview.tracked],
+  );
+
+  // Keep the games tab pointing at a real, visible game so the pane is never
+  // an empty frame after a game is removed or the library changes.
+  useEffect(() => {
+    if (tab !== "games" || loading || !ready || !enabled) return;
+    if (gameParam && overview.byId.has(gameParam)) return;
+    if (!defaultEntry) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set("tab", newTab);
+        next.set("tab", "games");
+        next.set("game", defaultEntry.gameId);
         return next;
       },
-      { replace: true }
+      { replace: true },
     );
-  };
+  }, [
+    tab,
+    loading,
+    ready,
+    enabled,
+    gameParam,
+    overview,
+    defaultEntry,
+    setSearchParams,
+  ]);
 
-  const [locations, setLocations] = useState<SaveLocation[] | null>(null);
-  const [backups, setBackups] = useState<SaveBackup[] | null>(null);
-  const [busy, setBusy] = useState<null | "backupAll" | "scan">(null);
-  const [busyGameId, setBusyGameId] = useState<string | null>(null);
-  const [pending, setPending] = useState<null | { kind: "restore" | "delete"; backup: SaveBackup }>(
-    null
+  const updateParams = useCallback(
+    (nextTab: SavesTab, gameId?: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", nextTab);
+          if (gameId) next.set("game", gameId);
+          else next.delete("game");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
   );
-  const [confirmBusy, setConfirmBusy] = useState(false);
 
-  // ─── Subtab 1: Games filters & view state ──────────────────────────────────
-  const [gameSearch, setGameSearch] = useState("");
-  const [gameFilter, setGameFilter] = useState<GameFilter>("all");
-  const [gameSort, setGameSort] = useState<GameSort>("name");
-  const [viewMode, setViewMode] = usePersistedState<"grid" | "list">(
-    "gamelib.saves.view_mode_v1",
-    "grid",
-    ["grid", "list"],
-  );
-
-  // ─── Subtab 2: Snapshot timeline filters ────────────────────────────────────
-  const [snapshotSearch, setSnapshotSearch] = useState("");
-  const [snapshotGameFilter, setSnapshotGameFilter] = useState<string>("all");
-  const [snapshotKindFilter, setSnapshotKindFilter] = useState<"all" | SaveBackupKind>("all");
-  const [snapshotSort, setSnapshotSort] = useState<SnapshotSort>("newest");
-
-  const loadLists = useCallback(async () => {
-    try {
-      const [locs, baks] = await Promise.all([
-        invoke<SaveLocation[]>("saves_list_all_locations"),
-        invoke<SaveBackup[]>("saves_list_backups", { gameId: null }),
-      ]);
-      setLocations(locs);
-      setBackups(baks);
-    } catch {
-      setLocations([]);
-      setBackups([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (enabled) void loadLists();
-  }, [enabled, loadLists]);
-
-  // Group locations and latest backups by game
-  const perGame = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const loc of locations ?? []) {
-      if (!loc.include) continue;
-      counts.set(loc.gameId, (counts.get(loc.gameId) ?? 0) + 1);
-    }
-    const latestBackup = new Map<string, SaveBackup>();
-    const backupCounts = new Map<string, number>();
-    for (const backup of backups ?? []) {
-      if (!latestBackup.has(backup.gameId)) latestBackup.set(backup.gameId, backup);
-      backupCounts.set(backup.gameId, (backupCounts.get(backup.gameId) ?? 0) + 1);
-    }
-    return { counts, latestBackup, backupCounts };
-  }, [locations, backups]);
-
-  // Game list filtered and sorted
-  const trackedGames = useMemo(() => {
-    const query = gameSearch.trim().toLowerCase();
-    const now = Date.now();
-    const sevenDaysMs = 7 * 86400 * 1000;
-
-    return games
-      .filter((g) => (perGame.counts.get(g.id) ?? 0) > 0)
-      .filter((g) => {
-        if (query && !gameDisplayName(g).toLowerCase().includes(query)) return false;
-
-        const latest = perGame.latestBackup.get(g.id);
-        if (gameFilter === "backedUp") return Boolean(latest);
-        if (gameFilter === "needsBackup") {
-          return !latest || now - latest.createdAt > sevenDaysMs;
-        }
-        if (gameFilter === "attention") {
-          return !latest;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (gameSort === "name") {
-          return gameDisplayName(a).localeCompare(gameDisplayName(b));
-        }
-        if (gameSort === "recent") {
-          const aTime = perGame.latestBackup.get(a.id)?.createdAt ?? 0;
-          const bTime = perGame.latestBackup.get(b.id)?.createdAt ?? 0;
-          return bTime - aTime;
-        }
-        if (gameSort === "count") {
-          const aCount = perGame.backupCounts.get(a.id) ?? 0;
-          const bCount = perGame.backupCounts.get(b.id) ?? 0;
-          return bCount - aCount;
-        }
-        return 0;
-      });
-  }, [games, perGame, gameSearch, gameFilter, gameSort, locations]);
-
-  // Snapshots filtered and sorted
-  const filteredSnapshots = useMemo(() => {
-    const query = snapshotSearch.trim().toLowerCase();
-    return (backups ?? [])
-      .filter((b) => {
-        if (snapshotGameFilter !== "all" && b.gameId !== snapshotGameFilter) return false;
-        if (snapshotKindFilter !== "all" && b.kind !== snapshotKindFilter) return false;
-        if (query) {
-          const titleMatches = b.gameName.toLowerCase().includes(query);
-          const noteMatches = b.note ? b.note.toLowerCase().includes(query) : false;
-          if (!titleMatches && !noteMatches) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (snapshotSort === "newest") return b.createdAt - a.createdAt;
-        if (snapshotSort === "oldest") return a.createdAt - b.createdAt;
-        if (snapshotSort === "size") return b.totalBytes - a.totalBytes;
-        return 0;
-      });
-  }, [backups, snapshotSearch, snapshotGameFilter, snapshotKindFilter, snapshotSort]);
-
-  // Distinct games that have at least one snapshot (for dropdown)
-  const gamesWithSnapshots = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const b of backups ?? []) {
-      if (!map.has(b.gameId)) map.set(b.gameId, b.gameName);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [backups]);
-
-  // Actions
   const handleScan = useCallback(async () => {
     setBusy("scan");
-    await scanAll();
-    await loadLists();
-    setBusy(null);
-  }, [scanAll, loadLists]);
-
-  const handleBackupAll = useCallback(async () => {
-    setBusy("backupAll");
     try {
-      const done = await invoke<SaveBackup[]>("saves_backup_all");
-      await Promise.all([refresh(), loadLists()]);
-      showToast(t("saves.toast.backupAll", { count: done.length }), "success");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err), "error");
+      await scanAll();
+      await reload();
     } finally {
       setBusy(null);
     }
-  }, [refresh, loadLists, showToast, t]);
+  }, [scanAll, reload]);
 
-  const handleBackupGame = useCallback(
-    async (gameId: string, name: string) => {
-      setBusyGameId(gameId);
+  const openBackupAll = useCallback(() => {
+    if (eligibleEntries.length === 0) return;
+    setDialog({ kind: "backupAll", entries: eligibleEntries });
+  }, [eligibleEntries]);
+
+  const handleBackup = useCallback(
+    async (entry: TrackedSaveGame, note?: string) => {
+      setBusyGameId(entry.gameId);
       try {
-        await invoke<SaveBackup>("saves_backup_game", { gameId, note: null });
-        await Promise.all([refresh(), loadLists()]);
-        showToast(t("saves.toast.gameBackedUp", { name }), "success");
+        await invoke<SaveBackup>("saves_backup_game", {
+          gameId: entry.gameId,
+          note: note?.trim() ? note.trim() : null,
+        });
+        await Promise.all([refresh(), reload()]);
+        showToast(t("saves.toast.gameBackedUp", { name: entry.name }), "success");
       } catch (err) {
         showToast(err instanceof Error ? err.message : String(err), "error");
       } finally {
         setBusyGameId(null);
       }
     },
-    [refresh, loadLists, showToast, t]
+    [refresh, reload, showToast, t],
   );
 
-  const handleConfirm = useCallback(async () => {
-    if (!pending) return;
-    setConfirmBusy(true);
-    try {
-      if (pending.kind === "restore") {
-        const result = await restoreBackup(pending.backup.id);
-        showToast(t("saves.toast.restoreDone", { count: result.restoredFiles }), "success");
-      } else {
-        await deleteBackup(pending.backup.id);
-        showToast(t("saves.toast.backupDeleted"), "info");
+  const handleBackupGames = useCallback(
+    async (entries: TrackedSaveGame[]) => {
+      if (entries.length === 0) return;
+      setBulk({ done: 0, total: entries.length });
+      let done = 0;
+      let failed = 0;
+      for (const entry of entries) {
+        try {
+          await invoke<SaveBackup>("saves_backup_game", {
+            gameId: entry.gameId,
+            note: null,
+          });
+          done += 1;
+        } catch {
+          failed += 1;
+        }
+        setBulk({ done: done + failed, total: entries.length });
       }
-      await Promise.all([refresh(), loadLists()]);
+      await Promise.all([refresh(), reload()]);
+      setBulk(null);
+      if (failed > 0) {
+        showToast(t("saves.toast.bulkBackupPartial", { done, failed }), "info");
+      } else {
+        showToast(t("saves.toast.backupAll", { count: done }), "success");
+      }
+    },
+    [refresh, reload, showToast, t],
+  );
+
+  const handleRescan = useCallback(
+    async (entry: TrackedSaveGame) => {
+      setBusyGameId(entry.gameId);
+      try {
+        const list = await invoke<SaveLocation[]>("saves_detect_locations", {
+          gameId: entry.gameId,
+          includePcgw: true,
+        });
+        const added = Math.max(0, list.length - entry.locations.length);
+        await reload();
+        showToast(t("saves.toast.scanGame", { count: added }), added > 0 ? "success" : "info");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      } finally {
+        setBusyGameId(null);
+      }
+    },
+    [reload, showToast, t],
+  );
+
+  const handleToggleLocation = useCallback(
+    async (_entry: TrackedSaveGame, location: SaveLocation) => {
+      try {
+        await invoke("saves_update_location", {
+          location: { ...location, include: !location.include },
+        });
+        await reload();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [reload, showToast],
+  );
+
+  const handleRemoveLocation = useCallback(
+    async (location: SaveLocation) => {
+      try {
+        await invoke("saves_remove_location", { id: location.id });
+        await Promise.all([reload(), refresh()]);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      }
+    },
+    [reload, refresh, showToast],
+  );
+
+  const handleLocationAdded = useCallback(() => {
+    void Promise.all([reload(), refresh()]);
+  }, [reload, refresh]);
+
+  const handleOpenLocation = useCallback(
+    (location: SaveLocation) => {
+      void openLocation(location.id).catch((err: unknown) => {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      });
+    },
+    [openLocation, showToast],
+  );
+
+  const handleOpenBackupFolder = useCallback(
+    (backup: SaveBackup) => {
+      void openBackup(backup.id).catch((err: unknown) => {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      });
+    },
+    [openBackup, showToast],
+  );
+
+  const confirmDialog = useCallback(async () => {
+    if (!dialog) return;
+    setDialogBusy(true);
+    try {
+      if (dialog.kind === "restore") {
+        const result = await restoreBackup(dialog.backup.id);
+        await Promise.all([refresh(), reload()]);
+        showToast(t("saves.toast.restoreDone", { count: result.restoredFiles }), "success");
+        if (result.warnings.length > 0) {
+          showToast(t("saves.toast.restoreWarnings", { count: result.warnings.length }), "info");
+        }
+      } else if (dialog.kind === "delete") {
+        for (const backup of dialog.backups) {
+          await deleteBackup(backup.id);
+        }
+        await Promise.all([refresh(), reload()]);
+        showToast(t("saves.toast.backupsDeleted", { count: dialog.backups.length }), "info");
+      } else if (dialog.kind === "deleteGame") {
+        await invoke("saves_delete_game_backups", { gameId: dialog.entry.gameId });
+        await Promise.all([refresh(), reload()]);
+        showToast(t("saves.toast.historyCleared", { name: dialog.entry.name }), "info");
+      } else if (dialog.kind === "backupAll") {
+        const done = await invoke<SaveBackup[]>("saves_backup_all");
+        await Promise.all([refresh(), reload()]);
+        showToast(t("saves.toast.backupAll", { count: done.length }), "success");
+      }
+      setDialog(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), "error");
     } finally {
-      setConfirmBusy(false);
-      setPending(null);
+      setDialogBusy(false);
+      setBackupAllBusy(false);
     }
-  }, [pending, restoreBackup, deleteBackup, refresh, loadLists, showToast, t]);
+  }, [dialog, restoreBackup, deleteBackup, refresh, reload, showToast, t]);
 
-  const handleViewGameHistory = (gameId: string) => {
-    setSnapshotGameFilter(gameId);
-    handleSelectSubtab("snapshots");
-  };
+  const confirmBackupAll = useCallback(async () => {
+    if (!dialog || dialog.kind !== "backupAll") return;
+    setBackupAllBusy(true);
+    await confirmDialog();
+  }, [dialog, confirmDialog]);
 
   if (!ready) {
     return (
@@ -311,10 +353,12 @@ export default function SavesPage() {
           eyebrow={t("nav.saves")}
           title={t("saves.page.title")}
           description={t("saves.page.disabledDesc")}
+          icon={<Archive size={22} />}
         />
-        <div className="saves-empty saves-empty--page">
-          <p className="saves-empty__title">{t("saves.page.disabledTitle")}</p>
-          <p className="saves-empty__text">{t("saves.page.disabledText")}</p>
+        <Panel className="saves-disabled">
+          <Archive size={26} className="saves-disabled__icon" aria-hidden="true" />
+          <strong>{t("saves.page.disabledTitle")}</strong>
+          <p>{t("saves.page.disabledText")}</p>
           <Button
             variant="primary"
             onClick={async () => {
@@ -324,39 +368,56 @@ export default function SavesPage() {
           >
             {t("saves.settings.enableTitle")}
           </Button>
-        </div>
+        </Panel>
       </div>
     );
   }
 
+  const restoreTarget = dialog?.kind === "restore" ? dialog.backup : null;
+  const deleteTargets = dialog?.kind === "delete" ? dialog.backups : [];
+  const deleteGameTarget = dialog?.kind === "deleteGame" ? dialog.entry : null;
+  const backupAllEntries = dialog?.kind === "backupAll" ? dialog.entries : [];
+
+  const missingLocations =
+    health.length > 0
+      ? health.filter((entry) => !entry.exists).length
+      : (summary?.missingLocations ?? 0);
+
+  const globalProgress =
+    progress &&
+    progress.percent < 100 &&
+    !(progress.phase !== "scan" && progress.gameId === selectedEntry?.gameId)
+      ? progress
+      : null;
+
   return (
     <div className="saves-page page">
-      {/* ─── Top Page Header ────────────────────────────────────────────── */}
       <PageWidget page="saves" widget="savesHeader">
         <PageHeader
+          className="ui-item-savesHeader"
           eyebrow={t("nav.saves")}
           title={t("saves.page.title")}
           description={t("saves.page.desc")}
+          icon={<Archive size={22} />}
           actions={
             <>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={handleScan}
+                leftIcon={<RefreshCw size={14} />}
+                onClick={() => void handleScan()}
                 isLoading={busy === "scan"}
-                disabled={busy !== null}
+                disabled={busy !== null || backupAllBusy}
               >
-                <RefreshCw size={14} />
                 {t("saves.action.scanLibrary")}
               </Button>
               <Button
                 variant="primary"
                 size="sm"
-                onClick={handleBackupAll}
-                isLoading={busy === "backupAll"}
-                disabled={busy !== null || (summary?.gamesWithLocations ?? 0) === 0}
+                leftIcon={<Zap size={14} />}
+                onClick={openBackupAll}
+                disabled={busy !== null || backupAllBusy || eligibleEntries.length === 0}
               >
-                <Zap size={14} />
                 {t("saves.action.backupAll")}
               </Button>
             </>
@@ -364,651 +425,245 @@ export default function SavesPage() {
         />
       </PageWidget>
 
-      {/* ─── Top Subtabs Strip ──────────────────────────────────────────── */}
-      <SubTabs
-        ariaLabel={t("saves.viewsLabel")}
-        value={subtab}
-        onChange={handleSelectSubtab}
-        items={[
-          {
-            id: "games",
-            label: t("saves.subtab.games"),
-            icon: Gamepad2,
-            count: summary?.gamesWithLocations ?? 0,
-          },
-          {
-            id: "snapshots",
-            label: t("saves.subtab.snapshots"),
-            icon: Archive,
-            count: summary?.totalBackups ?? 0,
-          },
-          {
-            id: "system",
-            label: t("saves.subtab.system"),
-            icon: Database,
-          },
-          {
-            id: "settings",
-            label: t("saves.subtab.settings"),
-            icon: SlidersHorizontal,
-          },
-        ]}
-      />
-
-      {/* ─── Shared Progress Bar ────────────────────────────────────────── */}
-      {progress && progress.percent < 100 && (
-        <div className="saves-progress" role="status" aria-live="polite">
-          <div className="saves-progress__bar">
-            <div
-              className="saves-progress__fill"
-              style={{ width: `${Math.max(4, progress.percent)}%` }}
-            />
-          </div>
-          <span className="saves-progress__label">
-            {progress.message || t("saves.progress.working")}
-          </span>
+      <PageWidget page="saves" widget="savesHero">
+        <div className="ui-item-savesHero">
+          <SavesSummaryBand
+            summary={summary}
+            overview={overview}
+            missingLocations={missingLocations}
+          />
         </div>
-      )}
+      </PageWidget>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 1: TRACKED GAMES
-          ═══════════════════════════════════════════════════════════════════ */}
-      {subtab === "games" && (
-        <>
-          {/* KPI Dashboard */}
-          <PageWidget page="saves" widget="savesHero">
-            <div className="saves-kpis">
-              <KpiTile
-                label={t("saves.kpi.games")}
-                value={summary?.gamesWithLocations ?? 0}
-                icon={<Gamepad2 size={16} />}
-                intent="accent"
-                size="sm"
-              />
-              <KpiTile
-                label={t("saves.kpi.locations")}
-                value={summary?.totalLocations ?? 0}
-                icon={<FolderOpen size={16} />}
-                subtext={
-                  (summary?.missingLocations ?? 0) > 0
-                    ? t("saves.kpi.missing", { count: summary?.missingLocations ?? 0 })
-                    : undefined
-                }
-                intent={(summary?.missingLocations ?? 0) > 0 ? "warning" : "default"}
-                size="sm"
-              />
-              <KpiTile
-                label={t("saves.kpi.backups")}
-                value={summary?.totalBackups ?? 0}
-                icon={<Archive size={16} />}
-                subtext={formatBytes(summary?.totalBackupBytes ?? 0)}
-                intent="info"
-                size="sm"
-              />
-              <KpiTile
-                label={t("saves.kpi.lastBackup")}
-                value={
-                  summary?.lastBackupAt
-                    ? formatRelative(summary.lastBackupAt, language)
-                    : t("saves.kpi.never")
-                }
-                icon={<Clock size={16} />}
-                size="sm"
-              />
-            </div>
-          </PageWidget>
+      <PageWidget page="saves" widget="savesControls">
+        <div className="ui-item-savesControls saves-controls">
+          <SubTabs
+            ariaLabel={t("saves.viewsLabel")}
+            value={tab}
+            onChange={(next) => updateParams(next, next === "games" ? gameParam : null)}
+            items={[
+              {
+                id: "games",
+                label: t("saves.subtab.games"),
+                icon: Gamepad2,
+                count: overview.counts.all,
+              },
+              {
+                id: "snapshots",
+                label: t("saves.subtab.snapshots"),
+                icon: Archive,
+                count: summary?.totalBackups ?? backups?.length ?? 0,
+              },
+              { id: "system", label: t("saves.subtab.system"), icon: Database },
+              { id: "settings", label: t("saves.subtab.settings"), icon: SlidersHorizontal },
+            ]}
+            trailing={
+              summary?.backupDir ? (
+                <button
+                  type="button"
+                  className="saves-dir"
+                  onClick={() => {
+                    void invoke("saves_open_path", { path: summary.backupDir }).catch(
+                      (err: unknown) =>
+                        showToast(err instanceof Error ? err.message : String(err), "error"),
+                    );
+                  }}
+                  title={summary.backupDir}
+                >
+                  <HardDrive size={14} aria-hidden="true" />
+                  <span>{t("saves.settings.backupDir")}</span>
+                </button>
+              ) : null
+            }
+          />
 
-          {/* Interactive Controls & Filter Bar */}
-          <PageWidget page="saves" widget="savesControls">
-            <div className="saves-toolbar">
-              <div className="saves-input-wrapper" style={{ position: "relative", flex: 1, minWidth: 200, maxWidth: 360 }}>
-                <input
-                  type="search"
-                  className="saves-input"
-                  style={{ width: "100%", paddingLeft: 34 }}
-                  placeholder={t("saves.searchPlaceholder")}
-                  value={gameSearch}
-                  onChange={(e) => setGameSearch(e.target.value)}
-                  aria-label={t("saves.searchPlaceholder")}
+          {globalProgress && (
+            <div className="saves-progress" role="status" aria-live="polite">
+              <div
+                className="saves-progress__bar"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={globalProgress.percent}
+              >
+                <div
+                  className="saves-progress__fill"
+                  style={{ width: `${Math.max(4, globalProgress.percent)}%` }}
                 />
-                <Search size={14} style={{ position: "absolute", left: 11, top: 10, color: "var(--color-text-muted)", pointerEvents: "none" }} />
               </div>
-
-              {/* Filter Pills */}
-              <div className="saves-filter-pills">
-                <button
-                  type="button"
-                  className={`saves-filter-pill ${gameFilter === "all" ? "active" : ""}`}
-                  onClick={() => setGameFilter("all")}
-                >
-                  <span>{t("saves.filter.all")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`saves-filter-pill ${gameFilter === "backedUp" ? "active" : ""}`}
-                  onClick={() => setGameFilter("backedUp")}
-                >
-                  <span>{t("saves.filter.backedUp")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`saves-filter-pill ${gameFilter === "needsBackup" ? "active" : ""}`}
-                  onClick={() => setGameFilter("needsBackup")}
-                >
-                  <span>{t("saves.filter.needsBackup")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`saves-filter-pill ${gameFilter === "attention" ? "active" : ""}`}
-                  onClick={() => setGameFilter("attention")}
-                >
-                  <span>{t("saves.filter.attention")}</span>
-                </button>
-              </div>
-
-              {/* Sort selector */}
-              <select
-                className="saves-sort-select"
-                value={gameSort}
-                onChange={(e) => setGameSort(e.target.value as GameSort)}
-                aria-label={t("saves.sortGames")}
-              >
-                <option value="name">{t("saves.sort.title")}</option>
-                <option value="recent">{t("saves.sort.recent")}</option>
-                <option value="count">{t("saves.sort.count")}</option>
-              </select>
-
-              {/* View mode toggle */}
-              <div className="saves-view-toggles" role="group" aria-label={t("saves.viewMode")}>
-                <button
-                  type="button"
-                  className={`saves-view-btn ${viewMode === "grid" ? "active" : ""}`}
-                  onClick={() => setViewMode("grid")}
-                  title={t("saves.view.grid")}
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button
-                  type="button"
-                  className={`saves-view-btn ${viewMode === "list" ? "active" : ""}`}
-                  onClick={() => setViewMode("list")}
-                  title={t("saves.view.list")}
-                >
-                  <List size={15} />
-                </button>
-              </div>
-
-              {/* Backup Directory Shortcut */}
-              <button
-                type="button"
-                className="saves-toolbar__path"
-                onClick={() => void invoke("saves_open_path", { path: summary?.backupDir ?? "" })}
-                title={summary?.backupDir}
-              >
-                <HardDrive size={14} />
-                <span className="saves-toolbar__path-label">{t("saves.settings.backupDir")}</span>
-                <span className="saves-toolbar__path-value">{summary?.backupDir}</span>
-              </button>
-            </div>
-          </PageWidget>
-
-          {/* Game List Display */}
-          <PageWidget page="saves" widget="savesGrid">
-            <section className="saves-card">
-              <header className="saves-card__header">
-                <h3 className="saves-card__title">{t("saves.page.yourGames")}</h3>
-                <span className="saves-card__count">{trackedGames.length}</span>
-              </header>
-
-              {locations === null ? (
-                <div className="saves-card__skeleton">
-                  <Skeleton width="100%" height="76px" />
-                  <Skeleton width="100%" height="76px" />
-                </div>
-              ) : trackedGames.length === 0 ? (
-                <div className="saves-empty">
-                  <p className="saves-empty__title">{t("saves.page.noGamesTitle")}</p>
-                  <p className="saves-empty__text">{t("saves.page.noGamesText")}</p>
-                  <Button variant="primary" size="sm" onClick={handleScan} isLoading={busy === "scan"}>
-                    <RefreshCw size={14} />
-                    {t("saves.action.scanLibrary")}
-                  </Button>
-                </div>
-              ) : viewMode === "grid" ? (
-                /* Grid View */
-                <div className="saves-game-grid">
-                  {trackedGames.map((game) => {
-                    const latest = perGame.latestBackup.get(game.id);
-                    const bCount = perGame.backupCounts.get(game.id) ?? 0;
-                    return (
-                      <article key={game.id} className="saves-game-card">
-                        <button
-                          type="button"
-                          className="saves-game-card__main"
-                          data-game-detail-route={`/library/${game.id}?tab=saves`}
-                          data-game-detail-title={gameDisplayName(game)}
-                          onClick={() => navigate(`/library/${game.id}?tab=saves`)}
-                          title={t("saves.action.manage")}
-                        >
-                          <GameCoverThumb game={game} />
-                          <span className="saves-game-card__text">
-                            <span className="saves-game-card__name">{gameDisplayName(game)}</span>
-                            <span className="saves-game-card__meta">
-                              {t("saves.game.locations", { count: perGame.counts.get(game.id) ?? 0 })}
-                              {" · "}
-                              {latest
-                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt, language) })
-                                : t("saves.game.noBackup")}
-                            </span>
-                          </span>
-                        </button>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {bCount > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewGameHistory(game.id)}
-                              title={t("saves.game.viewHistory")}
-                            >
-                              <Archive size={13} />
-                              <span>{bCount}</span>
-                            </Button>
-                          )}
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void handleBackupGame(game.id, gameDisplayName(game))}
-                            isLoading={busyGameId === game.id}
-                            title={t("saves.action.backupNow")}
-                          >
-                            <Zap size={13} />
-                            {t("saves.action.backupNow")}
-                          </Button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                /* Compact List View */
-                <div className="saves-game-list-view">
-                  {trackedGames.map((game) => {
-                    const latest = perGame.latestBackup.get(game.id);
-                    const bCount = perGame.backupCounts.get(game.id) ?? 0;
-                    return (
-                      <div key={game.id} className="saves-game-row">
-                        <button
-                          type="button"
-                          className="saves-game-row__main"
-                          data-game-detail-route={`/library/${game.id}?tab=saves`}
-                          data-game-detail-title={gameDisplayName(game)}
-                          onClick={() => navigate(`/library/${game.id}?tab=saves`)}
-                        >
-                          <GameCoverThumb game={game} />
-                          <div className="saves-game-row__info">
-                            <span className="saves-game-row__title">{gameDisplayName(game)}</span>
-                            <span className="saves-game-row__meta">
-                              {t("saves.game.locations", { count: perGame.counts.get(game.id) ?? 0 })}
-                              {" · "}
-                              {latest
-                                ? t("saves.game.lastBackup", { when: formatRelative(latest.createdAt, language) })
-                                : t("saves.game.noBackup")}
-                            </span>
-                          </div>
-                        </button>
-
-                        <div className="saves-game-row__actions">
-                          {bCount > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewGameHistory(game.id)}
-                            >
-                              <Archive size={13} />
-                              <span>{bCount} {t("saves.game.viewHistory")}</span>
-                            </Button>
-                          )}
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void handleBackupGame(game.id, gameDisplayName(game))}
-                            isLoading={busyGameId === game.id}
-                          >
-                            <Zap size={13} />
-                            {t("saves.action.backupNow")}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/library/${game.id}?tab=saves`)}
-                          >
-                            {t("saves.action.manage")}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          </PageWidget>
-        </>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 2: SNAPSHOT TIMELINE & ARCHIVES
-          ═══════════════════════════════════════════════════════════════════ */}
-      {subtab === "snapshots" && (
-        <section className="saves-card">
-          <header className="saves-card__header">
-            <h3 className="saves-card__title">{t("saves.subtab.snapshots")}</h3>
-            <span className="saves-card__count">
-              {t("saves.snapshots.showingCount", {
-                count: filteredSnapshots.length,
-                size: formatBytes(
-                  filteredSnapshots.reduce((acc, b) => acc + b.totalBytes, 0)
-                ),
-              })}
-            </span>
-          </header>
-
-          {/* Timeline Filter Controls */}
-          <div className="saves-toolbar">
-            <div className="saves-input-wrapper" style={{ position: "relative", flex: 1, minWidth: 200, maxWidth: 360 }}>
-              <input
-                type="search"
-                className="saves-input"
-                style={{ width: "100%", paddingLeft: 34 }}
-                placeholder={t("saves.snapshots.searchPlaceholder")}
-                value={snapshotSearch}
-                onChange={(e) => setSnapshotSearch(e.target.value)}
-              />
-              <Search size={14} style={{ position: "absolute", left: 11, top: 10, color: "var(--color-text-muted)", pointerEvents: "none" }} />
-            </div>
-
-            {/* Game Selector Dropdown */}
-            <select
-              className="saves-sort-select"
-              value={snapshotGameFilter}
-              onChange={(e) => setSnapshotGameFilter(e.target.value)}
-              aria-label={t("saves.filterByGame")}
-            >
-              <option value="all">{t("saves.snapshots.allGames")}</option>
-              {gamesWithSnapshots.map(([id, title]) => (
-                <option key={id} value={id}>
-                  {title}
-                </option>
-              ))}
-            </select>
-
-            {/* Kind Selector Dropdown */}
-            <select
-              className="saves-sort-select"
-              value={snapshotKindFilter}
-              onChange={(e) => setSnapshotKindFilter(e.target.value as "all" | SaveBackupKind)}
-              aria-label={t("saves.filterByType")}
-            >
-              <option value="all">{t("saves.snapshots.allKinds")}</option>
-              <option value="manual">{t("saves.kind.manual")}</option>
-              <option value="auto-exit">{t("saves.kind.autoExit")}</option>
-              <option value="pre-restore">{t("saves.kind.preRestore")}</option>
-            </select>
-
-            {/* Sort Selector Dropdown */}
-            <select
-              className="saves-sort-select"
-              value={snapshotSort}
-              onChange={(e) => setSnapshotSort(e.target.value as SnapshotSort)}
-              aria-label={t("saves.sortSnapshots")}
-            >
-              <option value="newest">{t("saves.sort.recent")}</option>
-              <option value="oldest">{t("saves.sort.title")}</option>
-              <option value="size">Size</option>
-            </select>
-          </div>
-
-          {backups === null ? (
-            <div className="saves-card__skeleton">
-              <Skeleton width="100%" height="60px" />
-              <Skeleton width="100%" height="60px" />
-            </div>
-          ) : filteredSnapshots.length === 0 ? (
-            <div className="saves-empty">
-              <p className="saves-empty__title">{t("saves.snapshots.emptyFilter")}</p>
-              <p className="saves-empty__text">{t("saves.backups.emptyText")}</p>
-              {snapshotGameFilter !== "all" && (
-                <Button variant="secondary" size="sm" onClick={() => setSnapshotGameFilter("all")}>
-                  {t("saves.snapshots.allGames")}
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="saves-game-list-view">
-              {filteredSnapshots.map((backup) => {
-                const game = games.find((g) => g.id === backup.gameId);
-                return (
-                  <article key={backup.id} className="saves-snapshot-card-rich">
-                    <div className="saves-snapshot-card-main">
-                      {game && <GameCoverThumb game={game} />}
-                      <div className="saves-snapshot-card-details">
-                        <div className="saves-snapshot-card-headline">
-                          <span className="saves-snapshot-card-game">{backup.gameName}</span>
-                          <Badge
-                            variant={
-                              backup.kind === "manual"
-                                ? "accent"
-                                : backup.kind === "pre-restore"
-                                  ? "warning"
-                                  : "info"
-                            }
-                            size="sm"
-                          >
-                            {t(SAVE_KIND_LABEL_KEY[backup.kind] ?? "saves.kind.manual")}
-                          </Badge>
-                        </div>
-                        <div className="saves-snapshot-card-meta">
-                          <span>{formatRelative(backup.createdAt, language)}</span>
-                          <span>·</span>
-                          <span>
-                            {t("saves.backups.meta", {
-                              files: backup.fileCount,
-                              size: formatBytes(backup.totalBytes),
-                            })}
-                          </span>
-                          {backup.note && (
-                            <>
-                              <span>·</span>
-                              <span className="saves-snapshot-card-note">“{backup.note}”</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="saves-snapshot-card-actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setPending({ kind: "restore", backup })}
-                      >
-                        {t("saves.action.restore")}
-                      </Button>
-                      <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
-                        type="button"
-                        
-                        onClick={() => void openBackup(backup.id)}
-                        title={t("saves.action.openBackup")}
-                        aria-label={t("saves.action.openBackup")}
-                       className="saves-icon-btn"></Button>
-                      <Button variant="secondary" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        </svg>}
-                        type="button"
-                        
-                        onClick={() => setPending({ kind: "delete", backup })}
-                        title={t("saves.action.deleteBackup")}
-                        aria-label={t("saves.action.deleteBackup")}
-                       className="saves-icon-btn saves-icon-btn--danger"></Button>
-                    </div>
-                  </article>
-                );
-              })}
+              <span className="saves-progress__label">
+                {globalProgress.message || t("saves.progress.working")}
+              </span>
             </div>
           )}
-        </section>
-      )}
+        </div>
+      </PageWidget>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 3: SYSTEM & LIBRARY BACKUP
-          ═══════════════════════════════════════════════════════════════════ */}
-      {subtab === "system" && (
-        <div className="saves-system-wrapper">
-          <BackupTab />
+      {error && (
+        <div className="saves-alert" role="status">
+          <span>{t("saves.page.loadError")}</span>
+          <Button variant="tertiary" size="sm" onClick={() => void reload()}>
+            {t("common.retry")}
+          </Button>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 4: SETTINGS & STORAGE
-          ═══════════════════════════════════════════════════════════════════ */}
-      {subtab === "settings" && settings && (
-        <div className="saves-settings-panel">
-          <section className="saves-card">
-            <header className="saves-card__header">
-              <h3 className="saves-card__title">{t("saves.settings.title")}</h3>
-              <Badge variant={settings.enabled ? "success" : "default"} dot>
-                {settings.enabled ? t("saves.settings.on") : t("saves.settings.off")}
-              </Badge>
-            </header>
+      <PageWidget page="saves" widget="savesGrid">
+        <div className="ui-item-savesGrid saves-content">
+          {tab === "games" && (
+            <GamesTab
+              overview={overview}
+              loading={loading}
+              selectedId={selectedEntry?.gameId ?? null}
+              onSelect={(gameId) => updateParams("games", gameId)}
+              health={healthById}
+              progress={progress}
+              busyGameId={busyGameId}
+              bulk={bulk}
+              scanning={busy === "scan"}
+              onScan={() => void handleScan()}
+              onBackupGames={(entries) => void handleBackupGames(entries)}
+              onBackup={(entry, note) => void handleBackup(entry, note)}
+              onRescan={(entry) => void handleRescan(entry)}
+              onOpenGamePage={(gameId) => navigate(`/library/${gameId}?tab=saves`)}
+              onViewHistory={(gameId) => updateParams("snapshots", gameId)}
+              onToggleLocation={(entry, location) => void handleToggleLocation(entry, location)}
+              onOpenLocation={handleOpenLocation}
+              onRemoveLocation={(location) => void handleRemoveLocation(location)}
+              onLocationAdded={handleLocationAdded}
+              onOpenSnapshot={setDrawer}
+              onRestore={(backup) => {
+                setDrawer(null);
+                setDialog({ kind: "restore", backup });
+              }}
+              onOpenBackupFolder={handleOpenBackupFolder}
+              onDeleteSnapshot={(backup) => {
+                setDrawer(null);
+                setDialog({ kind: "delete", backups: [backup] });
+              }}
+              onDeleteGameSnapshots={(entry) => setDialog({ kind: "deleteGame", entry })}
+            />
+          )}
 
-            <div className="saves-settings-grid">
-              <SettingsToggleCard
-                title={t("saves.settings.enableTitle")}
-                desc={t("saves.settings.enableDesc")}
-                checked={settings.enabled}
-                onChange={(checked) => void updateSettings({ enabled: checked })}
-              />
-              <SettingsToggleCard
-                title={t("saves.settings.autoExitTitle")}
-                desc={t("saves.settings.autoExitDesc")}
-                checked={settings.autoBackupOnExit}
-                onChange={(checked) => void updateSettings({ autoBackupOnExit: checked })}
-              />
-              <SettingsToggleCard
-                title={t("saves.settings.safetyTitle")}
-                desc={t("saves.settings.safetyDesc")}
-                checked={settings.restoreSafetySnapshot}
-                onChange={(checked) => void updateSettings({ restoreSafetySnapshot: checked })}
-              />
-              <SettingsToggleCard
-                title={t("saves.settings.emulatorTitle")}
-                desc={t("saves.settings.emulatorDesc")}
-                checked={settings.includeEmulatorSaves}
-                onChange={(checked) => void updateSettings({ includeEmulatorSaves: checked })}
-              />
+          {tab === "snapshots" && (
+            <SnapshotsTab
+              backups={backups ?? []}
+              games={games}
+              loading={loading}
+              initialGameId={gameParam ?? "all"}
+              onOpenSnapshot={setDrawer}
+              onRestore={(backup) => {
+                setDrawer(null);
+                setDialog({ kind: "restore", backup });
+              }}
+              onOpenBackupFolder={handleOpenBackupFolder}
+              onDeleteSnapshot={(backup) => {
+                setDrawer(null);
+                setDialog({ kind: "delete", backups: [backup] });
+              }}
+              onDeleteMany={(list) => setDialog({ kind: "delete", backups: list })}
+              onBackupAll={openBackupAll}
+            />
+          )}
+
+          {tab === "system" && (
+            <div className="saves-system">
+              <BackupTab />
             </div>
-          </section>
+          )}
 
-          {/* Storage Directory & Retention */}
-          <section className="saves-card">
-            <header className="saves-card__header">
-              <h3 className="saves-card__title">{t("saves.settings.storageTitle")}</h3>
-            </header>
-
-            <div className="saves-setting-row">
-              <div className="saves-setting-row__text">
-                <span className="saves-setting-row__label">{t("saves.settings.backupDir")}</span>
-                <span className="saves-setting-row__path" title={settings.backupDir}>
-                  {settings.backupDir || "—"}
-                </span>
-              </div>
-              <div className="saves-setting-row__actions">
-                <Button variant="secondary" size="sm" onClick={() => void pickBackupDir()}>
-                  {t("saves.action.browse")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void invoke("saves_open_path", { path: settings.backupDir })}
-                >
-                  <FolderOpen size={14} />
-                  {t("saves.action.openFolder")}
-                </Button>
-              </div>
-            </div>
-
-            <div className="saves-setting-row">
-              <div className="saves-setting-row__text">
-                <span className="saves-setting-row__label">{t("saves.settings.retention")}</span>
-                <span className="saves-setting-row__hint">{t("saves.settings.retentionHint")}</span>
-              </div>
-              <div className="saves-setting-row__actions">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="saves-input saves-input--number"
-                  value={settings.retention}
-                  onChange={(e) => {
-                    const parsed = parseInt(e.target.value, 10);
-                    if (!Number.isNaN(parsed) && parsed >= 0) {
-                      void updateSettings({ retention: parsed });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Maintenance */}
-          <section className="saves-card">
-            <header className="saves-card__header">
-              <h3 className="saves-card__title">{t("saves.settings.maintenanceTitle")}</h3>
-              <span className="saves-card__count">{t("saves.settings.maintenanceDesc")}</span>
-            </header>
-
-            <div className="saves-setting-actions">
-              <Button variant="secondary" size="sm" onClick={handleScan} isLoading={busy === "scan"}>
-                <RefreshCw size={14} />
-                {t("saves.action.scanLibrary")}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleBackupAll}
-                isLoading={busy === "backupAll"}
-                disabled={(summary?.gamesWithLocations ?? 0) === 0}
-              >
-                <Zap size={14} />
-                {t("saves.action.backupAll")}
-              </Button>
-            </div>
-          </section>
+          {tab === "settings" && (
+            <SavesSettingsTab
+              scanning={busy === "scan"}
+              backupAllDisabled={busy !== null || eligibleEntries.length === 0}
+              onScan={() => void handleScan()}
+              onBackupAll={openBackupAll}
+            />
+          )}
         </div>
-      )}
+      </PageWidget>
 
-      {/* ─── Confirmation Modal ─────────────────────────────────────────── */}
+      <SnapshotDrawer
+        backup={drawer}
+        onClose={() => setDrawer(null)}
+        onRestore={(backup) => {
+          setDrawer(null);
+          setDialog({ kind: "restore", backup });
+        }}
+        onDelete={(backup) => {
+          setDrawer(null);
+          setDialog({ kind: "delete", backups: [backup] });
+        }}
+        onOpenFolder={handleOpenBackupFolder}
+      />
+
+      <SavesBackupAllDialog
+        open={backupAllEntries.length > 0}
+        entries={backupAllEntries}
+        busy={backupAllBusy}
+        onConfirm={() => void confirmBackupAll()}
+        onCancel={() => {
+          if (!backupAllBusy) setDialog(null);
+        }}
+      />
+
       <ConfirmModal
-        open={pending !== null}
-        busy={confirmBusy}
+        open={restoreTarget !== null}
+        busy={dialogBusy}
         title={
-          pending?.kind === "restore"
-            ? t("saves.confirm.restoreTitle", { name: pending?.backup.gameName ?? "" })
+          restoreTarget
+            ? t("saves.confirm.restoreTitle", { name: restoreTarget.gameName })
+            : ""
+        }
+        message={
+          restoreTarget
+            ? t("saves.confirm.restoreMessage", {
+                when: formatRelative(restoreTarget.createdAt, language),
+              })
+            : ""
+        }
+        warning={t("saves.confirm.restoreWarning")}
+        confirmLabel="saves.action.restore"
+        onConfirm={() => void confirmDialog()}
+        onCancel={() => !dialogBusy && setDialog(null)}
+      />
+
+      <ConfirmModal
+        open={deleteTargets.length > 0}
+        busy={dialogBusy}
+        title={
+          deleteTargets.length > 1
+            ? t("saves.confirm.bulkDeleteTitle", { count: deleteTargets.length })
             : t("saves.confirm.deleteTitle")
         }
         message={
-          pending?.kind === "restore"
-            ? t("saves.confirm.restoreMessage", {
-                when: formatRelative(pending?.backup.createdAt ?? 0, language),
-              })
+          deleteTargets.length > 1
+            ? t("saves.confirm.bulkDeleteMessage", { count: deleteTargets.length })
             : t("saves.confirm.deleteMessage")
         }
-        warning={pending?.kind === "restore" ? t("saves.confirm.restoreWarning") : undefined}
-        confirmLabel={pending?.kind === "restore" ? "saves.action.restore" : "common.delete"}
-        onConfirm={() => void handleConfirm()}
-        onCancel={() => setPending(null)}
+        confirmLabel="common.delete"
+        onConfirm={() => void confirmDialog()}
+        onCancel={() => !dialogBusy && setDialog(null)}
+      />
+
+      <ConfirmModal
+        open={deleteGameTarget !== null}
+        busy={dialogBusy}
+        title={
+          deleteGameTarget
+            ? t("saves.snapshots.deleteAllConfirmTitle", { name: deleteGameTarget.name })
+            : ""
+        }
+        message={
+          deleteGameTarget
+            ? t("saves.snapshots.deleteAllConfirmBody", {
+                count: deleteGameTarget.snapshots.length,
+              })
+            : ""
+        }
+        confirmLabel="common.delete"
+        onConfirm={() => void confirmDialog()}
+        onCancel={() => !dialogBusy && setDialog(null)}
       />
     </div>
   );

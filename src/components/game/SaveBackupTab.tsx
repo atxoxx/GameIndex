@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import {
   Archive,
   Clock,
@@ -11,7 +10,6 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
-  Trash2,
   Zap,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
@@ -19,59 +17,32 @@ import { useToast } from "../../context/ToastContext";
 import { useSaves } from "../../context/SavesContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { Button, Badge, ConfirmModal, KpiTile, Skeleton, SubTabs, type SubTabItem } from "../ui";
+import {
+  Button,
+  Badge,
+  ConfirmModal,
+  Panel,
+  Skeleton,
+  StatBand,
+  SubTabs,
+  type StatBandItem,
+  type SubTabItem,
+} from "../ui";
 import SettingsToggleCard from "../../pages/settings/SettingsToggleCard";
+import AddLocationForm from "../../pages/saves/AddLocationForm";
+import SaveLocationList from "../../pages/saves/SaveLocationList";
+import SnapshotDrawer from "../../pages/saves/SnapshotDrawer";
+import SnapshotRow from "../../pages/saves/SnapshotRow";
 import {
   SAVE_KIND_LABEL_KEY,
-  SAVE_SOURCE_LABEL_KEY,
   type SaveBackup,
   type SaveBackupKind,
   type SaveLocation,
+  type SaveLocationHealth,
 } from "../../types/saves";
+import { formatRelative } from "../../utils/savesTime";
 
-/**
- * Compact relative time, localized via `Intl.RelativeTimeFormat`.
- * `locale` must be the app language: passing `undefined` falls back to the OS
- * locale, which mixes languages (e.g. "il y a 5 minutes" under an English UI).
- */
-export function formatRelative(ms: number, locale?: string): string {
-  if (!ms) return "";
-  const diff = Date.now() - ms;
-  const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat(locale || undefined, { numeric: "auto" });
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-  if (abs < minute) return rtf.format(0, "second");
-  if (abs < hour) return rtf.format(-Math.round(diff / minute), "minute");
-  if (abs < day) return rtf.format(-Math.round(diff / hour), "hour");
-  if (abs < 30 * day) return rtf.format(-Math.round(diff / day), "day");
-  if (abs < 365 * day) return rtf.format(-Math.round(diff / (30 * day)), "month");
-  return rtf.format(-Math.round(diff / (365 * day)), "year");
-}
-
-function sourceVariant(source: string): "info" | "success" | "accent" | "default" | "warning" {
-  switch (source) {
-    case "curated":
-      return "accent";
-    case "steam":
-      return "info";
-    case "pcgamingwiki":
-      return "info";
-    case "emulator":
-      return "success";
-    case "manual":
-      return "default";
-    default:
-      return "default";
-  }
-}
-
-function statusVariant(status: string): "success" | "warning" | "danger" {
-  if (status === "failed") return "danger";
-  if (status === "partial") return "warning";
-  return "success";
-}
+export { formatRelative } from "../../utils/savesTime";
 
 type GameSubtab = "snapshots" | "locations" | "settings";
 type SnapshotKindFilter = "all" | SaveBackupKind;
@@ -82,12 +53,11 @@ interface SaveBackupTabProps {
 }
 
 /**
- * SaveBackupTab — the per-game "Sauvegardes / Saves" subtab.
+ * SaveBackupTab — the per-game "Saves" tab.
  *
- * Provides a modular, 3-subtab experience:
- *   1. Snapshots & Timeline: KPI dashboard, 1-click snapshot, note annotation, timeline feed & restoration.
- *   2. Save Locations: Multi-path management, curated/cloud badges, custom folder/file selector.
- *   3. Game Settings: Per-game automation rules, safety snapshots, and retention configuration.
+ * Reuses the hub's rows, badges, drawer and add-location form, so a snapshot
+ * looks and behaves the same whether it is opened from the library-wide hub or
+ * from a game page.
  */
 export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) {
   const { t, language } = useLanguage();
@@ -99,33 +69,34 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
     restoreBackup,
     deleteBackup,
     openBackup,
-    openPath,
+    openLocation,
     updateSettings,
   } = useSaves();
   const { formatBytes } = useSizeUnit();
 
-  const [subtab, setSubtab] = usePersistedState<GameSubtab>("gamelib.game.save_backup.subtab_v1", "snapshots", ["snapshots", "locations", "settings"]);
+  const [subtab, setSubtab] = usePersistedState<GameSubtab>(
+    "gamelib.game.save_backup.subtab_v1",
+    "snapshots",
+    ["snapshots", "locations", "settings"],
+  );
   const [locations, setLocations] = useState<SaveLocation[] | null>(null);
   const [backups, setBackups] = useState<SaveBackup[] | null>(null);
+  const [health, setHealth] = useState<SaveLocationHealth[]>([]);
   const [busy, setBusy] = useState<null | "detect" | "backup">(null);
 
-  // Snapshot note drawer
   const [noteOpen, setNoteOpen] = useState(false);
-  const [customNote, setCustomNote] = useState("");
-
-  // Add location drawer
+  const [note, setNote] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [addPath, setAddPath] = useState("");
-  const [addLabel, setAddLabel] = useState("");
 
-  // Timeline search & filter
-  const [searchQuery, setSearchQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<SnapshotKindFilter>("all");
 
-  const [pending, setPending] = useState<null | { kind: "restore" | "delete"; backup: SaveBackup }>(
-    null
-  );
+  const [pending, setPending] = useState<null | {
+    kind: "restore" | "delete";
+    backup: SaveBackup;
+  }>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [drawer, setDrawer] = useState<SaveBackup | null>(null);
 
   const load = useCallback(
     async (detectIfEmpty: boolean) => {
@@ -134,15 +105,22 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         if (detectIfEmpty && list.length === 0) {
           list = await invoke<SaveLocation[]>("saves_detect_locations", { gameId });
         }
-        const history = await invoke<SaveBackup[]>("saves_list_backups", { gameId });
+        const [history, healthList] = await Promise.all([
+          invoke<SaveBackup[]>("saves_list_backups", { gameId }),
+          invoke<SaveLocationHealth[]>("saves_location_health", { gameId }).catch(
+            () => [] as SaveLocationHealth[],
+          ),
+        ]);
         setLocations(list);
         setBackups(history);
+        setHealth(healthList);
       } catch {
         setLocations([]);
         setBackups([]);
+        setHealth([]);
       }
     },
-    [gameId]
+    [gameId],
   );
 
   useEffect(() => {
@@ -152,51 +130,60 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
     void load(true);
   }, [enabled, load]);
 
-  const inProgress = progress?.gameId === gameId || progress?.phase === "scan";
+  const healthById = useMemo(
+    () => new Map(health.map((entry) => [entry.id, entry.exists])),
+    [health],
+  );
 
-  // KPIs
+  const inProgress = progress?.gameId === gameId || progress?.phase === "scan";
   const totalSnapshots = backups?.length ?? 0;
   const totalBytes = useMemo(
-    () => (backups ?? []).reduce((acc, b) => acc + b.totalBytes, 0),
-    [backups]
+    () => (backups ?? []).reduce((sum, backup) => sum + backup.totalBytes, 0),
+    [backups],
   );
   const includedCount = useMemo(
-    () => (locations ?? []).filter((l) => l.include).length,
-    [locations]
+    () => (locations ?? []).filter((location) => location.include).length,
+    [locations],
+  );
+  const missingCount = useMemo(
+    () =>
+      (locations ?? []).filter(
+        (location) => location.include && healthById.get(location.id) === false,
+      ).length,
+    [locations, healthById],
   );
   const latestBackup = backups?.[0] ?? null;
 
-  // Filtered timeline
   const filteredBackups = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return (backups ?? []).filter((b) => {
-      if (kindFilter !== "all" && b.kind !== kindFilter) return false;
-      if (q) {
-        const noteMatches = b.note ? b.note.toLowerCase().includes(q) : false;
-        const statusMatches = b.status.toLowerCase().includes(q);
-        if (!noteMatches && !statusMatches) return false;
-      }
-      return true;
+    const query = search.trim().toLowerCase();
+    return (backups ?? []).filter((backup) => {
+      if (kindFilter !== "all" && backup.kind !== kindFilter) return false;
+      if (!query) return true;
+      return (
+        (backup.note ?? "").toLowerCase().includes(query) ||
+        backup.kind.toLowerCase().includes(query) ||
+        backup.status.toLowerCase().includes(query)
+      );
     });
-  }, [backups, kindFilter, searchQuery]);
+  }, [backups, kindFilter, search]);
 
   const handleBackup = useCallback(
-    async (note?: string | null) => {
+    async (customNote?: string | null) => {
       setBusy("backup");
       try {
         const backup = await invoke<SaveBackup>("saves_backup_game", {
           gameId,
-          note: note && note.trim() ? note.trim() : null,
+          note: customNote && customNote.trim() ? customNote.trim() : null,
         });
         showToast(
           t("saves.toast.backupDone", {
             count: backup.fileCount,
             size: formatBytes(backup.totalBytes),
           }),
-          "success"
+          "success",
         );
         setNoteOpen(false);
-        setCustomNote("");
+        setNote("");
         await load(false);
       } catch (err) {
         showToast(err instanceof Error ? err.message : String(err), "error");
@@ -204,7 +191,7 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         setBusy(null);
       }
     },
-    [gameId, load, showToast, t, formatBytes]
+    [gameId, load, showToast, t, formatBytes],
   );
 
   const handleDetect = useCallback(async () => {
@@ -218,75 +205,53 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
       setLocations(list);
       const added = Math.max(0, list.length - before);
       showToast(t("saves.toast.scanGame", { count: added }), added > 0 ? "success" : "info");
+      await load(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), "error");
     } finally {
       setBusy(null);
     }
-  }, [gameId, locations, showToast, t]);
-
-  const handleAdd = useCallback(async () => {
-    if (!addPath.trim()) return;
-    try {
-      await invoke<SaveLocation>("saves_add_location", {
-        gameId,
-        path: addPath.trim(),
-        label: addLabel.trim() || null,
-      });
-      setAddPath("");
-      setAddLabel("");
-      setAddOpen(false);
-      await load(false);
-      showToast(t("saves.toast.gameBackedUp", { name: gameName }), "success");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : String(err), "error");
-    }
-  }, [addPath, addLabel, gameId, gameName, load, showToast, t]);
-
-  const handleBrowseDir = useCallback(async () => {
-    try {
-      const picked = await open({ directory: true, multiple: false });
-      if (typeof picked === "string" && picked) setAddPath(picked);
-    } catch {
-      /* cancelled */
-    }
-  }, []);
-
-  const handleBrowseFile = useCallback(async () => {
-    try {
-      const picked = await open({ directory: false, multiple: false });
-      if (typeof picked === "string" && picked) setAddPath(picked);
-    } catch {
-      /* cancelled */
-    }
-  }, []);
+  }, [gameId, locations, load, showToast, t]);
 
   const toggleInclude = useCallback(
-    async (loc: SaveLocation) => {
+    async (location: SaveLocation) => {
       try {
-        await invoke<SaveLocation>("saves_update_location", {
-          location: { ...loc, include: !loc.include },
+        await invoke("saves_update_location", {
+          location: { ...location, include: !location.include },
         });
         setLocations((prev) =>
-          prev ? prev.map((l) => (l.id === loc.id ? { ...l, include: !l.include } : l)) : prev
+          prev
+            ? prev.map((item) =>
+                item.id === location.id ? { ...item, include: !item.include } : item,
+              )
+            : prev,
         );
       } catch (err) {
         showToast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [showToast]
+    [showToast],
   );
 
   const removeLocation = useCallback(
-    async (loc: SaveLocation) => {
+    async (location: SaveLocation) => {
       try {
-        await invoke<number>("saves_remove_location", { id: loc.id });
-        setLocations((prev) => (prev ? prev.filter((l) => l.id !== loc.id) : prev));
+        await invoke("saves_remove_location", { id: location.id });
+        setLocations((prev) => (prev ? prev.filter((item) => item.id !== location.id) : prev));
       } catch (err) {
         showToast(err instanceof Error ? err.message : String(err), "error");
       }
     },
-    [showToast]
+    [showToast],
+  );
+
+  const openBackupFolder = useCallback(
+    (backup: SaveBackup) => {
+      void openBackup(backup.id).catch((err: unknown) => {
+        showToast(err instanceof Error ? err.message : String(err), "error");
+      });
+    },
+    [openBackup, showToast],
   );
 
   const handleConfirm = useCallback(async () => {
@@ -297,14 +262,16 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         const result = await restoreBackup(pending.backup.id);
         showToast(
           t("saves.toast.restoreDone", { count: result.restoredFiles }),
-          result.warnings.length > 0 ? "info" : "success"
+          result.warnings.length > 0 ? "info" : "success",
         );
-        await load(false);
       } else {
         await deleteBackup(pending.backup.id);
-        setBackups((prev) => (prev ? prev.filter((b) => b.id !== pending.backup.id) : prev));
+        setBackups((prev) =>
+          prev ? prev.filter((backup) => backup.id !== pending.backup.id) : prev,
+        );
         showToast(t("saves.toast.backupDeleted"), "info");
       }
+      await load(false);
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err), "error");
     } finally {
@@ -313,125 +280,139 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
     }
   }, [pending, restoreBackup, deleteBackup, load, showToast, t]);
 
-  if (!enabled) {
-    return null;
-  }
+  if (!enabled) return null;
 
   const subtabs: SubTabItem<GameSubtab>[] = [
+    { id: "snapshots", label: t("saves.gameTab.snapshots"), icon: Archive, count: totalSnapshots },
+    { id: "locations", label: t("saves.gameTab.locations"), icon: FolderOpen, count: locations?.length ?? 0 },
+    { id: "settings", label: t("saves.gameTab.settings"), icon: SlidersHorizontal },
+  ];
+
+  const stats: StatBandItem[] = [
     {
       id: "snapshots",
-      label: t("saves.gameTab.snapshots"),
-      icon: Archive,
-      count: totalSnapshots,
+      label: t("saves.kpi.backups"),
+      value: totalSnapshots,
+      detail: formatBytes(totalBytes),
+      tone: "accent",
+      icon: <Archive size={14} />,
+    },
+    {
+      id: "storage",
+      label: t("saves.kpi.storageUsed"),
+      value: formatBytes(totalBytes),
+      tone: "info",
+      icon: <HardDrive size={14} />,
     },
     {
       id: "locations",
-      label: t("saves.gameTab.locations"),
-      icon: FolderOpen,
-      count: locations?.length ?? 0,
+      label: t("saves.kpi.locations"),
+      value: includedCount,
+      detail: t("saves.pane.locationsDetail", { total: locations?.length ?? 0 }),
+      tone: missingCount > 0 ? "danger" : "default",
+      icon: <FolderOpen size={14} />,
     },
     {
-      id: "settings",
-      label: t("saves.gameTab.settings"),
-      icon: SlidersHorizontal,
+      id: "last",
+      label: t("saves.kpi.lastBackup"),
+      value: latestBackup
+        ? formatRelative(latestBackup.createdAt, language)
+        : t("saves.kpi.never"),
+      icon: <Clock size={14} />,
     },
   ];
 
   return (
     <div className="saves-tab">
-      {/* ─── Top Header & Primary Action Bar ────────────────────────────── */}
-      <div className="saves-tab__toolbar">
-        <div className="saves-tab__toolbar-text">
+      <div className="saves-tab__head">
+        <div className="saves-tab__intro">
           <h2 className="saves-tab__title">{t("saves.tab.title")}</h2>
           <p className="saves-tab__subtitle">{t("saves.tab.subtitle")}</p>
         </div>
-
         <div className="saves-tab__actions">
           <Button
-            variant="secondary"
+            variant="tertiary"
             size="sm"
-            onClick={handleDetect}
+            leftIcon={<RefreshCw size={14} />}
+            onClick={() => void handleDetect()}
             isLoading={busy === "detect"}
             disabled={busy !== null}
             title={t("saves.action.rescan")}
           >
-            <RefreshCw size={14} />
             {t("saves.action.rescan")}
           </Button>
-
           <Button
             variant="ghost"
             size="sm"
+            leftIcon={<Plus size={14} />}
             onClick={() => {
-              setAddOpen((o) => !o);
-              if (!addOpen) setSubtab("locations");
+              setSubtab("locations");
+              setAddOpen(true);
             }}
           >
-            <Plus size={14} />
             {t("saves.action.addLocation")}
           </Button>
-
           <Button
-            variant="ghost"
+            variant="tertiary"
             size="sm"
-            onClick={() => setNoteOpen((o) => !o)}
+            leftIcon={<FileText size={14} />}
+            onClick={() => setNoteOpen((open) => !open)}
             disabled={busy !== null || includedCount === 0}
+            aria-expanded={noteOpen}
           >
-            <FileText size={14} />
             {t("saves.snapshot.takeWithNote")}
           </Button>
-
           <Button
             variant="primary"
             size="sm"
+            leftIcon={<Zap size={14} />}
             onClick={() => void handleBackup(null)}
             isLoading={busy === "backup"}
             disabled={busy !== null || includedCount === 0}
           >
-            <Zap size={14} />
             {t("saves.action.backupNow")}
           </Button>
         </div>
       </div>
 
-      {/* ─── Optional Snapshot Note Drawer ──────────────────────────────── */}
       {noteOpen && (
-        <div className="saves-note-drawer">
-          <span className="saves-card__title" style={{ fontSize: "var(--text-md)" }}>
-            {t("saves.snapshot.createTitle")}
-          </span>
-          <div className="saves-note-drawer__inputs">
-            <input
-              type="text"
-              className="saves-input saves-note-drawer__input"
-              placeholder={t("saves.snapshot.notePlaceholder")}
-              value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleBackup(customNote);
-              }}
-              autoFocus
-            />
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => void handleBackup(customNote)}
-              isLoading={busy === "backup"}
-            >
-              <Zap size={13} />
-              {t("saves.action.backupNow")}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setNoteOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-          </div>
+        <div className="saves-note">
+          <input
+            type="text"
+            className="saves-input"
+            placeholder={t("saves.snapshot.notePlaceholder")}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void handleBackup(note);
+              if (event.key === "Escape") setNoteOpen(false);
+            }}
+            aria-label={t("saves.snapshot.notePlaceholder")}
+            autoFocus
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => void handleBackup(note)}
+            isLoading={busy === "backup"}
+          >
+            {t("saves.action.backupNow")}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setNoteOpen(false)}>
+            {t("common.cancel")}
+          </Button>
         </div>
       )}
 
-      {/* ─── Shared Progress Bar ────────────────────────────────────────── */}
       {inProgress && progress && (
         <div className="saves-progress" role="status" aria-live="polite">
-          <div className="saves-progress__bar">
+          <div
+            className="saves-progress__bar"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.percent}
+          >
             <div
               className="saves-progress__fill"
               style={{ width: `${Math.max(4, progress.percent)}%` }}
@@ -443,45 +424,8 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         </div>
       )}
 
-      {/* ─── 4 KPI Tiles Summary ────────────────────────────────────────── */}
-      <div className="saves-game-kpis">
-        <KpiTile
-          label={t("saves.kpi.backups")}
-          value={totalSnapshots}
-          icon={<Archive size={15} />}
-          intent="accent"
-          size="sm"
-        />
-        <KpiTile
-          label={t("saves.kpi.storageUsed")}
-          value={formatBytes(totalBytes)}
-          icon={<HardDrive size={15} />}
-          intent="info"
-          size="sm"
-        />
-        <KpiTile
-          label={t("saves.kpi.locations")}
-          value={includedCount}
-          icon={<FolderOpen size={15} />}
-          subtext={
-            locations?.length !== includedCount
-              ? `${includedCount}/${locations?.length ?? 0}`
-              : undefined
-          }
-          intent={includedCount === 0 ? "warning" : "default"}
-          size="sm"
-        />
-        <KpiTile
-          label={t("saves.kpi.lastBackup")}
-          value={
-            latestBackup ? formatRelative(latestBackup.createdAt, language) : t("saves.kpi.never")
-          }
-          icon={<Clock size={15} />}
-          size="sm"
-        />
-      </div>
+      <StatBand items={stats} ariaLabel={t("saves.pane.statsLabel")} />
 
-      {/* ─── Per-Game Subtabs Bar ───────────────────────────────────────── */}
       <SubTabs
         items={subtabs}
         value={subtab}
@@ -490,306 +434,163 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
         className="saves-game-subtabs"
       />
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 1: SNAPSHOTS & TIMELINE
-          ═══════════════════════════════════════════════════════════════════ */}
       {subtab === "snapshots" && (
-        <section className="saves-card">
-          <header className="saves-card__header">
-            <h3 className="saves-card__title">{t("saves.backups.title")}</h3>
-            <span className="saves-card__count">
+        <Panel
+          heading={t("saves.backups.title")}
+          actions={
+            <span className="saves-section__count">
               {t("saves.backups.count", { count: filteredBackups.length })}
             </span>
-          </header>
-
-          {/* Timeline Filter Toolbar */}
-          <div className="saves-toolbar" style={{ marginTop: 0 }}>
-            <div
-              className="saves-input-wrapper"
-              style={{ position: "relative", flex: 1, minWidth: 200, maxWidth: 320 }}
-            >
+          }
+        >
+          <div className="saves-timeline__bar">
+            <div className="saves-timeline__search">
+              <Search size={15} aria-hidden="true" />
               <input
                 type="search"
-                className="saves-input"
-                style={{ width: "100%", paddingLeft: 34 }}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder={t("saves.snapshots.searchPlaceholder")}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Search
-                size={14}
-                style={{
-                  position: "absolute",
-                  left: 11,
-                  top: 10,
-                  color: "var(--color-text-muted)",
-                  pointerEvents: "none",
-                }}
+                aria-label={t("saves.snapshots.searchPlaceholder")}
               />
             </div>
-
-            <div className="saves-filter-pills">
+          </div>
+          <div className="saves-timeline__chips" role="group" aria-label={t("saves.filterByType")}>
+            {(["all", "manual", "auto-exit", "pre-restore"] as const).map((item) => (
               <button
+                key={item}
                 type="button"
-                className={`saves-filter-pill ${kindFilter === "all" ? "active" : ""}`}
-                onClick={() => setKindFilter("all")}
+                className={`saves-chip${kindFilter === item ? " is-active" : ""}`}
+                aria-pressed={kindFilter === item}
+                onClick={() => setKindFilter(item)}
               >
-                <span>{t("saves.snapshots.allKinds")}</span>
+                {item === "all"
+                  ? t("saves.snapshots.allKinds")
+                  : t(SAVE_KIND_LABEL_KEY[item])}
               </button>
-              <button
-                type="button"
-                className={`saves-filter-pill ${kindFilter === "manual" ? "active" : ""}`}
-                onClick={() => setKindFilter("manual")}
-              >
-                <span>{t("saves.kind.manual")}</span>
-              </button>
-              <button
-                type="button"
-                className={`saves-filter-pill ${kindFilter === "auto-exit" ? "active" : ""}`}
-                onClick={() => setKindFilter("auto-exit")}
-              >
-                <span>{t("saves.kind.autoExit")}</span>
-              </button>
-              <button
-                type="button"
-                className={`saves-filter-pill ${kindFilter === "pre-restore" ? "active" : ""}`}
-                onClick={() => setKindFilter("pre-restore")}
-              >
-                <span>{t("saves.kind.preRestore")}</span>
-              </button>
-            </div>
+            ))}
           </div>
 
           {backups === null ? (
-            <div className="saves-card__skeleton">
+            <div className="saves-timeline__skeleton" aria-busy="true">
               <Skeleton width="100%" height="56px" />
               <Skeleton width="100%" height="56px" />
             </div>
           ) : filteredBackups.length === 0 ? (
-            <div className="saves-empty">
-              <p className="saves-empty__title">{t("saves.backups.emptyTitle")}</p>
-              <p className="saves-empty__text">{t("saves.backups.emptyText")}</p>
+            <div className="saves-empty saves-empty--compact">
+              <p className="saves-empty__title">
+                {backups.length === 0
+                  ? t("saves.snapshots.noneTitle")
+                  : t("saves.snapshots.emptyFilter")}
+              </p>
+              <p className="saves-empty__text">{t("saves.snapshots.noneText")}</p>
               <Button
                 variant="primary"
                 size="sm"
+                leftIcon={<Zap size={14} />}
                 onClick={() => void handleBackup(null)}
                 isLoading={busy === "backup"}
                 disabled={includedCount === 0}
               >
-                <Zap size={14} />
                 {t("saves.action.backupNow")}
               </Button>
             </div>
           ) : (
-            <ul className="saves-backup-list">
+            <ul className="saves-snaps">
               {filteredBackups.map((backup) => (
-                <li key={backup.id} className="saves-snapshot-card-rich">
-                  <div className="saves-snapshot-card-main">
-                    <div className="saves-snapshot-card-details">
-                      <div className="saves-snapshot-card-headline">
-                        <Badge
-                          variant={
-                            backup.kind === "manual"
-                              ? "accent"
-                              : backup.kind === "pre-restore"
-                                ? "warning"
-                                : "info"
-                          }
-                          size="sm"
-                        >
-                          {t(SAVE_KIND_LABEL_KEY[backup.kind] ?? "saves.kind.manual")}
-                        </Badge>
-                        <span className="saves-backup__when">
-                          {formatRelative(backup.createdAt, language)}
-                        </span>
-                        <Badge variant={statusVariant(backup.status)} size="sm">
-                          {t(`saves.status.${backup.status}`)}
-                        </Badge>
-                      </div>
-
-                      <div className="saves-snapshot-card-meta">
-                        <span>
-                          {t("saves.backups.meta", {
-                            files: backup.fileCount,
-                            size: formatBytes(backup.totalBytes),
-                          })}
-                        </span>
-                        {backup.note && (
-                          <>
-                            <span>·</span>
-                            <span className="saves-snapshot-card-note">“{backup.note}”</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="saves-snapshot-card-actions">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setPending({ kind: "restore", backup })}
-                    >
-                      {t("saves.action.restore")}
-                    </Button>
-                    <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
-                      type="button"
-                      
-                      onClick={() => void openBackup(backup.id)}
-                      title={t("saves.action.openBackup")}
-                      aria-label={t("saves.action.openBackup")}
-                     className="saves-icon-btn"></Button>
-                    <Button variant="secondary" size="sm" iconOnly leftIcon={<Trash2 size={15} />}
-                      type="button"
-                      
-                      onClick={() => setPending({ kind: "delete", backup })}
-                      title={t("saves.action.deleteBackup")}
-                      aria-label={t("saves.action.deleteBackup")}
-                     className="saves-icon-btn saves-icon-btn--danger"></Button>
-                  </div>
-                </li>
+                <SnapshotRow
+                  key={backup.id}
+                  backup={backup}
+                  onOpenDetails={() => setDrawer(backup)}
+                  onRestore={() => setPending({ kind: "restore", backup })}
+                  onOpenFolder={() => openBackupFolder(backup)}
+                  onDelete={() => setPending({ kind: "delete", backup })}
+                />
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 2: SAVE LOCATIONS
-          ═══════════════════════════════════════════════════════════════════ */}
       {subtab === "locations" && (
-        <section className="saves-card">
-          <header className="saves-card__header">
-            <h3 className="saves-card__title">{t("saves.locations.title")}</h3>
-            <span className="saves-card__count">
-              {t("saves.locations.count", { count: includedCount })}
-            </span>
-          </header>
-
-          {/* Add Location Drawer */}
-          {addOpen && (
-            <div className="saves-add-row" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <input
-                type="text"
-                className="saves-input"
-                style={{ flex: 1, minWidth: 200 }}
-                placeholder={t("saves.add.placeholder")}
-                value={addPath}
-                onChange={(e) => setAddPath(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleAdd();
-                }}
-              />
-              <Button variant="secondary" size="sm" onClick={handleBrowseDir}>
-                <FolderOpen size={14} />
-                {t("saves.locations.kindFolder")}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={handleBrowseFile}>
-                <FileText size={14} />
-                {t("saves.locations.kindFile")}
-              </Button>
-              <Button variant="primary" size="sm" onClick={handleAdd} disabled={!addPath.trim()}>
-                {t("saves.action.add")}
+        <Panel
+          heading={t("saves.locations.title")}
+          actions={
+            <div className="saves-section__actions">
+              <span className="saves-section__count">
+                {t("saves.locations.count", { count: includedCount })}
+              </span>
+              <Button
+                variant="tertiary"
+                size="sm"
+                leftIcon={<Plus size={14} />}
+                onClick={() => setAddOpen((open) => !open)}
+                aria-expanded={addOpen}
+              >
+                {t("saves.action.addLocation")}
               </Button>
             </div>
+          }
+        >
+          {addOpen && (
+            <AddLocationForm
+              gameId={gameId}
+              onAdded={() => {
+                setAddOpen(false);
+                void load(false);
+              }}
+              onCancel={() => setAddOpen(false)}
+            />
           )}
 
           {locations === null ? (
-            <div className="saves-card__skeleton">
+            <div className="saves-timeline__skeleton" aria-busy="true">
               <Skeleton width="100%" height="44px" />
               <Skeleton width="100%" height="44px" />
             </div>
           ) : locations.length === 0 ? (
-            <div className="saves-empty">
+            <div className="saves-empty saves-empty--compact">
               <p className="saves-empty__title">{t("saves.locations.emptyTitle")}</p>
               <p className="saves-empty__text">{t("saves.locations.emptyText")}</p>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="saves-empty__actions">
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
-                  onClick={handleDetect}
+                  leftIcon={<RefreshCw size={14} />}
+                  onClick={() => void handleDetect()}
                   isLoading={busy === "detect"}
                 >
-                  <RefreshCw size={14} />
                   {t("saves.action.scanForSaves")}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
-                  <Plus size={14} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Plus size={14} />}
+                  onClick={() => setAddOpen(true)}
+                >
                   {t("saves.action.addLocation")}
                 </Button>
               </div>
             </div>
           ) : (
-            <ul className="saves-location-list">
-              {locations.map((loc) => (
-                <li
-                  key={loc.id}
-                  className={`saves-location${loc.include ? "" : " is-excluded"}`}
-                >
-                  <label className="saves-location__check" title={t("saves.locations.include")}>
-                    <input
-                      type="checkbox"
-                      checked={loc.include}
-                      onChange={() => void toggleInclude(loc)}
-                      aria-label={t("saves.locations.include")}
-                    />
-                  </label>
-                  <div className="saves-location__body">
-                    <div className="saves-location__top">
-                      <span className="saves-location__label">
-                        {loc.label || t("saves.locations.untitled")}
-                      </span>
-                      <Badge variant={sourceVariant(loc.source)} size="sm">
-                        {t(SAVE_SOURCE_LABEL_KEY[loc.source] ?? "saves.source.manual")}
-                      </Badge>
-                      <Badge variant="default" size="sm">
-                        {loc.kind === "file"
-                          ? t("saves.locations.kindFile")
-                          : t("saves.locations.kindFolder")}
-                      </Badge>
-                    </div>
-                    <button
-                      type="button"
-                      className="saves-location__path"
-                      onClick={() => void openPath(loc.path)}
-                      title={t("saves.action.openFolder")}
-                    >
-                      {loc.path}
-                    </button>
-                  </div>
-                  <div className="saves-location__actions">
-                    <Button variant="secondary" size="sm" iconOnly leftIcon={<FolderOpen size={15} />}
-                      type="button"
-                      
-                      onClick={() => void openPath(loc.path)}
-                      title={t("saves.action.openFolder")}
-                      aria-label={t("saves.action.openFolder")}
-                     className="saves-icon-btn"></Button>
-                    <Button variant="secondary" size="sm" iconOnly leftIcon={<Trash2 size={15} />}
-                      type="button"
-                      
-                      onClick={() => void removeLocation(loc)}
-                      title={t("saves.action.removeLocation")}
-                      aria-label={t("saves.action.removeLocation")}
-                     className="saves-icon-btn saves-icon-btn--danger"></Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <SaveLocationList
+              locations={locations}
+              health={healthById}
+              onToggle={(location) => void toggleInclude(location)}
+              onOpen={(location) => {
+                void openLocation(location.id).catch((err: unknown) =>
+                  showToast(err instanceof Error ? err.message : String(err), "error"),
+                );
+              }}
+              onRemove={(location) => void removeLocation(location)}
+            />
           )}
-        </section>
+        </Panel>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SUBTAB 3: GAME SETTINGS & AUTOMATION
-          ═══════════════════════════════════════════════════════════════════ */}
       {subtab === "settings" && settings && (
-        <div className="saves-settings-panel">
-          <section className="saves-card">
-            <header className="saves-card__header">
-              <h3 className="saves-card__title">{t("saves.gameTab.settings")}</h3>
-            </header>
-
+        <div className="saves-settings">
+          <Panel heading={t("saves.settings.title")}>
             <div className="saves-settings-grid">
               <SettingsToggleCard
                 title={t("saves.settings.autoExitTitle")}
@@ -804,13 +605,9 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                 onChange={(checked) => void updateSettings({ restoreSafetySnapshot: checked })}
               />
             </div>
-          </section>
+          </Panel>
 
-          <section className="saves-card">
-            <header className="saves-card__header">
-              <h3 className="saves-card__title">{t("saves.settings.storageTitle")}</h3>
-            </header>
-
+          <Panel heading={t("saves.settings.storageTitle")}>
             <div className="saves-setting-row">
               <div className="saves-setting-row__text">
                 <span className="saves-setting-row__label">{t("saves.settings.backupDir")}</span>
@@ -822,9 +619,9 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
                 <Button
                   variant="ghost"
                   size="sm"
+                  leftIcon={<FolderOpen size={14} />}
                   onClick={() => void invoke("saves_open_path", { path: settings.backupDir })}
                 >
-                  <FolderOpen size={14} />
                   {t("saves.action.openFolder")}
                 </Button>
               </div>
@@ -837,15 +634,30 @@ export default function SaveBackupTab({ gameId, gameName }: SaveBackupTabProps) 
               </div>
               <div className="saves-setting-row__actions">
                 <Badge variant="default">
-                  {settings.retention === 0 ? "Unlimited" : `${settings.retention} per game`}
+                  {settings.retention === 0
+                    ? t("saves.settings.retentionUnlimited")
+                    : t("saves.settings.retentionPerGame", { count: settings.retention })}
                 </Badge>
               </div>
             </div>
-          </section>
+          </Panel>
         </div>
       )}
 
-      {/* ─── Confirmation Modal ─────────────────────────────────────────── */}
+      <SnapshotDrawer
+        backup={drawer}
+        onClose={() => setDrawer(null)}
+        onRestore={(backup) => {
+          setDrawer(null);
+          setPending({ kind: "restore", backup });
+        }}
+        onDelete={(backup) => {
+          setDrawer(null);
+          setPending({ kind: "delete", backup });
+        }}
+        onOpenFolder={(backup) => openBackupFolder(backup)}
+      />
+
       <ConfirmModal
         open={pending !== null}
         busy={confirmBusy}
