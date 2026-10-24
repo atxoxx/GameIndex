@@ -16,6 +16,7 @@ import { openGameDetailWindow } from "../../utils/gameDetailWindow";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { ArtworkImage } from "../ui/ArtworkImage";
 import StoreHighlightText from "./StoreHighlightText";
+import { isStoreScrolling } from "./storeCardHover";
 
 interface StoreGameCardProps {
   game: StoreGameSummary;
@@ -176,11 +177,27 @@ function StoreGameCardBase({
     []
   );
 
+  // Drop an already-playing hover preview the moment the wheel starts again.
+  useEffect(() => {
+    if (!previewActive) return;
+    const onScroll = () => {
+      if (isStoreScrolling(120)) setPreviewActive(false);
+    };
+    document.addEventListener("scroll", onScroll, {
+      capture: true,
+      passive: true,
+    });
+    return () => document.removeEventListener("scroll", onScroll, true);
+  }, [previewActive]);
+
   const handleMouseEnter = () => {
     onHoverChange?.(true);
     if (previewTimerRef.current !== null) clearTimeout(previewTimerRef.current);
+    // Never start decoding an animated poster while the page is still moving.
+    if (isStoreScrolling()) return;
     previewTimerRef.current = setTimeout(() => {
       previewTimerRef.current = null;
+      if (isStoreScrolling()) return;
       setPreviewActive(true);
     }, ANIMATED_PREVIEW_DELAY_MS);
   };
@@ -552,88 +569,93 @@ function StoreGameCardBase({
           </span>
         )}
 
-        {onHide && (
-          <button
-            type="button"
-            className="store-card-hide"
-            aria-label={t("store.gameCard.hideAria", { name: game.name })}
-            title={t("store.notInterested")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onHide(game, e);
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-              <line x1="1" y1="1" x2="23" y2="23" />
-            </svg>
-          </button>
-        )}
+        <div className="store-card-cover-scrim" aria-hidden="true" />
 
-        {showCompare && onCompare && (
-          <button
-            type="button"
-            className={`store-card-compare ui-complete-only${inCompare ? " active" : ""}`}
-            aria-label={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.gameCard.addToCompareAria", { name: game.name })}
-            aria-pressed={inCompare}
-            title={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.addToCompare")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCompare(game, e);
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+        <div className="store-card-actions" onClick={(e) => e.stopPropagation()}>
+          {showCompare && onCompare && (
+            <button
+              type="button"
+              className={`store-card-compare ui-complete-only${inCompare ? " active" : ""}`}
+              aria-label={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.gameCard.addToCompareAria", { name: game.name })}
+              aria-pressed={inCompare}
+              title={inCompare ? t("store.compare.removeFromCompare", { name: game.name }) : t("store.addToCompare")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCompare(game, e);
+              }}
             >
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-          </button>
-        )}
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+            </button>
+          )}
 
-        {showHeart && (
-          <button
-            type="button"
-            className={`store-card-heart${wishlisted ? " active" : ""}`}
-            aria-label={
-              wishlisted
-                ? t("store.gameCard.removeWishlistAria", { name: game.name })
-                : t("store.gameCard.addWishlistAria", { name: game.name })
-            }
-            aria-pressed={wishlisted}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleWishlist!(game, e);
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill={wishlisted ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          {showHeart && (
+            <button
+              type="button"
+              className={`store-card-heart${wishlisted ? " active" : ""}`}
+              aria-label={
+                wishlisted
+                  ? t("store.gameCard.removeWishlistAria", { name: game.name })
+                  : t("store.gameCard.addWishlistAria", { name: game.name })
+              }
+              aria-pressed={wishlisted}
+              title={wishlisted ? t("store.spotlight.wishlisted") : t("store.spotlight.addToWishlist")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWishlist!(game, e);
+              }}
             >
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-          </button>
-        )}
+              <svg
+                viewBox="0 0 24 24"
+                fill={wishlisted ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          )}
+
+          {onHide && (
+            <button
+              type="button"
+              className="store-card-hide"
+              aria-label={t("store.gameCard.hideAria", { name: game.name })}
+              title={t("store.notInterested")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onHide(game, e);
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {showBody && (
@@ -657,19 +679,6 @@ function StoreGameCardBase({
               )}
             </div>
           )}
-
-          <div className="store-card-platforms">
-            {(game.platforms?.length ?? 0) > 0 ? (
-              game.platforms!.slice(0, 3).map((p, idx, arr) => (
-                <Fragment key={p}>
-                  <StoreHighlightText text={p} query={searchQuery} />
-                  {idx < arr.length - 1 ? " · " : null}
-                </Fragment>
-              ))
-            ) : (
-              (releaseYear ?? (reserveRowHeight ? "\u00A0" : ""))
-            )}
-          </div>
 
           {(hasPrice || reserveRowHeight) && (
             <div className="store-card-price">

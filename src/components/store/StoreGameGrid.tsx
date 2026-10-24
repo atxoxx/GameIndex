@@ -1,4 +1,12 @@
-import { useRef, useEffect, useLayoutEffect, useCallback, useContext, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useContext,
+  useState,
+  startTransition,
+} from "react";
 import StoreGameCard from "./StoreGameCard";
 import { Button } from "../ui";
 import { DensityContext } from "../../context/DensityContext";
@@ -35,10 +43,10 @@ interface StoreGameGridProps {
  *  rows are unmounted. The store list grows unbounded via infinite scroll,
  *  so without a window every visited page stays mounted with its poster
  *  decoded. */
-const VIRTUALIZE_THRESHOLD = 60;
+const VIRTUALIZE_THRESHOLD = 24;
 /** Rows rendered beyond the viewport on each side, so a fast scroll never
  *  outruns React and keyboard focus stays inside the mounted window. */
-const OVERSCAN_ROWS = 4;
+const OVERSCAN_ROWS = 3;
 
 function isWindow(target: HTMLElement | Window): target is Window {
   return target === window;
@@ -58,6 +66,11 @@ interface StoreGridMetrics {
   cols: number;
   rowStride: number;
   rowGap: number;
+}
+
+interface StoreGridRange {
+  startRow: number;
+  endRow: number;
 }
 
 function sameStoreMetrics(a: StoreGridMetrics, b: StoreGridMetrics): boolean {
@@ -142,12 +155,32 @@ export default function StoreGameGrid({
   // every loaded page keeps each poster decoded and each card's hooks
   // alive long after it scrolled away, so above the threshold only the
   // visible rows (plus an overscan) are mounted; spacers reserve the rest.
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportH, setViewportH] = useState(0);
+  //
+  // The scroll handler deliberately does NOT store raw scrollTop: that would
+  // re-render the whole grid every frame. It tracks the visible row range and
+  // only re-renders when that range changes, and it reads the container's
+  // scrollTop (no getBoundingClientRect) so scrolling never forces layout.
   const [metrics, setMetrics] = useState<StoreGridMetrics | null>(null);
+  const [range, setRange] = useState<StoreGridRange | null>(null);
   const [pendingFocus, setPendingFocus] = useState<number | null>(null);
 
+  // Entrance motion is for the first screen, not for every appended page.
+  // Index cap also keeps a cached-first visit from starting 60 animations.
+  const animatedCountRef = useRef(Math.min(games.length, 24));
+  useEffect(() => {
+    if (games.length < animatedCountRef.current) {
+      animatedCountRef.current = Math.min(games.length, 24);
+    }
+  }, [games.length]);
+
   const canVirtualize = games.length > VIRTUALIZE_THRESHOLD;
+
+  const metricsRef = useRef<StoreGridMetrics | null>(null);
+  const rangeRef = useRef<StoreGridRange | null>(null);
+  const gamesLenRef = useRef(games.length);
+  // Keep the latest length available to the layout effect and scroll handler
+  // in the same commit that renders the new page (an effect runs too late).
+  gamesLenRef.current = games.length;
 
   const readMetrics = useCallback((): StoreGridMetrics | null => {
     const grid = gridRef.current;
@@ -162,65 +195,119 @@ export default function StoreGameGrid({
     return { cols, rowStride: cellHeight + rowGap, rowGap };
   }, []);
 
+  const applyMetrics = useCallback((next: StoreGridMetrics) => {
+    metricsRef.current = next;
+    setMetrics((prev) => (prev && sameStoreMetrics(prev, next) ? prev : next));
+  }, []);
+
+  const computeRange = useCallback(
+    (
+      container: HTMLElement | Window,
+      gridOffset: number,
+      viewportHeight: number
+    ) => {
+      const m = metricsRef.current;
+      const total = gamesLenRef.current;
+      if (!m || total === 0) return;
+      const rows = Math.ceil(total / m.cols);
+      const scrollPos = isWindow(container) ? window.scrollY : container.scrollTop;
+      const offset = Math.max(0, scrollPos - gridOffset);
+      const overscanPx = m.rowStride * OVERSCAN_ROWS;
+      const startRow = Math.max(
+        0,
+        Math.floor((offset - overscanPx) / m.rowStride)
+      );
+      let endRow = Math.min(
+        rows - 1,
+        Math.ceil((offset + viewportHeight + overscanPx) / m.rowStride) - 1
+      );
+      if (endRow < startRow) endRow = startRow;
+
+      const prev = rangeRef.current;
+      if (prev && prev.startRow === startRow && prev.endRow === endRow) return;
+      const next: StoreGridRange = { startRow, endRow };
+      rangeRef.current = next;
+      // First window applies synchronously; subsequent row transitions are
+      // non-urgent so a fast flick never blocks the scroll thread.
+      if (prev === null) setRange(next);
+      else startTransition(() => setRange(next));
+    },
+    []
+  );
+
+  const measureOffsets = useCallback(
+    (container: HTMLElement | Window, grid: HTMLElement) => {
+      if (isWindow(container)) {
+        return {
+          gridOffset: grid.getBoundingClientRect().top + window.scrollY,
+          viewportHeight: window.innerHeight,
+        };
+      }
+      const containerRect = container.getBoundingClientRect();
+      return {
+        gridOffset:
+          grid.getBoundingClientRect().top - containerRect.top + container.scrollTop,
+        viewportHeight: container.clientHeight,
+      };
+    },
+    []
+  );
+
   useLayoutEffect(() => {
     if (!canVirtualize) {
+      metricsRef.current = null;
+      rangeRef.current = null;
       setMetrics(null);
+      setRange(null);
       return;
     }
-    const next = readMetrics();
-    if (!next) return;
-    setMetrics((prev) => (prev && sameStoreMetrics(prev, next) ? prev : next));
-  }, [canVirtualize, readMetrics, games.length, density]);
 
-  useEffect(() => {
-    if (!canVirtualize) return;
     const grid = gridRef.current;
     if (!grid) return;
     const container = findScrollContainer(grid);
 
-    const compute = () => {
-      const el = gridRef.current;
-      if (!el) return;
-      const elRect = el.getBoundingClientRect();
-      const containerRect = isWindow(container)
-        ? { top: 0, height: window.innerHeight }
-        : { top: container.getBoundingClientRect().top, height: container.clientHeight };
-      setScrollTop(Math.max(0, containerRect.top - elRect.top));
-      if (containerRect.height > 0) setViewportH(containerRect.height);
-    };
-    compute();
+    const next = readMetrics();
+    if (next) applyMetrics(next);
 
-    // A resize changes the auto-fill column count, so re-measure the grid
-    // metrics as well as the scroll offset.
-    const remeasure = () => {
-      const next = readMetrics();
-      if (!next) return;
-      setMetrics((prev) => (prev && sameStoreMetrics(prev, next) ? prev : next));
-    };
+    let offsets = measureOffsets(container, grid);
+    computeRange(container, offsets.gridOffset, offsets.viewportHeight);
 
     let raf = 0;
     const onScroll = () => {
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        compute();
+        computeRange(container, offsets.gridOffset, offsets.viewportHeight);
       });
     };
     const onResize = () => {
-      compute();
-      remeasure();
+      const remeasured = readMetrics();
+      if (remeasured) applyMetrics(remeasured);
+      offsets = measureOffsets(container, grid);
+      computeRange(container, offsets.gridOffset, offsets.viewportHeight);
     };
+
     container.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
-    const ro = new ResizeObserver(onResize);
-    ro.observe(grid);
+    const ro =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(onResize);
+    ro?.observe(grid);
+
     return () => {
       if (raf) cancelAnimationFrame(raf);
       container.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
-      ro.disconnect();
+      ro?.disconnect();
     };
-  }, [canVirtualize, readMetrics]);
+  }, [
+    canVirtualize,
+    readMetrics,
+    applyMetrics,
+    computeRange,
+    measureOffsets,
+    games.length,
+    density,
+  ]);
 
   // Focus a card by its global index. Cards are tagged with `data-index`, so
   // keyboard navigation keeps working even though only a slice is mounted.
@@ -439,33 +526,29 @@ export default function StoreGameGrid({
     );
   }
 
-  const virtual = canVirtualize && metrics !== null;
+  const virtual = canVirtualize && metrics !== null && range !== null;
   let visibleStart = 0;
-  let visibleEnd = games.length;
+  let visibleEnd = canVirtualize && !virtual ? Math.min(games.length, 24) : games.length;
   let topSpace = 0;
   let bottomSpace = 0;
-  if (virtual && metrics) {
+  if (virtual && metrics && range) {
     const { cols, rowStride, rowGap } = metrics;
-    const rows = Math.ceil(games.length / cols);
-    const overscanPx = rowStride * OVERSCAN_ROWS;
-    let firstRow = Math.max(0, Math.floor((scrollTop - overscanPx) / rowStride));
-    let lastRow = Math.min(
-      rows - 1,
-      Math.ceil((scrollTop + viewportH + overscanPx) / rowStride) - 1
-    );
-    if (lastRow < firstRow) lastRow = firstRow;
-    visibleStart = firstRow * cols;
-    visibleEnd = Math.min(games.length, (lastRow + 1) * cols);
+    const rows = Math.max(1, Math.ceil(games.length / cols));
+    let firstRow = Math.min(Math.max(0, range.startRow), rows - 1);
+    let lastRow = Math.min(Math.max(firstRow, range.endRow), rows - 1);
     if (pendingFocus !== null) {
       // Guarantee the keyboard target is inside the mounted slice.
-      visibleStart = Math.min(visibleStart, pendingFocus);
-      visibleEnd = Math.max(visibleEnd, pendingFocus + 1);
+      const focusRow = Math.min(Math.floor(pendingFocus / cols), rows - 1);
+      firstRow = Math.min(firstRow, focusRow);
+      lastRow = Math.max(lastRow, focusRow);
     }
+    visibleStart = firstRow * cols;
+    visibleEnd = Math.min(games.length, (lastRow + 1) * cols);
     topSpace = firstRow > 0 ? firstRow * rowStride - rowGap : 0;
     const hiddenBelow = rows - 1 - lastRow;
     bottomSpace = hiddenBelow > 0 ? hiddenBelow * rowStride - rowGap : 0;
   }
-  const visibleGames = virtual ? games.slice(visibleStart, visibleEnd) : games;
+  const visibleGames = games.slice(visibleStart, visibleEnd);
 
   return (
     <div className="store-game-grid-container">
@@ -492,7 +575,7 @@ export default function StoreGameGrid({
             aria-hidden="true"
             style={{ width: "14px", height: "14px", borderWidth: "2px" }}
           />
-          <span>Filtering by sources…</span>
+          <span>{t("store.filteringBySources")}</span>
         </div>
       )}
 
@@ -523,12 +606,19 @@ export default function StoreGameGrid({
         )}
         {visibleGames.map((game, i) => {
           const globalIndex = virtual ? visibleStart + i : i;
+          const isAppended = globalIndex >= animatedCountRef.current;
           return (
             <div
               key={game.id}
               data-index={globalIndex}
-              className={`store-game-cell${virtual ? " store-game-cell--virtual" : ""}`}
-              style={virtual ? undefined : { animationDelay: `${Math.min(globalIndex, 20) * 20}ms` }}
+              className={`store-game-cell${virtual ? " store-game-cell--virtual" : ""}${
+                isAppended ? " store-game-cell--append" : ""
+              }`}
+              style={
+                virtual || isAppended
+                  ? undefined
+                  : { animationDelay: `${globalIndex * 20}ms` }
+              }
             >
               <StoreGameCard
                 game={game}

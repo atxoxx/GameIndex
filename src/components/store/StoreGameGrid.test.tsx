@@ -75,3 +75,30 @@ describe("StoreGameGrid compare wiring", () => {
     expect(onCompare).toHaveBeenCalledWith(games[1], expect.anything());
   });
 });
+
+describe("StoreGameGrid windowing", () => {
+  it("never mounts a large catalogue in full before the window is measured", () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({
+      id: i + 1,
+      slug: `game-${i + 1}`,
+      name: `Game ${i + 1}`,
+      genres: [],
+      platforms: [],
+    })) as unknown as StoreGameSummary[];
+
+    const { container } = render(
+      <StoreGameGrid
+        games={many}
+        loading={false}
+        error={null}
+        hasMore
+        onLoadMore={() => {}}
+        onCardClick={() => {}}
+      />
+    );
+
+    const cells = container.querySelectorAll(".store-game-cell");
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.length).toBeLessThan(120);
+  });
+});

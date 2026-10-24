@@ -2457,3 +2457,1183 @@
   border-radius: var(--radius-2xl);
   box-shadow: none;
 }
+
+/* ============================================================================
+   Store catalogue refresh — compact hero, sticky command bar, chip row,
+   filter drawer, quick picks, and a clearer card hierarchy.
+   Appended last so it wins over the legacy store.css rules.
+   ============================================================================ */
+
+.store-page {
+  --store-banner-offset: 76px;
+  gap: var(--space-lg);
+}
+
+.store-page .store-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.store-page .store-header {
+  position: static;
+  margin-bottom: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.store-header-count {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.store-header-action-btn {
+  min-height: 34px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  border-color: transparent;
+  font-size: var(--text-xs);
+}
+
+.store-header-action-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.store-header-action-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-color: transparent;
+}
+
+.store-header-action-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+}
+
+.store-header-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Compact spotlight ──────────────────────────────────────────────────── */
+
+.store-hero-anchor {
+  scroll-margin-top: var(--space-md);
+}
+
+.store-page .store-spotlight {
+  gap: var(--space-sm);
+}
+
+.store-page .store-spotlight-stage {
+  min-height: clamp(260px, 30vh, 320px);
+  padding: var(--space-xl) var(--space-2xl);
+  border-radius: var(--radius-2xl);
+}
+
+.store-page .store-spotlight-body {
+  gap: var(--space-sm);
+  max-width: 620px;
+}
+
+.store-page .store-spotlight-title {
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+}
+
+.store-page .store-spotlight-logo {
+  max-height: 74px;
+  max-width: 300px;
+}
+
+.store-page .store-spotlight-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.store-page .store-spotlight-card-wrap {
+  width: 158px;
+}
+
+.store-page .store-spotlight-meta-row {
+  gap: var(--space-sm);
+}
+
+.store-page .store-spotlight-actions {
+  margin-top: var(--space-2xs);
+}
+
+/* Slide dots replace the old thumbnail dock: same navigation, a fraction of
+   the vertical budget, and no second horizontal scroller to fight with. */
+.store-spotlight-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-2xs) 0;
+  min-height: 12px;
+}
+
+.store-spotlight-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+  cursor: pointer;
+  overflow: hidden;
+  transition: width var(--transition-normal), background var(--transition-normal);
+}
+
+.store-spotlight-dot:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 38%, transparent);
+}
+
+.store-spotlight-dot.active {
+  width: 26px;
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.store-spotlight-dot-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.store-spotlight-dot.active .store-spotlight-dot-fill {
+  transform: scaleX(1);
+  opacity: 0.55;
+}
+
+.store-spotlight-dot.active.is-ticking .store-spotlight-dot-fill {
+  animation: store-dot-progress var(--store-dot-duration, 8s) linear forwards;
+}
+
+@keyframes store-dot-progress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.store-spotlight-dot:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Collapsed hero banner ──────────────────────────────────────────────── */
+
+/* Zero-height sticky slot at the top of the page: the banner can appear and
+   disappear without ever changing the page's layout height. */
+.store-hero-banner-slot {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 36;
+  pointer-events: none;
+  margin-bottom: calc(-1 * var(--space-lg));
+  will-change: transform;
+}
+
+.store-hero-banner {
+  position: absolute;
+  top: var(--space-sm);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 62px;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-3);
+  pointer-events: auto;
+  animation: store-banner-in 180ms var(--ease-standard) both;
+}
+
+@keyframes store-banner-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.store-hero-banner-cover {
+  width: 38px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.store-hero-banner-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.store-hero-banner-cover-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 22%, transparent),
+    transparent 70%
+  );
+}
+
+.store-hero-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+  flex: 1;
+}
+
+.store-hero-banner-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+}
+
+.store-hero-banner-title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.store-hero-banner-title:hover {
+  color: var(--color-accent);
+}
+
+.store-hero-banner-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.store-hero-banner-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.store-hero-banner-genre {
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.store-hero-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.store-hero-banner-nav {
+  display: flex;
+  gap: var(--space-3xs);
+}
+
+.store-hero-banner-nav-btn,
+.store-hero-banner-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.store-hero-banner-nav-btn:hover,
+.store-hero-banner-expand:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover);
+}
+
+.store-hero-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 32px;
+  padding: 0 var(--space-md);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.store-hero-banner-cta:hover {
+  background: var(--color-accent-hover);
+}
+
+/* ── Sticky command bar ─────────────────────────────────────────────────── */
+
+.store-page .store-command-bar {
+  position: sticky;
+  top: var(--space-sm);
+  z-index: 30;
+  gap: var(--space-sm);
+  margin-bottom: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.store-page--hero-collapsed .store-command-bar {
+  top: calc(var(--store-banner-offset) + var(--space-2xs));
+}
+
+.store-page .store-toolbar-search {
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+.store-page .store-toolbar-right {
+  gap: var(--space-xs);
+}
+
+.store-page .store-toolbar-count {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.store-page .store-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 34px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.store-page .store-filter-trigger:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.store-page .store-filter-trigger.has-active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.store-filter-trigger-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+/* ── Active filter chips ────────────────────────────────────────────────── */
+
+.store-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 38px;
+  padding: var(--space-2xs) var(--space-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 2.5%, transparent);
+}
+
+.store-chips-icon {
+  display: inline-flex;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.store-chips-list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.store-chips-list::-webkit-scrollbar {
+  display: none;
+}
+
+.store-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-3xs) var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.store-chip-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.store-chip-remove:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.store-chips-empty {
+  flex: 1;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.store-chips-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.store-chips-add,
+.store-chips-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.store-chips-add:hover,
+.store-chips-clear:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.store-chips-clear {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Filter drawer ──────────────────────────────────────────────────────── */
+
+.store-filter-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: color-mix(in srgb, var(--color-bg-primary) 52%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.store-filter-drawer-scrim.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.store-filter-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-modal) + 1);
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: min(410px, 94vw);
+  background: var(--color-bg-primary);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--elevation-4);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--transition-normal) var(--ease-standard), visibility var(--transition-normal);
+}
+
+.store-filter-drawer.open {
+  transform: none;
+  visibility: visible;
+}
+
+.store-filter-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-lg) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+}
+
+.store-filter-drawer-header h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.store-filter-drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.store-filter-drawer-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.store-filter-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+.store-filter-drawer .store-filter-sidebar {
+  position: static;
+  width: 100%;
+  max-height: none;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.store-filter-drawer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+}
+
+.store-filter-drawer-clear {
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.store-filter-drawer-clear:hover {
+  color: var(--color-danger);
+}
+
+.store-filter-drawer-apply {
+  flex: 1;
+  max-width: 240px;
+  height: 38px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.store-filter-drawer-apply:hover {
+  background: var(--color-accent-hover);
+}
+
+/* ── Quick picks rail ───────────────────────────────────────────────────── */
+
+.store-quick-picks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-radius: var(--radius-2xl);
+  background:
+    var(--panel-tint, transparent),
+    color-mix(in srgb, var(--color-text-primary) 2%, transparent);
+}
+
+.store-quick-picks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.store-quick-picks-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.store-quick-picks-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.store-quick-picks-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.store-quick-picks-sub {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.store-quick-picks-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-shrink: 0;
+}
+
+.store-quick-picks-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.store-quick-picks-nav:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.store-quick-picks-dismiss {
+  border-color: transparent;
+}
+
+.store-quick-picks-track {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding: var(--space-2xs) var(--space-2xs) var(--space-sm);
+  margin: calc(-1 * var(--space-2xs)) calc(-1 * var(--space-2xs)) calc(-1 * var(--space-sm));
+}
+
+.store-quick-picks-track::-webkit-scrollbar {
+  display: none;
+}
+
+.store-quick-picks-item {
+  flex: 0 0 168px;
+  scroll-snap-align: start;
+}
+
+.store-quick-pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  width: 100%;
+  padding: 0 0 var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  contain: content;
+  transition:
+    border-color var(--transition-normal),
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.store-quick-pick-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
+}
+
+.store-quick-pick-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.store-quick-pick-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.store-quick-pick-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.45s var(--ease-standard);
+}
+
+.store-quick-pick-card:hover .store-quick-pick-cover img {
+  transform: scale(1.035);
+}
+
+.store-quick-pick-cover-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-accent) 18%, transparent),
+    transparent 70%
+  );
+}
+
+.store-quick-pick-score {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-primary) 72%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.store-quick-pick-name {
+  display: block;
+  padding: 0 var(--space-xs);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-quick-pick-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0 var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.store-quick-pick-meta span + span::before {
+  content: "·";
+  margin-right: var(--space-2xs);
+}
+
+/* ── Card hierarchy + persistent actions ────────────────────────────────── */
+
+.store-card-cover-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg-primary) 78%, transparent) 0%,
+    color-mix(in srgb, var(--color-bg-primary) 24%, transparent) 46%,
+    transparent 100%
+  );
+  opacity: 0.9;
+}
+
+.store-card-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.store-card-actions .store-card-hide,
+.store-card-actions .store-card-compare,
+.store-card-actions .store-card-heart {
+  position: static;
+  top: auto;
+  right: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  color: var(--color-text-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  opacity: 1;
+  transform: none;
+  cursor: pointer;
+  transition:
+    opacity var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.store-card-actions .store-card-hide svg,
+.store-card-actions .store-card-compare svg,
+.store-card-actions .store-card-heart svg {
+  width: 15px;
+  height: 15px;
+}
+
+.store-card-actions .store-card-hide:hover,
+.store-card-actions .store-card-compare:hover,
+.store-card-actions .store-card-heart:hover,
+.store-game-card:hover .store-card-actions .store-card-hide,
+.store-game-card:hover .store-card-actions .store-card-compare,
+.store-game-card:hover .store-card-actions .store-card-heart,
+.store-game-card:focus-within .store-card-actions .store-card-hide,
+.store-game-card:focus-within .store-card-actions .store-card-compare,
+.store-game-card:focus-within .store-card-actions .store-card-heart {
+  opacity: 1;
+  transform: none;
+}
+
+.store-card-actions .store-card-heart:hover,
+.store-card-actions .store-card-heart.active {
+  color: var(--color-accent);
+}
+
+.store-card-actions .store-card-compare.active {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: transparent;
+  opacity: 1;
+}
+
+.store-card-actions .store-card-hide:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.store-game-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 14px 30px -18px color-mix(in srgb, var(--color-bg-primary) 85%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.store-game-card.density-cozy .store-card-body {
+  gap: var(--space-3xs);
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.store-game-card .store-card-price {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-top: auto;
+  min-height: 20px;
+}
+
+.store-game-card .store-card-price-was {
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.store-game-card .store-card-genres {
+  min-height: 18px;
+}
+
+.store-game-card.density-cozy .store-card-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.store-card-cover .store-card-rating {
+  z-index: 5;
+}
+
+.store-card-inlib {
+  z-index: 5;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .store-hero-banner-genre,
+  .store-hero-banner-meta {
+    display: none;
+  }
+
+  .store-page .store-toolbar-count {
+    display: none;
+  }
+
+  .store-header-action-btn span {
+    display: none;
+  }
+
+  .store-header-action-btn {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 860px) {
+  .store-page .store-spotlight-stage {
+    min-height: 240px;
+    padding: var(--space-lg);
+  }
+
+  .store-page .store-spotlight-card-wrap {
+    width: 130px;
+  }
+
+  .store-hero-banner {
+    gap: var(--space-xs);
+  }
+
+  .store-hero-banner-cta span,
+  .store-hero-banner-cta {
+    padding: 0 var(--space-sm);
+  }
+
+  .store-chips {
+    flex-wrap: wrap;
+  }
+
+  .store-quick-picks-item {
+    flex-basis: 148px;
+  }
+}
+
+@media (max-width: 640px) {
+  .store-page {
+    --store-banner-offset: 68px;
+  }
+
+  .store-page .store-command-bar {
+    flex-wrap: wrap;
+  }
+
+  .store-page .store-toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .store-page .store-toolbar-count {
+    display: none;
+  }
+
+  .store-hero-banner-cover {
+    display: none;
+  }
+
+  .store-hero-banner-nav {
+    display: none;
+  }
+
+  .store-quick-picks-title-row {
+    min-width: 0;
+  }
+}
+
+@media (hover: none) {
+  .store-card-actions .store-card-hide,
+  .store-card-actions .store-card-compare,
+  .store-card-actions .store-card-heart {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-hero-banner,
+  .store-filter-drawer,
+  .store-filter-drawer-scrim {
+    animation: none;
+    transition: none;
+  }
+
+  .store-spotlight-dot.active.is-ticking .store-spotlight-dot-fill {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+/* The Layout Studio widget wrapper is the sticky box: a sticky child inside
+   its own short wrapper has no scroll room, so pin the wrapper (whose
+   containing block is the tall catalogue column) and let the bar ride along. */
+.store-page .ui-item-storeToolbar {
+  position: sticky;
+  top: var(--space-sm);
+  z-index: 30;
+  will-change: transform;
+}
+
+.store-page--hero-collapsed .ui-item-storeToolbar {
+  top: calc(var(--store-banner-offset) + var(--space-2xs));
+}
+
+.store-page .store-command-bar {
+  position: static;
+  top: auto;
+}
+
+/* Keep the quick-picks rail cards on one uniform width even when a title or
+   genre chip is unusually long. */
+.store-quick-picks-item {
+  min-width: 0;
+  overflow: hidden;
+}
+/* catalogue refresh: drawer sits above the app nav (--z-nav = 1000). */
+
+/* New pages are appended below the grid while the user is near the sentinel.
+   Without this, the browser anchors on the sentinel/loader and chases it down
+   the page — which reads as "loading more jumps me to the bottom". */
+.store-game-grid-container,
+.store-page {
+  overflow-anchor: none;
+}
+/* Appended pages appear in place instead of replaying the entrance cascade. */
+.store-game-cell--append {
+  animation: none;
+}

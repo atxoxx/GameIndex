@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, useContext, type ReactElement } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useContext, type CSSProperties, type MutableRefObject, type ReactElement } from "react";
 import {
   CalendarCheck,
   Flame,
@@ -18,16 +18,24 @@ import {
   usePrefetchImage,
 } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
-import { useStoreCardHover } from "./storeCardHover";
+import { useStoreCardHover, isStoreScrolling } from "./storeCardHover";
 import { Button } from "../ui/Button";
 import { SubTabs } from "../ui/SubTabs";
-import StoreSurpriseModal from "./StoreSurpriseModal";
 
 type HeroCategory = "hot" | "weekly" | "trending" | "coming_soon";
+
+export interface StoreHeroControls {
+  prev: () => void;
+  next: () => void;
+}
 
 interface StoreFeaturedHeroProps {
   /** Navigate to a game's detail page. */
   onPickGame: (game: StoreGameSummary) => void;
+  /** Publishes the active slide so the collapsed banner can mirror it. */
+  onActiveGameChange?: (game: StoreGameSummary | null, total: number) => void;
+  /** Imperative prev/next so the banner can keep cycling slides. */
+  controlsRef?: MutableRefObject<StoreHeroControls | null>;
 }
 
 const TABS: {
@@ -77,7 +85,11 @@ function renderPlatformIcon(platform: string): ReactElement | null {
   return null;
 }
 
-export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
+export default function StoreFeaturedHero({
+  onPickGame,
+  onActiveGameChange,
+  controlsRef,
+}: StoreFeaturedHeroProps) {
   const { t, language } = useLanguage();
   const wishlistCtx = useContext(WishlistContext);
   const pauseMotion = useStoreCardHover();
@@ -85,7 +97,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const [games, setGames] = useState<StoreGameSummary[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [surpriseOpen, setSurpriseOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const [metadata, setMetadata] = useState<GameMetadataResult | null>(null);
@@ -96,11 +107,10 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const reqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const dockRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const containerRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isInView, setIsInView] = useState(true);
+  const [videoInView, setVideoInView] = useState(true);
   const [manualVideoPaused, setManualVideoPaused] = useState(false);
 
   const reduceMotion = useMemo(
@@ -111,21 +121,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   );
   const animatedMediaEnabled = useAnimatedMediaEnabled();
   const videoMotionDisabled = reduceMotion || !animatedMediaEnabled;
-
-  // Keep active dock thumbnail visible horizontally inside the dock reel without
-  // touching ancestor scroll positions (scrollIntoView would drag .app-main back to top).
-  useEffect(() => {
-    const dock = dockRef.current;
-    const activeEl = itemRefs.current[currentIndex];
-    if (!dock || !activeEl) return;
-    const dockRect = dock.getBoundingClientRect();
-    const itemRect = activeEl.getBoundingClientRect();
-    if (itemRect.left < dockRect.left) {
-      dock.scrollLeft += itemRect.left - dockRect.left - 12;
-    } else if (itemRect.right > dockRect.right) {
-      dock.scrollLeft += itemRect.right - dockRect.right + 12;
-    }
-  }, [currentIndex]);
 
   // Fetch games for the current category tab
   useEffect(() => {
@@ -228,9 +223,13 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setIsInView(entry.isIntersecting && entry.intersectionRatio > 0.05);
+        const visible = entry.isIntersecting && entry.intersectionRatio > 0.05;
+        setIsInView(visible);
+        // Stop decoding the trailer once the hero is mostly behind us; a
+        // video running underneath the catalogue makes wheel scrolling stutter.
+        setVideoInView(visible && entry.intersectionRatio > 0.5);
       },
-      { threshold: [0, 0.05, 0.2] }
+      { threshold: [0, 0.05, 0.2, 0.5] }
     );
 
     observer.observe(el);
@@ -241,10 +240,12 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         document.documentElement.classList.contains("animations-paused");
       if (shouldPause) {
         setIsInView(false);
+        setVideoInView(false);
       } else {
         const rect = el.getBoundingClientRect();
         const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
         setIsInView(inViewport);
+        setVideoInView(inViewport);
       }
     };
 
@@ -275,6 +276,20 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
 
   const activeGame = games[currentIndex];
+
+  // Mirror the active slide into the page so the collapsed banner can show
+  // the same game (and cycle it without remounting the hero).
+  useEffect(() => {
+    onActiveGameChange?.(activeGame ?? null, games.length);
+  }, [activeGame, games.length, onActiveGameChange]);
+
+  useEffect(() => {
+    if (!controlsRef) return;
+    controlsRef.current = { prev: handlePrev, next: handleNext };
+    return () => {
+      controlsRef.current = null;
+    };
+  }, [controlsRef, handlePrev, handleNext]);
 
   // Reset per-game states when activeGame changes and fetch details & about bundle
   useEffect(() => {
@@ -368,18 +383,19 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isInView || isPaused || manualVideoPaused || videoMotionDisabled || pauseMotion) {
+    if (!videoInView || isPaused || manualVideoPaused || videoMotionDisabled || pauseMotion) {
       video.pause();
     } else {
       video.play().catch(() => {});
     }
-  }, [isInView, isPaused, manualVideoPaused, videoMotionDisabled, trailerVideoSrc, pauseMotion]);
+  }, [videoInView, isPaused, manualVideoPaused, videoMotionDisabled, trailerVideoSrc, pauseMotion]);
 
   // Subtle pointer parallax for the hero backdrop + poster. Normalized
   // pointer position (0..1) is published as --spot-x / --spot-y on the
   // stage; the CSS translates the artwork by a few pixels against the
   // cursor. Skipped entirely under prefers-reduced-motion.
   const handleStageMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (isStoreScrolling()) return;
     const stage = stageRef.current;
     if (!stage) return;
     const rect = stage.getBoundingClientRect();
@@ -397,14 +413,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     stage.style.setProperty("--spot-y", "0.5");
   }, []);
 
-
-  const openSurprise = () => setSurpriseOpen(true);
-
-  const handleDockWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    if (e.deltaY !== 0) {
-      e.currentTarget.scrollLeft += e.deltaY;
-    }
-  }, []);
 
   const isWishlisted = activeGame && wishlistCtx ? wishlistCtx.isWishlisted(activeGame.slug) : false;
   const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
@@ -516,7 +524,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Category selector & Surprise me header */}
+      {/* Category selector & slide navigator */}
       <div className="store-spotlight-top">
         <SubTabs
           className="store-spotlight-subtabs"
@@ -561,30 +569,6 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
               </div>
             </div>
           )}
-
-          <button
-            type="button"
-            className="store-featured-surprise"
-            onClick={openSurprise}
-            title={t("store.surpriseTitle")}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="16 3 21 3 21 8" />
-              <line x1="4" y1="20" x2="21" y2="3" />
-              <polyline points="21 16 21 21 16 21" />
-              <line x1="15" y1="15" x2="21" y2="21" />
-              <line x1="4" y1="4" x2="9" y2="9" />
-            </svg>
-            <span>{t("store.surpriseMe")}</span>
-          </button>
         </div>
       </div>
 
@@ -812,52 +796,34 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
         </div>
       )}
 
-      {/* Thumbnails reel spanning bottom dock */}
+      {/* Slide indicator: one dot per pick, with a progress fill on the active one */}
       {games.length > 1 && (
         <div
-          ref={dockRef}
-          className="store-spotlight-dock"
-          onWheel={handleDockWheel}
+          className="store-spotlight-dots"
           role="tablist"
           aria-label={t("store.spotlight.slideIndicator", { current: currentIndex + 1, total: games.length })}
+          style={{ "--store-dot-duration": `${SLIDE_DURATION_MS}ms` } as CSSProperties}
         >
-          <div className="store-spotlight-dock-reel">
-            {games.map((game, idx) => {
-              const isActive = idx === currentIndex;
-              return (
-                <button
-                  key={game.id}
-                  ref={(el) => {
-                    itemRefs.current[idx] = el;
-                  }}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`store-spotlight-dock-item${isActive ? " active" : ""}`}
-                  onClick={() => setCurrentIndex(idx)}
-                  title={game.name}
-                >
-                  {game.coverUrl ? (
-                    <img src={game.coverUrl} alt={game.name} loading="lazy" />
-                  ) : (
-                    <div className="store-spotlight-dock-placeholder" />
-                  )}
-                  <span className="store-spotlight-dock-name">{game.name}</span>
-                  {isActive && !isPaused && (
-                    <div className="store-spotlight-dock-progress" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {games.map((game, idx) => {
+            const isActive = idx === currentIndex;
+            return (
+              <button
+                key={game.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`store-spotlight-dot${isActive ? " active" : ""}${
+                  isActive && !isPaused && !reduceMotion ? " is-ticking" : ""
+                }`}
+                onClick={() => setCurrentIndex(idx)}
+                aria-label={game.name}
+                title={game.name}
+              >
+                <span className="store-spotlight-dot-fill" />
+              </button>
+            );
+          })}
         </div>
-      )}
-
-      {surpriseOpen && (
-        <StoreSurpriseModal
-          onClose={() => setSurpriseOpen(false)}
-          onOpenGame={onPickGame}
-        />
       )}
     </section>
   );

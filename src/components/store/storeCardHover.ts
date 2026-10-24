@@ -57,3 +57,31 @@ export function setStoreCardHover(next: boolean): void {
 export function useStoreCardHover(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
+
+// ── Scroll activity probe ──────────────────────────────────────────────
+// Hovering a card while the wheel is still moving must not kick off an
+// animated-WebP decode; that is a full multi-frame image on the critical
+// path. A single passive capture listener records the last scroll time so
+// cards can skip the preview while the page is in motion.
+let lastScrollAt = 0;
+let hasScrolled = false;
+let scrollProbeAttached = false;
+
+function ensureScrollProbe(): void {
+  if (scrollProbeAttached || typeof document === "undefined") return;
+  scrollProbeAttached = true;
+  document.addEventListener(
+    "scroll",
+    () => {
+      lastScrollAt = performance.now();
+      hasScrolled = true;
+    },
+    { capture: true, passive: true }
+  );
+}
+
+/** True while the page has scrolled within the last `windowMs` milliseconds. */
+export function isStoreScrolling(windowMs = 180): boolean {
+  ensureScrollProbe();
+  return hasScrolled && performance.now() - lastScrollAt < windowMs;
+}
