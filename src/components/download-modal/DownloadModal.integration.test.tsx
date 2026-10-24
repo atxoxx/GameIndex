@@ -53,6 +53,9 @@ const { invokeMock, results, pluginResults, ctx } = vi.hoisted(() => {
         stores: [],
       });
     }
+    if (cmd === "debrid_check_cache") {
+      return Promise.resolve({ cached: true });
+    }
     return Promise.resolve(null);
   });
   const pluginResults = [
@@ -159,6 +162,7 @@ vi.mock("../ui/ConfirmModal", () => ({
 }));
 
 import DownloadModal from "./DownloadModal";
+import { clearSessionCache } from "./cacheCheck";
 import { searchDownloadsStream } from "../../context/SourceContext";
 
 const streamMock = searchDownloadsStream as unknown as ReturnType<typeof vi.fn>;
@@ -252,20 +256,27 @@ describe("DownloadModal debrid activation gating", () => {
     emitSearch(results);
     ctx.debridProvider = "alldebrid";
     ctx.debridApiKey = "staging-key";
+    clearSessionCache();
   });
 
-  it("touches no debrid API while the debrid toggle is off", async () => {
+  const cacheProbes = () =>
+    invokeMock.mock.calls.filter(([cmd]) => cmd === "debrid_check_cache");
+
+  it("probes every result as soon as the modal opens, toggle off", async () => {
     render(<DownloadModal gameName="Test Game" onClose={() => {}} />);
     await waitFor(() => {
       expect(titlesInOrder().length).toBe(3);
     });
 
-    expect(
-      invokeMock.mock.calls.some(([cmd]) => cmd === "debrid_check_cache"),
-    ).toBe(false);
+    await waitFor(() => {
+      expect(cacheProbes().length).toBe(3);
+    });
+    await waitFor(() => {
+      expect(document.querySelectorAll(".dl-flag--cache-cached").length).toBe(3);
+    });
   });
 
-  it("probes debrid availability once the toggle is switched on", async () => {
+  it("keeps the probe running once the download toggle is switched on", async () => {
     render(<DownloadModal gameName="Test Game" onClose={() => {}} />);
     await waitFor(() => {
       expect(titlesInOrder().length).toBe(3);

@@ -209,8 +209,6 @@ export default function DownloadModal({
   });
   const [compactTab, setCompactTab] = useState<"results" | "details">("results");
   const [useDebrid, setUseDebrid] = useState(false);
-  const [cacheStatus, setCacheStatus] = useState<CacheCheckStatus>("idle");
-  const cacheCheckSeq = useRef(0);
   const [tempTorrentId, setTempTorrentId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   const [fetchedFiles, setFetchedFiles] = useState<{ name: string; size: number }[] | null>(null);
@@ -320,19 +318,20 @@ export default function DownloadModal({
     return debridProvider !== "none" && !!debridApiKey;
   }, [debridProvider, debridApiKey]);
 
-  // Debrid must be explicitly activated in the options toggle before the
-  // provider's API is touched at all — configured-but-off means offline
-  // (middleware badges, the cache filter and these probes stay idle).
-  const debridEnabled = useDebrid && debridConfigured;
+  // Cache availability is independent of the download toggle: once a
+  // cache-capable provider is configured, every checkable result is probed
+  // so its cached/uncached verdict is always visible. The toggle only
+  // decides whether the download itself is routed through the provider.
+  const cacheProbesAvailable = debridConfigured && cacheCapableProvider(debridProvider);
 
   // Automatic per-row debrid cache probes for every checkable result.
   const rowCacheStatuses = useRowCacheChecks({
     matches,
     provider: debridProvider,
     apikey: debridApiKey,
-    enabled: debridEnabled,
+    enabled: cacheProbesAvailable,
   });
-  const cacheFilterAvailable = debridEnabled && cacheCapableProvider(debridProvider);
+  const cacheFilterAvailable = cacheProbesAvailable;
 
   // Available source filter options extracted from raw matches
   const sourceFilterOptions = useMemo(
@@ -459,15 +458,6 @@ export default function DownloadModal({
     setSelectedMirrorIndex(0);
   }, [selectedId]);
 
-  const selectedSourceUri = useMemo(
-    () => (selectedMatch ? resolveSourceUri(selectedMatch, selectedMirrorIndex) : null),
-    [selectedMatch, selectedMirrorIndex],
-  );
-  const selectedIsMagnet = useMemo(() => {
-    if (!selectedMatch || !selectedSourceUri) return false;
-    return classifyUri(selectedSourceUri, selectedMatch.torrentUrl).isMagnet;
-  }, [selectedMatch, selectedSourceUri]);
-
   const fileSelectionEligible = useMemo(() => {
     if (!selectedMatch) return false;
     const uri = resolveSourceUri(selectedMatch, selectedMirrorIndex);
@@ -500,40 +490,10 @@ export default function DownloadModal({
     setActivePresetId(null);
   }, [applyFilters, sortBy]);
 
-  useEffect(() => {
-    if (
-      !useDebrid ||
-      !debridConfigured ||
-      !selectedIsMagnet ||
-      !selectedSourceUri ||
-      debridProvider === "none" ||
-      !debridApiKey
-    ) {
-      setCacheStatus("idle");
-      return;
-    }
-
-    const seq = ++cacheCheckSeq.current;
-    setCacheStatus("checking");
-    const timer = window.setTimeout(async () => {
-      try {
-        const res = await invoke<{ cached: boolean }>("debrid_check_cache", {
-          provider: debridProvider,
-          apikey: debridApiKey,
-          magnet: selectedSourceUri,
-        });
-        if (seq === cacheCheckSeq.current) {
-          setCacheStatus(res.cached ? "cached" : "uncached");
-        }
-      } catch (err) {
-        console.debug("[DownloadModal] cache check failed:", err);
-        if (seq === cacheCheckSeq.current) {
-          setCacheStatus("error");
-        }
-      }
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [useDebrid, debridConfigured, selectedIsMagnet, selectedSourceUri, debridProvider, debridApiKey]);
+  // The detail panel reuses the selected release's row verdict instead of
+  // issuing a second probe for the same magnet.
+  const selectedCacheStatus: CacheCheckStatus =
+    (selectedMatch ? rowCacheStatuses.get(selectedMatch.id) : undefined) ?? "idle";
 
   const selectedWebUrl = useMemo(
     () => webUrlFor(selectedMatch ?? undefined),
@@ -1620,7 +1580,7 @@ export default function DownloadModal({
                       useDebrid={useDebrid}
                       onUseDebrid={setUseDebrid}
                       debridConfigured={debridConfigured}
-                      cacheStatus={cacheStatus}
+                      cacheStatus={selectedCacheStatus}
                       onOpenPage={handleOpenPage}
                       onOpenBrowserResolver={handleOpenBrowserResolver}
                       resolverActive={!!resolverSession}

@@ -73,7 +73,7 @@ export function OptionsSection({
           <div className="dl-option-text">
             <div className="dl-option-title-row">
               <span className="dl-option-heading">{t("downloadModal.useDebrid")}</span>
-              {useDebrid && cacheStatus !== "idle" && (
+              {cacheStatus !== "idle" && (
                 <span className={`dl-cache-badge dl-cache-badge--${cacheStatus}`}>
                   {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
                   {cacheStatus === "cached" && "⚡ "}
