@@ -1,0 +1,1591 @@
+/* ============================================================================
+   Emulators workbench (v2)
+   Systems rail + stage with a persistent ROM inspector. Token-driven: the only
+   inline value is the per-system `--emu-accent`, which is brand identity.
+   ============================================================================ */
+
+.emu-wb-page .page-header {
+  margin-bottom: var(--space-lg);
+}
+
+.emu-wb-layout {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+  min-width: 0;
+}
+
+/* ── Rail ─────────────────────────────────────────────────────────── */
+
+.emu-wb-rail {
+  position: sticky;
+  top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-height: calc(100vh - 190px);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.emu-wb-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.emu-wb-rail-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-rail-count {
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.emu-wb-rail-add,
+.emu-wb-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-rail-add:hover,
+.emu-wb-icon-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-icon-btn.is-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.emu-wb-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: 0 var(--space-xs);
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-search:focus-within {
+  border-color: var(--color-accent);
+  background: var(--color-bg-primary);
+}
+
+.emu-wb-search--grow {
+  flex: 1 1 190px;
+}
+
+.emu-wb-search-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.emu-wb-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.emu-wb-search-clear {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.emu-wb-search-clear:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-filters {
+  display: flex;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-filter {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-3xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-filter:hover {
+  color: var(--color-text-primary);
+}
+
+.emu-wb-filter.is-active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.emu-wb-systems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  outline: none;
+}
+
+.emu-wb-system {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-system:hover {
+  background: var(--color-bg-hover);
+}
+
+.emu-wb-system.is-active {
+  border-color: color-mix(in srgb, var(--emu-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--emu-accent) 10%, transparent);
+}
+
+.emu-wb-system.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: var(--radius-full);
+  background: var(--emu-accent);
+}
+
+.emu-wb-system-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) var(--space-xs);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.emu-wb-system-art {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--emu-accent) 16%, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  overflow: hidden;
+}
+
+.emu-wb-system-art img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.emu-wb-system-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 0;
+  flex: 1;
+}
+
+.emu-wb-system-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-system-sub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-system-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.emu-wb-system-state {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-right: var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-warning) 16%, transparent);
+}
+
+.emu-wb-system-state.is-ready {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 16%, transparent);
+}
+
+.emu-wb-system-edit {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-system:hover .emu-wb-system-edit,
+.emu-wb-system:focus-within .emu-wb-system-edit {
+  opacity: 1;
+}
+
+.emu-wb-system-edit:hover {
+  color: var(--color-text-primary);
+}
+
+.emu-wb-rail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-xl) var(--space-sm);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.emu-wb-rail-empty span[aria-hidden] {
+  font-size: var(--text-xl);
+}
+
+.emu-wb-rail-empty strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.emu-wb-rail-foot {
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.emu-wb-rail-foot .ui-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── Stage ────────────────────────────────────────────────────────── */
+
+.emu-wb-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+
+.emu-wb-stage-empty {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--emu-accent) 16%, transparent) 0%, transparent 62%),
+    var(--color-bg-secondary);
+  border: 1px solid color-mix(in srgb, var(--emu-accent) 22%, var(--color-border));
+  min-width: 0;
+}
+
+.emu-wb-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.emu-wb-art {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--emu-accent) 20%, var(--color-bg-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--emu-accent) 30%, transparent);
+  font-size: var(--text-xl);
+  overflow: hidden;
+}
+
+.emu-wb-art img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.emu-wb-meta {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) * 1.5);
+  min-width: 0;
+}
+
+.emu-wb-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.emu-wb-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  color: var(--color-warning);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.emu-wb-status.is-ready {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.emu-wb-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.emu-wb-subtitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.emu-wb-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.emu-wb-setup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  flex-wrap: wrap;
+}
+
+.emu-wb-setup-track {
+  width: 90px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.emu-wb-setup-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--emu-accent);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.emu-wb-setup-link {
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 0;
+}
+
+.emu-wb-setup-link:hover {
+  text-decoration: underline;
+}
+
+.emu-wb-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.emu-wb-tabs {
+  margin: 0 calc(-1 * var(--space-xs));
+}
+
+/* ── Library + inspector ──────────────────────────────────────────── */
+
+.emu-wb-library {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: var(--space-lg);
+  align-items: start;
+  min-width: 0;
+}
+
+.emu-wb-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.emu-wb-browser-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.emu-wb-browser-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.emu-wb-browser-title h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-browser-count {
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.emu-wb-browser-size {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.emu-wb-browser-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.emu-wb-browser-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.emu-wb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 28px;
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.emu-wb-chip:hover {
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-chip.is-active {
+  border-color: color-mix(in srgb, var(--emu-accent, var(--color-accent)) 55%, transparent);
+  background: color-mix(in srgb, var(--emu-accent, var(--color-accent)) 12%, transparent);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-select {
+  height: 28px;
+  max-width: 150px;
+  padding: 0 var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.emu-wb-sort,
+.emu-wb-view {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.emu-wb-view {
+  padding: var(--space-3xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-view .emu-wb-icon-btn {
+  width: 24px;
+  height: 24px;
+}
+
+.emu-wb-browser .emu-rom-grid {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: var(--space-sm);
+}
+
+.emu-wb-browser .emu-rom-card {
+  border-color: transparent;
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-browser .emu-rom-card:hover {
+  border-color: color-mix(in srgb, var(--emu-accent) 40%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.emu-wb-browser .emu-rom-card-cover-fallback {
+  background:
+    radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--emu-accent) 30%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, var(--color-bg-tertiary) 0%, var(--color-bg-secondary) 100%);
+}
+
+.emu-wb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xl) var(--space-lg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.emu-wb-empty-glyph {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.emu-wb-empty-hint {
+  font-size: var(--text-xs);
+}
+
+.emu-wb-empty-actions {
+  display: flex;
+  gap: var(--space-2xs);
+  margin-top: var(--space-xs);
+}
+
+.emu-wb-inspector {
+  position: sticky;
+  top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-inspector-art {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  max-height: 280px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+}
+
+.emu-wb-inspector-art > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emu-wb-inspector-generated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-md);
+  background:
+    radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--emu-accent) 34%, transparent) 0%, transparent 72%),
+    linear-gradient(180deg, var(--color-bg-tertiary) 0%, var(--color-bg-secondary) 100%);
+  text-align: center;
+}
+
+.emu-wb-inspector-generated > img {
+  width: 44%;
+  height: auto;
+  max-height: 74px;
+  object-fit: contain;
+}
+
+.emu-wb-inspector-generated > span:first-child {
+  font-size: var(--text-2xl);
+}
+
+.emu-wb-inspector-generated-title {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.emu-wb-inspector-fav {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--scrim-dark-mid);
+  color: var(--color-warning);
+}
+
+.emu-wb-inspector-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.emu-wb-inspector-head h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.emu-wb-inspector-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.emu-wb-inspector-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--emu-accent) 14%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.emu-wb-inspector-badge--muted {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-inspector-badge--accent {
+  background: color-mix(in srgb, var(--emu-accent) 22%, transparent);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-inspector-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-wrap: wrap;
+}
+
+.emu-wb-inspector-actions .ui-btn:first-child {
+  flex: 1;
+  justify-content: center;
+}
+
+.emu-wb-inspector-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.emu-wb-inspector-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 0;
+}
+
+.emu-wb-inspector-facts dt {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-inspector-facts dd {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-3xs) * 1.5);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-inspector-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.emu-wb-inspector-notes span {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-inspector-notes p {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.emu-wb-inspector-discs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.emu-wb-inspector-discs h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin: 0;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-inspector-disc-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+}
+
+.emu-wb-inspector-disc {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.emu-wb-inspector-disc:hover {
+  background: var(--color-bg-hover);
+}
+
+.emu-wb-inspector-disc.is-active {
+  border-color: color-mix(in srgb, var(--emu-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--emu-accent) 12%, transparent);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-inspector-disc-n {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.emu-wb-inspector-disc-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-inspector-path {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-inspector--empty {
+  align-items: center;
+  text-align: center;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+}
+
+.emu-wb-inspector-empty-art {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--emu-accent) 18%, var(--color-bg-tertiary));
+  font-size: var(--text-2xl);
+  overflow: hidden;
+}
+
+.emu-wb-inspector-empty-art img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}
+
+.emu-wb-inspector--empty h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-inspector--empty p {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-inspector-empty-actions {
+  display: flex;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.emu-wb-inspector--empty .emu-wb-inspector-facts {
+  width: 100%;
+  border-bottom: 0;
+}
+
+/* ── Firmware + health tabs ───────────────────────────────────────── */
+
+.emu-wb-tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.emu-wb-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-firmware .emu-bios-board {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.emu-wb-firmware-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.emu-wb-firmware-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-warning);
+}
+
+.emu-wb-firmware-verdict.is-ok {
+  color: var(--color-success);
+}
+
+.emu-wb-firmware-path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  max-width: 52%;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+.emu-wb-firmware-path span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-wb-firmware-path:hover {
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-firmware-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.emu-wb-firmware-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-firmware-state {
+  display: inline-flex;
+  color: var(--color-warning);
+}
+
+.emu-wb-firmware-row.is-found .emu-wb-firmware-state {
+  color: var(--color-success);
+}
+
+.emu-wb-firmware-info {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 0;
+  flex: 1;
+}
+
+.emu-wb-firmware-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-firmware-desc {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-firmware-warn {
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+  font-size: var(--text-2xs);
+}
+
+.emu-wb-firmware-tag {
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.emu-wb-firmware-tag--muted {
+  color: var(--color-text-muted);
+}
+
+.emu-wb-firmware-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.emu-wb-health-band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-health-metric {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 74px;
+}
+
+.emu-wb-health-metric-value {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.emu-wb-health-metric.is-error .emu-wb-health-metric-value {
+  color: var(--color-danger);
+}
+
+.emu-wb-health-metric.is-warning .emu-wb-health-metric-value {
+  color: var(--color-warning);
+}
+
+.emu-wb-health-metric.is-ok .emu-wb-health-metric-value {
+  color: var(--color-success);
+}
+
+.emu-wb-health-metric-label {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-health-band-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-left: auto;
+}
+
+.emu-wb-health-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-health-count {
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.emu-wb-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.emu-wb-health-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
+.emu-wb-health-icon {
+  display: inline-flex;
+  margin-top: calc(var(--space-3xs) / 2);
+  color: var(--color-info);
+}
+
+.emu-wb-health-row.is-error .emu-wb-health-icon {
+  color: var(--color-danger);
+}
+
+.emu-wb-health-row.is-warning .emu-wb-health-icon {
+  color: var(--color-warning);
+}
+
+.emu-wb-health-info {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3xs) / 2);
+  min-width: 0;
+  flex: 1;
+}
+
+.emu-wb-health-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.emu-wb-health-title strong {
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-health-scope {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-health-info p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.emu-wb-health-files {
+  color: var(--color-warning) !important;
+}
+
+.emu-wb-health-bytes {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.emu-wb-health-fix {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.emu-wb-health-copies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin-top: var(--space-2xs);
+  padding-top: var(--space-2xs);
+  border-top: 1px solid var(--color-border);
+}
+
+.emu-wb-health-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.emu-wb-health-copy .emu-mono {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emu-wb-health-clean {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+}
+
+.emu-wb-health-clean p {
+  margin: var(--space-3xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.emu-wb-health-enrich {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.emu-wb-health-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.emu-wb-health-progress-track {
+  width: 120px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.emu-wb-health-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--duration-fast) var(--ease-standard);
+}
+
+/* ── Welcome / empty page ─────────────────────────────────────────── */
+
+.emu-wb-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-3xl) var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.emu-wb-welcome-art {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  font-size: var(--text-2xl);
+}
+
+.emu-wb-welcome h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  color: var(--color-text-primary);
+}
+
+.emu-wb-welcome p {
+  margin: 0;
+  max-width: 54ch;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.emu-wb-welcome-actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.emu-wb-welcome-steps {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  counter-reset: emu-step;
+}
+
+.emu-wb-welcome-steps span {
+  counter-increment: emu-step;
+}
+
+.emu-wb-welcome-steps span::before {
+  content: counter(emu-step) ". ";
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.emu-rom-disc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(var(--space-3xs) / 2) var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--scrim-dark-mid);
+  backdrop-filter: blur(4px);
+  color: var(--color-text-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.emu-rom-fallback-logo {
+  width: 42%;
+  max-height: 46px;
+  object-fit: contain;
+  margin-bottom: var(--space-2xs);
+}
+
+.emu-rom-fallback-title {
+  max-width: 92%;
+  margin-top: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Narrow windows ───────────────────────────────────────────────── */
+
+@media (max-width: 1320px) {
+  .emu-wb-library {
+    grid-template-columns: minmax(0, 1fr) 264px;
+    gap: var(--space-md);
+  }
+  .emu-wb-browser .emu-rom-grid {
+    grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  }
+}
+
+@media (max-width: 1160px) {
+  .emu-wb-library {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .emu-wb-inspector {
+    position: static;
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr);
+    grid-template-areas:
+      "art head"
+      "art actions"
+      "facts facts"
+      "discs discs"
+      "path path";
+    align-items: start;
+  }
+  .emu-wb-inspector-art { grid-area: art; max-height: 190px; }
+  .emu-wb-inspector-head { grid-area: head; }
+  .emu-wb-inspector-actions { grid-area: actions; }
+  .emu-wb-inspector-facts { grid-area: facts; border-top: 0; }
+  .emu-wb-inspector-discs { grid-area: discs; }
+  .emu-wb-inspector-path { grid-area: path; }
+  .emu-wb-inspector--empty {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    text-align: left;
+    align-items: center;
+  }
+  .emu-wb-inspector--empty .emu-wb-inspector-facts {
+    display: none;
+  }
+}
+
+@media (max-width: 1020px) {
+  .emu-wb-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .emu-wb-rail {
+    position: static;
+    max-height: none;
+  }
+  .emu-wb-systems {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: var(--space-3xs);
+  }
+  .emu-wb-system {
+    flex: 0 0 auto;
+    min-width: 210px;
+  }
+  .emu-wb-system-edit {
+    display: none;
+  }
+  .emu-wb-rail-foot {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .emu-wb-header {
+    flex-direction: column;
+  }
+  .emu-wb-actions {
+    justify-content: flex-start;
+  }
+  .emu-wb-firmware-path {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emu-wb-system,
+  .emu-wb-chip,
+  .emu-wb-search,
+  .emu-wb-icon-btn,
+  .emu-wb-health-progress-fill {
+    transition: none;
+  }
+}

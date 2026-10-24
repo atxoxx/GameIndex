@@ -7,6 +7,7 @@ import {
   computeEmulatorKpis,
   emulatorSetupSteps,
   filterAndSortRoms,
+  groupMultiDiscRoms,
   isEmulatorReady,
   matchesStatusFilter,
   setupProgress,
@@ -172,6 +173,41 @@ describe("filterAndSortRoms", () => {
   });
 });
 
+describe("groupMultiDiscRoms", () => {
+  const single = makeRom({ name: "Sonic", id: "single" });
+  const disc1 = makeRom({ name: "FF VII Disc 1", id: "d1", romGroup: "Final Fantasy VII", romDisc: 1 });
+  const disc2 = makeRom({ name: "FF VII Disc 2", id: "d2", romGroup: "Final Fantasy VII", romDisc: 2 });
+  const disc3 = makeRom({ name: "FF VII Disc 3", id: "d3", romGroup: "final fantasy vii", romDisc: 3 });
+
+  it("collapses a disc set to its first disc and keeps singles", () => {
+    const grouped = groupMultiDiscRoms([single, disc2, disc1, disc3]);
+    expect(grouped.games.map((g) => g.id)).toEqual(["single", "d1"]);
+    expect(grouped.discCounts.d1).toBe(3);
+    expect(grouped.groups.get("d1")?.map((g) => g.id)).toEqual(["d1", "d2", "d3"]);
+  });
+
+  it("prefers an .m3u playlist as the card", () => {
+    const playlist = makeRom({
+      name: "Final Fantasy VII",
+      id: "m3u",
+      romGroup: "Final Fantasy VII",
+      romPath: "C:/roms/Final Fantasy VII.m3u",
+    });
+    const grouped = groupMultiDiscRoms([disc1, disc2, playlist]);
+    expect(grouped.games).toHaveLength(1);
+    expect(grouped.games[0].id).toBe("m3u");
+    expect(grouped.discCounts.m3u).toBe(3);
+  });
+
+  it("does not group two unrelated ROMs and never mutates the input", () => {
+    const input = [single, makeRom({ name: "Other", id: "other" })];
+    const before = [...input];
+    const grouped = groupMultiDiscRoms(input);
+    expect(grouped.games.map((g) => g.id)).toEqual(["single", "other"]);
+    expect(Object.keys(grouped.discCounts)).toHaveLength(0);
+    expect(input).toEqual(before);
+  });
+});
 describe("biosBoardStatus / biosBoardTotals", () => {
   const entry = (over: Partial<BiosBoardEntry> = {}): BiosBoardEntry => ({
     emulatorId: "e1",

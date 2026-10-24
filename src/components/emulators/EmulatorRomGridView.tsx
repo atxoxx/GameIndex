@@ -9,6 +9,12 @@ interface RomGridViewProps {
   selectedGameIds: Set<string>;
   runningGameIds: string[];
   accentColor: string;
+  /** System glyph used on generated tiles when a ROM has no artwork. */
+  glyph?: string;
+  /** System logo rendered on generated tiles when known. */
+  logo?: string;
+  /** Representative game id → number of discs in its set. */
+  discCounts?: Record<string, number>;
   onToggleSelect: (id: string) => void;
   onLaunch: (game: Game) => void;
   onOpenLocation: (path: string) => void;
@@ -33,6 +39,9 @@ function EmulatorRomGridViewBase({
   selectedGameIds,
   runningGameIds,
   accentColor,
+  glyph,
+  logo,
+  discCounts,
   onToggleSelect,
   onLaunch,
   onOpenLocation,
@@ -51,6 +60,7 @@ function EmulatorRomGridViewBase({
         const isRunning = runningSet.has(g.id);
         const rawCover = g.coverArtUrl || g.iconUrl;
         const cover = thumbVariantUrl(rawCover) ?? rawCover;
+        const discCount = discCounts?.[g.id] ?? 0;
 
         return (
           <div
@@ -71,6 +81,11 @@ function EmulatorRomGridViewBase({
                   aria-label={t("emulators.games.selectOne", { name: g.name })}
                 />
               </label>
+              {discCount > 1 && (
+                <span className="emu-rom-disc-pill" title={t("emulators.roms.discSet", { count: discCount })}>
+                  {t("emulators.roms.discSet", { count: discCount })}
+                </span>
+              )}
               {isRunning && (
                 <span className="emu-rom-running-pill">
                   <span className="emu-running-dot" />
@@ -101,8 +116,13 @@ function EmulatorRomGridViewBase({
                 />
               ) : (
                 <div className="emu-rom-card-cover-fallback">
-                  <span className="emu-rom-fallback-glyph">🎮</span>
+                  {logo ? (
+                    <img className="emu-rom-fallback-logo" src={logo} alt="" loading="lazy" />
+                  ) : (
+                    <span className="emu-rom-fallback-glyph">{glyph ?? "🎮"}</span>
+                  )}
                   <span className="emu-rom-fallback-platform">{g.platform}</span>
+                  <span className="emu-rom-fallback-title">{g.name}</span>
                 </div>
               )}
 

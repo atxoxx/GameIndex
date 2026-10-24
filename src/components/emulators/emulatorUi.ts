@@ -171,8 +171,88 @@ export function filterAndSortRoms(
   return sorted;
 }
 
-/** Accent, glyph and logo for an emulator, reusing the catalog when it matches. */
-export function emulatorVisual(emulator: Emulator): EmulatorVisual {
+// ── Multi-disc sets ──────────────────────────────────────────────
+// Disc images of one game share the No-Intro `romGroup` title. The grid
+// shows a single card per set (the `.m3u` playlist when present, otherwise
+// disc 1) and the inspector exposes the other discs, so a 3-disc RPG does
+// not flood the library with three near-identical cards.
+
+export interface MultiDiscGroup {
+  /** Display game (playlist or first disc). */
+  representative: Game;
+  /** Every disc in disc order, including the representative. */
+  discs: Game[];
+}
+
+export interface GroupedRoms {
+  /** Display order: singles and one entry per multi-disc set. */
+  games: Game[];
+  /** Representative game id → all discs of that set. */
+  groups: Map<string, Game[]>;
+  /** Representative game id → number of discs (absent for singles). */
+  discCounts: Record<string, number>;
+}
+
+function discKey(game: Game): string | undefined {
+  const group = game.romGroup?.trim().toLowerCase();
+  return group ? group : undefined;
+}
+
+function discRank(game: Game): number {
+  return game.romDisc && game.romDisc > 0 ? game.romDisc : Number.MAX_SAFE_INTEGER;
+}
+
+function isPlaylist(game: Game): boolean {
+  const path = (game.romPath ?? game.path ?? "").toLowerCase();
+  return path.endsWith(".m3u") || path.endsWith(".m3u8");
+}
+
+export function groupMultiDiscRoms(games: Game[]): GroupedRoms {
+  const byKey = new Map<string, Game[]>();
+  for (const game of games) {
+    const key = discKey(game);
+    if (!key) continue;
+    const list = byKey.get(key) ?? [];
+    list.push(game);
+    byKey.set(key, list);
+  }
+
+  const representatives = new Map<string, Game>();
+  const discCounts: Record<string, number> = {};
+  const groups = new Map<string, Game[]>();
+
+  for (const [key, discs] of byKey) {
+    if (discs.length < 2) continue;
+    const sorted = [...discs].sort((a, b) => {
+      const playlistDelta = Number(isPlaylist(b)) - Number(isPlaylist(a));
+      if (playlistDelta !== 0) return playlistDelta;
+      return discRank(a) - discRank(b);
+    });
+    const representative = sorted[0];
+    representatives.set(key, representative);
+    discCounts[representative.id] = sorted.length;
+    groups.set(representative.id, sorted);
+  }
+
+  const display: Game[] = [];
+  const emitted = new Set<string>();
+  for (const game of games) {
+    const key = discKey(game);
+    const representative = key ? representatives.get(key) : undefined;
+    if (!representative) {
+      display.push(game);
+      continue;
+    }
+    if (representative.id !== game.id) continue;
+    if (emitted.has(key!)) continue;
+    emitted.add(key!);
+    display.push(representative);
+  }
+
+  return { games: display, groups, discCounts };
+}
+
+/** Accent, glyph and logo for an emulator, reusing the catalog when it matches. */export function emulatorVisual(emulator: Emulator): EmulatorVisual {
   const known = matchKnownEmulator(emulator);
   if (known) {
     return {

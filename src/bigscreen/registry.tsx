@@ -300,6 +300,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "community", desktop: () => <CommunityPage />, bigscreen: () => <BigScreenCommunity /> },
   { path: "friends", desktop: () => <FriendsPage />, bigscreen: () => <BigScreenFriends /> },
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
+  { path: "emulators/:emulatorId", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
   { path: "mods/discover", desktop: () => <ModsDiscoverPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="mods.discover.title" subtitleKey="mods.discover.subtitle"><ModsDiscoverPage /></BigScreenDesktopFallback> },
   { path: "reels", desktop: () => <ReelsPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="reels.title" subtitleKey="reels.subtitle"><ReelsPage /></BigScreenDesktopFallback> },

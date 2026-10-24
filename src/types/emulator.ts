@@ -1008,3 +1008,61 @@ export function accentForPlatform(platform: string): string {
 
   return "#7c66ff";
 }
+
+// ── Library health ──────────────────────────────────────────────────
+// Mirrors `src-tauri/src/emulator_health.rs`.
+
+export type EmulatorHealthKind =
+  | "missing_executable"
+  | "missing_rom_folder"
+  | "missing_rom"
+  | "empty_rom"
+  | "missing_bios"
+  | "bios_unconfigured"
+  | "unknown_size"
+  | "duplicate_rom";
+
+export interface EmulatorHealthFinding {
+  id: string;
+  kind: EmulatorHealthKind;
+  severity: "error" | "warning" | "info";
+  emulatorId?: string;
+  emulatorName?: string;
+  gameId?: string;
+  gameName?: string;
+  gameIds: string[];
+  paths: string[];
+  path?: string;
+  missingFiles: string[];
+  message: string;
+  fix?: "edit_emulator" | "unlink_rom" | "recalc_sizes" | "review_duplicates";
+  bytes?: number;
+}
+
+export interface EmulatorHealthReport {
+  findings: EmulatorHealthFinding[];
+  systems: number;
+  roms: number;
+  errors: number;
+  warnings: number;
+  missingRoms: number;
+  missingBios: number;
+  duplicateGroups: number;
+  reclaimableBytes: number;
+  deep: boolean;
+  checkedAtMs: number;
+}
+
+export interface RomEnrichSummary {
+  requested: number;
+  matched: number;
+  failed: number;
+  skipped: number;
+}
+
+export interface RomEnrichProgress {
+  emulatorId: string;
+  done: number;
+  total: number;
+  title: string;
+}
