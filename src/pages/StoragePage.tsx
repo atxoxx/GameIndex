@@ -1,247 +1,240 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  Gamepad2,
+  HardDrive,
+  LayoutDashboard,
+  ShieldCheck,
+  Table2,
+} from "lucide-react";
 import { useGames } from "../context/GameContext";
-import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { usePersistedState } from "../hooks/usePersistedState";
 import PageWidget from "../components/PageWidget";
-import { ConfirmModal, PageHeader } from "../components/ui";
+import { ConfirmModal, PageHeader, SubTabs } from "../components/ui";
+import type { Game } from "../types/game";
+import { gameDisplayName } from "../types/game";
+
 import {
+  DEFAULT_COLUMNS,
   DEFAULT_SORT,
+  STORAGE_TABS,
+  driveBuckets,
   driveOf,
-  sortGames,
-  buildSections,
-  gameTotalBytes,
-  getSizeTier,
   exportStorageReportCsv,
   exportStorageReportJson,
-  type GroupKey,
-  type SortKey,
+  gameTotalBytes,
+  matchesStorageFilter,
+  nextSort,
+  parseSort,
+  serializeSort,
+  sortGamesByColumn,
+  totalBytesWithMods,
+  SORT_OPTION_VALUES,
+  type StorageFilter,
+  type StorageSort,
+  type StorageSortColumn,
+  type StorageTab,
+  type TableColumn,
 } from "./storage/utils";
-import { StorageHeroDashboard } from "./storage/StorageHeroDashboard";
-import { StorageControlsBar, type StorageFilter, type StorageViewMode } from "./storage/StorageControlsBar";
-import { StorageRow } from "./storage/StorageRow";
-import { StorageGridCard } from "./storage/StorageGridCard";
-import { StorageGroup } from "./storage/StorageGroup";
-import { LibraryHealthCenter } from "./storage/LibraryHealthCenter";
-import { StorageBatchBar } from "./storage/StorageBatchBar";
-import { EmulatorStorageCard } from "./storage/EmulatorStorageCard";
-import { MoveGameDialog } from "./storage/MoveGameDialog";
-import { useStalePaths } from "./storage/useStalePaths";
+import {
+  buildRecommendations,
+  type Recommendation,
+  type RecommendationId,
+} from "./storage/recommendations";
+import { useDriveUsage } from "./storage/useDriveUsage";
 import { useMountVersion } from "./storage/mounts";
-import type { Game } from "../types/game";
-import type { Emulator } from "../types/emulator";
-import { formatSize, gameDisplayName } from "../types/game";
+import { useStalePaths } from "./storage/useStalePaths";
+import { useStorageHistory } from "./storage/useStorageHistory";
+import { useLeftoverScan } from "./storage/useLeftoverScan";
+import { StorageStatBand } from "./storage/StorageStatBand";
+import { StorageOverview } from "./storage/StorageOverview";
+import { DriveRail } from "./storage/DriveRail";
+import { DriveSheet } from "./storage/DriveSheet";
+import { StorageToolbar } from "./storage/StorageToolbar";
+import { GamesTable } from "./storage/GamesTable";
+import { RecommendationStrip } from "./storage/RecommendationStrip";
+import { StorageEmulatorsTab } from "./storage/StorageEmulatorsTab";
+import { StorageBatchBar } from "./storage/StorageBatchBar";
+import { MoveGameDialog } from "./storage/MoveGameDialog";
+import { LibraryHealthCenter } from "./storage/LibraryHealthCenter";
 import "./StoragePage.css";
-import "../styles/page-storage.css";
 
-function parentDir(p: string): string {
-  const norm = p.replace(/\\/g, "/");
-  const idx = norm.lastIndexOf("/");
-  return idx > 0 ? norm.slice(0, idx) : p;
+const DISMISS_KEY = "gamelib.storage.recs.dismissed_v1";
+
+/** Sentinel that hides the whole recommendation strip. */
+const STRIP_SENTINEL = "__strip__";
+
+function readDismissed(): string[] {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
+function writeDismissed(ids: string[]): void {
+  try {
+    localStorage.setItem(DISMISS_KEY, JSON.stringify(ids));
+  } catch {
+    /* localStorage may be unavailable; dismissal is a nicety, not state. */
+  }
+}
+
+/**
+ * Storage — one page, four views, one shared vocabulary.
+ *
+ * Overview answers "where did my disk go", Games is the working table,
+ * Health is the maintenance centre and Emulators covers ROM libraries. The
+ * drive rail filters the table without leaving the view, and the drive sheet
+ * drills into a single volume.
+ */
 export default function StoragePage() {
   const { t } = useLanguage();
   const { games, updateGame, removeGame, launchGame } = useGames();
-  const { density } = useDensityContext();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
 
-  // Controls state
-  const [viewMode, setViewMode] = usePersistedState<StorageViewMode>(
-    "gamelib.storage.view_mode_v1",
-    "list",
-    ["list", "grid", "health", "emulators"],
+  // ── View state ────────────────────────────────────────────────────────
+  const [tab, setTab] = usePersistedState<StorageTab>(
+    "gamelib.storage.tab_v3",
+    "games",
+    STORAGE_TABS,
   );
-  const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
+  const [sortRaw, setSortRaw] = usePersistedState(
+    "gamelib.storage.sort_v2",
+    serializeSort(DEFAULT_SORT),
+    SORT_OPTION_VALUES,
+  );
+  const sort = useMemo<StorageSort>(() => parseSort(sortRaw), [sortRaw]);
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StorageFilter>("all");
   const [driveFilter, setDriveFilter] = useState<string | null>(null);
-  const [groupBy, setGroupBy] = useState<GroupKey>("none");
+  const [columns, setColumns] = useState<Set<TableColumn>>(() => new Set(DEFAULT_COLUMNS));
+  const [sheetDrive, setSheetDrive] = useState<string | null>(null);
 
-  // Selection & batch actions
+  // ── Selection & batch actions ─────────────────────────────────────────
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moveGames, setMoveGames] = useState<Game[] | null>(null);
   const [uninstallGames, setUninstallGames] = useState<Game[] | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
-  const [isRemeasuringBatch, setIsRemeasuringBatch] = useState(false);
+  const [batchRemeasuring, setBatchRemeasuring] = useState(false);
 
-  // Emulators view state
-  const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [installBytes, setInstallBytes] = useState<Record<string, number | null>>({});
-  const [measuringEmu, setMeasuringEmu] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
 
-  // Installed games cohort
-  const installedGames = useMemo(
-    () => games.filter((g) => g.installed),
-    [games]
-  );
-
-  // Staleness checking
-  const { staleMap, refresh, refreshAll } = useStalePaths(installedGames);
-  const staleCount = useMemo(
-    () => Array.from(staleMap.values()).reduce((n, stale) => (stale ? n + 1 : n), 0),
-    [staleMap]
-  );
-
-  // Real mount points, resolved asynchronously by the Storage hero/
-  // cleanup views; the version bump re-renders rows so their `driveOf`
-  // labels match the resolved disks.
+  // ── Data ──────────────────────────────────────────────────────────────
+  const installedGames = useMemo(() => games.filter((game) => game.installed), [games]);
+  const { staleMap, refresh, refreshAll, checking: checkingPaths } = useStalePaths(installedGames);
   const mountVersion = useMountVersion();
+  const driveUsage = useDriveUsage(installedGames);
 
-  // Drive filter
-  const driveFilteredGames = useMemo(() => {
-    if (!driveFilter) return installedGames;
-    return installedGames.filter(
-      (g) => g.sizeRootPath && driveOf(g.sizeRootPath) === driveFilter
-    );
-  }, [installedGames, driveFilter, mountVersion]);
+  const staleCount = useMemo(() => {
+    let count = 0;
+    for (const stale of staleMap.values()) if (stale) count += 1;
+    return count;
+  }, [staleMap]);
 
-  // Counts for filter chips
-  const counts = useMemo(() => {
-    let sized = 0;
-    let missing = 0;
-    let stale = 0;
-    let hasMods = 0;
-    let massive = 0;
-    let large = 0;
-    let small = 0;
+  const drives = useMemo(() => driveBuckets(installedGames), [installedGames, mountVersion]);
+  const totalBytes = useMemo(() => totalBytesWithMods(installedGames), [installedGames]);
 
-    for (const g of driveFilteredGames) {
-      const isSized = g.sizeBytes != null && g.sizeBytes > 0;
-      const isStale = staleMap.get(g.id) === true;
-      const tier = getSizeTier(g);
+  const history = useStorageHistory({ totalBytes, gameCount: installedGames.length });
+  const leftover = useLeftoverScan(installedGames);
 
-      if (isSized) sized++;
-      else missing++;
-      if (isStale) stale++;
-      if ((g.modsSizeBytes ?? 0) > 0) hasMods++;
-      if (tier === "massive") massive++;
-      else if (tier === "large") large++;
-      else if (tier === "small" || tier === "medium") small++;
-    }
-
-    return {
-      all: driveFilteredGames.length,
-      sized,
-      missing,
-      stale,
-      hasMods,
-      massive,
-      large,
-      small,
+  // ── Filtering pipeline ────────────────────────────────────────────────
+  const counts = useMemo<Record<StorageFilter, number>>(() => {
+    const base: Record<StorageFilter, number> = {
+      all: installedGames.length,
+      sized: 0,
+      missing: 0,
+      stale: 0,
+      hasMods: 0,
+      massive: 0,
+      large: 0,
+      small: 0,
     };
-  }, [driveFilteredGames, staleMap]);
-
-  // Filter application
-  const statusFilteredGames = useMemo(() => {
-    switch (filter) {
-      case "sized":
-        return driveFilteredGames.filter((g) => g.sizeBytes != null && g.sizeBytes > 0);
-      case "missing":
-        return driveFilteredGames.filter((g) => g.sizeBytes == null || g.sizeBytes <= 0);
-      case "stale":
-        return driveFilteredGames.filter((g) => staleMap.get(g.id) === true);
-      case "hasMods":
-        return driveFilteredGames.filter((g) => (g.modsSizeBytes ?? 0) > 0);
-      case "massive":
-        return driveFilteredGames.filter((g) => getSizeTier(g) === "massive");
-      case "large":
-        return driveFilteredGames.filter((g) => getSizeTier(g) === "large");
-      case "small":
-        return driveFilteredGames.filter((g) => {
-          const t = getSizeTier(g);
-          return t === "small" || t === "medium";
-        });
-      case "all":
-      default:
-        return driveFilteredGames;
-    }
-  }, [driveFilteredGames, filter, staleMap]);
-
-  // Search filter
-  const searchFilteredGames = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return statusFilteredGames;
-    return statusFilteredGames.filter((g) => g.name.toLowerCase().includes(q));
-  }, [statusFilteredGames, search]);
-
-  // Sort
-  const sortedGames = useMemo(
-    () => sortGames(searchFilteredGames, sort),
-    [searchFilteredGames, sort]
-  );
-
-  // Maximum size for relative bar comparison
-  const maxBytes = useMemo(() => {
-    let max = 0;
-    for (const g of sortedGames) {
-      const b = gameTotalBytes(g);
-      if (b > max) max = b;
-    }
-    return max;
-  }, [sortedGames]);
-
-  // Missing games list for bulk wizard
-  const missingGames = useMemo(
-    () => installedGames.filter((g) => g.sizeBytes == null || g.sizeBytes <= 0),
-    [installedGames]
-  );
-
-  // Map of emulatorId -> display name
-  const emuNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const e of emulators) m[e.id] = e.name;
-    return m;
-  }, [emulators]);
-
-  // Grouped sections
-  const sections = useMemo(() => {
-    if (groupBy === "none") return null;
-    return buildSections(sortedGames, groupBy, (g) => {
-      if (groupBy === "platform") return g.platform || t("storage.section.unknown");
-      if (groupBy === "emulator")
-        return g.emulatorId ? emuNameById[g.emulatorId] ?? t("storage.section.other") : t("storage.section.other");
-      if (groupBy === "sizeTier") {
-        const tier = getSizeTier(g);
-        if (tier === "massive") return "> 50 GB";
-        if (tier === "large") return "15 - 50 GB";
-        if (tier === "medium") return "5 - 15 GB";
-        if (tier === "small") return "< 5 GB";
-        return t("storage.missing");
+    for (const game of installedGames) {
+      for (const key of Object.keys(base) as StorageFilter[]) {
+        if (key === "all") continue;
+        if (matchesStorageFilter(game, key, staleMap.get(game.id) === true)) base[key] += 1;
       }
-      if (groupBy === "status") {
-        if (staleMap.get(g.id) === true) return t("storage.stale");
-        if (g.sizeBytes == null || g.sizeBytes <= 0) return t("storage.missing");
-        return t("storage.sized");
+    }
+    return base;
+  }, [installedGames, staleMap]);
+
+  const filteredGames = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return installedGames.filter((game) => {
+      if (driveFilter && driveOf(game.sizeRootPath) !== driveFilter) return false;
+      if (!matchesStorageFilter(game, filter, staleMap.get(game.id) === true)) return false;
+      if (query) {
+        const name = (game.displayName || game.name).toLowerCase();
+        if (!name.includes(query)) return false;
       }
-      // default: drive
-      const d = driveOf(g.sizeRootPath);
-      return d === "Unknown" ? t("storage.section.unknown") : d;
+      return true;
     });
-  }, [sortedGames, groupBy, emuNameById, staleMap, t, mountVersion]);
+  }, [installedGames, driveFilter, filter, search, staleMap]);
 
-  const handleRowSizeUpdated = useCallback(
-    (gameId: string) => {
-      void refresh(gameId);
-    },
-    [refresh]
+  const sortedGames = useMemo(() => sortGamesByColumn(filteredGames, sort), [filteredGames, sort]);
+
+  const maxBytes = useMemo(
+    () => sortedGames.reduce((max, game) => Math.max(max, gameTotalBytes(game)), 0),
+    [sortedGames],
   );
 
-  // Refresh all paths on disk
-  const [refreshingPaths, setRefreshingPaths] = useState(false);
-  const handleRefreshPaths = useCallback(() => {
-    setRefreshingPaths(true);
-    refreshAll();
-    setTimeout(() => setRefreshingPaths(false), 600);
-  }, [refreshAll]);
+  // ── Recommendations ───────────────────────────────────────────────────
+  const recommendations = useMemo(
+    () =>
+      buildRecommendations({
+        games: installedGames,
+        staleMap,
+        driveUsage,
+        leftover: leftover.folders ? leftover.totals : null,
+      }),
+    [installedGames, staleMap, driveUsage, leftover.folders, leftover.totals],
+  );
 
-  // Open file explorer
-  const handleOpenFolder = useCallback(
+  const visibleRecommendations = useMemo(() => {
+    if (dismissed.includes(STRIP_SENTINEL)) return [];
+    return recommendations.filter((rec) => !dismissed.includes(rec.id));
+  }, [recommendations, dismissed]);
+
+  // Forget dismissals for problems that no longer exist, so the strip comes
+  // back if the same issue reappears later.
+  useEffect(() => {
+    const live = new Set(recommendations.map((rec) => rec.id as string));
+    setDismissed((prev) => {
+      const next = prev.filter((id) => id === STRIP_SENTINEL || live.has(id));
+      if (next.length === prev.length) return prev;
+      writeDismissed(next);
+      return next;
+    });
+  }, [recommendations]);
+
+  const dismissRecommendation = useCallback((id: RecommendationId) => {
+    setDismissed((prev) => {
+      const next = [...new Set([...prev, id])];
+      writeDismissed(next);
+      return next;
+    });
+  }, []);
+
+  const dismissStrip = useCallback(() => {
+    setDismissed((prev) => {
+      const next = [...new Set([...prev, STRIP_SENTINEL])];
+      writeDismissed(next);
+      return next;
+    });
+  }, []);
+
+  // ── Actions ───────────────────────────────────────────────────────────
+  const openFolder = useCallback(
     async (game: { sizeRootPath?: string; path?: string; name: string; displayName?: string }) => {
       const target = game.sizeRootPath || game.path;
       if (!target) {
@@ -251,16 +244,21 @@ export default function StoragePage() {
       try {
         await invoke("open_folder", { path: target });
       } catch (err) {
-        showToast(t("storage.couldNotOpenFolder", { error: err }), "error");
+        showToast(t("storage.couldNotOpenFolder", { error: String(err) }), "error");
       }
     },
-    [showToast, t]
+    [showToast, t],
   );
 
-  // Selection actions
-  const selectedGames = useMemo(
-    () => installedGames.filter((g) => selected.has(g.id)),
-    [installedGames, selected]
+  const openPath = useCallback(
+    async (path: string) => {
+      try {
+        await invoke("open_folder", { path });
+      } catch (err) {
+        showToast(t("storage.couldNotOpenFolder", { error: String(err) }), "error");
+      }
+    },
+    [showToast, t],
   );
 
   const toggleSelect = useCallback((id: string) => {
@@ -272,28 +270,29 @@ export default function StoragePage() {
     });
   }, []);
 
-  const selectAll = useCallback(() => {
-    setSelected(new Set(sortedGames.map((g) => g.id)));
-  }, [sortedGames]);
+  const selectAll = useCallback(
+    () => setSelected(new Set(sortedGames.map((game) => game.id))),
+    [sortedGames],
+  );
 
   const invertSelection = useCallback(() => {
     setSelected((prev) => {
       const next = new Set<string>();
-      for (const g of sortedGames) {
-        if (!prev.has(g.id)) next.add(g.id);
-      }
+      for (const game of sortedGames) if (!prev.has(game.id)) next.add(game.id);
       return next;
     });
   }, [sortedGames]);
 
   const selectStale = useCallback(() => {
-    const staleIds = sortedGames.filter((g) => staleMap.get(g.id) === true).map((g) => g.id);
-    setSelected(new Set(staleIds));
+    setSelected(new Set(sortedGames.filter((g) => staleMap.get(g.id) === true).map((g) => g.id)));
   }, [sortedGames, staleMap]);
 
   const selectMissing = useCallback(() => {
-    const missingIds = sortedGames.filter((g) => g.sizeBytes == null || g.sizeBytes <= 0).map((g) => g.id);
-    setSelected(new Set(missingIds));
+    setSelected(
+      new Set(
+        sortedGames.filter((g) => (g.sizeBytes ?? 0) <= 0).map((g) => g.id),
+      ),
+    );
   }, [sortedGames]);
 
   const clearSelection = useCallback(() => setSelected(new Set()), []);
@@ -303,29 +302,78 @@ export default function StoragePage() {
     setSelected(new Set());
   }, []);
 
-  // Escape key exits select mode
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectMode) {
-        exitSelectMode();
-      }
+    if (!selectMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") exitSelectMode();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectMode, exitSelectMode]);
 
-  // Move operations
   const openMove = useCallback(
     (targets: Game[]) => {
-      const movable = targets.filter((g) => g.sizeRootPath || g.path);
+      const movable = targets.filter((game) => game.sizeRootPath || game.path);
       if (movable.length === 0) {
         showToast(t("storage.selectToMove"), "info");
         return;
       }
       setMoveGames(movable);
     },
-    [showToast, t]
+    [showToast, t],
   );
+
+  const openUninstall = useCallback(
+    (targets: Game[]) => {
+      const removable = targets.filter((game) => game.sizeRootPath || game.path);
+      if (removable.length === 0) {
+        showToast(t("storage.selectToUninstall"), "info");
+        return;
+      }
+      setUninstallGames(removable);
+    },
+    [showToast, t],
+  );
+
+  const confirmUninstall = useCallback(async () => {
+    if (!uninstallGames) return;
+    setUninstalling(true);
+    const freedBytes = uninstallGames.reduce((sum, game) => sum + gameTotalBytes(game), 0);
+    let removed = 0;
+    for (const game of uninstallGames) {
+      const root = game.sizeRootPath || game.path;
+      if (!root) {
+        removeGame(game.id);
+        removed += 1;
+        continue;
+      }
+      try {
+        await invoke("uninstall_game", { rootPath: root });
+        removeGame(game.id);
+        removed += 1;
+      } catch (err) {
+        showToast(t("storage.uninstallFailed", { name: gameDisplayName(game), error: String(err) }), "error");
+      }
+    }
+    if (removed > 0) {
+      await history.record({
+        kind: "uninstall",
+        bytes: freedBytes,
+        count: removed,
+        label: removed === 1 ? gameDisplayName(uninstallGames[0]) : null,
+      });
+    }
+    setUninstalling(false);
+    setUninstallGames(null);
+    setSelected(new Set());
+    setSelectMode(false);
+    refreshAll();
+    leftover.reset();
+    showToast(
+      t("storage.uninstalled", { count: removed, plural: removed === 1 ? "" : "s" }),
+      "success",
+    );
+  }, [uninstallGames, removeGame, showToast, t, refreshAll, history, leftover]);
 
   const handleMoved = useCallback(
     (game: Game, toPath: string, newExe: string) => {
@@ -336,88 +384,120 @@ export default function StoragePage() {
       });
       void refresh(game.id);
     },
-    [updateGame, refresh]
+    [updateGame, refresh],
   );
 
-  // Batch remeasure
   const handleBatchRemeasure = useCallback(async () => {
-    const list = selectedGames.filter(
-      (g) => (g.path && g.path.trim() !== "") || g.steamAppId != null
-    );
+    const list = selectedGamesForRemeasure(installedGames, selected);
     if (list.length === 0) return;
-    setIsRemeasuringBatch(true);
+    setBatchRemeasuring(true);
     let done = 0;
-    for (const g of list) {
+    for (const game of list) {
       try {
         const result = await invoke<{ sizeBytes: number; rootPath: string }>("detect_game_size", {
-          exePath: g.path,
-          gameName: g.name,
+          exePath: game.path,
+          gameName: game.name,
           rootOverride: null,
-          steamAppId: g.steamAppId ?? null,
+          steamAppId: game.steamAppId ?? null,
         });
-        updateGame(g.id, {
+        updateGame(game.id, {
           sizeBytes: result.sizeBytes,
           sizeRootPath: result.rootPath,
           sizeDetectedAt: new Date().toISOString(),
         });
-        done++;
+        done += 1;
       } catch (err) {
-        console.error("re-measure failed for", g.name, err);
+        console.error("re-measure failed for", game.name, err);
       }
     }
-    setIsRemeasuringBatch(false);
-    showToast(t("storage.remeasured", { count: done, plural: done === 1 ? "" : "s" }), "success");
+    setBatchRemeasuring(false);
+    showToast(
+      t("storage.remeasured", { count: done, plural: done === 1 ? "" : "s" }),
+      "success",
+    );
     refreshAll();
-  }, [selectedGames, updateGame, showToast, refreshAll, t]);
+  }, [installedGames, selected, updateGame, showToast, t, refreshAll]);
 
-  // Uninstall operations
-  const openUninstall = useCallback(
-    (targets: Game[]) => {
-      const removable = targets.filter((g) => g.sizeRootPath || g.path);
-      if (removable.length === 0) {
-        showToast(t("storage.selectToUninstall"), "info");
-        return;
+  const handleDriveRemeasure = useCallback(
+    async (drive: string) => {
+      const list = installedGames.filter(
+        (game) => game.sizeRootPath && driveOf(game.sizeRootPath) === drive,
+      );
+      if (list.length === 0) return;
+      setBatchRemeasuring(true);
+      for (const game of list) {
+        try {
+          const result = await invoke<{ sizeBytes: number; rootPath: string }>("detect_game_size", {
+            exePath: game.path,
+            gameName: game.name,
+            rootOverride: null,
+            steamAppId: game.steamAppId ?? null,
+          });
+          updateGame(game.id, {
+            sizeBytes: result.sizeBytes,
+            sizeRootPath: result.rootPath,
+            sizeDetectedAt: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error("drive re-measure failed for", game.name, err);
+        }
       }
-      setUninstallGames(removable);
+      setBatchRemeasuring(false);
+      refreshAll();
     },
-    [showToast, t]
+    [installedGames, updateGame, refreshAll],
   );
 
-  const confirmUninstall = useCallback(async () => {
-    if (!uninstallGames) return;
-    setUninstalling(true);
-    let removed = 0;
-    for (const g of uninstallGames) {
-      const root = g.sizeRootPath || g.path;
-      if (!root) {
-        removeGame(g.id);
-        removed++;
-        continue;
-      }
-      try {
-        await invoke("uninstall_game", { rootPath: root });
-        removeGame(g.id);
-        removed++;
-      } catch (err) {
-        showToast(t("storage.uninstallFailed", { name: gameDisplayName(g), error: err }), "error");
-      }
-    }
-    setUninstalling(false);
-    setUninstallGames(null);
-    setSelected(new Set());
-    setSelectMode(false);
-    refreshAll();
-    showToast(t("storage.uninstalled", { count: removed, plural: removed === 1 ? "" : "s" }), "success");
-  }, [uninstallGames, removeGame, showToast, refreshAll, t]);
+  const openGameInTable = useCallback((game: Game) => {
+    setTab("games");
+    setFilter("all");
+    setDriveFilter(null);
+    setSearch(game.displayName || game.name);
+  }, [setTab]);
 
-  // Export report helpers
+  const handleRecommendation = useCallback(
+    (rec: Recommendation) => {
+      switch (rec.id) {
+        case "stale":
+          setTab("health");
+          break;
+        case "unmeasured":
+          setTab("games");
+          setFilter("missing");
+          break;
+        case "bigUnplayed":
+          setTab("games");
+          setFilter("all");
+          setSelected(new Set(rec.gameIds));
+          setSelectMode(true);
+          break;
+        case "modsBloat":
+          setTab("games");
+          setFilter("hasMods");
+          break;
+        case "lowSpace": {
+          const tightest = Array.from(driveUsage.entries())
+            .filter(([, usage]) => usage.total > 0)
+            .sort((a, b) => a[1].available / a[1].total - b[1].available / b[1].total)[0];
+          if (tightest) setSheetDrive(tightest[0]);
+          break;
+        }
+        case "leftovers":
+          setTab("overview");
+          if (!leftover.folders) void leftover.scan();
+          break;
+      }
+    },
+    [setTab, driveUsage, leftover],
+  );
+
   const handleExportCsv = useCallback(async () => {
     const csv = exportStorageReportCsv(sortedGames, unit);
     try {
       await navigator.clipboard.writeText(csv);
       showToast(t("storage.batch.copiedReport"), "success");
     } catch {
-      showToast("Could not copy CSV report", "error");
+      showToast(t("storage.exportFailedCsv"), "error");
     }
   }, [sortedGames, unit, showToast, t]);
 
@@ -427,150 +507,221 @@ export default function StoragePage() {
       await navigator.clipboard.writeText(json);
       showToast(t("storage.batch.copiedReport"), "success");
     } catch {
-      showToast("Could not copy JSON report", "error");
+      showToast(t("storage.exportFailedJson"), "error");
     }
   }, [sortedGames, showToast, t]);
 
-  // Emulators view data fetch
-  useEffect(() => {
-    if (viewMode !== "emulators") return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await invoke<Emulator[]>("list_emulators");
-        if (!cancelled) setEmulators(list);
-      } catch (err) {
-        console.error("list_emulators failed", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewMode]);
+  const toggleColumn = useCallback((column: TableColumn) => {
+    setColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(column)) next.delete(column);
+      else next.add(column);
+      return next;
+    });
+  }, []);
 
-  const emuRoms = useCallback(
-    (emuId: string) => games.filter((g) => g.emulatorId === emuId),
-    [games]
+  const selectedGames = useMemo(
+    () => installedGames.filter((game) => selected.has(game.id)),
+    [installedGames, selected],
   );
 
-  const emuRomsList = useMemo(
-    () => installedGames.filter((g) => g.emulatorId),
-    [installedGames]
-  );
+  const sheetGames = useMemo(() => {
+    if (!sheetDrive) return [];
+    return installedGames.filter(
+      (game) => game.sizeRootPath && driveOf(game.sizeRootPath) === sheetDrive,
+    );
+  }, [installedGames, sheetDrive]);
 
-  const emuTotalBytes = useMemo(() => {
-    let total = 0;
-    for (const e of emulators) total += installBytes[e.id] ?? 0;
-    for (const g of emuRomsList) total += gameTotalBytes(g);
-    return total;
-  }, [emulators, installBytes, emuRomsList]);
+  const sheetRoot = useMemo(() => {
+    const first = sheetGames.find((game) => game.sizeRootPath);
+    if (!first?.sizeRootPath) return undefined;
+    const normalized = first.sizeRootPath.replace(/\\/g, "/");
+    const index = normalized.lastIndexOf("/");
+    return index > 0 ? first.sizeRootPath.slice(0, index) : first.sizeRootPath;
+  }, [sheetGames]);
 
-  const measureEmulator = useCallback(
-    async (emu: Emulator) => {
-      if (!emu.executablePath) {
-        setInstallBytes((prev) => ({ ...prev, [emu.id]: null }));
-        return;
-      }
-      setMeasuringEmu((prev) => new Set(prev).add(emu.id));
-      try {
-        const result = await invoke<{ sizeBytes: number; rootPath: string }>(
-          "measure_path_size",
-          { path: parentDir(emu.executablePath) }
-        );
-        setInstallBytes((prev) => ({ ...prev, [emu.id]: result.sizeBytes }));
-      } catch (err) {
-        console.error("measure_path_size failed", err);
-        setInstallBytes((prev) => ({ ...prev, [emu.id]: null }));
-        showToast(t("storage.measureFailed", { name: emu.name, error: err }), "error");
-      } finally {
-        setMeasuringEmu((prev) => {
-          const next = new Set(prev);
-          next.delete(emu.id);
-          return next;
-        });
-      }
-    },
-    [showToast, t]
+  const allSelected = sortedGames.length > 0 && selected.size === sortedGames.length;
+
+  const emptyTitle = search.trim()
+    ? t("storage.emptySearch")
+    : filter === "stale"
+      ? t("storage.emptyStale")
+      : filter === "missing"
+        ? t("storage.emptyMissing")
+        : filter === "sized"
+          ? t("storage.emptySized")
+          : driveFilter
+            ? t("storage.emptyDrive", { drive: driveFilter })
+            : installedGames.length === 0
+              ? t("storage.emptyNone")
+              : t("storage.emptySizedYet");
+
+  const emptyDescription = search.trim()
+    ? t("storage.hintSearch")
+    : installedGames.length === 0
+      ? t("storage.hintImport")
+      : driveFilter
+        ? t("storage.hintDrive")
+        : t("storage.hintMeasure");
+
+  const tabs = useMemo(
+    () => [
+      { id: "overview" as const, label: t("storage.tab.overview"), icon: LayoutDashboard },
+      {
+        id: "games" as const,
+        label: t("storage.tab.games"),
+        icon: Table2,
+        count: sortedGames.length,
+      },
+      {
+        id: "health" as const,
+        label: t("storage.tab.health"),
+        icon: ShieldCheck,
+        badge:
+          staleCount > 0 ? (
+            <span className="storage-tab-badge" aria-hidden="true">
+              {staleCount}
+            </span>
+          ) : null,
+      },
+      { id: "emulators" as const, label: t("storage.tab.emulators"), icon: Gamepad2 },
+    ],
+    [t, sortedGames.length, staleCount],
   );
 
   return (
     <div className="storage-page page">
-      {/* ── Page Header ────────────────────────────────────────────── */}
       <PageWidget page="storage" widget="storageHeader">
-      <div className="ui-item-storageHeader">
-        <PageHeader
-          eyebrow={t("storage.eyebrow")}
-          title={t("storage.title")}
-          description={t("storage.description")}
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
-              <line x1="12" y1="6" x2="18" y2="6" />
-              <line x1="12" y1="10" x2="15" y2="10" />
-            </svg>
-          }
-        />
-      </div>
+        <div className="ui-item-storageHeader">
+          <PageHeader
+            eyebrow={t("storage.eyebrow")}
+            title={t("storage.title")}
+            description={t("storage.description")}
+            icon={<HardDrive />}
+          />
+        </div>
       </PageWidget>
 
-      {/* ── Hero Analytics Dashboard ───────────────────────────────── */}
       <PageWidget page="storage" widget="storageHero">
-      <div className="ui-item-storageHero">
-        <StorageHeroDashboard
-          games={installedGames}
-          staleCount={staleCount}
-          activeDrive={driveFilter}
-          onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
-          onOpenHealth={() => setViewMode("health")}
-          onSelectGame={(g) => {
-            setSearch(g.name);
-            setViewMode("list");
-          }}
-        />
-      </div>
+        <div className="ui-item-storageHero">
+          <StorageStatBand
+            games={installedGames}
+            staleCount={staleCount}
+            driveUsage={driveUsage}
+            onFilter={(next) => {
+              setTab("games");
+              setFilter(next);
+            }}
+            onOpenTab={setTab}
+          />
+        </div>
       </PageWidget>
 
-      {/* ── Unified Controls Bar ───────────────────────────────────── */}
       <PageWidget page="storage" widget="storageControls">
-      <div className="ui-item-storageControls">
-        <StorageControlsBar
-          allCount={counts.all}
-          sizedCount={counts.sized}
-          missingCount={counts.missing}
-          staleCount={counts.stale}
-          hasModsCount={counts.hasMods}
-          massiveCount={counts.massive}
-          largeCount={counts.large}
-          smallCount={counts.small}
-          filteredCount={sortedGames.length}
-          activeFilter={filter}
-          onFilterChange={setFilter}
-          activeDrive={driveFilter}
-          onClearDriveFilter={() => setDriveFilter(null)}
-          search={search}
-          onSearchChange={setSearch}
-          sort={sort}
-          onSortChange={setSort}
-          groupBy={groupBy}
-          onGroupByChange={setGroupBy}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          unsizedGames={missingGames}
-          onRecalcComplete={refreshAll}
-          isRefreshingPaths={refreshingPaths}
-          onRefreshPaths={handleRefreshPaths}
-          selectMode={selectMode}
-          onToggleSelectMode={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-          onExportCsv={handleExportCsv}
-          onExportJson={handleExportJson}
-        />
-      </div>
+        <div className="ui-item-storageControls">
+          <SubTabs
+            items={tabs}
+            value={tab}
+            onChange={setTab}
+            ariaLabel={t("storage.tabsAria")}
+            className="storage-tabs"
+          />
+        </div>
       </PageWidget>
 
-      {/* ── Floating Batch Selection Dock ──────────────────────────── */}
-      {selectMode && (viewMode === "list" || viewMode === "grid") && (
+      <PageWidget page="storage" widget="storageList">
+        <div className="ui-item-storageList">
+          {tab === "overview" && (
+            <StorageOverview
+              games={installedGames}
+              drives={drives}
+              driveUsage={driveUsage}
+              recommendations={recommendations}
+              history={history.history}
+              leftover={leftover.folders ? leftover.totals : null}
+              leftoverFolders={leftover.folders}
+              scanningLeftovers={leftover.scanning}
+              onScanLeftovers={() => void leftover.scan()}
+              onOpenDrive={setSheetDrive}
+              onActOnRecommendation={handleRecommendation}
+              onSelectGame={openGameInTable}
+              onOpenTab={setTab}
+              onOpenLeftover={openPath}
+            />
+          )}
+
+          {tab === "games" && (
+            <div className="storage-deck">
+              <DriveRail
+                drives={drives}
+                usage={driveUsage}
+                activeDrive={driveFilter}
+                totalBytes={totalBytes}
+                gameCount={installedGames.length}
+                onSelect={setDriveFilter}
+                onOpenDrive={setSheetDrive}
+                onRefresh={refreshAll}
+                refreshing={checkingPaths}
+              />
+              <div className="storage-deck__main">
+                <RecommendationStrip
+                  recommendations={visibleRecommendations}
+                  onAct={handleRecommendation}
+                  onDismiss={dismissRecommendation}
+                  onDismissStrip={dismissStrip}
+                  onOpenHealth={() => setTab("health")}
+                />
+
+                <StorageToolbar
+                  search={search}
+                  onSearchChange={setSearch}
+                  filter={filter}
+                  onFilterChange={setFilter}
+                  counts={counts}
+                  filteredCount={sortedGames.length}
+                  totalCount={installedGames.length}
+                  columns={columns}
+                  onToggleColumn={toggleColumn}
+                  selectMode={selectMode}
+                  onToggleSelectMode={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                  isRefreshing={checkingPaths}
+                  onRefreshPaths={refreshAll}
+                  onExportCsv={handleExportCsv}
+                  onExportJson={handleExportJson}
+                />
+
+                <GamesTable
+                  games={sortedGames}
+                  staleMap={staleMap}
+                  maxBytes={maxBytes}
+                  columns={columns}
+                  sort={sort}
+                  onSortChange={(column: StorageSortColumn) =>
+                    setSortRaw(serializeSort(nextSort(sort, column)))
+                  }
+                  selectMode={selectMode}
+                  selected={selected}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={() => (allSelected ? clearSelection() : selectAll())}
+                  allSelected={allSelected}
+                  onSizeUpdated={(id) => void refresh(id)}
+                  onOpenFolder={openFolder}
+                  onMove={(game) => openMove([game])}
+                  onUninstall={(game) => openUninstall([game])}
+                  onLaunch={(game) => launchGame(game)}
+                  emptyTitle={emptyTitle}
+                  emptyDescription={emptyDescription}
+                />
+              </div>
+            </div>
+          )}
+
+          {tab === "health" && <LibraryHealthCenter />}
+          {tab === "emulators" && <StorageEmulatorsTab />}
+        </div>
+      </PageWidget>
+
+      {selectMode && tab === "games" && (
         <StorageBatchBar
           selectedGames={selectedGames}
           onSelectAll={selectAll}
@@ -581,206 +732,26 @@ export default function StoragePage() {
           onExitSelectMode={exitSelectMode}
           onMove={openMove}
           onUninstall={openUninstall}
-          onRemeasure={handleBatchRemeasure}
-          isRemeasuring={isRemeasuringBatch}
+          onRemeasure={() => void handleBatchRemeasure()}
+          isRemeasuring={batchRemeasuring}
         />
       )}
 
-      {/* ── View Mode: List or Grid ────────────────────────────────── */}
-      {(viewMode === "list" || viewMode === "grid") && (
-        <PageWidget page="storage" widget="storageList">
-        <div className="ui-item-storageList">
-          {sortedGames.length === 0 ? (
-            <div className="storage__empty-state">
-              <div className="storage__empty-state-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="2" width="20" height="20" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
-                  <line x1="12" y1="6" x2="18" y2="6" />
-                  <line x1="12" y1="10" x2="15" y2="10" />
-                </svg>
-              </div>
-              <p className="storage__empty-state-title">
-                {search.trim()
-                  ? t("storage.emptySearch")
-                  : filter === "stale"
-                    ? t("storage.emptyStale")
-                    : filter === "missing"
-                      ? t("storage.emptyMissing")
-                      : filter === "sized"
-                        ? t("storage.emptySized")
-                        : driveFilter
-                          ? t("storage.emptyDrive", { drive: driveFilter })
-                          : installedGames.length === 0
-                            ? t("storage.emptyNone")
-                            : t("storage.emptySizedYet")}
-              </p>
-              <p className="storage__empty-state-subtitle">
-                {search.trim()
-                  ? t("storage.hintSearch")
-                  : installedGames.length === 0
-                    ? t("storage.hintImport")
-                    : driveFilter
-                      ? t("storage.hintDrive")
-                      : t("storage.hintMeasure")}
-              </p>
-            </div>
-          ) : sections ? (
-            <ul className="storage__groups">
-              {sections.map((s) => (
-                <StorageGroup
-                  key={s.key}
-                  label={s.label}
-                  games={s.games}
-                  bytes={s.bytes}
-                  maxBytes={maxBytes}
-                  density={density}
-                  mountVersion={mountVersion}
-                  viewMode={viewMode}
-                  selectMode={selectMode}
-                  selected={selected}
-                  onToggleSelect={toggleSelect}
-                  onSizeUpdated={handleRowSizeUpdated}
-                  onOpenFolder={handleOpenFolder}
-                  onMove={(g) => openMove([g])}
-                  onUninstall={(g) => openUninstall([g])}
-                  onLaunch={(g) => launchGame(g)}
-                  staleMap={staleMap}
-                />
-              ))}
-            </ul>
-          ) : viewMode === "grid" ? (
-            <div className={`storage__grid density-${density}`}>
-              {sortedGames.map((g) => (
-                <StorageGridCard
-                  key={g.id}
-                  game={g}
-                  maxBytes={maxBytes}
-                  stale={staleMap.get(g.id) === true}
-                  density={density}
-                  mountVersion={mountVersion}
-                  selectMode={selectMode}
-                  selected={selected.has(g.id)}
-                  onToggleSelect={() => toggleSelect(g.id)}
-                  onSizeUpdated={() => handleRowSizeUpdated(g.id)}
-                  onOpenFolder={() => handleOpenFolder(g)}
-                  onMove={() => openMove([g])}
-                  onUninstall={() => openUninstall([g])}
-                  onLaunch={() => launchGame(g)}
-                />
-              ))}
-            </div>
-          ) : (
-            <ul className={`storage__list density-${density}`}>
-              {sortedGames.map((g) => (
-                <StorageRow
-                  key={g.id}
-                  game={g}
-                  maxBytes={maxBytes}
-                  stale={staleMap.get(g.id) === true}
-                  density={density}
-                  mountVersion={mountVersion}
-                  selectMode={selectMode}
-                  selected={selected.has(g.id)}
-                  onToggleSelect={() => toggleSelect(g.id)}
-                  onSizeUpdated={() => handleRowSizeUpdated(g.id)}
-                  onOpenFolder={() => handleOpenFolder(g)}
-                  onMove={() => openMove([g])}
-                  onUninstall={() => openUninstall([g])}
-                  onLaunch={() => launchGame(g)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-        </PageWidget>
+      {sheetDrive && (
+        <DriveSheet
+          drive={sheetDrive}
+          games={sheetGames}
+          usage={driveUsage.get(sheetDrive)}
+          rootPath={sheetRoot}
+          onClose={() => setSheetDrive(null)}
+          onOpenFolder={openPath}
+          onSelectGame={openGameInTable}
+          onMove={openMove}
+          onRemeasure={() => void handleDriveRemeasure(sheetDrive)}
+          remeasuring={batchRemeasuring}
+        />
       )}
 
-      {/* ── View Mode: Library Health & Maintenance Center ─────────── */}
-      {viewMode === "health" && <LibraryHealthCenter />}
-
-      {/* ── View Mode: Emulators ───────────────────────────────────── */}
-      {viewMode === "emulators" && (
-        <div className="storage-emulators-view">
-          <div className="storage__emu-summary">
-            <div className="storage__emu-stat">
-              <div className="storage__emu-stat-icon storage__emu-stat-icon--emu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="6" width="20" height="12" rx="2" />
-                  <line x1="6" y1="12" x2="10" y2="12" />
-                  <line x1="8" y1="10" x2="8" y2="14" />
-                  <circle cx="15" cy="13" r="1" />
-                  <circle cx="18" cy="11" r="1" />
-                </svg>
-              </div>
-              <div className="storage__emu-stat-content">
-                <span className="storage__emu-stat-value">{emulators.length}</span>
-                <span className="storage__emu-stat-label">{t("storage.emuTracked")}</span>
-              </div>
-            </div>
-
-            <div className="storage__emu-stat">
-              <div className="storage__emu-stat-icon storage__emu-stat-icon--roms">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 11h4M8 9v4M15 12h.01M18 10h.01" />
-                  <rect x="2" y="6" width="20" height="12" rx="2" />
-                </svg>
-              </div>
-              <div className="storage__emu-stat-content">
-                <span className="storage__emu-stat-value">{emuRomsList.length}</span>
-                <span className="storage__emu-stat-label">{t("storage.emuRoms")}</span>
-              </div>
-            </div>
-
-            <div className="storage__emu-stat storage__emu-stat--primary">
-              <div className="storage__emu-stat-icon storage__emu-stat-icon--size">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <ellipse cx="12" cy="5" rx="9" ry="3" />
-                  <path d="M3 5v14a9 3 0 0 0 18 0V5" />
-                  <path d="M3 12a9 9 0 0 0 18 0" />
-                </svg>
-              </div>
-              <div className="storage__emu-stat-content">
-                <span className="storage__emu-stat-value">{formatSize(emuTotalBytes, unit)}</span>
-                <span className="storage__emu-stat-label">{t("storage.emuTotalSize")}</span>
-              </div>
-            </div>
-          </div>
-
-          {emulators.length === 0 ? (
-            <div className="storage__empty-state">
-              <div className="storage__empty-state-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="2" width="20" height="20" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
-                  <line x1="12" y1="6" x2="18" y2="6" />
-                  <line x1="12" y1="10" x2="15" y2="10" />
-                </svg>
-              </div>
-              <p className="storage__empty-state-title">{t("emulators.empty.title")}</p>
-              <p className="storage__empty-state-subtitle">{t("emulators.empty.desc")}</p>
-            </div>
-          ) : (
-            <ul className="storage__emu-list">
-              {emulators.map((emu) => (
-                <EmulatorStorageCard
-                  key={emu.id}
-                  emulator={emu}
-                  roms={emuRoms(emu.id)}
-                  installBytes={installBytes[emu.id]}
-                  measuring={measuringEmu.has(emu.id)}
-                  onMeasure={() => measureEmulator(emu)}
-                  onOpenRomFolder={handleOpenFolder}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* ── Relocate Game Modal ────────────────────────────────────── */}
       {moveGames && (
         <MoveGameDialog
           games={moveGames}
@@ -788,11 +759,11 @@ export default function StoragePage() {
           onClose={() => {
             setMoveGames(null);
             refreshAll();
+            leftover.reset();
           }}
         />
       )}
 
-      {/* ── Uninstall Game Modal ──────────────────────────────────── */}
       <ConfirmModal
         open={uninstallGames !== null}
         title={
@@ -813,5 +784,11 @@ export default function StoragePage() {
         onCancel={() => !uninstalling && setUninstallGames(null)}
       />
     </div>
+  );
+}
+
+function selectedGamesForRemeasure(games: Game[], selected: Set<string>): Game[] {
+  return games.filter(
+    (game) => selected.has(game.id) && ((game.path && game.path.trim() !== "") || game.steamAppId != null),
   );
 }

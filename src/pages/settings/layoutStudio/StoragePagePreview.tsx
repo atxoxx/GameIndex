@@ -1,21 +1,9 @@
 import { useMemo } from "react";
-import {
-  HardDrive,
-  ListFilter,
-  RefreshCw,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { HardDrive, RefreshCw } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useOrderDrag } from "../useOrderDrag";
 import { StudioPageWidgetCard } from "./StudioPageWidgetCard";
-import {
-  Line,
-  SchematicDiskMeter,
-  SchematicDonut,
-  SchematicSearchBar,
-  Track,
-} from "./StudioSchematics";
+import { Line, SchematicSearchBar, Track } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
 
 export interface StoragePagePreviewProps {
@@ -27,6 +15,26 @@ export interface StoragePagePreviewProps {
   onInspectElement?: (id: string) => void;
 }
 
+const DRIVES = [
+  { label: "C:", used: "450 GB", pct: 45 },
+  { label: "D:", used: "1.8 TB", pct: 90 },
+  { label: "E:", used: "950 GB", pct: 95 },
+];
+
+const ROWS = [
+  { name: 60, drive: "D:", size: "124.5 GB", pct: 95 },
+  { name: 45, drive: "D:", size: "86.2 GB", pct: 68 },
+  { name: 50, drive: "C:", size: "54.0 GB", pct: 42 },
+  { name: 35, drive: "E:", size: "28.4 GB", pct: 22 },
+];
+
+/**
+ * Layout Studio preview for `/storage`.
+ *
+ * Mirrors the shipped composition exactly — header, figure band, tab strip and
+ * the rail + table deck — so the four reorderable slots read as the real page
+ * rather than an older widget set.
+ */
 export function StoragePagePreview({
   widgetItems,
   inspectMode = false,
@@ -83,7 +91,7 @@ export function StoragePagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
-      {/* 1. Storage Header */}
+      {/* 1. Page header */}
       <div className="studio-page-full">
         {renderCard(
           "storageHeader",
@@ -101,119 +109,97 @@ export function StoragePagePreview({
             <div className="studio-storage-header-right">
               <span className="studio-storage-header-btn">
                 <RefreshCw size={9} />
-                <span>Remeasure All</span>
+                <span>Refresh</span>
               </span>
             </div>
           </div>,
         )}
       </div>
 
-      {/* 2. Hero Storage Dashboard (Drives & Breakdown) */}
+      {/* 2. Figure band */}
       <div className="studio-page-full">
         {renderCard(
           "storageHero",
           "slot",
-          <div className="studio-storage-hero-mock">
-            <div className="studio-storage-drives-col">
-              <SchematicDiskMeter
-                drive="C:"
-                label="System SSD"
-                used="450 GB"
-                total="1.0 TB"
-                percent={45}
-              />
-              <SchematicDiskMeter
-                drive="D:"
-                label="Games NVMe"
-                used="1.8 TB"
-                total="2.0 TB"
-                percent={90}
-              />
-              <SchematicDiskMeter
-                drive="E:"
-                label="Archive HDD"
-                used="950 GB"
-                total="1.0 TB"
-                percent={95}
-              />
-            </div>
-            <div className="studio-storage-cleanup-col">
-              <div className="studio-storage-donut-wrap">
-                <SchematicDonut size={48} stroke={6} />
-                <div className="studio-storage-donut-text">
-                  <span className="studio-storage-donut-val">3.2 TB</span>
-                  <span className="studio-storage-donut-lbl">Installed</span>
-                </div>
+          <div className="studio-storage-figures">
+            {[
+              { label: "Tracked", value: "3.2 TB" },
+              { label: "Free space", value: "412 GB" },
+              { label: "Installed", value: "148" },
+              { label: "Unmeasured", value: "18" },
+              { label: "Missing", value: "2" },
+              { label: "Largest", value: "124.5 GB" },
+            ].map((figure) => (
+              <div key={figure.label} className="studio-storage-figure">
+                <span className="studio-storage-figure-label">{figure.label}</span>
+                <span className="studio-storage-figure-value">{figure.value}</span>
               </div>
-              <div className="studio-storage-cleanup-card">
-                <div className="studio-storage-cleanup-title">
-                  <Sparkles size={10} />
-                  <span>Cleanup Assistant</span>
-                </div>
-                <span className="studio-storage-cleanup-desc">
-                  12 stale games (&gt; 6 mo unplayed) · 320 GB reclaimable
-                </span>
-              </div>
-            </div>
+            ))}
           </div>,
         )}
       </div>
 
-      {/* 3. Storage Controls Bar */}
+      {/* 3. Tab strip */}
       <div className="studio-page-full">
         {renderCard(
           "storageControls",
           "slot",
-          <div className="studio-storage-controls-mock">
-            <div className="studio-storage-filter-pills">
-              {["All (148)", "Massive >50G (18)", "Large 15-50G (34)", "Stale (12)"].map(
-                (p, i) => (
-                  <span
-                    key={p}
-                    className={`studio-storage-pill${i === 0 ? " is-active" : ""}`}
-                  >
-                    {p}
-                  </span>
-                ),
-              )}
-            </div>
-            <div className="studio-storage-controls-right">
-              <SchematicSearchBar placeholder="Filter games..." />
-              <span className="studio-storage-btn-group">
-                <ListFilter size={9} />
-                <span>Group: Drive</span>
+          <div className="studio-storage-tabs">
+            {["Overview", "Games", "Health", "Emulators"].map((tab, index) => (
+              <span
+                key={tab}
+                className={`studio-storage-tab${index === 1 ? " is-active" : ""}`}
+              >
+                {tab}
               </span>
-            </div>
+            ))}
           </div>,
         )}
       </div>
 
-      {/* 4. Storage Game List Rows */}
+      {/* 4. Rail + table deck */}
       <div className="studio-page-full">
         {renderCard(
           "storageList",
           "slot",
-          <div className="studio-storage-list-mock">
-            {[
-              { name: 60, drive: "D:", size: "124.5 GB", pct: 95 },
-              { name: 45, drive: "D:", size: "86.2 GB", pct: 68 },
-              { name: 50, drive: "C:", size: "54.0 GB", pct: 42 },
-              { name: 35, drive: "E:", size: "28.4 GB", pct: 22 },
-            ].map((row, i) => (
-              <div key={i} className="studio-storage-row">
-                <div className="studio-storage-row-info">
-                  <span className="studio-storage-drive-tag">{row.drive}</span>
-                  <Line w={row.name} h={11} />
+          <div className="studio-storage-deck">
+            <div className="studio-storage-rail">
+              {DRIVES.map((drive) => (
+                <div key={drive.label} className="studio-storage-rail-item">
+                  <div className="studio-storage-rail-head">
+                    <span className="studio-storage-drive-tag">{drive.label}</span>
+                    <span className="studio-storage-rail-size">{drive.used}</span>
+                  </div>
+                  <Track value={drive.pct} color="var(--color-accent)" height={3} />
                 </div>
-                <div className="studio-storage-row-bar">
-                  <Track value={row.pct} color="var(--color-accent)" height={5} />
-                </div>
-                <span className="studio-storage-row-size">{row.size}</span>
-                <span className="studio-storage-row-action">
-                  <Trash2 size={9} />
-                </span>
+              ))}
+            </div>
+
+            <div className="studio-storage-list-mock">
+              <div className="studio-storage-toolbar">
+                <SchematicSearchBar placeholder="Search games…" />
+                {["All", "Sized", "Missing", "Stale"].map((chip, index) => (
+                  <span
+                    key={chip}
+                    className={`studio-storage-pill${index === 0 ? " is-active" : ""}`}
+                  >
+                    {chip}
+                  </span>
+                ))}
               </div>
-            ))}
+              {ROWS.map((row, i) => (
+                <div key={i} className="studio-storage-row">
+                  <div className="studio-storage-row-info">
+                    <span className="studio-storage-drive-tag">{row.drive}</span>
+                    <Line w={row.name} h={11} />
+                  </div>
+                  <div className="studio-storage-row-bar">
+                    <Track value={row.pct} color="var(--color-accent)" height={5} />
+                  </div>
+                  <span className="studio-storage-row-size">{row.size}</span>
+                </div>
+              ))}
+            </div>
           </div>,
         )}
       </div>

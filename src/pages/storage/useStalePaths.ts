@@ -17,6 +17,8 @@ interface UseStalePathsResult {
   /** Re-check every sized game's path. Bumps a hidden counter so the
    *  bulk effect re-runs even if the game list didn't change. */
   refreshAll: () => void;
+  /** True while the batch existence probe is in flight. */
+  checking: boolean;
 }
 
 /** Phase-7 stale-path detection.
@@ -38,6 +40,7 @@ interface UseStalePathsResult {
  *       drive and wants a manual sweep). */
 export function useStalePaths(games: Game[]): UseStalePathsResult {
   const [staleMap, setStaleMap] = useState<StaleMap>(() => new Map());
+  const [checking, setChecking] = useState(false);
   const [bump, setBump] = useState(0);
 
   // Snapshot of the work list: (gameId, path) pairs. Re-derives only
@@ -63,6 +66,7 @@ export function useStalePaths(games: Game[]): UseStalePathsResult {
       return;
     }
     let cancelled = false;
+    setChecking(true);
     invoke<boolean[]>("check_paths_exist", {
       paths: pathList.map((p) => p.path),
     })
@@ -82,6 +86,9 @@ export function useStalePaths(games: Game[]): UseStalePathsResult {
         // existing staleMap intact and surface a console hint. The next
         // bulk check (or a manual refresh) will retry.
         console.error("check_paths_exist failed", err);
+      })
+      .finally(() => {
+        if (!cancelled) setChecking(false);
       });
     return () => {
       cancelled = true;
@@ -120,5 +127,5 @@ export function useStalePaths(games: Game[]): UseStalePathsResult {
     setBump((b) => b + 1);
   }, []);
 
-  return { staleMap, refresh, refreshAll };
+  return { staleMap, refresh, refreshAll, checking };
 }

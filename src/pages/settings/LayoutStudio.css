@@ -5194,6 +5194,94 @@
   align-items: center;
 }
 
+/* Figure band + tab strip + rail/table deck (the shipped composition). */
+.studio-storage-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.studio-storage-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+}
+
+.studio-storage-figure-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-storage-figure-value {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-storage-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-2xs);
+}
+
+.studio-storage-tab {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-storage-tab.is-active {
+  color: var(--color-text-primary);
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+  padding-bottom: var(--space-3xs);
+}
+
+.studio-storage-deck {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: var(--space-sm);
+}
+
+.studio-storage-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-storage-rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-storage-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3xs);
+}
+
+.studio-storage-rail-size {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-storage-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-2xs);
+}
+
 /* ── Activity Page Preview Layout ────────────────────────────────────────── */
 .studio-act-header-mock {
   display: flex;
