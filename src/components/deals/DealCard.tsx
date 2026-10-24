@@ -1,106 +1,71 @@
 import { useMemo, useState } from "react";
 import { Copy, ExternalLink, Eye, Heart } from "lucide-react";
-import type { DealItem } from "../../types/deals";
+import type { ViewDensity } from "../../types/game";
+import type { DealGroup } from "../../pages/deals/dealsConstants";
+import {
+  calculateSavings,
+  formatPrice,
+  steamAppIdFromUrl,
+  storeTint,
+} from "../../pages/deals/dealsConstants";
 import { useLanguage } from "../../context/LanguageContext";
-import { useWishlist } from "../../hooks/useWishlist";
-import { useGames } from "../../context/GameContext";
+import { useWishlistContext } from "../../context/WishlistContext";
+import { useOwnedTitles } from "../../hooks/useOwnedTitles";
 import { useToast } from "../../context/ToastContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { useGameCardArt } from "../../hooks/useGameCardArt";
-import {
-  formatPrice,
-  calculateSavings,
-  discountTier,
-  formatExpiry,
-  storeTint,
-  titleToSlug,
-} from "../../pages/deals/dealsConstants";
+import DealsCard from "./DealsCard";
+import { dealGroupSummary } from "./dealsSummaries";
 
 interface DealCardProps {
-  deal: DealItem;
-  onOpenUrl: (url: string | null | undefined) => void;
-  onInspect?: (deal: DealItem) => void;
+  group: DealGroup;
+  density: ViewDensity;
   index: number;
-  density?: string;
+  onOpenUrl: (url: string | null | undefined) => void;
+  onInspect?: (group: DealGroup) => void;
 }
 
+/** One card per game, headed by its cheapest store offer. */
 export default function DealCard({
-  deal,
+  group,
+  density,
+  index,
   onOpenUrl,
   onInspect,
-  index,
-  density = "cozy",
 }: DealCardProps) {
   const { t } = useLanguage();
-  const { isWishlisted, toggle } = useWishlist();
-  const { games } = useGames();
+  const { isWishlisted, toggle } = useWishlistContext();
+  const isOwned = useOwnedTitles();
   const { showToast } = useToast();
-  const dealMenu = useContextMenu();
+  const menu = useContextMenu();
   const [copied, setCopied] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
-  const steamAppId = useMemo(() => {
-    if (deal.storeUrl) {
-      const m = deal.storeUrl.match(/store\.steampowered\.com\/app\/(\d+)/i);
-      if (m && m[1]) return parseInt(m[1], 10);
-    }
-    return null;
-  }, [deal.storeUrl]);
+  const steamAppId = useMemo(
+    () => steamAppIdFromUrl(group.best.storeUrl),
+    [group.best.storeUrl],
+  );
 
-  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
-    appId: steamAppId,
-    defaultCoverUrl: deal.thumbnail,
-    isHovered: hovered,
-  });
-
-  const slug = useMemo(() => titleToSlug(deal.gameTitle), [deal.gameTitle]);
-  const wishlisted = isWishlisted(slug);
-  const ownedInLibrary = useMemo(() => {
-    const titleNorm = deal.gameTitle.toLowerCase().trim();
-    return games.some((g) => g.name.toLowerCase().trim() === titleNorm);
-  }, [deal.gameTitle, games]);
-
-  const tier = discountTier(deal.discountPercent);
-  const expiry = formatExpiry(deal.expiration);
+  const wishlisted = isWishlisted(group.slug);
+  const owned = isOwned(group.title);
   const { originalPrice, savings } = calculateSavings(
-    deal.dealPrice,
-    deal.discountPercent,
+    group.best.dealPrice,
+    group.best.discountPercent,
   );
 
   const toggleWishlist = () => {
-    toggle({
-      id: 0,
-      name: deal.gameTitle,
-      slug,
-      summary: null,
-      rating: null,
-      aggregatedRating: null,
-      coverUrl: deal.thumbnail ?? null,
-      logoUrl: null,
-      genres: [],
-      platforms: [deal.platform],
-      firstReleaseDate: null,
-      totalRatingCount: 0,
-      hypes: 0,
-    });
+    toggle(dealGroupSummary(group));
   };
 
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleWishlist();
-  };
-
-  const copyValue = async (value: string) => {
-    const copied = await copyTextToClipboard(value);
+  const copyLink = async () => {
+    const ok = await copyTextToClipboard(group.best.storeUrl);
     showToast(
-      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
-      copied ? "success" : "error"
+      ok ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      ok ? "success" : "error",
     );
   };
 
-  const dealMenuItems: ContextMenuItem[] = [
+  const menuItems: ContextMenuItem[] = [
     ...(onInspect
       ? [
           {
@@ -108,7 +73,7 @@ export default function DealCard({
             label: t("game.viewDetails"),
             icon: <Eye size={15} />,
             accent: true,
-            onSelect: () => onInspect(deal),
+            onSelect: () => onInspect(group),
           } as ContextMenuItem,
         ]
       : []),
@@ -116,7 +81,7 @@ export default function DealCard({
       id: "open",
       label: t("deals.openDeal"),
       icon: <ExternalLink size={15} />,
-      onSelect: () => onOpenUrl(deal.storeUrl),
+      onSelect: () => onOpenUrl(group.best.storeUrl),
     },
     { id: "sep-1", separator: true },
     {
@@ -130,212 +95,131 @@ export default function DealCard({
       id: "copy-link",
       label: t("deals.copyLink"),
       icon: <Copy size={15} />,
-      onSelect: () => copyValue(deal.storeUrl),
+      onSelect: copyLink,
     },
     {
       id: "copy-name",
       label: t("gameMenu.copyName"),
       icon: <Copy size={15} />,
-      onSelect: () => copyValue(deal.gameTitle),
+      onSelect: async () => {
+        const ok = await copyTextToClipboard(group.title);
+        showToast(
+          ok ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+          ok ? "success" : "error",
+        );
+      },
     },
   ];
 
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      if (navigator?.clipboard) {
-        await navigator.clipboard.writeText(deal.storeUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      /* clipboard fallback */
-    }
-  };
+  const storeLabel =
+    group.storeCount > 1
+      ? `${group.best.storeName} +${group.storeCount - 1}`
+      : group.best.storeName;
 
   return (
-    <article
-      className={`deals-deal-card deals-card-enter density-${density} ${
-        ownedInLibrary ? "is-owned" : ""
-      } ${wishlisted ? "is-wishlisted" : ""}`}
-      style={{ animationDelay: `${Math.min(index * 30, 450)}ms` }}
-      role="button"
-      tabIndex={0}
-      onClick={() => (onInspect ? onInspect(deal) : onOpenUrl(deal.storeUrl))}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (onInspect) onInspect(deal);
-          else onOpenUrl(deal.storeUrl);
-        }
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onContextMenu={(e) => dealMenu.open(e)}
-      aria-label={t("deals.openDealLabel", {
-        game: deal.gameTitle,
-        store: deal.storeName,
-      })}
-    >
-      <div className="deals-deal-card-image-wrap">
-        {(staticPosterUrl || displayUrl) ? (
-          <>
-            <img
-              className="deals-deal-card-image deals-deal-card-image-static"
-              src={staticPosterUrl || displayUrl!}
-              alt={deal.gameTitle}
-              loading="lazy"
-              decoding="async"
-              onError={handleError}
+    <DealsCard
+      kind="deal"
+      title={group.title}
+      subtitle={storeLabel}
+      image={group.best.thumbnail}
+      fallbackLabel={group.best.storeName}
+      appId={steamAppId}
+      tint={storeTint(group.best.storeName)}
+      discount={group.maxDiscount}
+      price={formatPrice(group.best.dealPrice, "EUR", t("deals.freePrice"))}
+      originalPrice={
+        savings > 0 ? formatPrice(originalPrice) : null
+      }
+      priceNote={
+        group.storeCount > 1 && group.savings > 0
+          ? t("deals.savingsLabel", { amount: formatPrice(group.savings) })
+          : group.storeCount > 1
+            ? t("deals.storeCount", { count: group.storeCount })
+            : null
+      }
+      meta={
+        <>
+          <span className="deals-tile__meta-item">
+            <i
+              className="deals-tile__dot"
+              style={{ background: storeTint(group.best.storeName) }}
+              aria-hidden="true"
             />
-            {animatedPosterUrl && hovered && (
-              <img
-                className="deals-deal-card-image deals-deal-card-image-animated is-active"
-                src={animatedPosterUrl}
-                alt=""
-                aria-hidden="true"
-                decoding="async"
-                onError={handleError}
-              />
-            )}
-          </>
-        ) : null}
-
-        <div
-          className="deals-deal-card-image-fallback"
-          style={{
-            display: deal.thumbnail ? "none" : "flex",
-            background: `color-mix(in srgb, ${storeTint(
-              deal.storeName,
-            )} 18%, var(--color-bg-secondary))`,
-            color: storeTint(deal.storeName),
-          }}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="1" x2="12" y2="23" />
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-        </div>
-
-        {/* Discount corner badge */}
-        <span className={`deals-deal-card-discount-corner ${tier}`}>
-          -{deal.discountPercent}%
-        </span>
-
-        {/* Status badges: Owned or Wishlisted */}
-        <div className="deals-card-top-badges">
-          {ownedInLibrary && (
-            <span className="deals-card-badge deals-card-badge--owned" title={t("deals.inLibrary")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+            {group.best.platform}
+          </span>
+          {group.storeCount > 1 && (
+            <span className="deals-tile__meta-item">
+              {t("deals.storeCount", { count: group.storeCount })}
+            </span>
+          )}
+        </>
+      }
+      topBadges={
+        <>
+          {owned && (
+            <span className="deals-tile__badge deals-tile__badge--owned">
+              {t("deals.inLibrary")}
             </span>
           )}
           {wishlisted && (
-            <span className="deals-card-badge deals-card-badge--wishlist" title={t("deals.onWishlist")}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
+            <span className="deals-tile__badge deals-tile__badge--wishlist">
+              <Heart size={10} fill="currentColor" aria-hidden="true" />
+              {t("deals.onWishlist")}
             </span>
           )}
-        </div>
-
-        {/* Quick action buttons on card hover */}
-        <div className="deals-card-quick-actions">
-          <button
-            type="button"
-            className={`deals-card-action-btn ${wishlisted ? "active" : ""}`}
-            onClick={handleToggleWishlist}
-            title={wishlisted ? t("deals.removeFromWishlist") : t("deals.addToWishlist")}
-            aria-label={wishlisted ? t("deals.removeFromWishlist") : t("deals.addToWishlist")}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill={wishlisted ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            className="deals-card-action-btn"
-            onClick={handleCopy}
-            title={copied ? t("gameInfo.copied") : t("deals.copyLink")}
-            aria-label={t("deals.copyLink")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div className="deals-deal-card-body">
-        <h3 className="deals-deal-card-title" title={deal.gameTitle}>
-          {deal.gameTitle}
-        </h3>
-
-        <div className="deals-deal-card-price-container">
-          <span className="deals-deal-card-current">
-            {formatPrice(deal.dealPrice)}
-          </span>
-          {savings > 0 && (
-            <span className="deals-deal-card-original">
-              {formatPrice(originalPrice)}
-            </span>
-          )}
-        </div>
-
-        <div className="deals-deal-card-meta">
-          <span
-            className="deals-deal-card-store"
-            style={{
-              borderColor: storeTint(deal.storeName),
-            }}
-          >
-            {deal.storeName}
-          </span>
-
-          <span className="deals-deal-card-platform">
-            {deal.platform}
-          </span>
-
-          {expiry && (
-            <span className="deals-deal-card-expiry">
-              {t("deals.ends", { date: expiry })}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {dealMenu.state && (
-        <ContextMenu
-          x={dealMenu.state.x}
-          y={dealMenu.state.y}
-          items={dealMenuItems}
-          onClose={dealMenu.close}
-          ariaLabel={deal.gameTitle}
-          header={
-            <>
-              <span className="context-menu-title" title={deal.gameTitle}>
-                {deal.gameTitle}
-              </span>
-              <span className="ctx-badge">{deal.storeName}</span>
-            </>
-          }
-        />
-      )}
-    </article>
+        </>
+      }
+      actions={{
+        wishlist: {
+          label: wishlisted
+            ? t("deals.removeFromWishlist")
+            : t("deals.addToWishlist"),
+          active: wishlisted,
+          onClick: toggleWishlist,
+        },
+        copy: {
+          label: copied ? t("gameInfo.copied") : t("deals.copyLink"),
+          done: copied,
+          onClick: async () => {
+            await copyLink();
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+          },
+        },
+        open: {
+          label: t("deals.openDeal"),
+          onClick: () => onOpenUrl(group.best.storeUrl),
+        },
+      }}
+      onOpen={() =>
+        onInspect ? onInspect(group) : onOpenUrl(group.best.storeUrl)
+      }
+      onContextMenu={(event) => menu.open(event)}
+      ariaLabel={t("deals.openDealLabel", {
+        game: group.title,
+        store: group.best.storeName,
+      })}
+      index={index}
+      density={density}
+      menu={
+        menu.state && (
+          <ContextMenu
+            x={menu.state.x}
+            y={menu.state.y}
+            items={menuItems}
+            onClose={menu.close}
+            ariaLabel={group.title}
+            header={
+              <>
+                <span className="context-menu-title" title={group.title}>
+                  {group.title}
+                </span>
+                <span className="ctx-badge">{storeLabel}</span>
+              </>
+            }
+          />
+        )
+      }
+    />
   );
 }

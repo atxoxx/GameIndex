@@ -4315,33 +4315,6 @@
   color: var(--color-text-secondary);
 }
 
-.studio-deals-hero-price {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-top: var(--space-2xs);
-}
-
-.studio-deals-hero-tag {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  padding: var(--space-4xs) var(--space-2xs);
-  border-radius: var(--radius-xs);
-  background: var(--color-success);
-  color: var(--color-accent-contrast);
-}
-
-.studio-deals-hero-strike {
-  font-size: var(--text-2xs);
-  color: var(--color-text-muted);
-  text-decoration: line-through;
-}
-
-.studio-deals-hero-final {
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
 
 .studio-deals-subtabs-mock {
   display: flex;
@@ -4382,6 +4355,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.studio-deals-stats-mock {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+
+.studio-deals-stats-mock span {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .studio-deals-filters-bar {

@@ -1,13 +1,26 @@
-import type { GamePassFilters, DealsFilters } from "../../types/deals";
+import type { DealItem, DealsFilters, GamePassFilters } from "../../types/deals";
+import { normalizeTitle, titleToSlug } from "../../utils/gameTitle";
+
+/** Re-exported so callers keep importing the slug helper from one place. */
+export { titleToSlug };
+
+/**
+ * Deals page primitives: tab ids, filter state, pricing/countdown helpers and
+ * the cross-store grouping that turns one ITAD row per store into one card per
+ * game. Everything here is pure so the panels stay presentational and the
+ * logic is testable without a DOM.
+ */
 
 export type SubTab =
+  | "overview"
+  | "deals"
   | "gamepass"
-  | "isthereanydeal"
   | "giveaways"
   | "playtester";
 
 export type DealsSortOption =
   | "discount_desc"
+  | "savings_desc"
   | "price_asc"
   | "price_desc"
   | "title_asc"
@@ -41,8 +54,9 @@ export interface GamePassFiltersState {
 }
 
 export interface DealsFiltersState {
-  platform: string;
+  /** Minimum discount, 0 means "any". Sent to the backend. */
   minDiscount: number;
+  /** Storefront id or "all". Sent to the backend. */
   store: string;
   searchQuery: string;
   sortBy: DealsSortOption;
@@ -117,22 +131,6 @@ export const GP_PLATFORMS = [
   { value: "cloud", label: "deals.cloudGaming" },
 ];
 
-export const DEAL_PLATFORMS = [
-  { value: "all", label: "deals.allPlatforms" },
-  { value: "steam", label: "Steam" },
-  { value: "epic", label: "Epic Games Store" },
-  { value: "gog", label: "GOG" },
-  { value: "humble", label: "Humble Store" },
-];
-
-export const DEAL_DISCOUNTS = [
-  { value: 0 },
-  { value: 25 },
-  { value: 50 },
-  { value: 75 },
-  { value: 90 },
-];
-
 export const DEAL_STORES = [
   { value: "all", label: "deals.allStores" },
   { value: "steam", label: "Steam" },
@@ -143,15 +141,32 @@ export const DEAL_STORES = [
   { value: "greenmangaming", label: "Green Man Gaming" },
 ];
 
-export function formatPrice(price: number, currency = "EUR"): string {
+export const DEAL_DISCOUNTS = [
+  { value: 0 },
+  { value: 25 },
+  { value: 50 },
+  { value: 75 },
+  { value: 90 },
+];
+
+/**
+ * Format a price for display. `freeLabel` lets callers localise the zero-price
+ * case; callers that predate the deals refactor can keep the default.
+ */
+export function formatPrice(
+  price: number,
+  currency = "EUR",
+  freeLabel = "Free",
+): string {
   if (!Number.isFinite(price)) return "—";
-  if (price === 0) return "Free";
+  if (price === 0) return freeLabel;
   const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
   return `${symbol}${price.toFixed(2)}`;
 }
 
 /**
- * Calculates original price and estimated savings based on deal price and discount %.
+ * Derives the pre-discount price and the money saved. ITAD only exposes the
+ * discounted price, so the original is reconstructed from the percentage.
  */
 export function calculateSavings(
   dealPrice: number,
@@ -177,12 +192,17 @@ export function buildGamePassPayload(
 
 export function buildDealsPayload(filters: DealsFiltersState): DealsFilters {
   return {
-    platform: filters.platform === "all" ? null : filters.platform,
+    platform: null,
     minDiscount: filters.minDiscount > 0 ? filters.minDiscount : null,
     store: filters.store === "all" ? null : filters.store,
   };
 }
 
+/**
+ * Store accent used by badges and fallback art. Kept as literal colour data
+ * (see `COLOR_DATA_FILES` in eslint.config.js): storefront brand hues cannot be
+ * expressed as theme tokens without losing the brand.
+ */
 export function storeTint(storeName: string): string {
   const palette: Record<string, string> = {
     "Humble Bundle": "#ff3e1b",
@@ -190,10 +210,21 @@ export function storeTint(storeName: string): string {
     Fanatical: "#ff9800",
     IndieGala: "#ffb4e0",
     GOG: "#b6883a",
-    Steam: "#1b2838",
-    Epic: "#2a2a72",
+    Steam: "#66c0f4",
+    Epic: "#8f8fff",
+    "Epic Game": "#8f8fff",
     "Xbox / Microsoft": "#107c10",
+    "Game Pass": "#107c10",
     "Green Man Gaming": "#5c9e31",
+    GreenManGaming: "#5c9e31",
+    GamesPlanet: "#2f7bd8",
+    WinGameStore: "#3f9c9c",
+    Ubisoft: "#0a7bc2",
+    "Battle.net": "#148eff",
+    Blizzard: "#148eff",
+    "itch.io": "#fa5c5c",
+    Microsoft: "#107c10",
+    Amazon: "#ff9900",
   };
   for (const key of Object.keys(palette)) {
     if (storeName.toLowerCase().includes(key.toLowerCase())) {
@@ -213,67 +244,170 @@ export function formatExpiry(
   isoDate: string | null | undefined,
 ): string | null {
   if (!isoDate) return null;
-  return new Date(isoDate).toLocaleDateString(undefined, {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-/**
- * Returns dynamic countdown information for giveaways.
- */
-export function formatCountdown(isoDate: string | null | undefined): {
+export interface CountdownInfo {
   label: string;
   isUrgent: boolean;
   isExpired: boolean;
-} | null {
-  if (!isoDate) return null;
-  try {
-    const end = new Date(isoDate).getTime();
-    if (isNaN(end)) return null;
-    const now = Date.now();
-    const diff = end - now;
-
-    if (diff <= 0) {
-      return { label: "Expired", isUrgent: false, isExpired: true };
-    }
-
-    const totalMinutes = Math.floor(diff / (1000 * 60));
-    const totalHours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(totalHours / 24);
-    const hours = totalHours % 24;
-    const minutes = totalMinutes % 60;
-
-    if (days > 1) {
-      return { label: `${days}d left`, isUrgent: false, isExpired: false };
-    }
-    if (days === 1) {
-      return { label: `1d ${hours}h left`, isUrgent: false, isExpired: false };
-    }
-    if (hours > 0) {
-      return {
-        label: `${hours}h ${minutes}m left`,
-        isUrgent: hours <= 6,
-        isExpired: false,
-      };
-    }
-    return { label: `${minutes}m left`, isUrgent: true, isExpired: false };
-  } catch {
-    return null;
-  }
+  /** Milliseconds remaining (0 once expired). */
+  msLeft: number;
 }
 
 /**
- * Converts a game title to a normalized lowercase slug for comparison / wishlist lookup.
+ * Human countdown for giveaway expiry. Labels are translated through the
+ * caller's `t`, so the same helper works for every locale.
  */
-export function titleToSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+export function formatCountdown(
+  isoDate: string | null | undefined,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  now: number = Date.now(),
+): CountdownInfo | null {
+  if (!isoDate) return null;
+  const end = new Date(isoDate).getTime();
+  if (Number.isNaN(end)) return null;
+
+  const diff = end - now;
+  if (diff <= 0) {
+    return { label: t("deals.expired"), isUrgent: false, isExpired: true, msLeft: 0 };
+  }
+
+  const totalMinutes = Math.floor(diff / 60000);
+  const totalHours = Math.floor(diff / 3600000);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const minutes = totalMinutes % 60;
+
+  if (days > 1) {
+    return {
+      label: t("deals.countdownDays", { days }),
+      isUrgent: false,
+      isExpired: false,
+      msLeft: diff,
+    };
+  }
+  if (days === 1) {
+    return {
+      label: t("deals.countdownDaysHours", { days, hours }),
+      isUrgent: false,
+      isExpired: false,
+      msLeft: diff,
+    };
+  }
+  if (hours > 0) {
+    return {
+      label: t("deals.countdownHours", { hours, minutes }),
+      isUrgent: hours <= 6,
+      isExpired: false,
+      msLeft: diff,
+    };
+  }
+  return {
+    label: t("deals.countdownMinutes", { minutes }),
+    isUrgent: true,
+    isExpired: false,
+    msLeft: diff,
+  };
+}
+
+/** Normalise a game title for identity checks (wishlist, owned, grouping). */
+
+/** One game with every store offer ITAD returned for it. */
+export interface DealGroup {
+  id: string;
+  slug: string;
+  title: string;
+  /** Offers sorted cheapest first. */
+  offers: DealGroupOffer[];
+  best: DealGroupOffer;
+  storeCount: number;
+  bestPrice: number;
+  /** Highest price any store asks right now (for the savings column). */
+  worstPrice: number;
+  /** Biggest discount across the offers. */
+  maxDiscount: number;
+  /** What the user saves by taking the cheapest offer over the priciest. */
+  savings: number;
+  /** Soonest expiry among the offers, when any is known. */
+  expiresAt: string | null;
+}
+
+export type DealGroupOffer = DealItem;
+
+/**
+ * Collapse the per-store deal rows into one entry per game.
+ *
+ * ITAD lists the same title once per storefront, so a naive grid shows the
+ * same cover four times with four prices. Grouping keeps the cheapest offer as
+ * the card's headline and preserves every store for the detail modal.
+ */
+export function groupDealsByTitle(
+  deals: DealItem[],
+): DealGroup[] {
+  const buckets = new Map<string, DealItem[]>();
+
+  for (const deal of deals) {
+    const title = deal.gameTitle.trim();
+    if (!title) continue;
+    const key = normalizeTitle(title);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(deal);
+    else buckets.set(key, [deal]);
+  }
+
+  const groups: DealGroup[] = [];
+  for (const [key, offers] of buckets) {
+    const sorted = [...offers].sort((a, b) => {
+      if (a.dealPrice !== b.dealPrice) return a.dealPrice - b.dealPrice;
+      return b.discountPercent - a.discountPercent;
+    });
+    const best = sorted[0];
+    const prices = sorted.map((o) => o.dealPrice);
+    const expiries = sorted
+      .map((o) => (o.expiration ? new Date(o.expiration).getTime() : NaN))
+      .filter((n) => Number.isFinite(n));
+
+    groups.push({
+      id: key,
+      slug: titleToSlug(best.gameTitle),
+      title: best.gameTitle.trim(),
+      offers: sorted,
+      best,
+      storeCount: new Set(sorted.map((o) => o.storeName)).size,
+      bestPrice: best.dealPrice,
+      worstPrice: Math.max(...prices),
+      maxDiscount: Math.max(...sorted.map((o) => o.discountPercent)),
+      savings: Math.max(0, Math.max(...prices) - best.dealPrice),
+      expiresAt:
+        expiries.length > 0
+          ? new Date(Math.min(...expiries)).toISOString()
+          : null,
+    });
+  }
+
+  return groups;
+}
+
+/** Giveaways that close within this window appear in the "Ending soon" rail. */
+export const ENDING_SOON_MS = 48 * 60 * 60 * 1000;
+
+/** Max cards per Overview rail. */
+export const OVERVIEW_RAIL_SIZE = 6;
+
+/** Steam AppID from a store/claim URL, when the link points at Steam. */
+export function steamAppIdFromUrl(url: string | null | undefined): number | null {
+  if (!url) return null;
+  const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
+  if (!match?.[1]) return null;
+  const id = Number.parseInt(match[1], 10);
+  return Number.isFinite(id) ? id : null;
 }
 
 export const DEFAULT_GP_FILTERS: GamePassFiltersState = {
@@ -287,7 +421,6 @@ export const DEFAULT_GP_FILTERS: GamePassFiltersState = {
 };
 
 export const DEFAULT_DEAL_FILTERS: DealsFiltersState = {
-  platform: "all",
   minDiscount: 0,
   store: "all",
   searchQuery: "",
@@ -314,7 +447,22 @@ export const DEFAULT_PLAYTESTER_FILTERS: PlaytesterFiltersState = {
   wishlistOnly: false,
 };
 
-/** Number of Playtester listing pages (homepage + category pages) scraped
- * per `fetch_playtester_games` call. The frontend walks the feed with this
- * as its "load more" chunk size. */
+/** Number of Playtester listing pages scraped per fetch call. */
 export const PLAYTESTER_PAGE_SIZE = 20;
+
+/** Storage keys for the persisted per-tab filter state. */
+export const DEALS_FILTER_KEYS = {
+  tab: "gamelib.deals.sub_tab_v2",
+  deals: "gamelib.deals.filters.deals_v1",
+  gamepass: "gamelib.deals.filters.gamepass_v1",
+  giveaways: "gamelib.deals.filters.giveaways_v1",
+  playtester: "gamelib.deals.filters.playtester_v1",
+} as const;
+
+export const SUB_TABS: SubTab[] = [
+  "overview",
+  "deals",
+  "gamepass",
+  "giveaways",
+  "playtester",
+];

@@ -1,23 +1,49 @@
-import { useEffect, useCallback, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
+import {
+  Check,
+  Clock3,
+  Copy,
+  ExternalLink,
+  Gamepad2,
+  Gift,
+  Heart,
+  Library,
+  Search,
+  Tag,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useNavigate } from "react-router-dom";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 import {
-  formatPrice,
   calculateSavings,
-  discountTier,
-  formatExpiry,
   formatCountdown,
+  formatExpiry,
+  formatPrice,
+  groupDealsByTitle,
+  steamAppIdFromUrl,
   storeTint,
   titleToSlug,
 } from "../../pages/deals/dealsConstants";
 import { useLanguage } from "../../context/LanguageContext";
-import { useWishlist } from "../../hooks/useWishlist";
-import { useGames } from "../../context/GameContext";
+import { useWishlistContext } from "../../context/WishlistContext";
+import { useOwnedTitles } from "../../hooks/useOwnedTitles";
+import { useLibraryGameLookup } from "../../hooks/useLibraryGameLookup";
+import { useVisibleInterval } from "../../hooks/useVisibleInterval";
+import { copyTextToClipboard } from "../../utils/clipboard";
+import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
+import DealModalShell, {
+  DealModalSection,
+  DealModalStat,
+} from "./DealModalShell";
+import {
+  dealGroupSummary,
+  gamePassSummary,
+  giveawaySummary,
+} from "./dealsSummaries";
 
 export type ModalDealTarget =
-  | { type: "deal"; data: DealItem }
+  | { type: "deal"; data: DealItem; offers?: DealItem[] }
   | { type: "gamepass"; data: GamePassGame }
   | { type: "giveaway"; data: Giveaway };
 
@@ -27,461 +53,477 @@ interface DealDetailModalProps {
   onOpenUrl: (url: string | null | undefined) => void;
 }
 
+function useTickingNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useVisibleInterval(() => setNow(Date.now()), 30_000, active);
+  return now;
+}
+
+/**
+ * DealDetailModal - one modal for a deal, a Game Pass title and a giveaway.
+ *
+ * A grouped deal gets a store comparison table: every storefront carrying the
+ * game, cheapest first, with the premium over the best price. The other sources
+ * swap the table for their own facts (categories, publisher, claim countdown)
+ * while sharing the hero, stat strip and footer.
+ */
 export default function DealDetailModal({
   target,
   onClose,
   onOpenUrl,
 }: DealDetailModalProps) {
   const { t } = useLanguage();
-  const { isWishlisted, toggle } = useWishlist();
-  const { games } = useGames();
+  const { isWishlisted, toggle } = useWishlistContext();
+  const isOwned = useOwnedTitles();
+  const findLibraryGame = useLibraryGameLookup();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const now = useTickingNow(Boolean(target));
   const [copied, setCopied] = useState(false);
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    if (!target) return;
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [target, handleKeyDown]);
+  const dealGroup = useMemo(() => {
+    if (target?.type !== "deal") return null;
+    const rows = target.offers && target.offers.length > 0 ? target.offers : [target.data];
+    return groupDealsByTitle(rows)[0] ?? null;
+  }, [target]);
 
   if (!target) return null;
 
   const title =
     target.type === "deal"
-      ? target.data.gameTitle
-      : target.type === "gamepass"
-        ? target.data.title
-        : target.data.title;
+      ? dealGroup?.title ?? target.data.gameTitle
+      : target.data.title;
 
-  const slug = titleToSlug(title);
-  const wishlisted = isWishlisted(slug);
-  const ownedInLibrary = games.some(
-    (g) => g.name.toLowerCase().trim() === title.toLowerCase().trim(),
-  );
+  const wishlisted = isWishlisted(titleToSlug(title));
+  const owned = isOwned(title);
+  const libraryGame = findLibraryGame(title);
 
-  const handleWishlistToggle = () => {
-    // Construct minimal StoreGameSummary
-    toggle({
-      id: 0,
-      name: title,
-      slug,
-      summary:
-        target.type === "gamepass"
-          ? target.data.description ?? null
-          : target.type === "giveaway"
-            ? target.data.bundleTitle ?? null
-            : null,
-      rating: null,
-      aggregatedRating: null,
-      coverUrl:
-        target.type === "gamepass"
-          ? target.data.coverImage ?? null
-          : target.type === "giveaway"
-            ? target.data.imageUrl ?? null
-            : target.data.thumbnail ?? null,
-      logoUrl: null,
-      genres: target.type === "gamepass" ? target.data.categories : [],
-      platforms:
-        target.type === "deal"
-          ? [target.data.platform]
-          : target.type === "gamepass"
-            ? target.data.platforms
-            : [],
-      firstReleaseDate:
-        target.type === "gamepass" ? target.data.releaseDate ?? null : null,
-      totalRatingCount: 0,
-      hypes: 0,
-    });
+  const openGamePage = () => {
+    if (!libraryGame) return;
+    onClose();
+    navigate(`/library/${libraryGame.id}`);
+  };
+
+  const toggleWishlist = () => {
+    if (target.type === "deal" && dealGroup) toggle(dealGroupSummary(dealGroup));
+    else if (target.type === "gamepass") toggle(gamePassSummary(target.data));
+    else if (target.type === "giveaway") toggle(giveawaySummary(target.data));
   };
 
   const directUrl =
     target.type === "deal"
-      ? target.data.storeUrl
+      ? dealGroup?.best.storeUrl ?? target.data.storeUrl
       : target.type === "gamepass"
-        ? target.data.deeplink
+        ? target.data.deeplink ?? null
         : target.data.dealUrl;
 
-  const handleCopyLink = async () => {
+  const heroImage =
+    target.type === "deal"
+      ? dealGroup?.best.thumbnail ?? null
+      : target.type === "gamepass"
+        ? target.data.coverImage ?? null
+        : target.data.imageUrl ?? null;
+
+  const appId =
+    target.type === "deal"
+      ? steamAppIdFromUrl(dealGroup?.best.storeUrl)
+      : null;
+
+  const storeName =
+    target.type === "deal"
+      ? dealGroup?.best.storeName ?? target.data.storeName
+      : target.type === "gamepass"
+        ? "Xbox Game Pass"
+        : target.data.storeName;
+
+  const tint = storeTint(storeName);
+  const countdown =
+    target.type === "giveaway"
+      ? formatCountdown(target.data.expiry, t, now)
+      : dealGroup?.expiresAt
+        ? formatCountdown(dealGroup.expiresAt, t, now)
+        : null;
+
+  const handleCopy = async () => {
     if (!directUrl) return;
-    try {
-      if (navigator?.clipboard) {
-        await navigator.clipboard.writeText(directUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      /* clipboard error fallback */
-    }
-  };
-
-  const handleSearchWiki = () => {
-    const query = encodeURIComponent(title);
-    void openUrl(`https://www.pcgamingwiki.com/w/index.php?search=${query}`);
-  };
-
-  const handleSearchSteamDb = () => {
-    const query = encodeURIComponent(title);
-    void openUrl(`https://steamdb.info/search/?a=app&q=${query}`);
-  };
-
-  // Render variables according to target type
-  let storeName = "";
-  let coverImage: string | null = null;
-  let priceEl: React.ReactNode = null;
-  let tier = "";
-  let expiryInfo: React.ReactNode = null;
-  let description: string | null = null;
-  let developer: string | null = null;
-  let publisher: string | null = null;
-  let categories: string[] = [];
-  let platforms: string[] = [];
-
-  if (target.type === "deal") {
-    const d = target.data;
-    storeName = d.storeName;
-    coverImage = d.thumbnail ?? null;
-    tier = discountTier(d.discountPercent);
-    const { originalPrice, savings } = calculateSavings(
-      d.dealPrice,
-      d.discountPercent,
+    const ok = await copyTextToClipboard(directUrl);
+    showToast(
+      ok ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      ok ? "success" : "error",
     );
-    platforms = [d.platform];
-    const expiry = formatExpiry(d.expiration);
+    if (!ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
 
-    priceEl = (
-      <div className="deals-detail-price-box">
-        <div className="deals-detail-price-row">
-          <span className={`deals-detail-discount-badge ${tier}`}>
-            -{d.discountPercent}%
-          </span>
-          <span className="deals-detail-current-price">
-            {formatPrice(d.dealPrice)}
-          </span>
-          {savings > 0 && (
-            <span className="deals-detail-original-price">
-              {formatPrice(originalPrice)}
-            </span>
-          )}
-        </div>
-        {savings > 0 && (
-          <span className="deals-detail-savings-chip">
-            {t("deals.savingsLabel", { amount: formatPrice(savings) })}
-          </span>
-        )}
-      </div>
-    );
+  const openLookup = (targetUrl: string) => {
+    void openUrl(targetUrl);
+  };
 
-    if (expiry) {
-      expiryInfo = (
-        <span className="deals-detail-meta-pill">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          {t("deals.ends", { date: expiry })}
+  const searchQuery = encodeURIComponent(title);
+
+  const badges = (
+    <>
+      <span
+        className="deals-modal__store"
+        style={{
+          borderColor: `color-mix(in srgb, ${tint} 55%, transparent)`,
+          background: `color-mix(in srgb, ${tint} 22%, var(--color-bg-secondary))`,
+        }}
+      >
+        <i style={{ background: tint }} aria-hidden="true" />
+        {storeName}
+      </span>
+      {owned && (
+        <span className="deals-modal__badge deals-modal__badge--owned">
+          <Library size={11} aria-hidden="true" />
+          {t("deals.inLibrary")}
         </span>
-      );
-    }
-  } else if (target.type === "gamepass") {
-    const gp = target.data;
-    storeName = "Xbox Game Pass";
-    coverImage = gp.coverImage ?? null;
-    description = gp.description ?? null;
-    developer = gp.developer ?? null;
-    publisher = gp.publisher ?? null;
-    categories = gp.categories ?? [];
-    platforms = gp.platforms ?? [];
-
-    priceEl = (
-      <div className="deals-detail-price-box">
-        <span className="deals-detail-gamepass-badge">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="2" y="6" width="20" height="12" rx="2" />
-            <line x1="7" y1="12" x2="11" y2="12" />
-            <line x1="9" y1="10" x2="9" y2="14" />
-            <line x1="15" y1="10" x2="17" y2="14" />
-            <line x1="17" y1="10" x2="15" y2="14" />
-          </svg>
-          {t("deals.includedWithGamePass")}
+      )}
+      {wishlisted && (
+        <span className="deals-modal__badge deals-modal__badge--wishlist">
+          <Heart size={11} fill="currentColor" aria-hidden="true" />
+          {t("deals.onWishlist")}
         </span>
-      </div>
-    );
-  } else if (target.type === "giveaway") {
-    const gw = target.data;
-    storeName = gw.storeName;
-    coverImage = gw.imageUrl ?? null;
-    description = gw.bundleTitle !== gw.title ? gw.bundleTitle : null;
-    const countdown = formatCountdown(gw.expiry);
-    const expiry = formatExpiry(gw.expiry);
+      )}
+    </>
+  );
 
-    priceEl = (
-      <div className="deals-detail-price-box">
-        <div className="deals-detail-price-row">
-          <span className="deals-detail-free-badge">
-            -100%
-          </span>
-          <span className="deals-detail-current-price free-text">
-            {t("deals.freeClaim")}
-          </span>
-        </div>
-      </div>
-    );
+  const footer = (
+    <>
+      <Button
+        variant={wishlisted ? "secondary" : "ghost"}
+        size="md"
+        onClick={toggleWishlist}
+        leftIcon={
+          <Heart
+            size={15}
+            fill={wishlisted ? "currentColor" : "none"}
+            aria-hidden="true"
+          />
+        }
+      >
+        {wishlisted
+          ? t("deals.removeFromWishlist")
+          : t("deals.addToWishlist")}
+      </Button>
 
-    if (countdown) {
-      expiryInfo = (
-        <span
-          className={`deals-detail-meta-pill ${
-            countdown.isUrgent ? "urgent" : ""
-          }`}
+      {directUrl && (
+        <Button
+          variant="ghost"
+          size="md"
+          onClick={handleCopy}
+          leftIcon={
+            copied ? <Check size={15} /> : <Copy size={15} />
+          }
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          {countdown.label} {expiry ? `(${expiry})` : ""}
-        </span>
-      );
-    }
-  }
+          {copied ? t("gameInfo.copied") : t("deals.copyLink")}
+        </Button>
+      )}
+    </>
+  );
 
-  return createPortal(
-    <div
-      className="modal-backdrop deals-modal-backdrop"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+  const footerRight = (
+    <>
+      <Button variant="ghost" size="md" onClick={onClose}>
+        {t("common.close")}
+      </Button>
+
+      {libraryGame && (
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={openGamePage}
+          leftIcon={<Gamepad2 size={15} aria-hidden="true" />}
+        >
+          {t("deals.openGamePage")}
+        </Button>
+      )}
+
+      {directUrl && (
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => onOpenUrl(directUrl)}
+          leftIcon={<ExternalLink size={15} aria-hidden="true" />}
+        >
+          {target.type === "giveaway"
+            ? t("deals.claimFree")
+            : target.type === "gamepass"
+              ? t("deals.viewOnXbox")
+              : t("deals.openOnStore", { store: storeName })}
+        </Button>
+      )}
+    </>
+  );
+
+  const subtitle =
+    target.type === "deal" ? (
+      <>
+        {dealGroup && dealGroup.storeCount > 1
+          ? t("deals.storeCount", { count: dealGroup.storeCount })
+          : t("deals.bestOffer")}
+        {dealGroup?.best.platform ? ` · ${dealGroup.best.platform}` : ""}
+      </>
+    ) : target.type === "gamepass" ? (
+      <>
+        {target.data.developer ?? t("deals.gamepass")}
+        {target.data.releaseDate ? ` · ${target.data.releaseDate}` : ""}
+      </>
+    ) : (
+      <>
+        {target.data.bundleTitle}
+        {countdown ? ` · ${countdown.label}` : ""}
+      </>
+    );
+
+  return (
+    <DealModalShell
+      open
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      image={heroImage}
+      appId={appId}
+      tint={tint}
+      badges={badges}
+      footerLeft={footer}
+      footerRight={footerRight}
+      stats={
+        target.type === "deal" && dealGroup ? (
+          <>
+            <DealModalStat
+              label={t("deals.bestPrice")}
+              value={formatPrice(dealGroup.bestPrice, "EUR", t("deals.freePrice"))}
+              tone="accent"
+            />
+            <DealModalStat
+              label={t("deals.discount")}
+              value={`-${dealGroup.maxDiscount}%`}
+              tone={dealGroup.maxDiscount >= 75 ? "success" : "default"}
+            />
+            <DealModalStat
+              label={t("deals.storesTracked")}
+              value={dealGroup.storeCount}
+            />
+            <DealModalStat
+              label={t("deals.savings")}
+              value={
+                dealGroup.savings > 0
+                  ? formatPrice(dealGroup.savings)
+                  : t("deals.cheapest")
+              }
+            />
+          </>
+        ) : target.type === "gamepass" ? (
+          <>
+            <DealModalStat
+              label={t("deals.price")}
+              value={t("deals.gamepassShort")}
+              tone="success"
+            />
+            <DealModalStat
+              label={t("deals.genresTitle")}
+              value={target.data.categories.length}
+            />
+            <DealModalStat
+              label={t("deals.platforms")}
+              value={target.data.platforms.length}
+            />
+            <DealModalStat
+              label={t("deals.releaseDate")}
+              value={target.data.releaseDate ?? "—"}
+            />
+          </>
+        ) : (
+          <>
+            <DealModalStat
+              label={t("deals.price")}
+              value={t("deals.freePrice")}
+              tone="success"
+            />
+            <DealModalStat
+              label={t("deals.timeLeft")}
+              value={countdown ? countdown.label : "—"}
+              tone={countdown?.isUrgent ? "warning" : "default"}
+            />
+            <DealModalStat label={t("deals.store")} value={target.data.storeName} />
+          </>
+        )
+      }
     >
-      <div className="modal deals-detail-modal">
-        {/* Banner / Poster Header */}
-        <div className="deals-detail-header">
-          {coverImage ? (
-            <div className="deals-detail-poster-wrap">
-              <img src={coverImage} alt={title} className="deals-detail-poster" />
+      {target.type === "deal" && dealGroup && (
+        <DealModalSection title={t("deals.storeComparison")}>
+          <div className="deals-store-table" role="table" aria-label={t("deals.storeComparison")}>
+            <div className="deals-store-table__head" role="row">
+              <span role="columnheader">{t("deals.store")}</span>
+              <span role="columnheader">{t("deals.price")}</span>
+              <span role="columnheader">{t("deals.discount")}</span>
+              <span role="columnheader">{t("deals.savings")}</span>
+              <span role="columnheader" aria-hidden="true" />
             </div>
-          ) : (
-            <div
-              className="deals-detail-poster-fallback"
-              style={{
-                background: `color-mix(in srgb, ${storeTint(
-                  storeName,
-                )} 20%, var(--color-bg-secondary))`,
-                color: storeTint(storeName),
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-            </div>
-          )}
-
-          <div className="deals-detail-info">
-            <div className="deals-detail-store-strip">
-              <span
-                className="deals-detail-store-badge"
-                style={{
-                  background: `color-mix(in srgb, ${storeTint(
-                    storeName,
-                  )} 22%, var(--color-bg-tertiary))`,
-                  borderColor: storeTint(storeName),
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                {storeName}
-              </span>
-
-              {ownedInLibrary && (
-                <span className="deals-detail-owned-badge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  {t("deals.inLibrary")}
-                </span>
-              )}
-
-              {wishlisted && (
-                <span className="deals-detail-wishlisted-badge">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  {t("deals.onWishlist")}
-                </span>
-              )}
-            </div>
-
-            <h2 className="deals-detail-title">{title}</h2>
-
-            {priceEl}
-
-            <div className="deals-detail-meta-pills">
-              {expiryInfo}
-              {platforms.map((p) => (
-                <span key={p} className="deals-detail-meta-pill">
-                  {p}
-                </span>
-              ))}
-              {developer && (
-                <span className="deals-detail-meta-pill">
-                  {t("deals.devBy", { dev: developer })}
-                </span>
-              )}
-            </div>
+            {dealGroup.offers.map((offer, index) => {
+              const premium = dealGroup.worstPrice - offer.dealPrice;
+              return (
+                <div
+                  key={`${offer.storeName}-${offer.id}`}
+                  className={`deals-store-table__row${index === 0 ? " is-best" : ""}`}
+                  role="row"
+                >
+                  <span className="deals-store-table__store" role="cell">
+                    <i
+                      style={{ background: storeTint(offer.storeName) }}
+                      aria-hidden="true"
+                    />
+                    {offer.storeName}
+                    {index === 0 && (
+                      <span className="deals-store-table__best">
+                        {t("deals.cheapest")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="deals-store-table__price" role="cell">
+                    {formatPrice(offer.dealPrice, "EUR", t("deals.freePrice"))}
+                  </span>
+                  <span role="cell">-{offer.discountPercent}%</span>
+                  <span role="cell" className="deals-store-table__save">
+                    {premium > 0.004 ? `+${formatPrice(premium)}` : "—"}
+                  </span>
+                  <span role="cell" className="deals-store-table__action">
+                    <button
+                      type="button"
+                      onClick={() => onOpenUrl(offer.storeUrl)}
+                      aria-label={t("deals.openOnStore", { store: offer.storeName })}
+                      title={t("deals.openOnStore", { store: offer.storeName })}
+                    >
+                      <ExternalLink size={14} aria-hidden="true" />
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
 
-        {/* Modal Body */}
-        <div className="deals-detail-body">
-          {description && (
-            <div className="deals-detail-section">
-              <h3 className="deals-detail-section-title">
-                {t("deals.aboutTitle")}
-              </h3>
-              <p className="deals-detail-desc">{description}</p>
-            </div>
+          {(() => {
+            const { savings, originalPrice } = calculateSavings(
+              dealGroup.bestPrice,
+              dealGroup.best.discountPercent,
+            );
+            if (savings <= 0) return null;
+            return (
+              <p className="deals-modal__note">
+                {t("deals.wasPrice", {
+                  price: formatPrice(originalPrice),
+                  amount: formatPrice(savings),
+                })}
+              </p>
+            );
+          })()}
+        </DealModalSection>
+      )}
+
+      {target.type === "gamepass" && (
+        <>
+          {target.data.description && (
+            <DealModalSection title={t("deals.aboutTitle")}>
+              <p className="deals-modal__text">{target.data.description}</p>
+            </DealModalSection>
           )}
 
-          {categories.length > 0 && (
-            <div className="deals-detail-section">
-              <h3 className="deals-detail-section-title">
-                {t("deals.genresTitle")}
-              </h3>
-              <div className="deals-detail-tags">
-                {categories.map((cat) => (
-                  <span key={cat} className="deals-detail-tag">
-                    {cat}
+          {target.data.categories.length > 0 && (
+            <DealModalSection title={t("deals.genresTitle")}>
+              <div className="deals-modal__tags">
+                {target.data.categories.map((category) => (
+                  <span key={category} className="deals-modal__tag">
+                    <Tag size={11} aria-hidden="true" />
+                    {category}
                   </span>
                 ))}
               </div>
-            </div>
+            </DealModalSection>
           )}
 
-          {publisher && (
-            <div className="deals-detail-section">
-              <span className="deals-detail-pub-note">
-                {t("deals.publishedBy", { publisher })}
+          {target.data.publisher && (
+            <DealModalSection title={t("deals.publisher")}>
+              <p className="deals-modal__text">{target.data.publisher}</p>
+            </DealModalSection>
+          )}
+        </>
+      )}
+
+      {target.type === "giveaway" && (
+        <>
+          <DealModalSection title={t("deals.freeGames")}>
+            <p className="deals-modal__text">
+              {target.data.bundleTitle || target.data.title}
+            </p>
+            {countdown && (
+              <p className={`deals-modal__countdown${countdown.isUrgent ? " is-urgent" : ""}`}>
+                <Clock3 size={14} aria-hidden="true" />
+                {countdown.label}
+                {formatExpiry(target.data.expiry)
+                  ? ` · ${t("deals.ends", { date: formatExpiry(target.data.expiry) as string })}`
+                  : ""}
+              </p>
+            )}
+          </DealModalSection>
+
+          <DealModalSection title={t("deals.store")}>
+            <p className="deals-modal__text">
+              <span className="deals-modal__tag">
+                <i style={{ background: tint }} aria-hidden="true" />
+                {target.data.storeName}
               </span>
-            </div>
-          )}
+            </p>
+          </DealModalSection>
+        </>
+      )}
 
-          {/* Quick external database links */}
-          <div className="deals-detail-section">
-            <h3 className="deals-detail-section-title">
-              {t("deals.lookupLinks")}
-            </h3>
-            <div className="deals-detail-links">
-              <button
-                type="button"
-                className="deals-detail-lookup-btn"
-                onClick={handleSearchWiki}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                PCGamingWiki
-              </button>
-              <button
-                type="button"
-                className="deals-detail-lookup-btn"
-                onClick={handleSearchSteamDb}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5l-.04-.05a2 2 0 0 1 .46-1.57l3.24-3.24a3 3 0 0 1 1.48-.82l2.36-.67" />
-                </svg>
-                SteamDB
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Modal Footer Actions */}
-        <div className="deals-detail-footer">
-          <div className="deals-detail-footer-left">
-            <Button
-              variant={wishlisted ? "secondary" : "ghost"}
-              size="md"
-              onClick={handleWishlistToggle}
-              leftIcon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill={wishlisted ? "var(--color-warning)" : "none"}
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  style={{ color: wishlisted ? "var(--color-warning)" : "inherit" }}
-                >
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              }
+      <DealModalSection title={t("deals.lookupLinks")}>
+        <div className="deals-modal__links">
+          <button
+            type="button"
+            className="deals-modal__link"
+            onClick={() =>
+              openLookup(
+                `https://www.pcgamingwiki.com/w/index.php?search=${searchQuery}`,
+              )
+            }
+          >
+            <Search size={13} aria-hidden="true" />
+            PCGamingWiki
+          </button>
+          <button
+            type="button"
+            className="deals-modal__link"
+            onClick={() => openLookup(`https://steamdb.info/search/?a=app&q=${searchQuery}`)}
+          >
+            <Search size={13} aria-hidden="true" />
+            SteamDB
+          </button>
+          {target.type === "gamepass" && (
+            <button
+              type="button"
+              className="deals-modal__link"
+              onClick={() => openLookup(`https://www.xbox.com/en-US/search?q=${searchQuery}`)}
             >
-              {wishlisted
-                ? t("deals.removeFromWishlist")
-                : t("deals.addToWishlist")}
-            </Button>
-
-            {directUrl && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={handleCopyLink}
-                leftIcon={
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                }
-              >
-                {copied ? t("gameInfo.copied") : t("deals.copyLink")}
-              </Button>
-            )}
-          </div>
-
-          <div className="deals-detail-footer-right">
-            <Button variant="ghost" size="md" onClick={onClose}>
-              {t("common.close")}
-            </Button>
-
-            {directUrl && (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => onOpenUrl(directUrl)}
-                leftIcon={
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                }
-              >
-                {target.type === "giveaway"
-                  ? t("deals.claimFree")
-                  : target.type === "gamepass"
-                    ? t("deals.viewOnXbox")
-                    : t("deals.openOnStore", { store: storeName })}
-              </Button>
-            )}
-          </div>
+              <Gamepad2 size={13} aria-hidden="true" />
+              Xbox
+            </button>
+          )}
+          {target.type === "giveaway" && (
+            <button
+              type="button"
+              className="deals-modal__link"
+              onClick={() => onOpenUrl(target.data.dealUrl)}
+            >
+              <Gift size={13} aria-hidden="true" />
+              {t("deals.claimFree")}
+            </button>
+          )}
         </div>
-      </div>
-    </div>,
-    document.body
+      </DealModalSection>
+    </DealModalShell>
   );
 }
+

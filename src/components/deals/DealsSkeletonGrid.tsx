@@ -1,58 +1,30 @@
-import { Skeleton } from "../ui/Skeleton";
+import type { ViewDensity } from "../../types/game";
 
 interface DealsSkeletonGridProps {
-  density: string;
+  density: ViewDensity;
   count?: number;
-  variant?: "gamepass" | "deal" | "giveaway";
 }
 
+/**
+ * Loading placeholders that mirror the real tile geometry (landscape art,
+ * two text lines, price row) so the grid does not jump when data lands.
+ */
 export default function DealsSkeletonGrid({
   density,
-  count = 12,
-  variant = "deal",
+  count = 8,
 }: DealsSkeletonGridProps) {
-  const aspectRatio =
-    variant === "gamepass" ? "3 / 4" : variant === "deal" ? "16 / 9" : "16 / 9";
-
   return (
-    <div className={`deals-grid density-${density}`}>
-      {Array.from({ length: count }, (_, i) => (
-        <div
-          key={i}
-          className="deals-skeleton-card"
-          style={{ animationDelay: `${i * 60}ms` }}
-        >
-          <div
-            className="deals-skeleton-card-image"
-            style={{ aspectRatio }}
-          >
-            <Skeleton shape="rect" width="100%" height="100%" />
-          </div>
-          <div className="deals-skeleton-card-body">
-            <Skeleton shape="text" width="80%" height="1em" />
-            <Skeleton shape="text" width="55%" height="0.85em" />
-            {variant === "deal" && (
-              <div className="deals-skeleton-card-row">
-                <Skeleton shape="text" width="60px" height="1.2em" />
-                <Skeleton shape="text" width="40%" height="0.75em" />
-              </div>
-            )}
-            {variant === "gamepass" && (
-              <>
-                <Skeleton shape="text" width="100%" height="0.75em" />
-                <div className="deals-skeleton-card-tags">
-                  <Skeleton shape="rect" width="48px" height="18px" />
-                  <Skeleton shape="rect" width="36px" height="18px" />
-                  <Skeleton shape="rect" width="56px" height="18px" />
-                </div>
-              </>
-            )}
-            {variant === "giveaway" && (
-              <div className="deals-skeleton-card-row">
-                <Skeleton shape="text" width="70px" height="0.85em" />
-                <Skeleton shape="text" width="80px" height="0.75em" />
-              </div>
-            )}
+    <div className={`deals-grid deals-grid--${density}`} aria-hidden="true">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="deals-skeleton">
+          <div className="deals-skeleton__art" />
+          <div className="deals-skeleton__body">
+            <span className="deals-skeleton__line deals-skeleton__line--title" />
+            <span className="deals-skeleton__line deals-skeleton__line--meta" />
+            <div className="deals-skeleton__row">
+              <span className="deals-skeleton__line deals-skeleton__line--price" />
+              <span className="deals-skeleton__line deals-skeleton__line--badge" />
+            </div>
           </div>
         </div>
       ))}

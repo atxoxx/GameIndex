@@ -1,39 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CircleDollarSign,
   Gamepad2,
   Gift,
+  LayoutDashboard,
   MonitorPlay,
+  RefreshCw,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
-import { usePersistedState } from "../../hooks/usePersistedState";
-import { useToast } from "../../context/ToastContext";
-import type {
-  DealItem,
-  GamePassGame,
-  Giveaway,
-  PlaytesterGame,
-  PlaytesterFeed,
-} from "../../types/deals";
 import { PageHeader, SubTabs } from "../../components/ui";
 import PageWidget from "../../components/PageWidget";
 import { useLanguage } from "../../context/LanguageContext";
+import { useToast } from "../../context/ToastContext";
+import { useViewDensity } from "../../hooks/useViewDensity";
+import type { GamePassGame, Giveaway, PlaytesterGame } from "../../types/deals";
+import type { DealGroup, SubTab } from "./dealsConstants";
+import { useDealsPageController } from "./useDealsPageController";
 import {
-  type SubTab,
-  type GamePassFiltersState,
-  type DealsFiltersState,
-  type PlaytesterFiltersState,
-  DEFAULT_GP_FILTERS,
-  DEFAULT_DEAL_FILTERS,
-  DEFAULT_PLAYTESTER_FILTERS,
-  PLAYTESTER_PAGE_SIZE,
-  buildGamePassPayload,
-  buildDealsPayload,
-} from "./dealsConstants";
-import DealsHeroSpotlight from "../../components/deals/DealsHeroSpotlight";
-import GamePassPanel from "../../components/deals/GamePassPanel";
+  dealsToolbar,
+  gamePassToolbar,
+  giveawaysToolbar,
+  playtesterToolbar,
+} from "./dealsToolbars";
+import DealsToolbar from "../../components/deals/DealsToolbar";
+import OverviewTab from "../../components/deals/OverviewTab";
 import DealsPanel from "../../components/deals/DealsPanel";
+import GamePassPanel from "../../components/deals/GamePassPanel";
 import GiveawaysPanel from "../../components/deals/GiveawaysPanel";
 import PlaytesterPanel from "../../components/deals/PlaytesterPanel";
 import DealDetailModal, {
@@ -41,217 +35,27 @@ import DealDetailModal, {
 } from "../../components/deals/DealDetailModal";
 import PlaytesterDetailModal from "../../components/deals/PlaytesterDetailModal";
 import "./DealsPage.css";
-import "../../styles/page-deals.css";
 
+/**
+ * Deals page.
+ *
+ * Structure: header, a sticky band holding the source tabs plus the shared
+ * control band, then either the Overview blocks or one source grid. All state
+ * (feeds, filters, grouping, clock) lives in `useDealsPageController`; this file
+ * only chooses what to show and wires the modals.
+ */
 export default function DealsPage() {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { density, setDensity } = useViewDensity();
 
-  const [activeSubTab, setActiveSubTab] = usePersistedState<SubTab>(
-    "gamelib.deals.sub_tab_v1",
-    "gamepass",
-    ["gamepass", "isthereanydeal", "giveaways", "playtester"],
-  );
+  const controller = useDealsPageController();
+  const { activeTab, setActiveTab, filters, setFilters, feeds, rails } = controller;
 
-  const [gpFilters, setGpFilters] = useState<GamePassFiltersState>(DEFAULT_GP_FILTERS);
-  const [gpGames, setGpGames] = useState<GamePassGame[]>([]);
-  const [gpLoading, setGpLoading] = useState(false);
-  const [gpError, setGpError] = useState<string | null>(null);
-  const [gpEmpty, setGpEmpty] = useState(false);
-
-  const [dealFilters, setDealFilters] = useState<DealsFiltersState>(DEFAULT_DEAL_FILTERS);
-  const [deals, setDeals] = useState<DealItem[]>([]);
-  const [dealsLoading, setDealsLoading] = useState(false);
-  const [dealsError, setDealsError] = useState<string | null>(null);
-  const [dealsEmpty, setDealsEmpty] = useState(false);
-
-  const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
-  const [giveawaysLoading, setGiveawaysLoading] = useState(false);
-  const [giveawaysError, setGiveawaysError] = useState<string | null>(null);
-  const [giveawaysEmpty, setGiveawaysEmpty] = useState(false);
-
-  const [ptFilters, setPtFilters] = useState<PlaytesterFiltersState>(
-    DEFAULT_PLAYTESTER_FILTERS,
-  );
-  const [ptGames, setPtGames] = useState<PlaytesterGame[]>([]);
-  const [ptLoading, setPtLoading] = useState(false);
-  const [ptLoadingMore, setPtLoadingMore] = useState(false);
-  const [ptHasMore, setPtHasMore] = useState(false);
-  const [ptNextOffset, setPtNextOffset] = useState(0);
-  const [ptError, setPtError] = useState<string | null>(null);
-  const [ptEmpty, setPtEmpty] = useState(false);
-
-  const [selectedTarget, setSelectedTarget] = useState<ModalDealTarget | null>(null);
-  const [selectedPlaytester, setSelectedPlaytester] =
-    useState<PlaytesterGame | null>(null);
-
-  const gpRequestId = useRef(0);
-  const dealsRequestId = useRef(0);
-  const giveawaysRequestId = useRef(0);
-  const ptRequestId = useRef(0);
-
-  const [gpReloadNonce, setGpReloadNonce] = useState(0);
-  const [dealsReloadNonce, setDealsReloadNonce] = useState(0);
-  const [giveawaysReloadNonce, setGiveawaysReloadNonce] = useState(0);
-  const [ptReloadNonce, setPtReloadNonce] = useState(0);
-
-  const loadGamePass = useCallback(async () => {
-    const myRequest = ++gpRequestId.current;
-    setGpLoading(true);
-    setGpError(null);
-    setGpEmpty(false);
-    try {
-      const result = await invoke<GamePassGame[]>("fetch_gamepass_catalog", {
-        filters: buildGamePassPayload(gpFilters),
-      });
-      if (myRequest !== gpRequestId.current) return;
-      setGpGames(result);
-      setGpEmpty(result.length === 0);
-    } catch (err) {
-      if (myRequest !== gpRequestId.current) return;
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : t("deals.errorGamepass");
-      setGpError(message);
-      setGpGames([]);
-    } finally {
-      if (myRequest === gpRequestId.current) setGpLoading(false);
-    }
-  }, [gpFilters, t]);
-
-  const loadDeals = useCallback(async () => {
-    const myRequest = ++dealsRequestId.current;
-    setDealsLoading(true);
-    setDealsError(null);
-    setDealsEmpty(false);
-    try {
-      const result = await invoke<DealItem[]>("fetch_isthereanydeal_deals", {
-        filters: buildDealsPayload(dealFilters),
-      });
-      if (myRequest !== dealsRequestId.current) return;
-      setDeals(result);
-      setDealsEmpty(result.length === 0);
-    } catch (err) {
-      if (myRequest !== dealsRequestId.current) return;
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : t("deals.errorDeals");
-      setDealsError(message);
-      setDeals([]);
-    } finally {
-      if (myRequest === dealsRequestId.current) setDealsLoading(false);
-    }
-  }, [dealFilters, t]);
-
-  const loadGiveaways = useCallback(async () => {
-    const myRequest = ++giveawaysRequestId.current;
-    setGiveawaysLoading(true);
-    setGiveawaysError(null);
-    setGiveawaysEmpty(false);
-    try {
-      const result = await invoke<Giveaway[]>("fetch_giveaways");
-      if (myRequest !== giveawaysRequestId.current) return;
-      setGiveaways(result);
-      setGiveawaysEmpty(result.length === 0);
-    } catch (err) {
-      if (myRequest !== giveawaysRequestId.current) return;
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : t("deals.errorGiveaways");
-      setGiveawaysError(message);
-      setGiveaways([]);
-    } finally {
-      if (myRequest === giveawaysRequestId.current) setGiveawaysLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    if (activeSubTab === "gamepass") void loadGamePass();
-  }, [activeSubTab, loadGamePass, gpReloadNonce]);
-
-  useEffect(() => {
-    if (activeSubTab === "isthereanydeal") void loadDeals();
-  }, [activeSubTab, loadDeals, dealsReloadNonce]);
-
-  const loadPlaytester = useCallback(async () => {
-    const myRequest = ++ptRequestId.current;
-    setPtLoading(true);
-    setPtLoadingMore(false);
-    setPtError(null);
-    setPtEmpty(false);
-    try {
-      const result = await invoke<PlaytesterFeed>("fetch_playtester_games", {
-        offset: 0,
-        limit: PLAYTESTER_PAGE_SIZE,
-      });
-      if (myRequest !== ptRequestId.current) return;
-      setPtGames(result.games);
-      setPtHasMore(result.hasMore);
-      setPtNextOffset(result.nextOffset);
-      setPtEmpty(result.games.length === 0);
-    } catch (err) {
-      if (myRequest !== ptRequestId.current) return;
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : t("deals.errorPlaytester");
-      setPtError(message);
-      setPtGames([]);
-      setPtHasMore(false);
-    } finally {
-      if (myRequest === ptRequestId.current) setPtLoading(false);
-    }
-  }, [t]);
-
-  const loadMorePlaytester = useCallback(async () => {
-    if (ptLoadingMore || !ptHasMore) return;
-    const myRequest = ptRequestId.current;
-    setPtLoadingMore(true);
-    try {
-      const result = await invoke<PlaytesterFeed>("fetch_playtester_games", {
-        offset: ptNextOffset,
-        limit: PLAYTESTER_PAGE_SIZE,
-      });
-      if (myRequest !== ptRequestId.current) return;
-      setPtGames((prev) => {
-        const seen = new Set(prev.map((g) => g.id));
-        const fresh = result.games.filter((g) => !seen.has(g.id));
-        return fresh.length > 0 ? [...prev, ...fresh] : prev;
-      });
-      setPtHasMore(result.hasMore);
-      setPtNextOffset(result.nextOffset);
-    } catch (err) {
-      if (myRequest !== ptRequestId.current) return;
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : t("deals.errorPlaytester");
-      showToast(message, "error");
-    } finally {
-      if (myRequest === ptRequestId.current) setPtLoadingMore(false);
-    }
-  }, [ptLoadingMore, ptHasMore, ptNextOffset, showToast, t]);
-
-  useEffect(() => {
-    if (activeSubTab === "giveaways") void loadGiveaways();
-  }, [activeSubTab, loadGiveaways, giveawaysReloadNonce]);
-
-  useEffect(() => {
-    if (activeSubTab === "playtester") void loadPlaytester();
-  }, [activeSubTab, loadPlaytester, ptReloadNonce]);
+  const [selectedDeal, setSelectedDeal] = useState<DealGroup | null>(null);
+  const [selectedGamePass, setSelectedGamePass] = useState<GamePassGame | null>(null);
+  const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
+  const [selectedPlaytester, setSelectedPlaytester] = useState<PlaytesterGame | null>(null);
 
   const handleOpenUrl = useCallback(
     async (url: string | null | undefined) => {
@@ -259,203 +63,329 @@ export default function DealsPage() {
       try {
         await invoke<void>("open_deal_url", { url });
       } catch (err) {
-        console.error("Failed to open URL:", err);
-        const message =
+        showToast(
           err instanceof Error
             ? err.message
             : typeof err === "string"
               ? err
-              : t("deals.errorOpenLink");
-        showToast(message, "error");
+              : t("deals.errorOpenLink"),
+          "error",
+        );
       }
     },
     [showToast, t],
   );
 
-  const handleInspectDeal = useCallback((deal: DealItem) => {
-    setSelectedTarget({ type: "deal", data: deal });
-  }, []);
+  const giveawayStores = useMemo(() => {
+    const stores = new Set<string>();
+    for (const giveaway of feeds.giveaways.data ?? []) {
+      if (giveaway.storeName) stores.add(giveaway.storeName);
+    }
+    return [...stores].sort((a, b) => a.localeCompare(b));
+  }, [feeds.giveaways.data]);
 
-  const handleInspectGamePass = useCallback((game: GamePassGame) => {
-    setSelectedTarget({ type: "gamepass", data: game });
-  }, []);
+  const playtesterFacets = useMemo(() => {
+    const platforms = new Set<string>();
+    const genres = new Set<string>();
+    const statuses = new Set<string>();
+    const kinds = new Set<string>();
+    for (const game of feeds.playtester.data?.games ?? []) {
+      for (const platform of game.platforms) platforms.add(platform);
+      for (const genre of game.genres) genres.add(genre);
+      if (game.status) statuses.add(game.status);
+      if (game.kind) kinds.add(game.kind);
+    }
+    return {
+      platforms: [...platforms].sort(),
+      genres: [...genres].sort(),
+      statuses: [...statuses].sort(),
+      kinds: [...kinds].sort(),
+    };
+  }, [feeds.playtester.data]);
 
-  const handleInspectGiveaway = useCallback((giveaway: Giveaway) => {
-    setSelectedTarget({ type: "giveaway", data: giveaway });
-  }, []);
+  const toolbar = useMemo(() => {
+    switch (activeTab) {
+      case "deals":
+        return dealsToolbar(filters.deals, setFilters.deals, t);
+      case "gamepass":
+        return gamePassToolbar(filters.gamepass, setFilters.gamepass, t);
+      case "giveaways":
+        return giveawaysToolbar(
+          filters.giveaways,
+          setFilters.giveaways,
+          giveawayStores,
+          t,
+        );
+      case "playtester":
+        return playtesterToolbar(
+          filters.playtester,
+          setFilters.playtester,
+          playtesterFacets,
+          t,
+        );
+      default:
+        return null;
+    }
+  }, [
+    activeTab,
+    setFilters.deals,
+    setFilters.gamepass,
+    setFilters.giveaways,
+    setFilters.playtester,
+    filters.deals,
+    filters.gamepass,
+    filters.giveaways,
+    filters.playtester,
+    giveawayStores,
+    playtesterFacets,
+    t,
+  ]);
 
-  const handleInspectPlaytester = useCallback((game: PlaytesterGame) => {
-    setSelectedPlaytester(game);
-  }, []);
+  const activeFeed =
+    activeTab === "deals"
+      ? feeds.deals
+      : activeTab === "gamepass"
+        ? feeds.gamepass
+        : activeTab === "giveaways"
+          ? feeds.giveaways
+          : activeTab === "playtester"
+            ? feeds.playtester
+            : null;
 
-  const subtabs: {
+  const searchValue =
+    activeTab === "deals"
+      ? filters.deals.searchQuery
+      : activeTab === "gamepass"
+        ? filters.gamepass.searchQuery
+        : activeTab === "giveaways"
+          ? filters.giveaways.searchQuery
+          : filters.playtester.searchQuery;
+
+  const setSearch = (value: string) => {
+    if (activeTab === "deals") {
+      setFilters.deals((prev) => ({ ...prev, searchQuery: value }));
+    } else if (activeTab === "gamepass") {
+      setFilters.gamepass((prev) => ({ ...prev, searchQuery: value }));
+    } else if (activeTab === "giveaways") {
+      setFilters.giveaways((prev) => ({ ...prev, searchQuery: value }));
+    } else {
+      setFilters.playtester((prev) => ({ ...prev, searchQuery: value }));
+    }
+  };
+
+  const tabs: {
     id: SubTab;
     label: string;
-    count: number;
-    loading: boolean;
+    count: number | null;
     icon: LucideIcon;
   }[] = [
     {
-      id: "gamepass",
-      label: t("deals.gamepass"),
-      count: gpGames.length,
-      loading: gpLoading,
-      icon: Gamepad2,
+      id: "overview",
+      label: t("deals.overview"),
+      count: null,
+      icon: LayoutDashboard,
     },
     {
-      id: "isthereanydeal",
-      label: t("deals.isthereanydeal"),
-      count: deals.length,
-      loading: dealsLoading,
+      id: "deals",
+      label: t("deals.storeDeals"),
+      count: feeds.deals.loading ? null : feeds.deals.total,
       icon: CircleDollarSign,
+    },
+    {
+      id: "gamepass",
+      label: t("deals.gamepassShort"),
+      count: feeds.gamepass.loading ? null : feeds.gamepass.total,
+      icon: Gamepad2,
     },
     {
       id: "giveaways",
       label: t("deals.freeGames"),
-      count: giveaways.length,
-      loading: giveawaysLoading,
+      count: feeds.giveaways.loading ? null : feeds.giveaways.total,
       icon: Gift,
     },
     {
       id: "playtester",
-      label: t("deals.playtester"),
-      count: ptGames.length,
-      loading: ptLoading,
+      label: t("deals.overviewPlaytests"),
+      count: feeds.playtester.loading ? null : feeds.playtester.total,
       icon: MonitorPlay,
     },
   ];
 
+  const modalTarget: ModalDealTarget | null = selectedDeal
+    ? { type: "deal", data: selectedDeal.best, offers: selectedDeal.offers }
+    : selectedGamePass
+      ? { type: "gamepass", data: selectedGamePass }
+      : selectedGiveaway
+        ? { type: "giveaway", data: selectedGiveaway }
+        : null;
+
+  const closeDealModal = () => {
+    setSelectedDeal(null);
+    setSelectedGamePass(null);
+    setSelectedGiveaway(null);
+  };
+
   return (
     <div className="deals-page page">
       <PageWidget page="deals" widget="dealsHeader">
-      <div className="ui-item-dealsHeader">
-        <PageHeader
-          eyebrow={t("deals.eyebrow")}
-          title={t("deals.title")}
-          description={t("deals.description")}
-          icon={
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 7h-3a2 2 0 0 1-2-2V3" />
-              <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
-              <path d="M9 7H4a2 2 0 0 0-2 2v1" />
-              <path d="M14 14l-3 3-3-3" />
-              <path d="M11 17V7" />
-            </svg>
-          }
-        />
-      </div>
+        <div className="ui-item-dealsHeader">
+          <PageHeader
+            eyebrow={t("deals.eyebrow")}
+            title={t("deals.title")}
+            description={t("deals.description")}
+            icon={<Tag size={20} aria-hidden="true" />}
+            actions={
+              <button
+                type="button"
+                className="deals-page-refresh"
+                onClick={controller.reloadAll}
+                aria-label={t("deals.refreshAll")}
+                title={t("deals.refreshAll")}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {t("common.refresh")}
+              </button>
+            }
+          />
+        </div>
       </PageWidget>
 
-      {/* Hero Spotlight */}
-      <PageWidget page="deals" widget="hero">
-      <div className="ui-complete-only ui-item-hero">
-        <DealsHeroSpotlight
-          deals={deals}
-          giveaways={giveaways}
-          gpGames={gpGames}
-          onOpenUrl={handleOpenUrl}
-          onInspect={setSelectedTarget}
-        />
-      </div>
-      </PageWidget>
-
-      {/* Subtabs */}
       <PageWidget page="deals" widget="subtabs">
-      <div className="ui-item-subtabs">
-        <SubTabs
-          ariaLabel={t("deals.title")}
-          value={activeSubTab}
-          onChange={setActiveSubTab}
-          items={subtabs.map((tab) => ({
-            id: tab.id,
-            label: tab.label,
-            icon: tab.icon,
-            count: tab.loading ? 0 : tab.count,
-          }))}
-        />
-      </div>
+        <div className="deals-sticky ui-item-subtabs">
+          <SubTabs
+            ariaLabel={t("deals.title")}
+            value={activeTab}
+            onChange={setActiveTab}
+            items={tabs.map((tab) => ({
+              id: tab.id,
+              label: tab.label,
+              icon: tab.icon,
+              count: tab.count,
+            }))}
+          />
+
+          {toolbar && activeFeed && (
+            <DealsToolbar
+              search={searchValue}
+              onSearchChange={setSearch}
+              searchPlaceholder={toolbar.searchPlaceholder}
+              sort={toolbar.sort}
+              filters={toolbar.filters}
+              toggles={toolbar.toggles}
+              density={density}
+              onDensityChange={setDensity}
+              loading={activeFeed.loading}
+              onReload={() =>
+                controller.reloadSource(activeTab as Exclude<SubTab, "overview">)
+              }
+            />
+          )}
+        </div>
       </PageWidget>
 
-      {/* Panels */}
       <PageWidget page="deals" widget="dealsGrid">
-      <div className="ui-item-dealsGrid">
-        {activeSubTab === "gamepass" && (
-          <GamePassPanel
-            filters={gpFilters}
-            setFilters={setGpFilters}
-            games={gpGames}
-            loading={gpLoading}
-            error={gpError}
-            empty={gpEmpty}
-            density="cinematic"
-            onOpenUrl={handleOpenUrl}
-            onInspect={handleInspectGamePass}
-            onReload={() => setGpReloadNonce((n) => n + 1)}
-          />
-        )}
+        <div className="ui-item-dealsGrid deals-content">
+          {activeTab === "overview" && (
+            <OverviewTab
+              rails={rails}
+              totals={{
+                deals: feeds.deals.groups.length,
+                giveaways: feeds.giveaways.total,
+                gamepass: feeds.gamepass.total,
+                playtests: feeds.playtester.total,
+              }}
+              loading={{
+                deals: feeds.deals.loading,
+                giveaways: feeds.giveaways.loading,
+                gamepass: feeds.gamepass.loading,
+                playtester: feeds.playtester.loading,
+              }}
+              errors={{
+                deals: feeds.deals.error,
+                giveaways: feeds.giveaways.error,
+                gamepass: feeds.gamepass.error,
+                playtester: feeds.playtester.error,
+              }}
+              onReloadAll={controller.reloadAll}
+              density={density}
+              now={controller.now}
+              onSelectTab={setActiveTab}
+              onOpenUrl={handleOpenUrl}
+              onInspectDeal={setSelectedDeal}
+              onInspectGiveaway={setSelectedGiveaway}
+              onInspectGamePass={setSelectedGamePass}
+              onInspectPlaytester={setSelectedPlaytester}
+            />
+          )}
 
-        {activeSubTab === "isthereanydeal" && (
-          <DealsPanel
-            filters={dealFilters}
-            setFilters={setDealFilters}
-            deals={deals}
-            loading={dealsLoading}
-            error={dealsError}
-            empty={dealsEmpty}
-            density="cinematic"
-            onOpenUrl={handleOpenUrl}
-            onInspect={handleInspectDeal}
-            onReload={() => setDealsReloadNonce((n) => n + 1)}
-          />
-        )}
+          {activeTab === "deals" && (
+            <DealsPanel
+              groups={feeds.deals.items}
+              total={feeds.deals.total}
+              loading={feeds.deals.loading}
+              error={feeds.deals.error}
+              density={density}
+              onOpenUrl={handleOpenUrl}
+              onInspect={setSelectedDeal}
+              onReload={feeds.deals.reload}
+              onResetFilters={toolbar?.onReset ?? (() => undefined)}
+            />
+          )}
 
-        {activeSubTab === "giveaways" && (
-          <GiveawaysPanel
-            giveaways={giveaways}
-            loading={giveawaysLoading}
-            error={giveawaysError}
-            empty={giveawaysEmpty}
-            density="cinematic"
-            onOpenUrl={handleOpenUrl}
-            onInspect={handleInspectGiveaway}
-            onReload={() => setGiveawaysReloadNonce((n) => n + 1)}
-          />
-        )}
+          {activeTab === "gamepass" && (
+            <GamePassPanel
+              games={feeds.gamepass.items}
+              total={feeds.gamepass.total}
+              loading={feeds.gamepass.loading}
+              error={feeds.gamepass.error}
+              density={density}
+              onOpenUrl={handleOpenUrl}
+              onInspect={setSelectedGamePass}
+              onReload={feeds.gamepass.reload}
+              onResetFilters={toolbar?.onReset ?? (() => undefined)}
+            />
+          )}
 
-        {activeSubTab === "playtester" && (
-          <PlaytesterPanel
-            filters={ptFilters}
-            setFilters={setPtFilters}
-            games={ptGames}
-            loading={ptLoading}
-            error={ptError}
-            empty={ptEmpty}
-            density="cinematic"
-            hasMore={ptHasMore}
-            loadingMore={ptLoadingMore}
-            onLoadMore={loadMorePlaytester}
-            onInspect={handleInspectPlaytester}
-            onReload={() => setPtReloadNonce((n) => n + 1)}
-          />
-        )}
-      </div>
+          {activeTab === "giveaways" && (
+            <GiveawaysPanel
+              giveaways={feeds.giveaways.items}
+              total={feeds.giveaways.total}
+              loading={feeds.giveaways.loading}
+              error={feeds.giveaways.error}
+              density={density}
+              now={controller.now}
+              onOpenUrl={handleOpenUrl}
+              onInspect={setSelectedGiveaway}
+              onReload={feeds.giveaways.reload}
+              onResetFilters={toolbar?.onReset ?? (() => undefined)}
+            />
+          )}
+
+          {activeTab === "playtester" && (
+            <PlaytesterPanel
+              games={feeds.playtester.items}
+              total={feeds.playtester.total}
+              loading={feeds.playtester.loading}
+              error={feeds.playtester.error}
+              density={density}
+              hasMore={feeds.playtester.hasMore}
+              loadingMore={feeds.playtester.loadingMore}
+              onLoadMore={feeds.playtester.loadMore}
+              onOpenUrl={handleOpenUrl}
+              onInspect={setSelectedPlaytester}
+              onReload={feeds.playtester.reload}
+              onResetFilters={toolbar?.onReset ?? (() => undefined)}
+            />
+          )}
+        </div>
       </PageWidget>
 
-      {/* Deal Detail Modal */}
       <DealDetailModal
-        target={selectedTarget}
-        onClose={() => setSelectedTarget(null)}
+        target={modalTarget}
+        onClose={closeDealModal}
         onOpenUrl={handleOpenUrl}
       />
 
-      {/* Playtester Detail Modal (fetches on open) */}
       <PlaytesterDetailModal
         game={selectedPlaytester}
         onClose={() => setSelectedPlaytester(null)}

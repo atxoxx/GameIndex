@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface DealsEmptyStateProps {
@@ -7,25 +8,19 @@ interface DealsEmptyStateProps {
   onRetry?: () => void;
 }
 
-export default function DealsEmptyState({
-  icon,
-  message,
-  onRetry,
-}: DealsEmptyStateProps) {
+/** Neutral state for "nothing here" — tonal surface, not a warning box. */
+export default function DealsEmptyState({ icon, message, onRetry }: DealsEmptyStateProps) {
   const { t } = useLanguage();
 
   return (
-    <div className="deals-empty" role="status">
-      <span className="deals-empty-icon" aria-hidden="true">
+    <div className="deals-state">
+      <span className="deals-state__icon" aria-hidden="true">
         {icon}
       </span>
-      <span>{message}</span>
+      <p className="deals-state__message">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          className="deals-empty-retry"
-          onClick={onRetry}
-        >
+        <button type="button" className="deals-state__action" onClick={onRetry}>
+          <RefreshCw size={14} aria-hidden="true" />
           {t("deals.retryButton")}
         </button>
       )}
@@ -38,32 +33,19 @@ interface DealsErrorStateProps {
   onRetry?: () => void;
 }
 
+/** Failure state — the same shape as the empty state, tinted with danger. */
 export function DealsErrorState({ message, onRetry }: DealsErrorStateProps) {
   const { t } = useLanguage();
 
   return (
-    <div className="deals-error" role="alert">
-      <svg
-        className="deals-error-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <span>{message}</span>
+    <div className="deals-state deals-state--error" role="alert">
+      <span className="deals-state__icon" aria-hidden="true">
+        <AlertTriangle size={22} strokeWidth={1.6} />
+      </span>
+      <p className="deals-state__message">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          className="deals-error-retry"
-          onClick={onRetry}
-        >
+        <button type="button" className="deals-state__action" onClick={onRetry}>
+          <RefreshCw size={14} aria-hidden="true" />
           {t("deals.retryButton")}
         </button>
       )}
