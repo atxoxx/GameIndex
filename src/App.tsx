@@ -30,6 +30,7 @@ import { AchievementProvider } from "./context/AchievementContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
+import { BigScreenPrefsProvider } from "./context/BigScreenPrefsContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { UpdateProvider } from "./context/UpdateContext";
@@ -297,6 +298,7 @@ function App() {
                                       <CrackWatchProvider>
                                         <PriceProvider>
                                           <BigScreenProvider>
+                                            <BigScreenPrefsProvider>
                                             <PresenceProvider>
                                               <SetupWizardProvider>
                                                 <AdaptiveThemeSync />
@@ -310,6 +312,7 @@ function App() {
                                                 <UpdateNotification />
                                               </SetupWizardProvider>
                                             </PresenceProvider>
+                                            </BigScreenPrefsProvider>
                                           </BigScreenProvider>
                                         </PriceProvider>
                                       </CrackWatchProvider>
