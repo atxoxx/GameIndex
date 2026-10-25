@@ -12,9 +12,14 @@
 //   * "prominent" — accent-tinted button, used as the primary CTA
 //                  on a not-yet-added StoreGameDetail card
 
-import { useState, type CSSProperties } from "react";
-import DownloadModal from "./DownloadModal";
+import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { useLanguage } from "../context/LanguageContext";
+
+// The download flow (search, source picker, file selection, options) is
+// ~100 KB of JS plus 76 KB of CSS and only exists after the button is
+// clicked, so it must not be part of the detail page that renders the
+// button.
+const DownloadModal = lazy(() => import("./DownloadModal"));
 
 export interface DownloadButtonProps {
   gameName: string;
@@ -105,13 +110,15 @@ export default function DownloadButton({
         {buttonLabel}
       </button>
       {open && (
-        <DownloadModal
-          gameName={gameName}
-          gameId={gameId}
-          gamePoster={gamePoster}
-          steamAppId={steamAppId}
-          onClose={() => setOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <DownloadModal
+            gameName={gameName}
+            gameId={gameId}
+            gamePoster={gamePoster}
+            steamAppId={steamAppId}
+            onClose={() => setOpen(false)}
+          />
+        </Suspense>
       )}
     </>
   );

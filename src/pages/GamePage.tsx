@@ -24,9 +24,7 @@ import {
   type DetailTopBarKey,
 } from "../context/interfaceLayout";
 import { useActivity } from "../context/ActivityContext";
-import { EditGameModal } from "../components/game/EditGameModal";
-import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";
-import PageWidget from "../components/PageWidget";
+import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";import PageWidget from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game, gameDisplayName } from "../types/game";
@@ -104,6 +102,14 @@ const GameNewsTab = lazy(() => import("../components/game/GameNewsTab"));
 const MapTab = lazy(() => import("../components/game/MapTab"));
 const NotesTab = lazy(() => import("../components/game/notes/NotesTab"));
 const GameDlcTab = lazy(() => import("../components/game/dlc/DlcTab"));
+// The per-game editor (154 KB: metadata, compatibility, artwork, launch
+// rules) opens only from Edit actions, so it must not ride along with the
+// detail page the user just clicked.
+const EditGameModal = lazy(() =>
+  import("../components/game/EditGameModal").then((m) => ({
+    default: m.EditGameModal,
+  })),
+);
 
 type GamePageTab =
   | "overview"
@@ -814,16 +820,18 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
 
       {/* Edit Game Modal */}
       {editTab && (
-        <EditGameModal
-          key={editTab}
-          game={game}
-          initialTab={editTab}
-          focusField={editFocus ?? undefined}
-          onClose={() => {
-            setEditTab(null);
-            setEditFocus(null);
-          }}
-        />
+        <Suspense fallback={null}>
+          <EditGameModal
+            key={editTab}
+            game={game}
+            initialTab={editTab}
+            focusField={editFocus ?? undefined}
+            onClose={() => {
+              setEditTab(null);
+              setEditFocus(null);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Unified Image Lightbox */}

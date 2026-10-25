@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -17,7 +17,6 @@ import { useDensityContext } from "../context/DensityContext";
 import { useAchievements } from "../context/AchievementContext";
 import { SidebarCollapseContext } from "../context/SidebarCollapseContext";
 import { gameDisplayName, type StoreGameSummary } from "../types/game";
-import DownloadModal from "./DownloadModal";
 import { playTabSound } from "../utils/soundEffects";
 import type { PaletteCategory, PaletteGroup } from "./command-palette/commandPaletteTypes";
 import {
@@ -47,11 +46,16 @@ import CommandPaletteActionDrawer from "./command-palette/CommandPaletteActionDr
 import CommandPaletteCheatSheet from "./command-palette/CommandPaletteCheatSheet";
 import { useCommandPaletteItems } from "./command-palette/useCommandPaletteItems";
 import { useCommandPaletteKeyboard } from "./command-palette/useCommandPaletteKeyboard";
+import "../styles/command-palette.css";
 
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Opening the download flow from a palette action should not be the reason
+// the palette itself carries the ~100 KB modal + 76 KB of CSS.
+const DownloadModal = lazy(() => import("./DownloadModal"));
 
 const GROUP_TITLE_KEYS: Record<PaletteGroup, string> = {
   pinned: "commandPalette.sectionPinned",
@@ -635,12 +639,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       />
 
       {downloadTarget && (
-        <DownloadModal
-          gameName={downloadTarget.name}
-          gameId={downloadTarget.id}
-          gamePoster={downloadTarget.poster}
-          onClose={() => setDownloadTarget(null)}
-        />
+        <Suspense fallback={null}>
+          <DownloadModal
+            gameName={downloadTarget.name}
+            gameId={downloadTarget.id}
+            gamePoster={downloadTarget.poster}
+            onClose={() => setDownloadTarget(null)}
+          />
+        </Suspense>
       )}
     </>,
     document.body

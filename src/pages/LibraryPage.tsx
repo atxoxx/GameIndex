@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../context/GameContext";
@@ -24,19 +24,34 @@ import LibraryStatBand from "../components/library/LibraryStatBand";
 import LibraryResumeStrip from "../components/library/LibraryResumeStrip";
 import LibraryCommandBar from "../components/library/LibraryCommandBar";
 import LibraryScopeBar, { type LibraryScope } from "../components/library/LibraryScopeBar";
-import LibraryFilterPopover from "../components/library/LibraryFilterPopover";
 import LibraryFilterChips from "../components/library/LibraryFilterChips";
 import LibraryVirtualGrid from "../components/library/LibraryVirtualGrid";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryEmptyState from "../components/library/LibraryEmptyState";
 import LibraryFilteredEmpty from "../components/library/LibraryFilteredEmpty";
 import LibraryBulkBar from "../components/library/LibraryBulkBar";
-import LibraryExportModal from "../components/library/LibraryExportModal";
 import GameContextMenu from "../components/game/GameContextMenu";
-import { EditGameModal } from "../components/game/EditGameModal";
-import { ShelfBuilderModal } from "../components/shelves/ShelfBuilderModal";
 import { ConfirmModal } from "../components/ui/ConfirmModal";
 import type { LibraryGroupBy } from "../components/library/LibraryGroupMenu";
+// Dialogs the library opens on demand. Edit Game alone drags in the full
+// per-game editor (154 KB), so none of these should be part of the chunk
+// that has to parse before the grid can paint.
+const LibraryFilterPopover = lazy(
+  () => import("../components/library/LibraryFilterPopover"),
+);
+const LibraryExportModal = lazy(
+  () => import("../components/library/LibraryExportModal"),
+);
+const EditGameModal = lazy(() =>
+  import("../components/game/EditGameModal").then((m) => ({
+    default: m.EditGameModal,
+  })),
+);
+const ShelfBuilderModal = lazy(() =>
+  import("../components/shelves/ShelfBuilderModal").then((m) => ({
+    default: m.ShelfBuilderModal,
+  })),
+);
 import "../library.css";
 import "../styles/page-library.css";
 
@@ -506,25 +521,29 @@ export default function LibraryPage() {
         </>
       )}
 
-      <LibraryFilterPopover
-        open={filtersOpen}
-        onClose={closeFilters}
-        anchorRef={filtersButtonRef}
-        filters={filters}
-        availableGenres={availableGenres}
-        counts={counts}
-        resultCount={filteredGames.length}
-        onGenresChange={setGenres}
-        onPlatformsChange={setPlatforms}
-        onYearRangeChange={setYearRange}
-        onRatingMinChange={setRatingMin}
-        onStatusChange={setStatus}
-        onPlayStatusChange={setPlayStatus}
-        onSourceChange={setSource}
-        onVrOnlyChange={setVrOnly}
-        onReset={resetAll}
-        onSaveAsShelf={openShelfBuilder}
-      />
+      {filtersOpen && (
+        <Suspense fallback={null}>
+          <LibraryFilterPopover
+            open={filtersOpen}
+            onClose={closeFilters}
+            anchorRef={filtersButtonRef}
+            filters={filters}
+            availableGenres={availableGenres}
+            counts={counts}
+            resultCount={filteredGames.length}
+            onGenresChange={setGenres}
+            onPlatformsChange={setPlatforms}
+            onYearRangeChange={setYearRange}
+            onRatingMinChange={setRatingMin}
+            onStatusChange={setStatus}
+            onPlayStatusChange={setPlayStatus}
+            onSourceChange={setSource}
+            onVrOnlyChange={setVrOnly}
+            onReset={resetAll}
+            onSaveAsShelf={openShelfBuilder}
+          />
+        </Suspense>
+      )}
 
       {bulkMode && (
         <LibraryBulkBar
@@ -561,25 +580,35 @@ export default function LibraryPage() {
         />
       )}
 
-      {editGame && <EditGameModal game={editGame} onClose={() => setEditGame(null)} />}
-
-      {exportOpen && (
-        <LibraryExportModal
-          games={games}
-          filteredGames={filteredGames}
-          onClose={() => setExportOpen(false)}
-        />
+      {editGame && (
+        <Suspense fallback={null}>
+          <EditGameModal game={editGame} onClose={() => setEditGame(null)} />
+        </Suspense>
       )}
 
-      <ShelfBuilderModal
-        open={shelfBuilderOpen}
-        shelf={null}
-        initialRules={shelfRules}
-        onClose={() => {
-          setShelfBuilderOpen(false);
-          setShelfRules(undefined);
-        }}
-      />
+      {exportOpen && (
+        <Suspense fallback={null}>
+          <LibraryExportModal
+            games={games}
+            filteredGames={filteredGames}
+            onClose={() => setExportOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {shelfBuilderOpen && (
+        <Suspense fallback={null}>
+          <ShelfBuilderModal
+            open={shelfBuilderOpen}
+            shelf={null}
+            initialRules={shelfRules}
+            onClose={() => {
+              setShelfBuilderOpen(false);
+              setShelfRules(undefined);
+            }}
+          />
+        </Suspense>
+      )}
 
       <ConfirmModal
         open={removeConfirmGame !== null}
