@@ -16,15 +16,12 @@ const profile: UserProfile = {
 };
 
 const future = new Date(Date.now() + 3_600_000);
-const futureLocal = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, "0")}-${String(
-  future.getDate()
-).padStart(2, "0")}T${String(future.getHours()).padStart(2, "0")}:${String(future.getMinutes()).padStart(2, "0")}`;
 
 const session: GameSession = {
   id: "session-1",
   gameId: "game-1",
   gameName: "Helldivers 2",
-  scheduledAt: futureLocal,
+  scheduledAt: future.toISOString(),
   maxPlayers: 4,
   description: "",
   creatorName: "Nova",
