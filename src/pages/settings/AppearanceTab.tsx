@@ -3,8 +3,11 @@ import { useTheme, UI_STYLES, type ThemeConfig, type ThemeDescriptor, type UiSty
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, LayoutTemplate } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, LayoutTemplate, Gamepad2 } from "lucide-react";
 import { Button, ConfirmModal } from "../../components/ui";
+import PresetPicker from "../../components/bigscreen/shell/PresetPicker";
+import { useBigScreenPrefs } from "../../context/BigScreenPrefsContext";
+import type { NavVisibility } from "../../bigscreen/presets";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
@@ -53,6 +56,13 @@ const ACCENT_PRESETS: { key: string; value: string }[] = [
 const PRESET_VALUE_SET: Set<string> = new Set(
   ACCENT_PRESETS.map((p) => p.value.toLowerCase()),
 );
+
+/** Section-navigation visibility options for the Big Screen layout card. */
+const BIGSCREEN_NAV_OPTIONS: { id: NavVisibility; labelKey: string }[] = [
+  { id: "always", labelKey: "bigscreen.quickSettings.navAlways" },
+  { id: "compact", labelKey: "bigscreen.quickSettings.navCompact" },
+  { id: "auto", labelKey: "bigscreen.quickSettings.navAuto" },
+];
 
 function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => string): string {
   switch (descriptor) {
@@ -143,6 +153,7 @@ export default function AppearanceTab() {
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { prefs, setPreset, setNavVisibility } = useBigScreenPrefs();
 
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [editingTheme, setEditingTheme] = useState<ThemeConfig | null>(null);
@@ -314,6 +325,42 @@ export default function AppearanceTab() {
               </div>
             );
           })}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="appearance-bigscreen"
+        icon={<Gamepad2 size={18} />}
+        title={t("bigscreen.system.layoutStyle")}
+        desc={t("bigscreen.system.layoutStyleDesc")}
+      >
+        <div className="settings-bigscreen">
+          <PresetPicker value={prefs.preset} onChange={setPreset} />
+          <p className="settings-bigscreen-hint">
+            {t("bigscreen.system.layoutStyleHint")}
+          </p>
+          <div className="settings-bigscreen-nav">
+            <span className="settings-bigscreen-nav-label">
+              {t("bigscreen.quickSettings.navVisibility")}
+            </span>
+            <div
+              className="settings-segmented"
+              role="group"
+              aria-label={t("bigscreen.quickSettings.navVisibility")}
+            >
+              {BIGSCREEN_NAV_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={prefs.navVisibility === option.id ? "active" : undefined}
+                  aria-pressed={prefs.navVisibility === option.id}
+                  onClick={() => setNavVisibility(option.id)}
+                >
+                  {t(option.labelKey)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </SettingsSection>
 

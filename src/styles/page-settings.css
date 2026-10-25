@@ -1182,6 +1182,47 @@
   cursor: pointer;
 }
 
+/* ── Big Screen layout card ──────────────────────────────────────────────
+   Shares the PresetPicker with the TV shell. Shell.css (which owns the
+   picker's 10-foot look) only loads while Big Screen Mode is on, so this
+   card states its own desktop treatment: the preview thumbnails are a
+   couch affordance and are dropped in favour of name + blurb. */
+/* Preset geometry comes from the picker component's own stylesheet
+   (`styles/bigscreen/picker.css`), so desktop and the TV shell show the
+   same thumbnails. Only the grid density differs here. */
+.settings-bigscreen .bs-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-sm);
+}
+
+.settings-bigscreen .bs-preset-copy {
+  gap: var(--space-3xs);
+}
+
+.settings-bigscreen-hint {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.settings-bigscreen-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-bigscreen-nav-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
 /* Placeholder while a lazily loaded settings tab chunk is parsed. Keeps the
    page header in place so switching tabs never collapses the layout. */
 .settings-tab-fallback {

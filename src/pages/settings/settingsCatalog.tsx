@@ -162,6 +162,12 @@ export function buildSettingsCatalog(
       icon: <PaletteIcon />,
       sections: [
         {
+          id: "appearance-bigscreen",
+          labelKey: "bigscreen.system.layoutStyle",
+          keywords:
+            "big screen tv couch layout preset xbox steam playstation switch classic navigation nav visibility tv mode ten foot",
+        },
+        {
           id: "appearance-themes",
           labelKey: "settings.section.appearanceThemes",
           keywords: "theme dark light color scheme system sync auto game palette",
