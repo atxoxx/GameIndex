@@ -751,9 +751,9 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
   min-width: 0;
-  padding: var(--space-xs) var(--space-2xs);
+  padding: var(--space-sm) var(--space-2xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -776,7 +776,7 @@
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   max-width: 100%;
@@ -894,12 +894,16 @@
 .ach-rarity-filter-pills {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
 .ach-rarity-filter-pill {
-  padding: var(--space-2xs) var(--space-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1093,7 +1097,8 @@
 .achievements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: var(--space-lg);
+  column-gap: var(--space-lg);
+  row-gap: var(--space-xl);
 }
 
 .achievements-no-results {
@@ -1200,7 +1205,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .achievement-card-header {
@@ -1284,7 +1289,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-top: var(--space-xs);
+  margin-top: 0;
 }
 
 .achievement-card-rarity-bar {
@@ -2427,7 +2432,7 @@
 }
 
 .game-tab.achievements-tab .game-tab-toolbar {
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 .ach-tab-hero {
@@ -2510,7 +2515,7 @@
 .ach-shelf__titles {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4xs);
+  gap: var(--space-2xs);
   min-width: 0;
 }
 
@@ -2528,7 +2533,7 @@
 
 .ach-shelf__items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-md);
 }
 
@@ -2565,7 +2570,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  gap: var(--space-4xs);
+  gap: var(--space-2xs);
 }
 
 .ach-shelf__name {
@@ -2600,7 +2605,7 @@
 }
 
 .ach-tab-body.has-rarity {
-  grid-template-columns: minmax(0, 1fr) 264px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: var(--space-xl);
 }
 
@@ -2684,6 +2689,12 @@
   .ach-rarity-panel {
     position: static;
     order: -1;
+  }
+}
+
+@media (max-width: 1200px) {
+  .ach-shelf__items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
