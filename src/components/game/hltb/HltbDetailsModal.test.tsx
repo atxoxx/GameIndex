@@ -116,13 +116,11 @@ describe("HltbDetailsModal", () => {
     expect(screen.getByRole("button", { name: "hltb.hideNumbers" })).toBeTruthy();
   });
 
-  it("switches between community, platform and related tabs", () => {
+  it("switches between the remaining platform and related tabs", () => {
     render(<HltbDetailsModal stats={makeStats()} playTime="26h" onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: /hltb\.tabCommunity/ }));
-    expect(screen.getByText("hltb.communityScore")).toBeTruthy();
-    expect(screen.getByText("hltb.reviewDistribution")).toBeTruthy();
-    expect(screen.getAllByText("78").length).toBeGreaterThan(0);
+    // Community moved to the Ratings sheet.
+    expect(screen.queryByRole("tab", { name: /hltb\.tabCommunity/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: /hltb\.tabPlatforms/ }));
     expect(screen.getAllByText("PC").length).toBeGreaterThan(0);
@@ -185,6 +183,8 @@ describe("HltbDetailsModal", () => {
     expect(screen.getByText("hltb.coopMp")).toBeTruthy();
     expect(screen.getByText("hltb.byPlatform")).toBeTruthy();
     expect(screen.getByText("Enshrouded: Prologue")).toBeTruthy();
+    // Community data belongs to the Ratings sheet now.
+    expect(screen.queryByText("hltb.communityScore")).toBeNull();
   });
 
   it("hides the personal gauge when the game has no tracked playtime", () => {

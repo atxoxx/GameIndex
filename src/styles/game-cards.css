@@ -314,9 +314,47 @@
   font-size: var(--text-sm);
 }
 
-/* ── RatingsKpiCard (big numbers + breakdown) ──────────────────── */
+/* ── RatingsKpiCard (score tiles + sentiment bar) ──────────────── */
 
 .ratings-kpi-card { padding: var(--space-xl); }
+
+.ratings-card__actions {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ratings-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.ratings-card__cta:hover,
+.ratings-card__cta:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  outline: none;
+}
+
+.ratings-card__cta svg {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.ratings-card__cta:hover svg {
+  transform: translateX(2px);
+}
 
 .ratings-kpi-grid {
   display: grid;
@@ -333,9 +371,16 @@
 .ratings-breakdown {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
   padding-top: var(--space-md);
   border-top: 1px solid var(--color-border);
+}
+
+.ratings-breakdown__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .ratings-breakdown__title {
@@ -344,42 +389,77 @@
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  margin-bottom: var(--space-xs);
 }
 
-.ratings-breakdown__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+.ratings-breakdown__note {
   font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
-.ratings-breakdown__label {
-  width: 90px;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  flex-shrink: 0;
-}
-
-.ratings-breakdown__track {
-  flex: 1;
-  height: 6px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-full);
+.ratings-breakdown__bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
   overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
 }
 
-.ratings-breakdown__fill {
+.ratings-breakdown__seg {
   height: 100%;
-  border-radius: var(--radius-full);
   transition: width 600ms var(--ease-standard);
 }
 
-.ratings-breakdown__pct {
-  width: 36px;
-  text-align: right;
-  color: var(--color-text-muted);
+.ratings-breakdown__seg--positive,
+.ratings-breakdown__dot--positive {
+  background: var(--color-success);
+}
+
+.ratings-breakdown__seg--mixed,
+.ratings-breakdown__dot--mixed {
+  background: var(--color-warning);
+}
+
+.ratings-breakdown__seg--negative,
+.ratings-breakdown__dot--negative {
+  background: var(--color-danger);
+}
+
+.ratings-breakdown__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-md);
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ratings-breakdown__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.ratings-breakdown__dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+}
+
+.ratings-breakdown__legend-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.ratings-breakdown__legend-value {
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
 

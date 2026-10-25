@@ -4,7 +4,7 @@ import type { HltbStats, HltbTimeStat } from "../../../types/game";
 export type Translate = (key: string, vars?: Record<string, unknown>) => string;
 
 export type StyleKey = "main" | "plus" | "hundred" | "all";
-export type TabId = "times" | "community" | "platforms" | "related";
+export type TabId = "times" | "platforms" | "related";
 
 export interface StyleRowData {
   key: StyleKey;

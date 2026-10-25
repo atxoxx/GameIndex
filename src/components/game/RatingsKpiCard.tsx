@@ -1,24 +1,30 @@
 import { useState } from "react";
 import { KpiTile } from "../ui";
-import { gameDisplayName, type Game } from "../../types/game";
-import { IconInfo, IconStar } from "./icons";
+import type { Game } from "../../types/game";
+import {
+  IconChevronRight,
+  IconClock,
+  IconStar,
+  IconSteam,
+  IconUsers,
+} from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 import { useMetacriticScore } from "../../hooks/useMetacriticScore";
 import { useBigScreen } from "../../context/BigScreenContext";
+import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenModal from "../bigscreen/BigScreenModal";
-import MetacriticDetailsModal, {
-  MetacriticDetailsContent,
-} from "./MetacriticDetailsModal";
+import RatingsDetailsContent from "./ratings/RatingsDetailsContent";
+import RatingsDetailsModal from "./ratings/RatingsDetailsModal";
 
 /**
  * RatingsKpiCard
  *
- *  Right-sidebar "Ratings" card. Shows the Metacritic Metascore
- *  alongside the IGDB community score and Steam user reviews, with
- *  intent-tinted KPI tiles and the Metacritic positive/neutral/negative
- *  score repartition. A details button opens the full Metacritic score
- *  sheet.
+ *  Right-sidebar "Ratings" card. Shows the Metacritic Metascore, the IGDB
+ *  community score, Steam user reviews and the HowLongToBeat community
+ *  score, plus one sentiment bar summarising the critic split. The header
+ *  button opens the full Ratings sheet: Overview / Critics / Community,
+ *  with the HLTB community block folded in.
  */
 
 interface RatingsKpiCardProps {
@@ -31,17 +37,27 @@ function scoreIntent(score: number) {
   return "danger" as const;
 }
 
+interface BreakdownItem {
+  key: "positive" | "mixed" | "negative";
+  label: string;
+  tone: "positive" | "mixed" | "negative";
+  percent: number;
+}
+
 export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
   const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const { data: steamStats } = useSteamGameStats(game.steamAppId);
   const { data: metacritic } = useMetacriticScore(game.name);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsFocus = useFocusable(() => setDetailsOpen(true));
 
   const steamReviews = steamStats?.reviews;
   const steamPositivePercent =
     steamReviews && steamReviews.totalReviews > 0
-      ? Math.round((steamReviews.totalPositive / steamReviews.totalReviews) * 100)
+      ? Math.round(
+          (steamReviews.totalPositive / steamReviews.totalReviews) * 100,
+        )
       : null;
 
   // Metacritic is the headline score; the IGDB community score stays as a
@@ -51,36 +67,32 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
   const igdbScore = game.igdbRating ?? null;
   const hasIgdb = igdbScore != null;
   const hasSteamReview = steamPositivePercent != null;
-  const hasMetacriticDetails =
-    metacritic != null && (metascore != null || metacritic.userScore != null);
+  const hltbScore = game.timeToBeat?.hltb?.community?.reviewScore ?? null;
+  const hasHltb = hltbScore != null;
 
-  if (!hasMetascore && !hasIgdb && !hasSteamReview) return null;
+  if (!hasMetascore && !hasIgdb && !hasSteamReview && !hasHltb) return null;
 
-  // Metacritic's own critic repartition (positive / mixed / negative)
-  // replaces the previous synthetic breakdown.
+  // Metacritic's own critic repartition (positive / mixed / negative).
   const criticPositive = metacritic?.positiveCount ?? 0;
   const criticNeutral = metacritic?.neutralCount ?? 0;
   const criticNegative = metacritic?.negativeCount ?? 0;
   const criticTotal = criticPositive + criticNeutral + criticNegative;
-  const breakdownItems =
+  const breakdownItems: BreakdownItem[] =
     criticTotal > 0
-      ? [
-          {
-            label: t("ratings.positive"),
-            val: Math.round((criticPositive / criticTotal) * 100),
-            color: "var(--color-success)",
-          },
-          {
-            label: t("ratings.mixed"),
-            val: Math.round((criticNeutral / criticTotal) * 100),
-            color: "var(--color-warning)",
-          },
-          {
-            label: t("ratings.negative"),
-            val: Math.round((criticNegative / criticTotal) * 100),
-            color: "var(--color-danger)",
-          },
-        ]
+      ? (["positive", "mixed", "negative"] as const).map((tone) => {
+          const count =
+            tone === "positive"
+              ? criticPositive
+              : tone === "mixed"
+                ? criticNeutral
+                : criticNegative;
+          return {
+            key: tone,
+            label: t(`ratings.${tone}`),
+            tone,
+            percent: Math.round((count / criticTotal) * 100),
+          };
+        })
       : [];
 
   return (
@@ -90,18 +102,19 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
           <IconStar size={16} />
         </span>
         {t("ratings.title")}
-        {hasMetacriticDetails && (
-          <span className="ttb-title-actions">
-            <button
-              type="button"
-              className="ttb-details-btn"
-              onClick={() => setDetailsOpen(true)}
-            >
-              <IconInfo size={13} />
-              {t("common.details")}
-            </button>
-          </span>
-        )}
+        <span className="ratings-card__actions">
+          <button
+            type="button"
+            className="ratings-card__cta"
+            ref={detailsFocus.ref}
+            tabIndex={detailsFocus.tabIndex}
+            onClick={detailsFocus.onClick}
+            onKeyDown={detailsFocus.onKeyDown}
+          >
+            {t("ratings.openAll")}
+            <IconChevronRight size={13} />
+          </button>
+        </span>
       </h2>
 
       <div className="ratings-kpi-grid">
@@ -116,11 +129,11 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
             className="ratings-kpi-tile"
           />
         )}
-        {igdbScore != null && (
+        {hasIgdb && (
           <KpiTile
             size="md"
-            label={t("ratings.igdbCommunity")}
-            icon={<IconStar size={12} />}
+            label={t("ratings.igdb")}
+            icon={<IconUsers size={12} />}
             value={Math.round(igdbScore)}
             subtext={`/ 100`}
             intent={scoreIntent(igdbScore)}
@@ -130,11 +143,22 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
         {steamPositivePercent != null && (
           <KpiTile
             size="md"
-            label="Steam"
-            icon={<IconStar size={12} />}
+            label={t("ratings.steam")}
+            icon={<IconSteam size={12} />}
             value={`${steamPositivePercent}%`}
             subtext={steamReviews?.scoreDesc || t("ratings.recommended")}
             intent={scoreIntent(steamPositivePercent)}
+            className="ratings-kpi-tile"
+          />
+        )}
+        {hasHltb && (
+          <KpiTile
+            size="md"
+            label={t("ratings.hltb")}
+            icon={<IconClock size={12} />}
+            value={Math.round(hltbScore)}
+            subtext={t("hltb.communityScore")}
+            intent={scoreIntent(hltbScore)}
             className="ratings-kpi-tile"
           />
         )}
@@ -142,45 +166,65 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
 
       {breakdownItems.length > 0 && (
         <div className="ratings-breakdown">
-          <span className="ratings-breakdown__title">{t("ratings.scoreBreakdown")}</span>
-          {breakdownItems.map((item) => (
-            <div key={item.label} className="ratings-breakdown__row">
-              <span className="ratings-breakdown__label">{item.label}</span>
-              <div className="ratings-breakdown__track">
-                <div
-                  className="ratings-breakdown__fill"
-                  style={{
-                    width: `${item.val}%`,
-                    background: item.color,
-                    boxShadow: `0 0 6px ${item.color}`,
-                  }}
+          <div className="ratings-breakdown__head">
+            <span className="ratings-breakdown__title">
+              {t("ratings.scoreBreakdown")}
+            </span>
+            <span className="ratings-breakdown__note">{t("ratings.critics")}</span>
+          </div>
+          <div className="ratings-breakdown__bar" aria-hidden="true">
+            {breakdownItems.map((item) =>
+              item.percent > 0 ? (
+                <span
+                  key={item.key}
+                  className={`ratings-breakdown__seg ratings-breakdown__seg--${item.tone}`}
+                  style={{ width: `${item.percent}%` }}
                 />
-              </div>
-              <span className="ratings-breakdown__pct">{item.val}%</span>
-            </div>
-          ))}
+              ) : null,
+            )}
+          </div>
+          <ul className="ratings-breakdown__legend">
+            {breakdownItems.map((item) => (
+              <li
+                key={item.key}
+                className={`ratings-breakdown__legend-item ratings-breakdown__legend-item--${item.tone}`}
+              >
+                <span
+                  className={`ratings-breakdown__dot ratings-breakdown__dot--${item.tone}`}
+                  aria-hidden="true"
+                />
+                <span className="ratings-breakdown__legend-label">{item.label}</span>
+                <span className="ratings-breakdown__legend-value">{item.percent}%</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {detailsOpen && metacritic && (
-        isBigScreen ? (
+      {detailsOpen &&
+        (isBigScreen ? (
           <BigScreenModal
             open
-            title={t("ratings.metacriticTitle")}
+            title={t("ratings.modalTitle")}
             onClose={() => setDetailsOpen(false)}
-            width="860px"
+            width="960px"
             maxHeight="88%"
           >
-            <MetacriticDetailsContent score={metacritic} gameName={gameDisplayName(game)} />
+            <RatingsDetailsContent
+              game={game}
+              metacritic={metacritic}
+              steam={steamReviews}
+              variant="stacked"
+            />
           </BigScreenModal>
         ) : (
-          <MetacriticDetailsModal
-            score={metacritic}
-            gameName={gameDisplayName(game)}
+          <RatingsDetailsModal
+            game={game}
+            metacritic={metacritic}
+            steam={steamReviews}
             onClose={() => setDetailsOpen(false)}
           />
-        )
-      )}
+        ))}
     </section>
   );
 }
