@@ -110,7 +110,6 @@ export default function CommandPaletteActionDrawer({
         title: t("commandPalette.open"),
         description: t("commandPalette.actViewDetailsDesc"),
         icon: <Layers size={15} />,
-        shortcut: "Ctrl+↵",
         onExecute: () => {
           onClose();
           navigate(`/library/${game.id}`);
@@ -335,7 +334,6 @@ export default function CommandPaletteActionDrawer({
         title: wishlisted ? t("store.inWishlist") : t("store.addToWishlist"),
         description: wishlisted ? t("commandPalette.removeFromWishlistDesc") : t("commandPalette.addToWishlistDesc"),
         icon: <Heart size={15} fill={wishlisted ? "currentColor" : "none"} />,
-        shortcut: "W",
         onExecute: () => {
           toggleWishlist(storeGame);
           showToast(
@@ -464,6 +462,12 @@ export default function CommandPaletteActionDrawer({
     active?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedIndex, isOpen]);
 
+  // An item without drawer actions must not leave an invisible modal open:
+  // that state would swallow Escape and make the palette feel frozen.
+  useEffect(() => {
+    if (isOpen && allActions.length === 0) onClose();
+  }, [isOpen, allActions.length, onClose]);
+
   if (!isOpen || !item || allActions.length === 0) return null;
 
   return (
@@ -544,15 +548,15 @@ export default function CommandPaletteActionDrawer({
         </div>
 
         <div className="cmd-drawer-footer">
-          <span className="command-palette-hint">
+          <span className="cp-hint">
             <kbd className="command-palette-key-pill">↑↓</kbd>
             <span>{t("commandPalette.hintNavigate")}</span>
           </span>
-          <span className="command-palette-hint">
+          <span className="cp-hint">
             <kbd className="command-palette-key-pill">↵</kbd>
             <span>{t("commandPalette.hintSelect")}</span>
           </span>
-          <span className="command-palette-hint">
+          <span className="cp-hint">
             <kbd className="command-palette-key-pill">Esc</kbd>
             <span>{t("commandPalette.back")}</span>
           </span>

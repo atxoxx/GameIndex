@@ -1,5 +1,6 @@
-import { Search, X, Loader2, HelpCircle, Layers } from "lucide-react";
+import { HelpCircle, Loader2, Search, X } from "lucide-react";
 import type { PaletteCategory } from "./commandPaletteTypes";
+import { PALETTE_SCOPES } from "./commandPaletteScopes";
 
 interface CommandPaletteHeaderProps {
   inputId: string;
@@ -11,14 +12,12 @@ interface CommandPaletteHeaderProps {
   onClearScope: () => void;
   onClearQuery: () => void;
   isSearchingIgdb: boolean;
-  isSimpleMode: boolean;
-  showInspector: boolean;
-  onToggleInspector: () => void;
   onOpenCheatSheet: () => void;
   t: (key: string, vars?: Record<string, unknown>) => string;
   listId?: string;
   activeDescendantId?: string;
   itemCount?: number;
+  compact?: boolean;
 }
 
 export default function CommandPaletteHeader({
@@ -31,41 +30,36 @@ export default function CommandPaletteHeader({
   onClearScope,
   onClearQuery,
   isSearchingIgdb,
-  isSimpleMode,
-  showInspector,
-  onToggleInspector,
   onOpenCheatSheet,
   t,
   listId,
   activeDescendantId,
   itemCount,
+  compact = false,
 }: CommandPaletteHeaderProps) {
-  return (
-    <div className="command-palette-header">
-      <div className="cmd-header-search-icon-wrapper">
-        <Search className="command-palette-icon" aria-hidden="true" />
-      </div>
+  const scopeDef = PALETTE_SCOPES.find((entry) => entry.id === scope);
 
-      {scope !== "all" && (
-        <div className="cmd-active-scope-pill" role="status">
-          <span>{t(`commandPalette.scope${scope.charAt(0).toUpperCase() + scope.slice(1)}`)}</span>
-          <button
-            type="button"
-            className="cmd-clear-scope-btn"
-            onClick={onClearScope}
-            title={t("commandPalette.clearScope")}
-            aria-label={t("commandPalette.clearScope")}
-          >
-            <X size={11} />
-          </button>
-        </div>
+  return (
+    <div className="cp-header">
+      <Search className="cp-header-icon" aria-hidden="true" />
+
+      {compact && scopeDef && scope !== "all" && (
+        <button
+          type="button"
+          className="cp-header-scope"
+          onClick={onClearScope}
+          title={t("commandPalette.clearScope")}
+        >
+          <span>{t(scopeDef.labelKey)}</span>
+          <X size={11} aria-hidden="true" />
+        </button>
       )}
 
       <input
         id={inputId}
         ref={inputRef}
         type="text"
-        className="command-palette-input"
+        className="cp-input"
         placeholder={t("commandPalette.placeholder")}
         value={rawQuery}
         onChange={(e) => onQueryChange(e.target.value)}
@@ -74,14 +68,21 @@ export default function CommandPaletteHeader({
         spellCheck={false}
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded={listId ? true : undefined}
+        aria-expanded={!!listId}
         aria-controls={listId}
         aria-activedescendant={activeDescendantId}
+        aria-label={t("commandPalette.placeholder")}
       />
 
-      <div className="cmd-header-tools">
-        {itemCount !== undefined && (rawQuery.length > 0 || scope !== "all") && (
-          <span className="cmd-header-count-badge" title={`${itemCount} items`}>
+      <div className="cp-header-tools">
+        {isSearchingIgdb && (
+          <span className="cp-header-spinner" title={t("commandPalette.searchingIgdb")}>
+            <Loader2 size={14} className="cp-spinner" aria-hidden="true" />
+          </span>
+        )}
+
+        {itemCount !== undefined && rawQuery.length > 0 && (
+          <span className="cp-header-count" title={t("commandPalette.itemCount", { count: itemCount })}>
             {itemCount}
           </span>
         )}
@@ -89,44 +90,26 @@ export default function CommandPaletteHeader({
         {rawQuery.length > 0 && (
           <button
             type="button"
-            className="cmd-clear-query-btn"
+            className="cp-icon-btn"
             onClick={onClearQuery}
-            title={t("commandPalette.clear")}
+            title={`${t("commandPalette.clear")} (Esc)`}
             aria-label={t("commandPalette.clear")}
           >
-            <X size={13} />
+            <X size={14} />
           </button>
-        )}
-
-        {isSearchingIgdb && (
-          <div className="cmd-header-spinner-wrap" title={t("commandPalette.searchingIgdb")}>
-            <Loader2 size={15} className="command-palette-spinner" />
-          </div>
         )}
 
         <button
           type="button"
-          className="cmd-cheatsheet-toggle-btn"
+          className="cp-icon-btn"
           onClick={onOpenCheatSheet}
           title={`${t("commandPalette.cheatSheet")} (Ctrl+H)`}
           aria-label={t("commandPalette.cheatSheet")}
         >
-          <HelpCircle size={14} />
+          <HelpCircle size={15} />
         </button>
 
-        {!isSimpleMode && (
-          <button
-            type="button"
-            className={`cmd-inspector-toggle-btn${showInspector ? " active" : ""}`}
-            onClick={onToggleInspector}
-            title={`${t("commandPalette.toggleInspector")} (Ctrl+P)`}
-            aria-label={t("commandPalette.toggleInspector")}
-          >
-            <Layers size={14} />
-          </button>
-        )}
-
-        <kbd className="command-palette-esc" title={t("commandPalette.hintClose")}>
+        <kbd className="cp-kbd cp-header-esc" title={t("commandPalette.hintClose")}>
           Esc
         </kbd>
       </div>

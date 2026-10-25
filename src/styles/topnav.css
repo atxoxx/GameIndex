@@ -61,18 +61,18 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── TopNav Search Trigger (Icon by default, expands on hover/focus) ── */
+/* ── TopNav search trigger (icon by default, expands on hover/focus) ── */
 .topnav-search-trigger {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  height: 32px;
-  width: 32px;
-  min-width: 32px;
+  height: 30px;
+  width: 30px;
+  min-width: 30px;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 62%, transparent);
   color: var(--color-text-secondary);
   cursor: pointer;
   outline: none;
@@ -93,23 +93,23 @@
 
 .topnav-search-trigger:hover,
 .topnav-search-trigger:focus-visible {
-  width: 200px;
-  min-width: 200px;
+  width: 220px;
+  min-width: 220px;
   gap: var(--space-sm);
   padding: 0 var(--space-sm);
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
 }
 
 .topnav-search-trigger:focus-visible {
   outline: none;
-  box-shadow: var(--ring-accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .topnav-search-trigger__icon {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   color: var(--color-text-muted);
   flex-shrink: 0;
   transition: color var(--duration-fast) var(--ease-standard);
@@ -117,7 +117,7 @@
 
 .topnav-search-trigger:hover .topnav-search-trigger__icon,
 .topnav-search-trigger:focus-visible .topnav-search-trigger__icon {
-  color: var(--color-text-secondary);
+  color: var(--color-accent);
 }
 
 .topnav-search-trigger__text {
@@ -140,7 +140,7 @@
 .topnav-search-trigger:hover .topnav-search-trigger__text,
 .topnav-search-trigger:focus-visible .topnav-search-trigger__text {
   opacity: 1;
-  max-width: 130px;
+  max-width: 150px;
   color: var(--color-text-secondary);
   transition:
     opacity var(--duration-normal) var(--ease-standard) 40ms,
@@ -151,8 +151,8 @@
 .topnav-search-trigger__kbd {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  color: var(--color-text-muted);
-  background: var(--color-surface-raised);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
   border: 1px solid transparent;
   border-radius: var(--radius-xs);
   padding: 0;
@@ -173,7 +173,7 @@
 .topnav-search-trigger:hover .topnav-search-trigger__kbd,
 .topnav-search-trigger:focus-visible .topnav-search-trigger__kbd {
   opacity: 1;
-  max-width: 50px;
+  max-width: 54px;
   padding: var(--space-4xs) var(--space-2xs);
   border-color: var(--color-border);
   transition:
@@ -183,15 +183,16 @@
     border-color var(--duration-fast) var(--ease-standard);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 980px) {
   .topnav-search-trigger,
   .topnav-search-trigger:hover,
   .topnav-search-trigger:focus-visible {
-    min-width: 32px;
-    width: 32px;
+    min-width: 30px;
+    width: 30px;
     padding: 0 var(--space-sm);
     gap: 0;
   }
+
   .topnav-search-trigger__text,
   .topnav-search-trigger__kbd {
     display: none;

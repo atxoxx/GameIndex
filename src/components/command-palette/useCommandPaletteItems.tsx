@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   BarChart3,
   Calculator,
@@ -10,30 +10,51 @@ import {
   Heart,
   History,
   Pause,
+  Pin,
   Play,
+  Puzzle,
+  Search,
   Square,
   Store,
   X,
-  Puzzle,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { gameDisplayName, type AchievementSummary, type Game, type StoreGameSummary } from "../../types/game";
+import {
+  gameDisplayName,
+  type AchievementSummary,
+  type Game,
+  type StoreGameSummary,
+} from "../../types/game";
 import type { TorrentDownload } from "../../types/download";
 import type {
   CalculationResult,
   LibraryStatsData,
   PaletteCategory,
+  PaletteGroup,
   PaletteItem,
   PaletteRecentItem,
   ParsedQueryFilters,
 } from "./commandPaletteTypes";
 import {
   deleteRecentItem,
-  saveRecentItem,
+  deleteRecentQuery,
+  getPinnedItems,
   getRecentItems,
+  getRecentQueries,
+  saveRecentItem,
   scoreMatch,
   sortRecentItems,
+  togglePinnedItem,
 } from "./commandPaletteUtils";
+import { applyGameFilters, countMatches, rankGames } from "./commandPaletteScoring";
+import {
+  buildDocsPaletteItems,
+  buildSettingsPaletteItems,
+  scoreDocsEntry,
+  scoreSettingsEntry,
+  type DocsPaletteEntry,
+  type SettingsPaletteEntry,
+} from "./commandPaletteSources";
 import { playActionSound, playLaunchSound } from "../../utils/soundEffects";
 
 export interface UseCommandPaletteItemsParams {
@@ -50,6 +71,8 @@ export interface UseCommandPaletteItemsParams {
   games: Game[];
   systemActions: PaletteItem[];
   navRoutes: PaletteItem[];
+  settingsEntries: SettingsPaletteEntry[];
+  docsEntries: DocsPaletteEntry[];
   downloads?: TorrentDownload[];
   igdbResults: StoreGameSummary[];
   wishlistItems: StoreGameSummary[];
@@ -70,176 +93,37 @@ export interface UseCommandPaletteItemsParams {
   pauseDownload?: (id: string) => void;
   recentVersion: number;
   setRecentVersion: React.Dispatch<React.SetStateAction<number>>;
-}
-
-interface GameFilterContext {
-  isGameUntracked: (id: string) => boolean;
-  runningGameIds: string[];
-  wishlistNames: Set<string>;
-}
-
-/** Applies every structured power-filter token to a library slice. */
-function applyGameFilters(
-  games: Game[],
-  filters: ParsedQueryFilters,
-  ctx: GameFilterContext
-): Game[] {
-  let list = games;
-
-  if (filters.isInstalled) list = list.filter((g) => g.installed);
-  if (filters.isCloud) list = list.filter((g) => !g.installed);
-  if (filters.isFavorite) list = list.filter((g) => g.favorite);
-  if (filters.excludeFavorite) list = list.filter((g) => !g.favorite);
-  if (filters.isUnplayed) {
-    list = list.filter((g) => (!g.playTime || g.playTime === "0h") && !g.lastPlayed);
-  }
-  if (filters.isRunning) list = list.filter((g) => ctx.runningGameIds.includes(g.id));
-  if (filters.isUntracked) list = list.filter((g) => ctx.isGameUntracked(g.id));
-  if (filters.isModded) {
-    list = list.filter((g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath);
-  }
-  if (filters.platform) {
-    const pf = filters.platform.toLowerCase();
-    list = list.filter((g) => g.platform?.toLowerCase().includes(pf));
-  }
-  if (filters.isWishlisted) {
-    list = list.filter((g) => ctx.wishlistNames.has(g.name.toLowerCase()));
-  }
-
-  if (filters.source) {
-    const src = filters.source.toLowerCase();
-    list = list.filter((g) => {
-      if (src === "steam") return !!g.steamAppId || g.platform?.toLowerCase().includes("steam");
-      if (src === "gog") return !!g.gogGameId || g.platform?.toLowerCase().includes("gog");
-      if (src === "epic") return !!g.epicNamespace || g.platform?.toLowerCase().includes("epic");
-      if (src === "rockstar") return !!g.rockstarTitleId || g.platform?.toLowerCase().includes("rockstar");
-      if (src === "ubisoft" || src === "uplay") {
-        return !!g.uplayGameId || g.platform?.toLowerCase().includes("ubisoft");
-      }
-      if (src === "emulated" || src === "emulator") {
-        return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
-      }
-      return g.platform?.toLowerCase().includes(src) || g.metadataSource?.toLowerCase().includes(src);
-    });
-  }
-
-  if (filters.genre) {
-    const gen = filters.genre.toLowerCase();
-    list = list.filter((g) => g.genres?.some((gn) => gn.toLowerCase().includes(gen)));
-  }
-  if (filters.tag) {
-    const tg = filters.tag.toLowerCase();
-    list = list.filter(
-      (g) =>
-        g.genres?.some((gn) => gn.toLowerCase().includes(tg)) ||
-        g.themes?.some((th) => th.toLowerCase().includes(tg))
-    );
-  }
-  if (filters.developer) {
-    const dev = filters.developer.toLowerCase();
-    list = list.filter((g) => g.developer?.toLowerCase().includes(dev));
-  }
-  if (filters.publisher) {
-    const pub = filters.publisher.toLowerCase();
-    list = list.filter((g) => g.publisher?.toLowerCase().includes(pub));
-  }
-  if (filters.year && filters.yearOp) {
-    list = list.filter((g) => {
-      if (!g.releaseDate) return false;
-      const matchYear = parseInt(g.releaseDate.match(/\b\d{4}\b/)?.[0] || "0", 10);
-      if (!matchYear) return false;
-      if (filters.yearOp === ">") return matchYear > (filters.year || 0);
-      if (filters.yearOp === "<") return matchYear < (filters.year || 0);
-      return matchYear === filters.year;
-    });
-  }
-  if (filters.rating && filters.ratingOp) {
-    list = list.filter((g) => {
-      const r = g.rating || 0;
-      if (filters.ratingOp === ">") return r > (filters.rating || 0);
-      if (filters.ratingOp === "<") return r < (filters.rating || 0);
-      return r === filters.rating;
-    });
-  }
-  if (filters.playtimeHours !== undefined && filters.playtimeOp) {
-    list = list.filter((g) => {
-      const hours = parseFloat((g.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
-      if (filters.playtimeOp === ">") return hours > (filters.playtimeHours || 0);
-      if (filters.playtimeOp === "<") return hours < (filters.playtimeHours || 0);
-      return hours === filters.playtimeHours;
-    });
-  }
-  if (filters.sizeBytes !== undefined && filters.sizeOp) {
-    list = list.filter((g) => {
-      const sz = g.sizeBytes || 0;
-      if (filters.sizeOp === ">") return sz > (filters.sizeBytes || 0);
-      if (filters.sizeOp === "<") return sz < (filters.sizeBytes || 0);
-      return sz === filters.sizeBytes;
-    });
-  }
-
-  return list;
-}
-
-/** Ranks games by recency (blank query) or fuzzy relevance, then applies sort token. */
-function rankGames(
-  list: Game[],
-  query: string,
-  isBlank: boolean,
-  sort?: ParsedQueryFilters["sort"]
-): Game[] {
-  const sorted = [...list];
-  if (sort === "recent") sorted.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-  else if (sort === "playtime") {
-    sorted.sort((a, b) => {
-      const ha = parseFloat((a.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
-      const hb = parseFloat((b.playTime || "").match(/\d+(?:\.\d+)?/)?.[0] || "0");
-      return hb - ha;
-    });
-  } else if (sort === "rating") sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  else if (sort === "size") sorted.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
-  else if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
-
-  if (isBlank) {
-    if (!sort) sorted.sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0));
-    return sorted;
-  }
-
-  const scored = sorted
-    .map((g) => ({
-      game: g,
-      score: scoreMatch(query, g.name, [
-        g.developer,
-        g.publisher,
-        g.platform,
-        ...(g.genres || []),
-        ...(g.themes || []),
-      ]),
-    }))
-    .filter((item) => item.score > 0);
-
-  if (!sort) scored.sort((a, b) => b.score - a.score);
-  return scored.map((item) => item.game);
-}
-
-/** Counts how many entries of a list match the query (or all of them when blank). */
-function countMatches<T>(
-  list: T[],
-  query: string,
-  isBlank: boolean,
-  getTitle: (item: T) => string,
-  getExtras?: (item: T) => (string | undefined)[]
-): number {
-  if (isBlank) return list.length;
-  let total = 0;
-  for (const item of list) {
-    if (scoreMatch(query, getTitle(item), getExtras ? getExtras(item) : []) > 0) total++;
-  }
-  return total;
+  pinVersion: number;
+  setPinVersion: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const RANDOM_KEYWORDS = ["random", "roll", "surprise", "picker"];
 const STATS_KEYWORDS = ["stats", "summary", "kpi", "analytics"];
+
+const PINNABLE_CATEGORIES = new Set<PaletteCategory>([
+  "games",
+  "navigation",
+  "actions",
+  "themes",
+  "settings",
+  "docs",
+]);
+
+/** How many rows each group contributes in the mixed "All" view. */
+const ALL_LIMITS = {
+  pinned: 8,
+  queries: 3,
+  suggested: 6,
+  games: 6,
+  wishlist: 3,
+  actions: 4,
+  navigation: 4,
+  settings: 4,
+  docs: 3,
+  themes: 3,
+  downloads: 3,
+  store: 4,
+} as const;
 
 export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
   const {
@@ -256,6 +140,8 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     games,
     systemActions,
     navRoutes,
+    settingsEntries,
+    docsEntries,
     downloads = [],
     igdbResults,
     wishlistItems,
@@ -276,6 +162,8 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     pauseDownload,
     recentVersion,
     setRecentVersion,
+    pinVersion,
+    setPinVersion,
   } = params;
 
   const q = cleanQuery;
@@ -287,14 +175,274 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     [wishlistItems]
   );
 
+  const pins = useMemo(() => getPinnedItems(), [pinVersion]);
+  const pinnedIds = useMemo(() => new Set(pins.map((pin) => pin.id)), [pins]);
+
+  const settingsItems = useMemo(
+    () => buildSettingsPaletteItems(settingsEntries, navigate, onClose, t),
+    [settingsEntries, navigate, onClose, t]
+  );
+  const docsItems = useMemo(
+    () => buildDocsPaletteItems(docsEntries, navigate, onClose, t),
+    [docsEntries, navigate, onClose, t]
+  );
+
+  const togglePin = useCallback(
+    (item: PaletteItem) => {
+      if (!item.pinnable) return;
+      playActionSound();
+      const nowPinned = togglePinnedItem({
+        id: item.id,
+        category: item.category,
+        title: item.title,
+      });
+      setPinVersion((version) => version + 1);
+      showToast(
+        nowPinned
+          ? t("commandPalette.pinnedToast", { title: item.title })
+          : t("commandPalette.unpinnedToast", { title: item.title }),
+        "info"
+      );
+    },
+    [setPinVersion, showToast, t]
+  );
+
+  /** Adds pin support and the pin toggle to every eligible row. */
+  const decorate = useCallback(
+    (item: PaletteItem): PaletteItem => {
+      if (!PINNABLE_CATEGORIES.has(item.category)) return item;
+      const pinned = pinnedIds.has(item.id);
+      const pinAction = {
+        id: "pin",
+        icon: <Pin size={12} fill={pinned ? "currentColor" : "none"} />,
+        title: pinned ? t("commandPalette.unpin") : t("commandPalette.pin"),
+        onClick: (e: React.MouseEvent) => {
+          e.stopPropagation();
+          togglePin({ ...item, pinned, pinnable: true });
+        },
+      };
+      return {
+        ...item,
+        pinnable: true,
+        pinned,
+        onTogglePin: () => togglePin({ ...item, pinned, pinnable: true }),
+        quickActions:
+          item.category === "games"
+            ? [...(item.quickActions ?? []), pinAction]
+            : [pinAction, ...(item.quickActions ?? [])],
+      };
+    },
+    [pinnedIds, t, togglePin]
+  );
+
+  const makeGameItem = useCallback(
+    (
+      game: Game,
+      options: {
+        group?: PaletteGroup;
+        category?: PaletteCategory;
+        badge?: string;
+        badgeType?: PaletteItem["badgeType"];
+        actionText?: string;
+      } = {}
+    ): PaletteItem => {
+      const ach = achievementsCache?.[game.id];
+      const achStats =
+        ach && ach.total > 0
+          ? {
+              unlocked: ach.unlocked,
+              total: ach.total,
+              percentage: Math.round((ach.unlocked / ach.total) * 100),
+            }
+          : undefined;
+
+      const isMo2Configured = game.mo2LaunchEnabled || !!game.mo2Profile;
+      const subParts = [
+        isMo2Configured && game.mo2Profile ? `MO2: ${game.mo2Profile}` : null,
+        game.platform || "PC",
+        game.playTime || "0h",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      return {
+        id: `game-${game.id}`,
+        category: options.category ?? "games",
+        group: options.group ?? "games",
+        title: gameDisplayName(game),
+        subtitle: subParts,
+        thumb: game.coverArtUrl,
+        badge: options.badge ?? (game.installed ? t("commandPalette.badgeInstalled") : undefined),
+        badgeType: options.badgeType ?? "neutral",
+        icon: isMo2Configured ? <Puzzle size={14} /> : <Gamepad2 size={14} />,
+        actionText:
+          options.actionText ??
+          (game.installed ? t("commandPalette.launch") : t("commandPalette.open")),
+        shortcut: "↵",
+        secondaryActionText: t("commandPalette.open"),
+        gameData: game,
+        achievementStats: achStats,
+        quickActions: [
+          ...(game.installed
+            ? [
+                {
+                  id: "launch",
+                  icon: <Play size={12} fill="currentColor" />,
+                  title: t("commandPalette.quickActionLaunch"),
+                  onClick: (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    playLaunchSound();
+                    saveRecentItem(game.id, gameDisplayName(game), "games");
+                    onClose();
+                    launchGame(game);
+                  },
+                },
+              ]
+            : []),
+          ...(isMo2Configured
+            ? [
+                {
+                  id: "mods",
+                  icon: <Puzzle size={12} />,
+                  title: t("commandPalette.manageMods"),
+                  onClick: (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    playActionSound();
+                    onClose();
+                    navigate(`/library/${game.id}?tab=mods`);
+                  },
+                },
+              ]
+            : []),
+          {
+            id: "favorite",
+            icon: <Heart size={12} fill={game.favorite ? "currentColor" : "none"} />,
+            title: game.favorite
+              ? t("commandPalette.unmarkFavorite")
+              : t("commandPalette.markFavorite"),
+            onClick: (e: React.MouseEvent) => {
+              e.stopPropagation();
+              playActionSound();
+              updateGame(game.id, { favorite: !game.favorite });
+              showToast(
+                game.favorite
+                  ? t("commandPalette.removedFromFavorites")
+                  : t("commandPalette.addedToFavorites"),
+                "info"
+              );
+            },
+          },
+          {
+            id: "page",
+            icon: <ExternalLink size={12} />,
+            title: t("commandPalette.quickActionPage"),
+            onClick: (e: React.MouseEvent) => {
+              e.stopPropagation();
+              playActionSound();
+              saveRecentItem(game.id, gameDisplayName(game), "games");
+              onClose();
+              navigate(`/library/${game.id}`);
+            },
+          },
+          ...(game.path
+            ? [
+                {
+                  id: "folder",
+                  icon: <Folder size={12} />,
+                  title: t("commandPalette.openFolder"),
+                  onClick: (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    playActionSound();
+                    invoke("open_folder", { path: game.path }).catch(() => {
+                      showToast(t("commandPalette.folderNotFound"), "error");
+                    });
+                  },
+                },
+              ]
+            : []),
+        ],
+        onSelect: () => {
+          playLaunchSound();
+          saveRecentItem(game.id, gameDisplayName(game), "games");
+          onClose();
+          if (game.installed) {
+            launchGame(game);
+          } else {
+            navigate(`/library/${game.id}`);
+          }
+        },
+        onSecondarySelect: () => {
+          playActionSound();
+          saveRecentItem(game.id, gameDisplayName(game), "games");
+          onClose();
+          navigate(`/library/${game.id}`);
+        },
+      };
+    },
+    [
+      achievementsCache,
+      launchGame,
+      navigate,
+      onClose,
+      showToast,
+      t,
+      updateGame,
+    ]
+  );
+
+  const makeRecentGameItem = useCallback(
+    (game: Game): PaletteItem =>
+      makeGameItem(game, {
+        group: "suggested",
+        actionText: game.installed ? t("commandPalette.launch") : t("commandPalette.open"),
+      }),
+    [makeGameItem, t]
+  );
+
+  /** Resolve stored pins against the live item graph. */
+  const pinnedItems = useMemo(() => {
+    const resolve = (pinId: string): PaletteItem | undefined => {
+      if (pinId.startsWith("game-")) {
+        const game = games.find((candidate) => `game-${candidate.id}` === pinId);
+        if (!game) return undefined;
+        return { ...makeGameItem(game), group: "pinned" };
+      }
+      if (pinId.startsWith("nav-")) {
+        const route = navRoutes.find((candidate) => candidate.id === pinId);
+        return route ? { ...route, group: "pinned" } : undefined;
+      }
+      if (pinId.startsWith("settings-")) {
+        const entry = settingsItems.find((candidate) => candidate.id === pinId);
+        return entry ? { ...entry, group: "pinned" } : undefined;
+      }
+      if (pinId.startsWith("doc-")) {
+        const entry = docsItems.find((candidate) => candidate.id === pinId);
+        return entry ? { ...entry, group: "pinned" } : undefined;
+      }
+      const action = systemActions.find((candidate) => candidate.id === pinId);
+      return action ? { ...action, group: "pinned" } : undefined;
+    };
+
+    return pins
+      .map((pin) => resolve(pin.id))
+      .filter((item): item is PaletteItem => !!item);
+  }, [pins, games, navRoutes, settingsItems, docsItems, systemActions, makeGameItem]);
+
   const items = useMemo<PaletteItem[]>(() => {
     const result: PaletteItem[] = [];
+    const pushedIds = new Set<string>();
+    const push = (item: PaletteItem) => {
+      if (pushedIds.has(item.id)) return;
+      pushedIds.add(item.id);
+      result.push(item);
+    };
 
-    // 0. Instant Calculator / Unit Converter / Estimator
+    // 0. Instant calculator / unit converter / estimator.
     if (calcResult) {
-      result.push({
+      push({
         id: `calc-${calcResult.expression}`,
         category: "utility",
+        group: "utility",
         title: calcResult.result,
         subtitle: calcResult.expression,
         badge: calcResult.calcType?.toUpperCase() || "CALC",
@@ -311,17 +459,18 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    // 0b. Random Game Picker ("Surprise Me")
+    // 0b. Random game picker ("Surprise me").
     if (
       randomGame &&
       (RANDOM_KEYWORDS.some((k) => lowerRaw.includes(k)) || scope === "utility")
     ) {
-      result.push({
+      push({
         id: `random-game-${randomGame.id}`,
         category: "utility",
+        group: "utility",
         title: `${t("commandPalette.surpriseMe")}: ${gameDisplayName(randomGame)}`,
         subtitle: `${randomGame.platform || "PC"} · ${randomGame.playTime || "0h"} · ${t("commandPalette.rerollHint")}`,
-        badge: "SURPRISE",
+        badge: t("commandPalette.badgeSurprise"),
         badgeType: "accent",
         thumb: randomGame.coverArtUrl,
         icon: <Dices size={14} />,
@@ -353,17 +502,19 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    // 0c. Library Analytics & Statistics Snapshot
+    // 0c. Library analytics snapshot.
     if (
       STATS_KEYWORDS.some((k) => lowerRaw.includes(k)) ||
-      lowerRaw === "storage"
+      lowerRaw === "storage" ||
+      scope === "utility"
     ) {
-      result.push({
+      push({
         id: "util-library-stats",
         category: "utility",
+        group: "utility",
         title: t("commandPalette.libraryStats"),
         subtitle: `${libraryStats.totalGames} ${t("commandPalette.scopeGames")} · ${libraryStats.installedGames} ${t("commandPalette.badgeInstalled")} · ${libraryStats.totalPlaytimeHours}h ${t("commandPalette.totalPlaytime")}`,
-        badge: "STATS",
+        badge: t("commandPalette.badgeStats"),
         badgeType: "accent",
         icon: <BarChart3 size={14} />,
         actionText: t("commandPalette.viewLibraryPage"),
@@ -376,7 +527,7 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    // 1. Running Game (promoted to top if active)
+    // 0d. Running game is always reachable, even mid-search.
     if (runningGame && (scope === "all" || scope === "games")) {
       const runningAch = achievementsCache?.[runningGame.id];
       const achStats =
@@ -388,9 +539,10 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
             }
           : undefined;
 
-      result.push({
+      push({
         id: `running-${runningGame.id}`,
         category: "games",
+        group: isBlank ? "suggested" : "games",
         title: gameDisplayName(runningGame),
         subtitle: `${t("commandPalette.badgeRunning")} · ${runningGame.platform || "PC"} · ${runningGame.playTime || "0h"}`,
         badge: t("commandPalette.badgeRunning"),
@@ -434,19 +586,121 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    // 2. Recent Items (blank query, or the dedicated Recent scope)
+    const recentItems = sortRecentItems(getRecentItems());
+    const recentQueries = getRecentQueries();
+
+    // 0e. Pinned rows that match the active query lead their categories, while
+    // the calculator and a running game keep the very top slots.
+    if (!isBlank && scope === "all") {
+      pinnedItems
+        .filter((item) => scoreMatch(q, item.title, [item.subtitle]) > 0)
+        .slice(0, ALL_LIMITS.pinned)
+        .forEach((item) => push({ ...item, group: "pinned" }));
+    }
+
+    // 1. Launcher surfaces for a blank query.
+    if (isBlank && (scope === "all" || scope === "recent")) {
+      if (scope === "all") {
+        pinnedItems.forEach(push);
+      }
+
+      const queryLimit = scope === "recent" ? 5 : ALL_LIMITS.queries;
+      recentQueries.slice(0, queryLimit).forEach((query) => {
+        push({
+          id: `query-${query}`,
+          category: "recent",
+          group: "queries",
+          title: query,
+          subtitle: t("commandPalette.recentQueryHint"),
+          icon: <Search size={14} />,
+          actionText: t("commandPalette.runQuery"),
+          recentQuery: query,
+          quickActions: [
+            {
+              id: "delete-query",
+              icon: <X size={12} />,
+              title: t("commandPalette.removeRecent"),
+              onClick: (e) => {
+                e.stopPropagation();
+                deleteRecentQuery(query);
+                setRecentVersion((v) => v + 1);
+              },
+            },
+          ],
+          onSelect: () => {
+            setRawQuery(query);
+          },
+        });
+      });
+    }
+
+    if (isBlank && scope === "all") {
+      // Suggested: the games you touched last, plus the commands you actually
+      // repeat. A flat frecency-ranked group reads as one calm list instead of
+      // a wall of categories. A fresh library with no history falls back to
+      // installed favourites so the launcher never opens game-less.
+      let suggestedGames = games
+        .filter(
+          (game) =>
+            game.id !== runningGame?.id &&
+            !!game.lastPlayed &&
+            !pinnedIds.has(`game-${game.id}`)
+        )
+        .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
+        .slice(0, 4);
+
+      if (suggestedGames.length === 0) {
+        suggestedGames = games
+          .filter(
+            (game) =>
+              game.id !== runningGame?.id &&
+              game.installed &&
+              !pinnedIds.has(`game-${game.id}`)
+          )
+          .sort(
+            (a, b) =>
+              Number(!!b.favorite) - Number(!!a.favorite) ||
+              (b.rating || 0) - (a.rating || 0) ||
+              a.name.localeCompare(b.name)
+          )
+          .slice(0, 3);
+      }
+
+      suggestedGames.forEach((game) => push(makeRecentGameItem(game)));
+
+      const frequentCommands = recentItems
+        .filter((recent) => recent.category !== "games")
+        .map((recent) => {
+          const nav = navRoutes.find((route) => route.id === `nav-${recent.id}`);
+          if (nav) return nav;
+          const action = systemActions.find((item) => item.id === recent.id);
+          if (action) return action;
+          return undefined;
+        })
+        .filter((item): item is PaletteItem => !!item)
+        .slice(0, 3);
+
+      const suggestedCommands = frequentCommands.length
+        ? frequentCommands
+        : systemActions.filter((item) => item.category === "actions").slice(0, 3);
+
+      suggestedCommands.forEach((item) => push({ ...item, group: "suggested" }));
+    }
+
+    // 2. Recent commands.
     if (scope === "recent" || (isBlank && scope === "all")) {
-      let recents = sortRecentItems(getRecentItems());
+      let recents = recentItems;
       if (!isBlank) {
         recents = recents.filter((rec) => scoreMatch(q, rec.title) > 0);
       }
-      if (recents.length > 0) {
-        recents.slice(0, scope === "recent" ? 12 : 6).forEach((rec: PaletteRecentItem) => {
-          const matchedGame = games.find((g) => g.id === rec.id || String(g.steamAppId) === rec.id);
+      const limit = scope === "recent" ? 12 : 0;
+      if (limit > 0) {
+        recents.slice(0, limit).forEach((rec: PaletteRecentItem) => {          const matchedGame = games.find((g) => g.id === rec.id || String(g.steamAppId) === rec.id);
 
-          result.push({
+          push({
             id: `recent-${rec.id}`,
             category: "recent",
+            group: "recent",
             title: rec.title,
             subtitle: t("commandPalette.recentSearch"),
             badge: (rec.frequency || 1) > 1 ? `${rec.frequency}×` : rec.category.toUpperCase(),
@@ -493,182 +747,60 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       }
     }
 
-    // 3. Library Games & Modded Games
-    if (scope === "all" || scope === "games" || scope === "mods") {
-      let candidateGames = games.filter((g) => g.id !== runningGame?.id);
-      if (scope === "mods") {
-        candidateGames = candidateGames.filter(
-          (g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath
-        );
-      }
-      const filteredGames = applyGameFilters(
-        candidateGames,
-        parsedFilters,
-        { isGameUntracked, runningGameIds, wishlistNames }
-      );
-
-      const matchedGames = rankGames(filteredGames, q, isBlank, parsedFilters.sort).slice(
-        0,
-        isBlank
-          ? scope === "games" || scope === "mods"
-            ? 40
-            : 8
-          : scope === "games" || scope === "mods"
-            ? 50
-            : 15
-      );
-
-      matchedGames.forEach((game) => {
-        const ach = achievementsCache?.[game.id];
-        const achStats =
-          ach && ach.total > 0
-            ? {
-                unlocked: ach.unlocked,
-                total: ach.total,
-                percentage: Math.round((ach.unlocked / ach.total) * 100),
-              }
-            : undefined;
-
-        const isMo2Configured = game.mo2LaunchEnabled || !!game.mo2Profile;
-        const subParts = [
-          isMo2Configured && game.mo2Profile ? `MO2: ${game.mo2Profile}` : null,
-          game.platform || "PC",
-          game.playTime || "0h",
-        ]
-          .filter(Boolean)
-          .join(" · ");
-
-        result.push({
-          id: `game-${game.id}`,
-          category: scope === "mods" ? "mods" : "games",
-          title: gameDisplayName(game),
-          subtitle: subParts,
-          thumb: game.coverArtUrl,
-          badge: game.installed ? t("commandPalette.badgeInstalled") : undefined,
-          badgeType: "neutral",
-          icon: isMo2Configured ? <Puzzle size={14} /> : <Gamepad2 size={14} />,
-          actionText: game.installed ? t("commandPalette.launch") : t("commandPalette.open"),
-          shortcut: "↵",
-          secondaryActionText: t("commandPalette.open"),
-          gameData: game,
-          achievementStats: achStats,
-          quickActions: [
-            ...(game.installed
-              ? [
-                  {
-                    id: "launch",
-                    icon: <Play size={12} fill="currentColor" />,
-                    title: t("commandPalette.quickActionLaunch"),
-                    onClick: (e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      playLaunchSound();
-                      saveRecentItem(game.id, gameDisplayName(game), "games");
-                      onClose();
-                      launchGame(game);
-                    },
-                  },
-                ]
-              : []),
-            ...(isMo2Configured
-              ? [
-                  {
-                    id: "mods",
-                    icon: <Puzzle size={12} />,
-                    title: t("commandPalette.manageMods"),
-                    onClick: (e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      playActionSound();
-                      onClose();
-                      navigate(`/library/${game.id}?tab=mods`);
-                    },
-                  },
-                ]
-              : []),
-            {
-              id: "favorite",
-              icon: <Heart size={12} fill={game.favorite ? "currentColor" : "none"} />,
-              title: game.favorite
-                ? t("commandPalette.unmarkFavorite")
-                : t("commandPalette.markFavorite"),
-              onClick: (e: React.MouseEvent) => {
-                e.stopPropagation();
-                playActionSound();
-                updateGame(game.id, { favorite: !game.favorite });
-                showToast(
-                  game.favorite
-                    ? t("commandPalette.removedFromFavorites")
-                    : t("commandPalette.addedToFavorites"),
-                  "info"
-                );
-              },
-            },
-            {
-              id: "page",
-              icon: <ExternalLink size={12} />,
-              title: t("commandPalette.quickActionPage"),
-              onClick: (e: React.MouseEvent) => {
-                e.stopPropagation();
-                playActionSound();
-                saveRecentItem(game.id, gameDisplayName(game), "games");
-                onClose();
-                navigate(`/library/${game.id}`);
-              },
-            },
-            ...(game.path
-              ? [
-                  {
-                    id: "folder",
-                    icon: <Folder size={12} />,
-                    title: t("commandPalette.openFolder"),
-                    onClick: (e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      playActionSound();
-                      invoke("open_folder", { path: game.path }).catch(() => {
-                        showToast(t("commandPalette.folderNotFound"), "error");
-                      });
-                    },
-                  },
-                ]
-              : []),
-          ],
-          onSelect: () => {
-            playLaunchSound();
-            saveRecentItem(game.id, gameDisplayName(game), "games");
-            onClose();
-            if (game.installed) {
-              launchGame(game);
-            } else {
-              navigate(`/library/${game.id}`);
-            }
-          },
-          onSecondarySelect: () => {
-            playActionSound();
-            saveRecentItem(game.id, gameDisplayName(game), "games");
-            onClose();
-            navigate(`/library/${game.id}`);
-          },
-        });
-      });
+    // 2b. Recently played games round out the Recent scope.
+    if (isBlank && scope === "recent") {
+      games
+        .filter((game) => !!game.lastPlayed)
+        .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
+        .slice(0, 6)
+        .forEach((game) => push(makeGameItem(game, { group: "recentGames" })));
     }
 
-    // 4. Wishlist Items
+    // 3. Library games / modded games.
+    if (scope === "all" || scope === "games" || scope === "mods") {
+      if (!(isBlank && scope === "all")) {
+        let candidateGames = games.filter((g) => g.id !== runningGame?.id);
+        if (scope === "mods") {
+          candidateGames = candidateGames.filter(
+            (g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath
+          );
+        }
+        const filteredGames = applyGameFilters(candidateGames, parsedFilters, {
+          isGameUntracked,
+          runningGameIds,
+          wishlistNames,
+        });
+        const focused = scope === "games" || scope === "mods";
+        const limit = isBlank ? (focused ? 40 : 0) : focused ? 50 : ALL_LIMITS.games;
+
+        rankGames(filteredGames, q, isBlank, parsedFilters.sort)
+          .slice(0, limit)
+          .forEach((game) => push(makeGameItem(game, {
+            category: scope === "mods" ? "mods" : "games",
+            group: scope === "mods" ? "mods" : "games",
+          })));
+      }
+    }
+
+    // 4. Wishlist.
     if (scope === "all" || scope === "wishlist") {
-      if (wishlistItems.length > 0) {
+      if (wishlistItems.length > 0 && !(isBlank && scope === "all")) {
         const matchedWishlist = wishlistItems
           .filter((w) => {
             if (isBlank) return true;
             return scoreMatch(q, w.name, [w.genres?.join(" "), w.summary || undefined]) > 0;
           })
-          .slice(0, scope === "wishlist" ? 25 : 5);
+          .slice(0, scope === "wishlist" ? 25 : ALL_LIMITS.wishlist);
 
         matchedWishlist.forEach((w) => {
-          result.push({
+          push({
             id: `wishlist-${w.id || w.slug}`,
             category: "wishlist",
+            group: "wishlist",
             title: w.name,
             subtitle: `${t("nav.wishlist")}${w.genres && w.genres.length > 0 ? ` · ${w.genres[0]}` : ""}`,
             thumb: w.coverUrl || undefined,
-            badge: "WISHLIST",
+            badge: t("commandPalette.badgeWishlist"),
             badgeType: "accent",
             icon: <Heart size={14} fill="currentColor" />,
             actionText: t("commandPalette.open"),
@@ -711,33 +843,37 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       }
     }
 
-    // 5. Quick Actions
+    // 5. Actions.
     if (scope === "all" || scope === "actions") {
       let matchedActions: PaletteItem[] = [];
+      const actionItems = systemActions.filter((a) => a.category === "actions");
 
       if (isBlank) {
-        matchedActions = systemActions.filter((a) => a.category === "actions").slice(0, 8);
+        matchedActions = scope === "actions" ? actionItems : [];
       } else {
-        matchedActions = systemActions
-          .filter((a) => a.category === "actions")
+        matchedActions = actionItems
           .map((a) => ({
             action: a,
             score: scoreMatch(q, a.title, [a.subtitle, a.description]),
           }))
           .filter((item) => item.score > 0)
           .sort((a, b) => b.score - a.score)
-          .map((item) => item.action);
+          .map((item) => item.action)
+          .slice(0, scope === "actions" ? actionItems.length : ALL_LIMITS.actions);
       }
 
-      result.push(...matchedActions);
+      matchedActions.forEach((action) => push({ ...action, group: "actions" }));
     }
 
-    // 6. Navigation Routes
+    // 6. Navigation.
     if (scope === "all" || scope === "navigation") {
       let matchedNav: PaletteItem[] = [];
 
       if (isBlank) {
-        matchedNav = navRoutes.slice(0, scope === "navigation" ? 16 : 4);
+        matchedNav =
+          scope === "navigation"
+            ? navRoutes.slice(0, 16)
+            : navRoutes.slice(0, scope === "all" ? 3 : 0);
       } else {
         matchedNav = navRoutes
           .map((r) => ({
@@ -746,21 +882,20 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
           }))
           .filter((item) => item.score > 0)
           .sort((a, b) => b.score - a.score)
+          .slice(0, scope === "navigation" ? navRoutes.length : ALL_LIMITS.navigation)
           .map((item) => item.route);
       }
 
-      result.push(...matchedNav);
+      matchedNav.forEach((route) => push({ ...route, group: "navigation" }));
     }
 
-    // 7. Themes
+    // 7. Themes.
     if (scope === "all" || scope === "themes") {
       const themeItems = systemActions.filter((a) => a.category === "themes");
       let matchedThemes: PaletteItem[] = [];
 
       if (isBlank) {
-        if (scope === "themes") {
-          matchedThemes = themeItems;
-        }
+        matchedThemes = scope === "themes" ? themeItems : [];
       } else {
         matchedThemes = themeItems
           .map((th) => ({
@@ -769,13 +904,14 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
           }))
           .filter((item) => item.score > 0)
           .sort((a, b) => b.score - a.score)
+          .slice(0, scope === "themes" ? themeItems.length : ALL_LIMITS.themes)
           .map((item) => item.theme);
       }
 
-      result.push(...matchedThemes);
+      matchedThemes.forEach((theme) => push({ ...theme, group: "themes" }));
     }
 
-    // 8. Downloads Queue
+    // 8. Downloads.
     if (scope === "all" || scope === "downloads") {
       if (downloads.length > 0) {
         downloads
@@ -786,13 +922,14 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
               d.status.kind.toLowerCase().includes(q.toLowerCase())
             );
           })
-          .slice(0, 6)
+          .slice(0, scope === "downloads" ? downloads.length : ALL_LIMITS.downloads)
           .forEach((d) => {
             const isPaused = d.status.kind === "paused";
             const percent = Math.round((d.progress ?? 0) * 100);
-            result.push({
+            push({
               id: `dl-${d.id}`,
               category: "downloads",
+              group: "downloads",
               title: d.name || t("nav.downloads"),
               subtitle: `${d.status.kind} · ${percent}%`,
               badge: d.status.kind.toUpperCase(),
@@ -821,9 +958,9 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       }
     }
 
-    // 9. IGDB Online Catalog Games
+    // 9. IGDB online catalog results.
     if ((scope === "all" || scope === "store") && igdbResults.length > 0) {
-      igdbResults.forEach((igdbGame) => {
+      igdbResults.slice(0, scope === "store" ? igdbResults.length : ALL_LIMITS.store).forEach((igdbGame) => {
         const year = igdbGame.firstReleaseDate
           ? new Date(igdbGame.firstReleaseDate).getFullYear()
           : null;
@@ -832,12 +969,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         const subParts = [year, rating, genre].filter(Boolean).join(" · ");
         const wishlisted = isWishlisted(igdbGame.slug || String(igdbGame.id));
 
-        result.push({
+        push({
           id: `igdb-${igdbGame.id}`,
           category: "store",
+          group: "store",
           title: igdbGame.name,
-          subtitle: subParts || "IGDB Catalog",
-          badge: "STORE",
+          subtitle: subParts || t("commandPalette.sectionIgdb"),
+          badge: t("commandPalette.badgeStore"),
           badgeType: "accent",
           thumb: igdbGame.coverUrl ?? undefined,
           actionText: t("commandPalette.open"),
@@ -896,48 +1034,99 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       });
     }
 
-    return result;
+    // 10. Settings destinations.
+    if (scope === "all" || scope === "settings") {
+      let matchedSettings: PaletteItem[];
+      if (isBlank) {
+        matchedSettings =
+          scope === "settings"
+            ? settingsItems.filter((item) => item.settingsData?.sectionId === undefined)
+            : [];
+      } else {
+        const scored = settingsEntries
+          .map((entry) => ({ entry, score: scoreSettingsEntry(entry, q) }))
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, scope === "settings" ? 24 : ALL_LIMITS.settings);
+
+        const byId = new Map(settingsItems.map((item) => [item.id, item]));
+        matchedSettings = scored
+          .map(({ entry }) => byId.get(`settings-${entry.id}`))
+          .filter((item): item is PaletteItem => !!item);
+      }
+      matchedSettings.forEach((item) => push({ ...item, group: "settings" }));
+    }
+
+    // 11. Documentation articles.
+    if (scope === "all" || scope === "docs") {
+      let matchedDocs: PaletteItem[];
+      if (isBlank) {
+        matchedDocs = scope === "docs" ? docsItems.slice(0, 12) : [];
+      } else {
+        const scored = docsEntries
+          .map((entry) => ({ entry, score: scoreDocsEntry(entry, q) }))
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, scope === "docs" ? 24 : ALL_LIMITS.docs);
+
+        const byId = new Map(docsItems.map((item) => [item.id, item]));
+        matchedDocs = scored
+          .map(({ entry }) => byId.get(`doc-${entry.id}`))
+          .filter((item): item is PaletteItem => !!item);
+      }
+      matchedDocs.forEach((item) => push({ ...item, group: "docs" }));
+    }
+
+    // 12. Decorate every row with pin support.
+    return result.map(decorate);
   }, [
-    cleanQuery,
-    q,
-    lowerRaw,
-    isBlank,
-    scope,
-    parsedFilters,
     calcResult,
+    lowerRaw,
+    scope,
     randomGame,
     libraryStats,
     runningGame,
-    runningGameIds,
+    achievementsCache,
+    isBlank,
+    pinnedItems,
+    pinnedIds,
+    recentVersion,
     games,
-    systemActions,
     navRoutes,
+    systemActions,
+    makeGameItem,
+    makeRecentGameItem,
+    parsedFilters,
+    isGameUntracked,
+    runningGameIds,
+    wishlistNames,
+    q,
+    wishlistItems,
     downloads,
     igdbResults,
-    wishlistItems,
-    wishlistNames,
     isWishlisted,
     toggleWishlist,
-    achievementsCache,
-    t,
-    onClose,
+    setDownloadTarget,
+    settingsEntries,
+    settingsItems,
+    docsEntries,
+    docsItems,
+    decorate,
     navigate,
+    onClose,
     launchGame,
     forceCloseGame,
-    showToast,
-    updateGame,
-    isGameUntracked,
-    recentVersion,
-    setRecentVersion,
-    setDownloadTarget,
-    setRawQuery,
-    setRandomGameKey,
     resumeDownload,
     pauseDownload,
+    showToast,
+    setRawQuery,
+    setRecentVersion,
+    setRandomGameKey,
+    t,
   ]);
 
   // Scope counters are computed independently of the active scope so the scope
-  // dropdown can advertise how many results each category would yield.
+  // bar can advertise how many results each category would yield.
   const scopeCounts = useMemo<Record<PaletteCategory, number>>(() => {
     const actionItems = systemActions.filter((a) => a.category === "actions");
     const themeItems = systemActions.filter((a) => a.category === "themes");
@@ -952,9 +1141,13 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
 
     const counts: Record<PaletteCategory, number> = {
       all: 0,
-      recent: isBlank
-        ? allRecents.length
-        : allRecents.filter((r) => scoreMatch(q, r.title) > 0).length,
+      recent:
+        (isBlank
+          ? allRecents.length
+          : allRecents.filter((r) => scoreMatch(q, r.title) > 0).length) +
+        (isBlank
+          ? getRecentQueries().length
+          : getRecentQueries().filter((query) => scoreMatch(q, query) > 0).length),
       games: (runningGame ? 1 : 0) + gameMatches,
       mods: countMatches(
         games.filter((g) => g.mo2LaunchEnabled || !!g.mo2Profile || !!g.mo2InstancePath),
@@ -980,10 +1173,22 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
         : countMatches(themeItems, q, false, (th) => th.title, (th) => [th.subtitle, th.badge]),
       downloads: countMatches(downloads, q, isBlank, (d) => d.name, (d) => [d.status.kind]),
       store: igdbResults.length,
+      docs: isBlank
+        ? docsItems.length
+        : docsEntries.filter((entry) => scoreDocsEntry(entry, q) > 0).length,
+      settings: isBlank
+        ? settingsEntries.filter((entry) => entry.kind === "tab").length
+        : settingsEntries.filter((entry) => scoreSettingsEntry(entry, q) > 0).length,
       utility:
         (calcResult ? 1 : 0) +
-        (randomGame && RANDOM_KEYWORDS.some((k) => lowerRaw.includes(k)) ? 1 : 0) +
-        (STATS_KEYWORDS.some((k) => lowerRaw.includes(k)) || lowerRaw === "storage" ? 1 : 0),
+        (randomGame && (RANDOM_KEYWORDS.some((k) => lowerRaw.includes(k)) || scope === "utility")
+          ? 1
+          : 0) +
+        (STATS_KEYWORDS.some((k) => lowerRaw.includes(k)) ||
+        lowerRaw === "storage" ||
+        scope === "utility"
+          ? 1
+          : 0),
     };
 
     counts.all =
@@ -996,13 +1201,16 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       counts.navigation +
       counts.themes +
       counts.downloads +
-      counts.store;
+      counts.store +
+      counts.docs +
+      counts.settings;
 
     return counts;
   }, [
     q,
     lowerRaw,
     isBlank,
+    scope,
     parsedFilters,
     calcResult,
     randomGame,
@@ -1017,7 +1225,10 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
     wishlistNames,
     isGameUntracked,
     recentVersion,
+    docsEntries,
+    docsItems,
+    settingsEntries,
   ]);
 
-  return { items, scopeCounts };
+  return { items, scopeCounts, pinnedItems, togglePin };
 }

@@ -1,15 +1,8 @@
-import {
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { Search, Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useGames } from "../context/GameContext";
 import { useTheme } from "../context/ThemeContext";
 import { useBigScreen } from "../context/BigScreenContext";
@@ -25,24 +18,31 @@ import { useAchievements } from "../context/AchievementContext";
 import { SidebarCollapseContext } from "../context/SidebarCollapseContext";
 import { gameDisplayName, type StoreGameSummary } from "../types/game";
 import DownloadModal from "./DownloadModal";
-import { playLaunchSound, playTabSound } from "../utils/soundEffects";
-import type { PaletteCategory } from "./command-palette/commandPaletteTypes";
+import { playTabSound } from "../utils/soundEffects";
+import type { PaletteCategory, PaletteGroup } from "./command-palette/commandPaletteTypes";
 import {
   calculateLibraryStats,
   evaluateExpression,
+  getPinnedItems,
+  itemHasDrawerActions,
   parseQueryFilters,
-  saveRecentItem,
+  saveRecentQuery,
 } from "./command-palette/commandPaletteUtils";
 import {
   createNavigationItems,
   createSystemActions,
 } from "./command-palette/commandPaletteActions";
+import { SCOPE_PREFIXES } from "./command-palette/commandPaletteScopes";
+import {
+  buildSettingsEntries,
+  useDocsPaletteEntries,
+} from "./command-palette/commandPaletteSources";
 import CommandPaletteHeader from "./command-palette/CommandPaletteHeader";
 import CommandPaletteScopeBar from "./command-palette/CommandPaletteScopeBar";
 import CommandPaletteFilterPills from "./command-palette/CommandPaletteFilterPills";
 import CommandPaletteItemRow from "./command-palette/CommandPaletteItemRow";
 import CommandPaletteFooter from "./command-palette/CommandPaletteFooter";
-import CommandPaletteInspector from "./command-palette/CommandPaletteInspector";
+import CommandPalettePreview from "./command-palette/CommandPalettePreview";
 import CommandPaletteActionDrawer from "./command-palette/CommandPaletteActionDrawer";
 import CommandPaletteCheatSheet from "./command-palette/CommandPaletteCheatSheet";
 import { useCommandPaletteItems } from "./command-palette/useCommandPaletteItems";
@@ -52,6 +52,25 @@ interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const GROUP_TITLE_KEYS: Record<PaletteGroup, string> = {
+  pinned: "commandPalette.sectionPinned",
+  queries: "commandPalette.sectionRecentQueries",
+  recent: "commandPalette.sectionRecent",
+  recentGames: "commandPalette.sectionRecentGames",
+  suggested: "commandPalette.sectionSuggested",
+  games: "commandPalette.sectionGames",
+  mods: "commandPalette.sectionMods",
+  wishlist: "commandPalette.sectionWishlist",
+  actions: "commandPalette.sectionActions",
+  navigation: "commandPalette.sectionNav",
+  themes: "commandPalette.sectionThemes",
+  downloads: "commandPalette.sectionDownloads",
+  store: "commandPalette.sectionIgdb",
+  docs: "commandPalette.sectionDocs",
+  settings: "commandPalette.sectionSettings",
+  utility: "commandPalette.sectionUtility",
+};
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
@@ -74,6 +93,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     setUiSoundVolume,
     commandPaletteMode,
     isSimpleUi,
+    showFullLinuxUi,
   } = useSettings();
   const { showToast } = useToast();
   const { t, language, setLanguage, languages } = useLanguage();
@@ -88,18 +108,18 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const [rawQuery, setRawQuery] = useState("");
   const [scope, setScope] = useState<PaletteCategory>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const isSimpleMode = commandPaletteMode === "simple" || isSimpleUi;
+  const [peekOpen, setPeekOpen] = useState(false);
+  const [isWide, setIsWide] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= 1200
+  );
 
-  const [showInspector, setShowInspector] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.innerWidth >= 860;
-  });
+  const isCompact = commandPaletteMode === "simple" || isSimpleUi;
+
   useEffect(() => {
-    const onResize = () => setShowInspector(window.innerWidth >= 860);
+    const onResize = () => setIsWide(window.innerWidth >= 1200);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  const effectiveShowInspector = !isSimpleMode && showInspector;
 
   const [igdbResults, setIgdbResults] = useState<StoreGameSummary[]>([]);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
@@ -110,6 +130,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   } | null>(null);
 
   const [recentVersion, setRecentVersion] = useState(0);
+  const [pinVersion, setPinVersion] = useState(0);
   const [actionDrawerOpen, setActionDrawerOpen] = useState(false);
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
   const [randomGameKey, setRandomGameKey] = useState(0);
@@ -119,15 +140,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const inputId = useId();
   const listId = useId();
 
-  // Active running game (if any)
+  // Active running game (if any).
   const runningGame = useMemo(() => {
     if (runningGameIds.length === 0) return null;
     return games.find((g) => runningGameIds.includes(g.id)) ?? null;
   }, [games, runningGameIds]);
 
-  // Selected random game for Roll / Surprise Me. Deliberately keyed to the
-  // library length and the roll counter only: updating one game (favoriting
-  // it, renaming it) must not re-roll the picker out from under the user.
+  // Random pick keyed to library length + roll counter only, so renaming or
+  // favoriting a game never re-rolls the picker under the user.
   const randomGame = useMemo(() => {
     if (games.length === 0) return null;
     const installed = games.filter((g) => g.installed);
@@ -137,7 +157,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.length, randomGameKey]);
 
-  // Reset state when opened
+  // Reset transient state on open.
   useEffect(() => {
     if (isOpen) {
       setRawQuery("");
@@ -148,64 +168,56 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       setDownloadTarget(null);
       setActionDrawerOpen(false);
       setCheatSheetOpen(false);
+      setPeekOpen(false);
       playTabSound();
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  // Escape closes the palette no matter where focus currently sits (the search
-  // field, the scope bar, a quick-action button). Sub-modals handle their own
-  // Escape so they close first.
+  // Escape backs out one layer: sub-modals, then a peeked preview, then the
+  // palette. On wide screens the preview is part of the frame, so Escape closes
+  // the palette directly.
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !actionDrawerOpen && !cheatSheetOpen) {
+      if (e.key !== "Escape") return;
+      if (actionDrawerOpen || cheatSheetOpen) return;
+      if (peekOpen && !isWide) {
         e.preventDefault();
-        onClose();
+        setPeekOpen(false);
+        return;
       }
+      e.preventDefault();
+      onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, actionDrawerOpen, cheatSheetOpen, onClose]);
+  }, [isOpen, actionDrawerOpen, cheatSheetOpen, peekOpen, isWide, onClose]);
 
-  // Parse structured filters & query
   const parsedFilters = useMemo(() => parseQueryFilters(rawQuery), [rawQuery]);
   const cleanQuery = parsedFilters.cleanQuery;
-
-  // Instant calculator / converter / estimator expression. Uses the cleaned
-  // query so scope prefixes (~, =) and filter tokens don't break parsing.
   const calcResult = useMemo(() => evaluateExpression(cleanQuery), [cleanQuery]);
 
-  // Handle query change and prefix triggers
   const handleQueryChange = (val: string) => {
-    if (val.startsWith("@") && scope !== "games") setScope("games");
-    else if (val.startsWith("%") && scope !== "mods") setScope("mods");
-    else if (val.startsWith(">") && scope !== "actions") setScope("actions");
-    else if (val.startsWith("/") && scope !== "navigation") setScope("navigation");
-    else if (val.startsWith("#") && scope !== "themes") setScope("themes");
-    else if (val.startsWith("$") && scope !== "downloads") setScope("downloads");
-    else if (val.startsWith("?") && scope !== "store") setScope("store");
-    else if (val.startsWith("!") && scope !== "wishlist") setScope("wishlist");
-    else if ((val.startsWith("~") || val.startsWith("=")) && scope !== "utility")
-      setScope("utility");
+    const prefixScope = SCOPE_PREFIXES[val.charAt(0)];
+    const isNegationToken = /^!(?:fav|installed|unplayed|running)\b/i.test(val);
+    if (prefixScope && !isNegationToken && scope !== prefixScope) {
+      setScope(prefixScope);
+    }
     setRawQuery(val);
     setSelectedIndex(0);
   };
 
-  // Debounced IGDB online catalog search
+  // Debounced IGDB catalog search (All + Store keep their live remote results).
   useEffect(() => {
     const q = cleanQuery;
-    // WHY: too-short queries and out-of-scope views have no remote results; clear
-    // immediately so a previous query's hits don't linger behind the empty state.
     if (q.length < 2 || (scope !== "all" && scope !== "store")) {
       setIgdbResults([]);
       setIsSearchingIgdb(false);
       return;
     }
 
-    // Cancellation flag captured per effect run: a slow response from an older
-    // query must never overwrite the results or spinner state of a newer one.
     let cancelled = false;
     setIsSearchingIgdb(true);
     const timer = setTimeout(() => {
@@ -231,7 +243,6 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     };
   }, [cleanQuery, scope]);
 
-  // System Actions & Routes factory
   const systemActions = useMemo(() => {
     return createSystemActions({
       navigate,
@@ -300,14 +311,21 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     forceCloseGame,
   ]);
 
-  const navRoutes = useMemo(() => {
-    return createNavigationItems(navigate, onClose, t);
-  }, [navigate, onClose, t]);
-
-  // Aggregate library stats
+  const navRoutes = useMemo(() => createNavigationItems(navigate, onClose, t), [navigate, onClose, t]);
+  const settingsEntries = useMemo(
+    () => buildSettingsEntries(t, showFullLinuxUi),
+    [t, showFullLinuxUi]
+  );
+  const docsEnabled = useMemo(
+    () =>
+      scope === "docs" ||
+      (scope === "all" && cleanQuery.trim().length >= 3) ||
+      getPinnedItems().some((pin) => pin.id.startsWith("doc-")),
+    [scope, cleanQuery, pinVersion]
+  );
+  const docsEntries = useDocsPaletteEntries(t, language, docsEnabled);
   const libraryStats = useMemo(() => calculateLibraryStats(games), [games]);
 
-  // Items filtering and generation hook
   const { items, scopeCounts } = useCommandPaletteItems({
     rawQuery,
     cleanQuery,
@@ -322,11 +340,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     games,
     systemActions,
     navRoutes,
+    settingsEntries,
+    docsEntries,
     downloads: downloadsCtx?.downloads,
     igdbResults,
     wishlistItems: wishlistCtx?.wishlist || [],
     isWishlisted: (slug) => wishlistCtx?.isWishlisted(slug) ?? false,
-    toggleWishlist: (g) => wishlistCtx?.toggle(g),
+    toggleWishlist: (game) => wishlistCtx?.toggle(game),
     achievementsCache: achievementsCtx?.summaries,
     t,
     onClose,
@@ -342,58 +362,60 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     pauseDownload: downloadsCtx?.pauseDownload,
     recentVersion,
     setRecentVersion,
+    pinVersion,
+    setPinVersion,
   });
 
-  // Keyboard navigation hook
-  const { handleInputKeyDown } = useCommandPaletteKeyboard({
+  const executeItem = (index: number) => {
+    const item = items[index];
+    if (!item) return;
+    if (cleanQuery.trim().length >= 2 && !item.recentQuery) {
+      saveRecentQuery(cleanQuery);
+    }
+    item.onSelect();
+  };
+
+  const { handleInputKeyDown, handleListKeyDown } = useCommandPaletteKeyboard({
     items,
     selectedIndex,
     setSelectedIndex,
     scope,
     setScope,
     rawQuery,
-    setRawQuery,
-    isSimpleMode,
-    setShowInspector,
+    setPeekOpen,
     setActionDrawerOpen,
     setCheatSheetOpen,
     setRandomGameKey,
     showToast: (msg, type) => showToast(msg, type ?? "info"),
     t,
     listRef,
+    inputRef,
+    onExecute: executeItem,
   });
 
   if (!isOpen) return null;
 
   const currentSelectedItem = items[selectedIndex] || null;
   const activeDescendantId = currentSelectedItem ? `${listId}-opt-${selectedIndex}` : undefined;
-  let currentCategory = "";
+  const showPreview = !isCompact && (isWide || peekOpen);
+  const canPeek = !isCompact && !isWide;
+  const isSearching = rawQuery.trim().length > 0;
+  let currentGroup: string | null = null;
 
   return createPortal(
     <>
       <div
-        className={`command-palette-backdrop cpal-backdrop`}
+        className="cp-backdrop"
         onClick={onClose}
-        onKeyDown={(e) => {
-          if (e.key === "Escape" && !actionDrawerOpen && !cheatSheetOpen) {
-            e.preventDefault();
-            onClose();
-          }
-        }}
         role="dialog"
         aria-modal="true"
-        aria-label="Command Palette"
+        aria-label={t("commandPalette.title")}
       >
         <div
-          className={`command-palette-panel cpal-panel${effectiveShowInspector ? " with-inspector" : ""}${
-            isSimpleMode ? " is-simple-palette" : ""
-          }`}
+          className={`cp-panel${showPreview ? " with-preview" : ""}${isCompact ? " is-compact" : ""}`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="cmd-panel-body">
-            {/* Main List Column */}
-            <div className="cmd-main-column">
-            {/* Header & Search Bar */}
+          <div className="cp-main">
             <CommandPaletteHeader
               inputId={inputId}
               inputRef={inputRef}
@@ -407,22 +429,19 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 inputRef.current?.focus();
               }}
               isSearchingIgdb={isSearchingIgdb}
-              isSimpleMode={isSimpleMode}
-              showInspector={showInspector}
-              onToggleInspector={() => setShowInspector((prev) => !prev)}
               onOpenCheatSheet={() => setCheatSheetOpen(true)}
               t={t}
               listId={listId}
               activeDescendantId={activeDescendantId}
               itemCount={items.length}
+              compact={isCompact}
             />
 
-            {/* Scope Filter Ribbon */}
-            {!isSimpleMode && (
+            {!isCompact && (
               <CommandPaletteScopeBar
                 scope={scope}
-                onSelectScope={(s) => {
-                  setScope(s);
+                onSelectScope={(next) => {
+                  setScope(next);
                   setSelectedIndex(0);
                   inputRef.current?.focus();
                 }}
@@ -431,61 +450,79 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               />
             )}
 
-            {/* Interactive Filter Pills / Prompt Chips */}
             <CommandPaletteFilterPills
               rawQuery={rawQuery}
               parsedFilters={parsedFilters}
-              onSetRawQuery={setRawQuery}
-              onRollRandomGame={() => {
-                setRandomGameKey((k) => k + 1);
-                setRawQuery("roll");
+              onSetRawQuery={(next) => {
+                setRawQuery(next);
+                setSelectedIndex(0);
               }}
-              onOpenCheatSheet={() => setCheatSheetOpen(true)}
               t={t}
             />
 
-            {/* Results List */}
-            <div ref={listRef} id={listId} className="command-palette-list" role="listbox">
+            <div
+              ref={listRef}
+              id={listId}
+              className="cp-list"
+              role="listbox"
+              aria-label={t("commandPalette.resultsLabel")}
+              tabIndex={0}
+              onKeyDown={handleListKeyDown}
+            >
               {items.length === 0 ? (
-                <div className="command-palette-empty">
-                  <Search className="command-palette-empty-icon" />
-                  <span className="cmd-empty-title">{t("commandPalette.noResults")}</span>
-                  <span className="cmd-empty-hint">{t("commandPalette.noResultsHint")}</span>
-                  <div className="cmd-empty-suggestions">
-                    <button
-                      type="button"
-                      className="cmd-empty-suggestion"
-                      onClick={() => {
-                        setScope("games");
-                        setSelectedIndex(0);
-                      }}
-                    >
-                      {t("commandPalette.emptySuggestGames")}
-                    </button>
-                    <button
-                      type="button"
-                      className="cmd-empty-suggestion"
-                      onClick={() => {
-                        setScope("store");
-                        setSelectedIndex(0);
-                      }}
-                    >
-                      {t("commandPalette.emptySuggestStore")}
-                    </button>
-                    <button
-                      type="button"
-                      className="cmd-empty-suggestion"
-                      onClick={() => {
-                        setScope("wishlist");
-                        setSelectedIndex(0);
-                      }}
-                    >
-                      {t("commandPalette.emptySuggestWishlist")}
-                    </button>
+                <div className="cp-empty">
+                  {isSearchingIgdb ? (
+                    <Loader2 size={22} className="cp-spinner" aria-hidden="true" />
+                  ) : (
+                    <Search size={22} aria-hidden="true" />
+                  )}
+                  <span className="cp-empty-title">
+                    {isSearching ? t("commandPalette.noResults") : t("commandPalette.emptyScopeTitle")}
+                  </span>
+                  <span className="cp-empty-hint">
+                    {isSearching ? t("commandPalette.noResultsHint") : t("commandPalette.emptyScopeHint")}
+                  </span>
+                  <div className="cp-empty-actions">
+                    {scope !== "games" && (
+                      <button
+                        type="button"
+                        className="cp-empty-action"
+                        onClick={() => {
+                          setScope("games");
+                          setSelectedIndex(0);
+                        }}
+                      >
+                        {t("commandPalette.emptySuggestGames")}
+                      </button>
+                    )}
+                    {scope !== "store" && (
+                      <button
+                        type="button"
+                        className="cp-empty-action"
+                        onClick={() => {
+                          setScope("store");
+                          setSelectedIndex(0);
+                        }}
+                      >
+                        {t("commandPalette.emptySuggestStore")}
+                      </button>
+                    )}
+                    {scope !== "docs" && (
+                      <button
+                        type="button"
+                        className="cp-empty-action"
+                        onClick={() => {
+                          setScope("docs");
+                          setSelectedIndex(0);
+                        }}
+                      >
+                        {t("commandPalette.emptySuggestDocs")}
+                      </button>
+                    )}
                     {rawQuery.length > 0 && (
                       <button
                         type="button"
-                        className="cmd-empty-suggestion"
+                        className="cp-empty-action"
                         onClick={() => {
                           setRawQuery("");
                           setScope("all");
@@ -499,39 +536,21 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   </div>
                 </div>
               ) : (
-                items.map((item, idx) => {
-                  const showCategory = item.category !== currentCategory;
-                  currentCategory = item.category;
-
-                  const categoryTitle =
-                    item.category === "recent"
-                      ? t("commandPalette.sectionRecent")
-                      : item.category === "utility"
-                        ? t("commandPalette.sectionUtility")
-                        : item.category === "games"
-                          ? t("commandPalette.sectionGames")
-                          : item.category === "wishlist"
-                            ? t("commandPalette.sectionWishlist")
-                            : item.category === "store"
-                              ? t("commandPalette.sectionIgdb")
-                              : item.category === "navigation"
-                                ? t("commandPalette.sectionNav")
-                                : item.category === "themes"
-                                  ? t("commandPalette.sectionThemes")
-                                  : item.category === "downloads"
-                                    ? t("commandPalette.sectionDownloads")
-                                    : t("commandPalette.sectionActions");
-
-                  const isSelected = idx === selectedIndex;
+                items.map((item, index) => {
+                  const group: PaletteGroup =
+                    item.group ?? (item.category === "all" ? "utility" : item.category);
+                  const showGroup = group !== currentGroup;
+                  currentGroup = group;
+                  const isSelected = index === selectedIndex;
 
                   return (
-                    <div key={item.id}>
-                      {showCategory && (
-                        <div className="command-palette-group-title">
-                          <span>{categoryTitle}</span>
-                          {item.category === "store" && isSearchingIgdb && (
-                            <span className="cmd-searching-badge">
-                              <Loader2 size={11} className="command-palette-spinner" />
+                    <div key={item.id} className="cp-group-block">
+                      {showGroup && (
+                        <div className="cp-group">
+                          <span>{t(GROUP_TITLE_KEYS[group])}</span>
+                          {group === "store" && isSearchingIgdb && (
+                            <span className="cp-group-status">
+                              <Loader2 size={11} className="cp-spinner" aria-hidden="true" />
                               {t("commandPalette.searchingIgdb")}
                             </span>
                           )}
@@ -542,9 +561,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         item={item}
                         isSelected={isSelected}
                         cleanQuery={cleanQuery}
-                        optionId={`${listId}-opt-${idx}`}
-                        onSelect={item.onSelect}
-                        onMouseEnter={() => setSelectedIndex(idx)}
+                        optionId={`${listId}-opt-${index}`}
+                        onSelect={() => {
+                          setSelectedIndex(index);
+                          executeItem(index);
+                        }}
+                        onMouseEnter={() => setSelectedIndex(index)}
                       />
                     </div>
                   );
@@ -552,48 +574,38 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               )}
             </div>
 
-            </div>
-
-            {/* Right Inspector Column */}
-            {effectiveShowInspector && (
-              <div className="cmd-inspector-column">
-                <CommandPaletteInspector
-                  item={currentSelectedItem}
-                  t={t}
-                  locale={language}
-                  onOpenActionDrawer={() => setActionDrawerOpen(true)}
-                  onOpenDownloadModal={(target) => setDownloadTarget(target)}
-                  isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
-                  toggleWishlist={(game) => wishlistCtx?.toggle(game)}
-                  onLaunchGame={(game) => {
-                    playLaunchSound();
-                    saveRecentItem(game.id, gameDisplayName(game), "games");
-                    onClose();
-                    launchGame(game);
-                  }}
-                  navigate={navigate}
-                  onClose={onClose}
-                  libraryStats={libraryStats}
-                />
-              </div>
-            )}
+            <CommandPaletteFooter
+              selectedItem={currentSelectedItem}
+              itemCount={items.length}
+              canPeek={canPeek}
+              t={t}
+            />
           </div>
 
-          {/* Footer Keyboard Hints — full panel width */}
-          <CommandPaletteFooter
-            selectedItem={currentSelectedItem}
-            itemCount={items.length}
-            isSimpleMode={isSimpleMode}
-            t={t}
-          />
+          {showPreview && (
+            <CommandPalettePreview
+              item={currentSelectedItem}
+              t={t}
+              locale={language}
+              isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
+              toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+              onOpenDownloadModal={(target) => setDownloadTarget(target)}
+              onOpenActionDrawer={() => setActionDrawerOpen(true)}
+              onClose={onClose}
+              navigate={navigate}
+              canClosePeek={!isWide}
+            />
+          )}
         </div>
       </div>
 
-      {/* Secondary Actions Drawer Modal */}
       <CommandPaletteActionDrawer
         item={currentSelectedItem}
-        isOpen={actionDrawerOpen}
-        onClose={() => setActionDrawerOpen(false)}
+        isOpen={actionDrawerOpen && itemHasDrawerActions(currentSelectedItem)}
+        onClose={() => {
+          setActionDrawerOpen(false);
+          inputRef.current?.focus();
+        }}
         t={t}
         showToast={(msg, type) => showToast(msg, type ?? "info")}
         navigate={navigate}
@@ -609,18 +621,19 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         onOpenDownloadModal={(target) => setDownloadTarget(target)}
       />
 
-      {/* Interactive Cheat Sheet Modal */}
       <CommandPaletteCheatSheet
         isOpen={cheatSheetOpen}
-        onClose={() => setCheatSheetOpen(false)}
-        onApplyQuery={(q) => {
-          setRawQuery(q);
+        onClose={() => {
+          setCheatSheetOpen(false);
+          inputRef.current?.focus();
+        }}
+        onApplyQuery={(query) => {
+          handleQueryChange(query);
           inputRef.current?.focus();
         }}
         t={t}
       />
 
-      {/* Direct Download Modal */}
       {downloadTarget && (
         <DownloadModal
           gameName={downloadTarget.name}

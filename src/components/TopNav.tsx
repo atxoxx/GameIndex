@@ -140,6 +140,7 @@ export default function TopNav() {
   } = useLayoutSettings();
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
   const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());
   const [moreOpen, setMoreOpen] = useState(false);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
@@ -575,7 +576,7 @@ export default function TopNav() {
       </header>
       {paletteOpen && (
         <Suspense fallback={null}>
-          <CommandPalette isOpen onClose={() => setPaletteOpen(false)} />
+          <CommandPalette isOpen onClose={closePalette} />
         </Suspense>
       )}
     </>

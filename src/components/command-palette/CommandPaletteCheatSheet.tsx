@@ -57,13 +57,13 @@ const POWER_FILTERS = [
 const HOTKEYS = [
   { keys: ["↑", "↓"], descKey: "commandPalette.hintNavigate" },
   { keys: ["↵"], descKey: "commandPalette.hintSelect" },
-  { keys: ["Ctrl", "↵"], descKey: "commandPalette.hintDetails" },
-  { keys: ["Ctrl", "K"], descKey: "commandPalette.actionsMenu" },
-  { keys: ["Ctrl", "P"], descKey: "commandPalette.toggleInspector" },
+  { keys: ["Ctrl", "↵"], descKey: "commandPalette.hintPreview" },
+  { keys: ["Alt", "↵"], descKey: "commandPalette.hintActions" },
+  { keys: ["Ctrl", "P"], descKey: "commandPalette.hintPin" },
+  { keys: ["Alt", "1…9"], descKey: "commandPalette.hintScopeJump" },
+  { keys: ["Tab"], descKey: "commandPalette.hintFocusList" },
   { keys: ["Ctrl", "O"], descKey: "commandPalette.openFolder" },
   { keys: ["Ctrl", "C"], descKey: "commandPalette.copy" },
-  { keys: ["Ctrl", "Shift", "C"], descKey: "commandPalette.copyTitle" },
-  { keys: ["Tab"], descKey: "commandPalette.hintScope" },
   { keys: ["Shift", "Del"], descKey: "commandPalette.removeRecent" },
   { keys: ["Esc"], descKey: "commandPalette.hintClose" },
 ];

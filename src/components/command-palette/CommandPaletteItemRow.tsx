@@ -1,5 +1,4 @@
 import { useMemo, type ReactNode } from "react";
-import { Puzzle } from "lucide-react";
 import type { PaletteItem } from "./commandPaletteTypes";
 import { getMatchRanges } from "./commandPaletteUtils";
 
@@ -12,9 +11,7 @@ interface CommandPaletteItemRowProps {
   onMouseEnter: () => void;
 }
 
-/**
- * Highlights matched query tokens in text
- */
+/** Highlights matched query tokens without re-splitting the whole string. */
 function HighlightedText({
   text,
   query,
@@ -33,16 +30,16 @@ function HighlightedText({
   const parts: ReactNode[] = [];
   let lastIndex = 0;
 
-  ranges.forEach((r, i) => {
-    if (r.start > lastIndex) {
-      parts.push(text.slice(lastIndex, r.start));
+  ranges.forEach((range, index) => {
+    if (range.start > lastIndex) {
+      parts.push(text.slice(lastIndex, range.start));
     }
     parts.push(
-      <mark key={i} className="cmd-match-highlight">
-        {text.slice(r.start, r.end)}
+      <mark key={index} className="cp-match">
+        {text.slice(range.start, range.end)}
       </mark>
     );
-    lastIndex = r.end;
+    lastIndex = range.end;
   });
 
   if (lastIndex < text.length) {
@@ -52,6 +49,8 @@ function HighlightedText({
   return <span className={className}>{parts}</span>;
 }
 
+const MAX_QUICK_ACTIONS = 5;
+
 export default function CommandPaletteItemRow({
   item,
   isSelected,
@@ -60,120 +59,85 @@ export default function CommandPaletteItemRow({
   onSelect,
   onMouseEnter,
 }: CommandPaletteItemRowProps) {
+  const quickActions = (item.quickActions ?? []).slice(0, MAX_QUICK_ACTIONS);
+
   return (
     <div
       id={optionId}
       role="option"
       aria-selected={isSelected}
-      className={`command-palette-item cmd-item${isSelected ? " is-selected" : ""}`}
+      className={`cp-row${isSelected ? " is-selected" : ""}${item.pinned ? " is-pinned" : ""}`}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
     >
-      {/* Visual media / icon / theme swatch */}
-      <div className="cmd-item-visual-slot">
+      <span className="cp-row-media" aria-hidden="true">
         {item.thumb ? (
-          <img
-            src={item.thumb}
-            alt=""
-            className="command-palette-item-thumb"
-            loading="lazy"
-          />
+          <img src={item.thumb} alt="" className="cp-row-thumb" loading="lazy" />
         ) : item.swatchColors ? (
-          <div
-            className="cmd-theme-swatch-badge"
+          <span
+            className="cp-row-swatch"
             style={{
               backgroundColor: item.swatchColors.bg,
               borderColor: item.swatchColors.accent,
             }}
           >
             <span
-              className="cmd-theme-swatch-dot"
+              className="cp-row-swatch-dot"
               style={{ backgroundColor: item.swatchColors.accent }}
             />
-          </div>
+          </span>
         ) : item.icon ? (
-          <div className="command-palette-item-icon">{item.icon}</div>
+          <span className="cp-row-icon">{item.icon}</span>
         ) : null}
-      </div>
+      </span>
 
-      {/* Main information: title, badges, subtitle — one line in the compact
-          layout; the subtitle sits after the title as quiet context. */}
-      <div className="command-palette-item-body">
-        <HighlightedText
-          text={item.title}
-          query={cleanQuery}
-          className="command-palette-item-title"
-        />
+      <span className="cp-row-text">
+        <HighlightedText text={item.title} query={cleanQuery} className="cp-row-title" />
         {item.badge && (
           <span
-            className={`command-palette-badge${
-              item.badgeType ? ` badge--${item.badgeType}` : ""
-            }`}
+            className={`cp-badge${item.badgeType ? ` is-${item.badgeType}` : ""}`}
           >
-            {item.badgeType === "success" && <span className="cmd-pulse-dot" />}
+            {item.badgeType === "success" && <span className="cp-pulse" aria-hidden="true" />}
             {item.badge}
           </span>
         )}
-        {item.gameData && (item.gameData.mo2LaunchEnabled || item.gameData.mo2Profile) && (
-          <span
-            className="command-palette-badge badge--mo2"
-            title={
-              item.gameData.mo2Profile
-                ? `MO2 Profile: ${item.gameData.mo2Profile}`
-                : "Mod Organizer 2 Enabled"
-            }
-          >
-            <Puzzle size={9} />
-            {item.gameData.mo2Profile ? item.gameData.mo2Profile : "MO2"}
-          </span>
-        )}
         {item.subtitle && (
-          <>
-            <span className="cmd-item-sep" aria-hidden="true">
-              ·
-            </span>
-            <HighlightedText
-              text={item.subtitle}
-              query={cleanQuery}
-              className="command-palette-item-subtitle"
-            />
-          </>
+          <HighlightedText
+            text={item.subtitle}
+            query={cleanQuery}
+            className="cp-row-sub"
+          />
         )}
-      </div>
+      </span>
 
-      {/* Action buttons & execution hint */}
-      <div className="command-palette-item-actions">
-        {/* Quick action buttons (revealed on hover or when selected) */}
-        {item.quickActions && item.quickActions.length > 0 && (
-          <div className="command-palette-quick-btns">
-            {item.quickActions.map((qa) => (
+      <span className="cp-row-tail">
+        {isSelected && quickActions.length > 0 && (
+          <span className="cp-row-actions">
+            {quickActions.map((action) => (
               <button
-                key={qa.id}
+                key={action.id}
                 type="button"
-                className="command-palette-quick-btn"
-                title={qa.title}
-                aria-label={qa.title}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  qa.onClick(e);
+                className="cp-row-action"
+                title={action.title}
+                aria-label={action.title}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  action.onClick(event);
                 }}
               >
-                {qa.icon}
+                {action.icon}
               </button>
             ))}
-          </div>
+          </span>
         )}
 
-        {/* Primary Action Button / Hint: Highlighted on selected item */}
-        {item.actionText && (
-          <div className={`command-palette-item-action${isSelected ? " active-hint" : ""}`}>
-            <span className="cmd-action-label">{item.actionText}</span>
-            {isSelected && (
-              <kbd className="command-palette-key-pill">{item.shortcut || "↵"}</kbd>
-            )}
-          </div>
+        {isSelected && item.actionText && (
+          <span className="cp-row-enter">
+            <kbd className="cp-kbd">{item.shortcut || "↵"}</kbd>
+            <span>{item.actionText}</span>
+          </span>
         )}
-      </div>
+      </span>
     </div>
   );
 }

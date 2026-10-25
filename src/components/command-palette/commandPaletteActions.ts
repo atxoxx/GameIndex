@@ -28,7 +28,6 @@ import {
   RefreshCw,
   Rss,
   Settings,
-  Shield,
   Sparkles,
   Store,
   Tag,
@@ -39,7 +38,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import type { PaletteItem } from "./commandPaletteTypes";
-import { THEME_COLORS, clearRecentItems } from "./commandPaletteUtils";
+import { THEME_COLORS, clearRecentItems, clearRecentQueries } from "./commandPaletteUtils";
 import type { ThemeConfig } from "../../context/ThemeContext";
 import type { ViewDensity } from "../../types/game";
 
@@ -354,6 +353,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     actionText: t("commandPalette.clear"),
     onSelect: () => {
       clearRecentItems();
+      clearRecentQueries();
       onHistoryCleared?.();
       showToast(t("commandPalette.historyClearedToast"), "info");
     },
@@ -481,36 +481,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   });
 
-  // 11. Settings Deep-Links
-  // Keys mirror the settings catalog (settingsCatalog.tsx) — both surfaces
-  // must resolve identical labels, so the palette reuses its title/desc keys.
-  const settingsSections = [
-    { path: "/settings/general", titleKey: "settings.general", descKey: "settings.general.desc", icon: Settings },
-    { path: "/settings/appearance", titleKey: "settings.appearance", descKey: "settings.appearance.desc", icon: Palette },
-    { path: "/settings/integrations", titleKey: "settings.tab.integrations", descKey: "settings.integrations.desc", icon: RefreshCw },
-    { path: "/settings/downloads", titleKey: "nav.downloads", descKey: "settings.downloads.desc", icon: Download },
-    { path: "/settings/hardware", titleKey: "settings.tab.hardware", descKey: "settings.hardware.sectionDesc", icon: Activity },
-    { path: "/settings/launcher", titleKey: "settings.tab.launcher", descKey: "settings.launcher.desc", icon: Gamepad2 },
-    { path: "/settings/privacy", titleKey: "settings.tab.privacy", descKey: "settings.wipe.desc", icon: Shield },
-  ];
-
-  settingsSections.forEach((sec) => {
-    items.push({
-      id: `act-settings-${sec.path}`,
-      category: "actions",
-      title: `${t("nav.settings")} · ${t(sec.titleKey)}`,
-      subtitle: t(sec.descKey),
-      icon: createElement(sec.icon, { size: 15 }),
-      description: t(sec.descKey),
-      actionText: "↵",
-      onSelect: () => {
-        onClose();
-        navigate(sec.path);
-      },
-    });
-  });
-
-  // 12. Themes
+  // 11. Themes
   themes.forEach((th) => {
     const isCurrent = th.id === currentTheme;
     const colors = THEME_COLORS[th.id] || THEME_COLORS.dark;

@@ -1,5 +1,7 @@
 import type {
   PaletteCategory,
+  PaletteItem,
+  PalettePin,
   PaletteRecentItem,
   MatchHighlight,
   CalculationResult,
@@ -725,6 +727,131 @@ export function deleteRecentItem(id: string) {
 export function clearRecentItems() {
   try {
     localStorage.removeItem(RECENT_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+// ── Pinned commands ────────────────────────────────────────────────────────
+// Pins store only the stable id + category of an item. The palette re-resolves
+// them against the live library/pages/actions on every open, so a renamed game
+// or a removed route can never leave a stale entry behind.
+
+const PIN_STORAGE_KEY = "gamelib.command_palette_pins:v1";
+const MAX_PINS = 12;
+
+export function getPinnedItems(): PalettePin[] {
+  try {
+    const raw = localStorage.getItem(PIN_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (pin): pin is PalettePin =>
+        !!pin &&
+        typeof pin.id === "string" &&
+        typeof pin.title === "string" &&
+        typeof pin.timestamp === "number"
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function isPinnedItem(id: string): boolean {
+  return getPinnedItems().some((pin) => pin.id === id);
+}
+
+/**
+ * True when the secondary-actions drawer can produce a non-empty list for the
+ * item. Quick actions alone are not enough: the drawer only knows how to build
+ * game, store and calculator actions, and opening it for anything else would
+ * leave an empty modal (and swallow Escape).
+ */
+export function itemHasDrawerActions(item: PaletteItem | null | undefined): boolean {
+  if (!item) return false;
+  return !!(item.gameData || item.storeData || item.calcData);
+}
+
+/**
+ * Pin or unpin an item. Returns the new pinned state, or `false` when the
+ * write failed (storage disabled / quota).
+ */
+export function togglePinnedItem(pin: Omit<PalettePin, "timestamp">): boolean {
+  try {
+    const pins = getPinnedItems();
+    const existing = pins.find((entry) => entry.id === pin.id);
+    if (existing) {
+      localStorage.setItem(
+        PIN_STORAGE_KEY,
+        JSON.stringify(pins.filter((entry) => entry.id !== pin.id))
+      );
+      return false;
+    }
+    const next: PalettePin = { ...pin, timestamp: Date.now() };
+    localStorage.setItem(
+      PIN_STORAGE_KEY,
+      JSON.stringify([next, ...pins].slice(0, MAX_PINS))
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearPinnedItems() {
+  try {
+    localStorage.removeItem(PIN_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+// ── Recent queries ─────────────────────────────────────────────────────────
+
+const QUERY_STORAGE_KEY = "gamelib.command_palette_queries:v1";
+const MAX_RECENT_QUERIES = 8;
+
+export function getRecentQueries(): string[] {
+  try {
+    const raw = localStorage.getItem(QUERY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecentQuery(query: string) {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return;
+  try {
+    const folded = trimmed.toLowerCase();
+    const next = [
+      trimmed,
+      ...getRecentQueries().filter((entry) => entry.toLowerCase() !== folded),
+    ];
+    localStorage.setItem(QUERY_STORAGE_KEY, JSON.stringify(next.slice(0, MAX_RECENT_QUERIES)));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+export function deleteRecentQuery(query: string) {
+  try {
+    const next = getRecentQueries().filter((entry) => entry !== query);
+    localStorage.setItem(QUERY_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore
+  }
+}
+
+export function clearRecentQueries() {
+  try {
+    localStorage.removeItem(QUERY_STORAGE_KEY);
   } catch {
     // Ignore
   }

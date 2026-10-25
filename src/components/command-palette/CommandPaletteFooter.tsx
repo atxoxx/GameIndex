@@ -1,79 +1,44 @@
 import type { PaletteItem } from "./commandPaletteTypes";
+import { itemHasDrawerActions } from "./commandPaletteUtils";
 
 interface CommandPaletteFooterProps {
   selectedItem: PaletteItem | null;
   itemCount: number;
-  isSimpleMode: boolean;
+  canPeek: boolean;
   t: (key: string, vars?: Record<string, unknown>) => string;
+}
+
+function Hint({ keys, label }: { keys: string; label: string }) {
+  return (
+    <span className="cp-hint">
+      <kbd className="cp-kbd">{keys}</kbd>
+      <span>{label}</span>
+    </span>
+  );
 }
 
 export default function CommandPaletteFooter({
   selectedItem,
   itemCount,
-  isSimpleMode,
+  canPeek,
   t,
 }: CommandPaletteFooterProps) {
-  const isGame = !!selectedItem?.gameData;
-  const hasDrawerActions = isGame || !!selectedItem?.storeData || !!selectedItem?.calcData;
+  const canOpenActions = itemHasDrawerActions(selectedItem);
 
   return (
-    <footer className="command-palette-footer">
-      <div className="command-palette-hints">
-        <span className="command-palette-hint">
-          <kbd className="command-palette-key-pill">↑↓</kbd>
-          <span>{t("commandPalette.hintNavigate")}</span>
-        </span>
-
-        <span className="command-palette-hint">
-          <kbd className="command-palette-key-pill">↵</kbd>
-          <span>{t("commandPalette.hintSelect")}</span>
-        </span>
-
-        {isGame && (
-          <span className="command-palette-hint">
-            <kbd className="command-palette-key-pill">Ctrl+↵</kbd>
-            <span>{t("commandPalette.hintDetails")}</span>
-          </span>
-        )}
-
-        {isGame && selectedItem?.gameData?.path && (
-          <span className="command-palette-hint">
-            <kbd className="command-palette-key-pill">Ctrl+O</kbd>
-            <span>{t("commandPalette.openFolder")}</span>
-          </span>
-        )}
-
-        {hasDrawerActions && (
-          <span className="command-palette-hint">
-            <kbd className="command-palette-key-pill">Ctrl+K</kbd>
-            <span>{t("commandPalette.actionsMenu")}</span>
-          </span>
-        )}
-
-        {!isSimpleMode && (
-          <span className="command-palette-hint">
-            <kbd className="command-palette-key-pill">Tab</kbd>
-            <span>{t("commandPalette.hintScope")}</span>
-          </span>
-        )}
-
-        <span className="command-palette-hint">
-          <kbd className="command-palette-key-pill">Ctrl+H</kbd>
-          <span>{t("commandPalette.hintHelp")}</span>
-        </span>
-
-        <span className="command-palette-hint">
-          <kbd className="command-palette-key-pill">Esc</kbd>
-          <span>{t("commandPalette.hintClose")}</span>
-        </span>
+    <footer className="cp-footer">
+      <div className="cp-hints">
+        <Hint keys="↑↓" label={t("commandPalette.hintNavigate")} />
+        <Hint keys="↵" label={t("commandPalette.hintSelect")} />
+        {canPeek && <Hint keys="Ctrl+↵" label={t("commandPalette.hintPreview")} />}
+        {canOpenActions && <Hint keys="Alt+↵" label={t("commandPalette.hintActions")} />}
+        {selectedItem?.pinnable && <Hint keys="Ctrl+P" label={t("commandPalette.hintPin")} />}
+        <Hint keys="Esc" label={t("commandPalette.hintClose")} />
       </div>
 
-      <div className="cmd-footer-right">
-        {itemCount > 0 && (
-          <span className="cmd-footer-counter">{itemCount}</span>
-        )}
-        <span className="cmd-footer-brand">GameIndex HUD</span>
-      </div>
+      <span className="cp-footer-count">
+        {t("commandPalette.itemCount", { count: itemCount })}
+      </span>
     </footer>
   );
 }
