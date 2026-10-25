@@ -198,21 +198,40 @@ export default function TopNav() {
     return () => window.removeEventListener("gamelib:open-command-palette", openPalette);
   }, []);
 
-  // Warm the command-palette chunk once the app is idle so the first
-  // Ctrl/Cmd+K opens instantly. The component itself is only mounted while
-  // the palette is open (see the render below): keeping it resident meant
-  // its item list was rebuilt on every library/download/wishlist/route
-  // change even though it rendered nothing.
+  // Warm the command-palette chunk once the user starts interacting with
+  // the app so the first Ctrl/Cmd+K opens instantly. The component itself is
+  // only mounted while the palette is open (see the render below): keeping it
+  // resident meant its item list was rebuilt on every library/download/
+  // wishlist/route change even though it rendered nothing.
+  //
+  // The palette's command catalogue statically pulls the docs content pack and
+  // the settings catalog (~350 KB of chunks). Warming that during the boot
+  // idle window competed with library hydration, so the warm-up now waits for
+  // the first pointer/key input (or 15 s of use, whichever comes first) —
+  // still ahead of any deliberate Ctrl+K.
   useEffect(() => {
+    let warmed = false;
+    let timer = 0;
     const preload = () => {
+      if (warmed) return;
+      warmed = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", preload);
+      window.removeEventListener("pointermove", preload);
+      window.removeEventListener("keydown", preload);
       void import("./CommandPalette");
     };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 4000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 3000);
-    return () => window.clearTimeout(timer);
+    window.addEventListener("pointerdown", preload, { passive: true });
+    window.addEventListener("pointermove", preload, { passive: true });
+    window.addEventListener("keydown", preload);
+    timer = window.setTimeout(preload, 15000);
+    return () => {
+      warmed = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", preload);
+      window.removeEventListener("pointermove", preload);
+      window.removeEventListener("keydown", preload);
+    };
   }, []);
 
   // Translate vertical mouse-wheel input into horizontal tab scrolling.

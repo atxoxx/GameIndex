@@ -90,43 +90,46 @@ const SECONDARY_KEYS = [
   "/activity",
 ];
 
-/** Schedule sequential background preloading across idle browser frames. */
+/**
+ * Schedule sequential background preloading well after the app is
+ * interactive.
+ *
+ * The previous implementation passed a delay as `requestIdleCallback`'s
+ * `timeout`, which is a deadline, not a wait — on an idle page it fired
+ * immediately and pulled every page chunk in during the first paint. This
+ * version waits a real couple of seconds, then warms one route at a time so
+ * the work never lands in one burst.
+ */
 export function scheduleIdleRoutePreloading(): () => void {
   let cancelled = false;
-  let timerId: number | null = null;
-  let idleId: number | null = null;
+  const timers = new Set<number>();
 
-  const runIdle = (fn: () => void, timeout = 2000) => {
-    if (typeof window.requestIdleCallback === "function") {
-      idleId = window.requestIdleCallback(fn, { timeout });
-    } else {
-      timerId = window.setTimeout(fn, 800);
-    }
+  const later = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timers.delete(id);
+      if (!cancelled) fn();
+    }, ms);
+    timers.add(id);
   };
 
-  // Phase 1: High priority core routes
-  runIdle(() => {
-    if (cancelled) return;
-    for (const key of HIGH_PRIORITY_KEYS) {
-      preloadRoute(key);
-    }
+  const warm = (keys: string[]) => {
+    let index = 0;
+    const next = () => {
+      if (cancelled || index >= keys.length) return;
+      preloadRoute(keys[index++]);
+      later(next, 450);
+    };
+    next();
+  };
 
-    // Phase 2: Secondary routes in next idle window
-    runIdle(() => {
-      if (cancelled) return;
-        for (const key of SECONDARY_KEYS) {
-        preloadRoute(key);
-      }
-    }, 3000);
-  }, 1200);
+  // Phase 1: the two pages a session almost always opens.
+  later(() => warm(HIGH_PRIORITY_KEYS), 2500);
+  // Phase 2: the next most visited surfaces, once the shell has settled.
+  later(() => warm(SECONDARY_KEYS), 7000);
 
   return () => {
     cancelled = true;
-    if (idleId != null && typeof window.cancelIdleCallback === "function") {
-      window.cancelIdleCallback(idleId);
-    }
-    if (timerId != null) {
-      window.clearTimeout(timerId);
-    }
+    for (const id of timers) window.clearTimeout(id);
+    timers.clear();
   };
 }

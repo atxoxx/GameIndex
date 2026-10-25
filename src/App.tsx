@@ -65,6 +65,7 @@ import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
 import PageLayoutBridge from "./components/PageLayoutBridge";
 import { GameAccentSync } from "./components/GameAccentSync";
 import { Skeleton } from "./components/ui/Skeleton";
+import { scheduleIdleRoutePreloading } from "./utils/routePreload";
 import "./App.css";
 import "./store.css";
 import "./styles/sidebar-v2.css";
@@ -152,6 +153,37 @@ function ShellBridges() {
 function AppShell() {
   const { isBigScreen } = useBigScreen();
   const runningGameIds = useRunningIds();
+
+  // Warm the page chunks the user is most likely to open next, but only
+  // once the app is idle — prefetching during hydration would compete with
+  // the library load on the exact frames that matter. A window launched to
+  // the tray stays cold until it is actually shown, since a hidden webview
+  // gets no idle callbacks and should not spend CPU on page code.
+  useEffect(() => {
+    let cancel = () => {};
+    let started = false;
+    const start = () => {
+      if (started || document.hidden) return;
+      started = true;
+      cancel = scheduleIdleRoutePreloading();
+    };
+    const onVisible = () => {
+      if (!document.hidden) start();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    // WebView2 does not reliably emit `visibilitychange` when the hidden
+    // boot window is revealed (the shell already works around this for its
+    // animation pause), so focus and a plain timer back it up.
+    window.addEventListener("focus", onVisible);
+    const retry = window.setTimeout(start, 3000);
+    start();
+    return () => {
+      window.clearTimeout(retry);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      cancel();
+    };
+  }, []);
 
   useEffect(() => {
     // The main window is created hidden and revealed once the library has
