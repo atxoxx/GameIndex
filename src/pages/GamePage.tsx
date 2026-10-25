@@ -704,7 +704,10 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                     return <RatingsKpiCard game={game} />;
                   case "gameTimeToBeat":
                     return detailSectionVisible.timeToBeat ? (
-                      <TimeToBeatCard game={game} />
+                      <TimeToBeatCard
+                        game={game}
+                        onRefresh={() => fetchGameHltb(game.id, game.name)}
+                      />
                     ) : null;
                   case "gameProtonDb":
                     return showDeckVerified && detailSectionVisible.protonDb ? (

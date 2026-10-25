@@ -4417,7 +4417,11 @@
   gap: 0.5rem;
 }
 
-.bigscreen-gamepage-rail .ttb-progress__meta {
+.bigscreen-gamepage-rail .ttb-tiles > :last-child:nth-child(odd) {
+  grid-column: auto;
+}
+
+.bigscreen-gamepage-rail .ttb-summary__meta {
   font-size: 0.75rem;
 }
 

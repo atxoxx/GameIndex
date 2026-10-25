@@ -23,9 +23,13 @@ vi.mock("../../hooks/useFocusable", () => ({
   }),
 }));
 
-vi.mock("./HltbDetailsModal", () => ({
+vi.mock("./hltb/HltbDetailsModal", () => ({
   default: () => <div data-testid="hltb-modal">modal</div>,
+}));
+
+vi.mock("./hltb/HltbDetailsContent", () => ({
   HltbDetailsContent: () => <div>content</div>,
+  default: () => <div>content</div>,
 }));
 
 function makeGame(overrides: Partial<Game> = {}): Game {
@@ -62,12 +66,12 @@ describe("TimeToBeatCard", () => {
     expect(screen.getAllByText("gameInfo.mainStory").length).toBeGreaterThan(0);
     expect(screen.getAllByText("gameInfo.mainExtra").length).toBeGreaterThan(0);
     expect(screen.getAllByText("gameInfo.completionist").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("hltb.allStyles").length).toBeGreaterThan(0);
     expect(screen.getAllByText("game.timeToBeatTitle").length).toBeGreaterThan(0);
     expect(screen.getAllByText("gameInfo.hltb").length).toBeGreaterThan(0);
     expect(screen.getAllByText("8h").length).toBeGreaterThan(0);
-    expect(screen.getByText("5h / 8h")).toBeTruthy();
-    expect(screen.getByText("63%")).toBeTruthy();
+    expect(screen.getByText("5h")).toBeTruthy();
+    expect(screen.getByText(/hltb\.percentOfStyle/)).toBeTruthy();
+    expect(screen.queryByText("hltb.allStyles")).toBeNull();
 
     const detailsButton = screen.getByRole("button", { name: /common.details/ });
     fireEvent.click(detailsButton);

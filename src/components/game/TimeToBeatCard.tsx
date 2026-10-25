@@ -1,30 +1,33 @@
 import { useState } from "react";
 import { KpiTile } from "../ui";
 import type { Game, TimeToBeat } from "../../types/game";
-import { parsePlayTime } from "../../types/game";
+import { formatPlayTime, parsePlayTime } from "../../types/game";
 import { IconClock, IconInfo, IconStar } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenModal from "../bigscreen/BigScreenModal";
-import HltbDetailsModal, { HltbDetailsContent } from "./HltbDetailsModal";
+import HltbDetailsModal from "./hltb/HltbDetailsModal";
+import { HltbDetailsContent } from "./hltb/HltbDetailsContent";
 
 /**
  * TimeToBeatCard
  *
- *  Right-sidebar card showing HowLongToBeat milestones for a game.
- *  Each play style is a compact KPI tile carrying its headline hours,
- *  the HLTB submission count and an inline progress bar comparing the
- *  user's playtime to that target — so the card answers "how long is
- *  this game and how much have I done?" without repeating every label
- *  twice. A details button opens the full HLTB stat sheet.
+ *  Right-sidebar summary of HowLongToBeat milestones. Three headline
+ *  playstyles carry the community average and submission count; a single
+ *  personal bar underneath compares the user's playtime with Main Story,
+ *  so the card answers "how long is this game and how far am I?" without
+ *  repeating a progress bar inside every tile. The full stat sheet — all
+ *  styles, ranges, community and platform data — lives behind Details.
  *
- *  Legacy rows that still only carry the old IGDB values render the
- *  same tile grid, minus submissions and the details button.
+ *  Legacy rows that still only carry the old IGDB values keep their extra
+ *  All Styles / Rushed tiles and skip the details affordance.
  */
 
 interface TimeToBeatCardProps {
   game: Game;
+  /** Optional HLTB refetch; wired only where the game lives in the library. */
+  onRefresh?: () => void | Promise<void>;
 }
 
 type TierIntent = "default" | "accent" | "info" | "success";
@@ -63,45 +66,24 @@ function buildTiers(
 
   add(t("gameInfo.mainStory"), ttb.normally, "accent", IconStar, ttb.hltb?.mainStory?.count);
   add(t("gameInfo.mainExtra"), ttb.mainExtra, "info", IconClock, ttb.hltb?.mainExtra?.count);
-  add(t("gameInfo.completionist"), ttb.completely, "success", IconStar, ttb.hltb?.completionist?.count);
-  add(t("hltb.allStyles"), ttb.allStyles, "default", IconClock, ttb.hltb?.allStyles?.count);
-  // Legacy IGDB "rushed" data has no HLTB equivalent.
-  if (!isHltb) add(t("gameInfo.rushed"), ttb.hastily, "default", IconClock);
+  add(
+    t("gameInfo.completionist"),
+    ttb.completely,
+    "success",
+    IconStar,
+    ttb.hltb?.completionist?.count
+  );
+
+  if (!isHltb) {
+    add(t("hltb.allStyles"), ttb.allStyles, "default", IconClock);
+    // Legacy IGDB "rushed" data has no HLTB equivalent.
+    add(t("gameInfo.rushed"), ttb.hastily, "default", IconClock);
+  }
 
   return tiers;
 }
 
-/** Inline "played / target" bar shown in a tile footer. */
-function TimeToBeatProgress({
-  seconds,
-  currentHours,
-}: {
-  seconds: number;
-  currentHours: number;
-}) {
-  const targetHours = Math.max(1, seconds / 3600);
-  const percent = Math.min(100, Math.round((currentHours / targetHours) * 100));
-  const isDone = percent >= 100;
-
-  return (
-    <div className="ttb-progress">
-      <div className="ttb-progress__meta">
-        <span>
-          {Math.round(currentHours * 10) / 10}h / {formatHours(seconds)}
-        </span>
-        <span>{percent}%</span>
-      </div>
-      <div className="ttb-progress__track">
-        <div
-          className={`ttb-progress__fill${isDone ? " ttb-progress__fill--done" : ""}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
+export default function TimeToBeatCard({ game, onRefresh }: TimeToBeatCardProps) {
   const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -114,7 +96,16 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
   const tiers = buildTiers(ttb, isHltb, t);
   if (tiers.length === 0) return null;
 
-  const currentHours = parsePlayTime(game.playTime || "0h") / 60;
+  const playMinutes = parsePlayTime(game.playTime || "");
+  const playHours = playMinutes / 60;
+  const targetSeconds = ttb.normally ?? tiers[0]?.seconds ?? 0;
+  const targetHours = targetSeconds / 3600;
+  const percent =
+    targetHours > 0 && playHours > 0
+      ? Math.round((playHours / targetHours) * 100)
+      : 0;
+  const remainingSeconds = Math.max(0, targetSeconds - playMinutes * 60);
+  const showProgress = playMinutes > 0 && targetSeconds > 0;
 
   return (
     <section className="game-section time-to-beat-card">
@@ -157,11 +148,40 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
                   : undefined
               }
               intent={tier.intent}
-              footer={<TimeToBeatProgress seconds={tier.seconds} currentHours={currentHours} />}
             />
           );
         })}
       </div>
+
+      {showProgress && (
+        <div className="ttb-summary">
+          <div className="ttb-summary__head">
+            <span className="ttb-summary__label">{t("hltb.yourPlaytime")}</span>
+            <span className="ttb-summary__value">{formatPlayTime(playMinutes)}</span>
+          </div>
+          <div className="ttb-progress__track">
+            <div
+              className={`ttb-progress__fill${percent >= 100 ? " ttb-progress__fill--done" : ""}`}
+              style={{ width: `${Math.min(100, percent)}%` }}
+            />
+          </div>
+          <div className="ttb-summary__meta">
+            <span
+              className={`ttb-summary__pct${percent >= 100 ? " ttb-summary__pct--done" : ""}`}
+            >
+              {t("hltb.percentOfStyle", {
+                percent,
+                style: t("gameInfo.mainStory"),
+              })}
+            </span>
+            <span>
+              {percent >= 100
+                ? t("hltb.targetReached")
+                : t("hltb.toGo", { hours: formatHours(remainingSeconds) })}
+            </span>
+          </div>
+        </div>
+      )}
 
       {detailsOpen && ttb.hltb && (
         isBigScreen ? (
@@ -179,6 +199,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
             stats={ttb.hltb}
             playTime={game.playTime}
             onClose={() => setDetailsOpen(false)}
+            onRefresh={onRefresh}
           />
         )
       )}

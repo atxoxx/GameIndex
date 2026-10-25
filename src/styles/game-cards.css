@@ -383,7 +383,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── TimeToBeatCard (play-style tiles + inline progress) ───────── */
+/* ── TimeToBeatCard (play-style tiles + personal progress) ─────── */
 
 .ttb-tiles {
   display: grid;
@@ -391,8 +391,11 @@
   gap: var(--space-sm);
 }
 
-.ttb-tiles .kpi-tile__footer {
-  margin-top: var(--space-2xs);
+/* Three HLTB tiles read as 2 + 1: Completionist owns the full row and no
+   label has to squeeze into a third of a narrow sidebar. Legacy rows keep
+   their natural grid, with an odd trailing tile spanning too. */
+.ttb-tiles > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .ttb-title-actions {
@@ -441,20 +444,64 @@
   outline: none;
 }
 
-.ttb-progress {
+.ttb-summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 8%, transparent),
+    transparent 70%
+  );
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-lg);
 }
 
-.ttb-progress__meta {
+.ttb-summary__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.ttb-summary__label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ttb-summary__value {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.ttb-summary .ttb-progress__track {
+  height: 6px;
+}
+
+.ttb-summary__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   font-size: var(--text-2xs);
-  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.ttb-summary__pct {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.ttb-summary__pct--done {
+  color: var(--color-success);
 }
 
 .ttb-progress__track {
