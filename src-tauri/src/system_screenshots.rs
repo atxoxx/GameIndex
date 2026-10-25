@@ -10,6 +10,7 @@
 //! frontend can badge groups distinctly.
 
 use serde::{Deserialize, Serialize};
+use crate::media::{collect_media_files, MediaFileRef};
 
 /// One folder group returned by the scanner.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -21,35 +22,8 @@ pub struct SystemScreenshotFolder {
     pub game_name: String,
     /// Absolute path to the folder containing these screenshots.
     pub folder_path: String,
-    /// Sorted list of absolute paths to image files in this folder.
-    pub screenshots: Vec<String>,
-}
-
-/// Non-recursive image-file lister for a single directory.
-/// Sorted by modified time, newest first.
-fn list_image_files_flat(dir: &std::path::Path) -> Vec<String> {
-    let mut paths = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() {
-                if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                    let lower = ext.to_lowercase();
-                    if lower == "jpg" || lower == "jpeg" || lower == "png"
-                        || lower == "gif" || lower == "bmp" || lower == "webp"
-                    {
-                        paths.push(p.to_string_lossy().to_string());
-                    }
-                }
-            }
-        }
-    }
-    paths.sort_by(|a, b| {
-        let ma = std::fs::metadata(a).ok().and_then(|m| m.modified().ok());
-        let mb = std::fs::metadata(b).ok().and_then(|m| m.modified().ok());
-        mb.cmp(&ma)
-    });
-    paths
+    /// Capture files in this folder, newest first.
+    pub screenshots: Vec<MediaFileRef>,
 }
 
 /// Auto-detect screenshots from non-Steam capture tools.
@@ -111,7 +85,7 @@ fn detect_windows_screenshot_folders_inner(
                 if lower == "desktop" || lower == "captures" || lower == "radeon relive" {
                     continue;
                 }
-                let images = list_image_files_flat(&p);
+                let images = collect_media_files(&p, false, false);
                 if !images.is_empty() {
                     results.push(SystemScreenshotFolder {
                         source: "nvidia".to_string(),
@@ -142,7 +116,7 @@ fn detect_windows_screenshot_folders_inner(
                     .and_then(|n| n.to_str())
                     .unwrap_or("Unknown")
                     .to_string();
-                let images = list_image_files_flat(&p);
+                let images = collect_media_files(&p, false, false);
                 if !images.is_empty() {
                     results.push(SystemScreenshotFolder {
                         source: "windows".to_string(),
@@ -154,7 +128,7 @@ fn detect_windows_screenshot_folders_inner(
             }
         }
         // Loose captures at the root of the Captures folder.
-        let root_images = list_image_files_flat(&win_root);
+        let root_images = collect_media_files(&win_root, false, false);
         if !root_images.is_empty() {
             results.push(SystemScreenshotFolder {
                 source: "windows".to_string(),
@@ -180,7 +154,7 @@ fn detect_windows_screenshot_folders_inner(
                     .and_then(|n| n.to_str())
                     .unwrap_or("Unknown")
                     .to_string();
-                let images = list_image_files_flat(&p);
+                let images = collect_media_files(&p, false, false);
                 if !images.is_empty() {
                     found_amd = true;
                     results.push(SystemScreenshotFolder {
@@ -194,7 +168,7 @@ fn detect_windows_screenshot_folders_inner(
         }
         // If no subfolders had images, scan the root folder itself
         if !found_amd {
-            let images = list_image_files_flat(&amd_root);
+            let images = collect_media_files(&amd_root, false, false);
             if !images.is_empty() {
                 results.push(SystemScreenshotFolder {
                     source: "amd".to_string(),
@@ -223,7 +197,7 @@ fn detect_windows_screenshot_folders_inner(
                     .and_then(|n| n.to_str())
                     .unwrap_or("Unknown")
                     .to_string();
-                let images = list_image_files_flat(&p);
+                let images = collect_media_files(&p, false, false);
                 if !images.is_empty() {
                     results.push(SystemScreenshotFolder {
                         source: "obs".to_string(),
@@ -236,7 +210,7 @@ fn detect_windows_screenshot_folders_inner(
         }
         // Also check for loose screenshots in the OBS folder itself
         if results.iter().filter(|r| r.source == "obs").count() == 0 {
-            let images = list_image_files_flat(&obs_dir);
+            let images = collect_media_files(&obs_dir, false, false);
             if !images.is_empty() {
                 results.push(SystemScreenshotFolder {
                     source: "obs".to_string(),
@@ -294,7 +268,7 @@ fn detect_posix_screenshot_folders() -> Vec<SystemScreenshotFolder> {
             continue;
         }
         seen.insert(folder.clone());
-        let images = list_image_files_flat(&folder);
+        let images = collect_media_files(&folder, false, false);
         if images.is_empty() {
             continue;
         }
@@ -345,7 +319,7 @@ fn detect_posix_screenshot_folders() -> Vec<SystemScreenshotFolder> {
             {
                 continue;
             }
-            let images = list_image_files_flat(&p);
+            let images = collect_media_files(&p, false, false);
             if images.is_empty() {
                 continue;
             }

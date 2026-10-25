@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { StatsHeader } from "./StatsHeader";
+import { ProfileHeader } from "./ProfileHeader";
+import type { ProfileTotals } from "./useProfileController";
 import type { GamerLevelInfo, GamerPersona, TimeframePreset } from "./statsTypes";
 
 vi.mock("../../context/LanguageContext", () => ({
@@ -32,33 +33,44 @@ const persona: GamerPersona = {
   traits: [],
 };
 
-describe("StatsHeader", () => {
+const totals: ProfileTotals = {
+  playtimeMin: 12840,
+  sessionCount: 214,
+  libraryCount: 86,
+  playedGames: 54,
+  achievementUnlocked: 320,
+  achievementTotal: 900,
+  achievementPct: 36,
+  captureCount: 42,
+};
+
+describe("ProfileHeader", () => {
   afterEach(() => {
     cleanup();
   });
 
-  it("changes the timeframe and exports the report", () => {
-    const onTimeframeChange = vi.fn();
-    const onExportJson = vi.fn();
+  it("changes the range and exports the report", () => {
+    const onRangeChange = vi.fn();
 
     render(
-      <StatsHeader
+      <ProfileHeader
         levelInfo={levelInfo}
         persona={persona}
         streak={{ current: 6, longest: 12, playedToday: true }}
-        totalPlaytimeMin={12840}
-        totalSessions={214}
-        totalGames={86}
-        timeframe={"all" as TimeframePreset}
-        onTimeframeChange={onTimeframeChange}
-        onExportJson={onExportJson}
+        totals={totals}
+        genreBreakdown={[]}
+        range={"all" as TimeframePreset}
+        onRangeChange={onRangeChange}
+        hideAchievementProgress={false}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "30D" }));
-    expect(onTimeframeChange).toHaveBeenCalledWith("30d");
+    fireEvent.click(screen.getByRole("button", { name: "30d" }));
+    expect(onRangeChange).toHaveBeenCalledWith("30d");
 
-    fireEvent.click(screen.getByRole("button", { name: /JSON/ }));
-    expect(onExportJson).toHaveBeenCalledTimes(1);
+    // Export stays reachable by its accessible name for keyboard/screen
+    // reader users even though the action is icon-only.
+    expect(screen.getByRole("button", { name: "stats.exportData" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "community.shareProfile" })).toBeTruthy();
   });
 });

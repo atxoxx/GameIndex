@@ -1,6 +1,13 @@
 // Persistence helpers for Statistics (Community) page — backed by localStorage.
 
-import type { CustomFolder, ScreenshotGroup, StatsSubtab, TimeframePreset } from "./statsTypes";
+import type {
+  CustomFolder,
+  MediaFile,
+  ScreenshotGroup,
+  StatsSubtab,
+  TimeframePreset,
+} from "./statsTypes";
+
 
 const LS_FAVORITES = "gamelib.community.favorites";
 const LS_GOAL_MIN = "gamelib.community.monthly_goal_min";
@@ -40,9 +47,41 @@ export function saveFavorites(favs: Set<string>): void {
   writeJson(LS_FAVORITES, Array.from(favs));
 }
 
+// ── Media shape migration ─────────────────────────────────────────
+// Captures used to be cached as bare path strings. The gallery now needs a
+// timestamp for the page-wide range, so old caches are upgraded in place;
+// unknown files keep `modifiedAt: 0` and are simply excluded from filtered
+// ranges rather than silently dropped from the gallery.
+function normalizeMedia(raw: unknown): MediaFile[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MediaFile[] = [];
+  for (const item of raw) {
+    if (typeof item === "string") {
+      out.push({ path: item, modifiedAt: 0 });
+    } else if (item && typeof item === "object") {
+      const candidate = item as { path?: unknown; modifiedAt?: unknown };
+      if (typeof candidate.path === "string" && candidate.path.length > 0) {
+        const modifiedAt = Number(candidate.modifiedAt);
+        out.push({
+          path: candidate.path,
+          modifiedAt: Number.isFinite(modifiedAt) && modifiedAt > 0 ? modifiedAt : 0,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 // ── Screenshot Cache ──────────────────────────────────────────────
 export function loadScreenshotCache(): ScreenshotGroup[] {
-  return readJson<ScreenshotGroup[]>(LS_SCREENSHOT_CACHE, []);
+  const cached = readJson<unknown[]>(LS_SCREENSHOT_CACHE, []);
+  if (!Array.isArray(cached)) return [];
+  return cached.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const group = entry as ScreenshotGroup & { screenshots?: unknown };
+    if (typeof group.key !== "string" || typeof group.gameName !== "string") return [];
+    return [{ ...group, screenshots: normalizeMedia(group.screenshots) }];
+  });
 }
 
 export function saveScreenshotCache(groups: ScreenshotGroup[]): void {
@@ -51,7 +90,14 @@ export function saveScreenshotCache(groups: ScreenshotGroup[]): void {
 
 // ── Custom Folders ────────────────────────────────────────────────
 export function loadCustomFolders(): CustomFolder[] {
-  return readJson<CustomFolder[]>(LS_CUSTOM_FOLDERS, []);
+  const cached = readJson<unknown[]>(LS_CUSTOM_FOLDERS, []);
+  if (!Array.isArray(cached)) return [];
+  return cached.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const folder = entry as CustomFolder & { media?: unknown };
+    if (typeof folder.id !== "string" || typeof folder.name !== "string") return [];
+    return [{ ...folder, media: normalizeMedia(folder.media) }];
+  });
 }
 
 export function saveCustomFolders(folders: CustomFolder[]): void {
@@ -79,12 +125,22 @@ export function saveMonthlyGoal(min: number): void {
 }
 
 // ── Active Subtab ─────────────────────────────────────────────────
+// Tabs were consolidated (trends → insights, captures → gallery,
+// milestones → achievements); stored values from the old five-tab layout
+// are mapped forward so a returning user lands where they left off.
+const LEGACY_TABS: Record<string, StatsSubtab> = {
+  overview: "overview",
+  insights: "insights",
+  achievements: "achievements",
+  gallery: "gallery",
+  trends: "insights",
+  captures: "gallery",
+  milestones: "achievements",
+};
+
 export function loadActiveSubtab(): StatsSubtab {
   const tab = readJson<string>(LS_ACTIVE_TAB, "overview");
-  if (tab === "overview" || tab === "trends" || tab === "achievements" || tab === "captures" || tab === "milestones") {
-    return tab;
-  }
-  return "overview";
+  return LEGACY_TABS[tab] ?? "overview";
 }
 
 export function saveActiveSubtab(tab: StatsSubtab): void {

@@ -1,5 +1,7 @@
-// Statistics Page entry point — re-exports modular StatsPage from ./community/StatsPage.
+// Profile page entry point — re-exports the modular ProfilePage from
+// ./community/ProfilePage. The route stays `/community` so links, the Big
+// Screen registry and the navbar key keep working.
 
-import StatsPage from "./community/StatsPage";
+import ProfilePage from "./community/ProfilePage";
 
-export default StatsPage;
+export default ProfilePage;

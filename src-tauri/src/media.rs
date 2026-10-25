@@ -12,6 +12,19 @@ use crate::game_scraper;
 use crate::game_scraper::{GameMetadataResult, LaunchBoxImageResult, TimeToBeat};
 use crate::steam_game_watcher;
 
+/// One media file discovered by the capture scanners.
+///
+/// Carries the file's modification time so the Profile gallery can honour
+/// the page-wide date range without a second round-trip to the filesystem.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaFileRef {
+    /// Absolute path to the file.
+    pub path: String,
+    /// Unix seconds; 0 when the metadata could not be read.
+    pub modified_at: u64,
+}
+
 /// Managed state holding cancellation tokens for active executable scans.
 #[derive(Default)]
 pub struct ExeScanState {
@@ -238,47 +251,82 @@ pub async fn search_launchbox_images(game_name: String) -> Result<Vec<LaunchBoxI
     game_scraper::search_launchbox_images(&game_name).await
 }
 
-/// Recursively scan a folder for image files (jpg, jpeg, png, gif, bmp, webp)
-/// and return their paths. Used by the Community â†’ Screenshots tab to let
-/// users browse their screenshot folders.
-/// Like `list_image_files` but also returns common video clip formats
-/// (.mp4, .webm, .mov, .mkv) so the Community → Screenshots tab can show
-/// gameplay recordings alongside still captures. Recurses into subfolders.
+/// Recursively scan a folder for image and video files, newest first.
+/// Used by the Profile → Gallery tab to let users browse their capture
+/// folders. Recurses into subfolders and returns modification times so
+/// the gallery can filter by the page-wide date range.
 #[tauri::command]
-pub async fn list_media_files(folder_path: String) -> Vec<String> {
+pub async fn list_media_files(folder_path: String) -> Vec<MediaFileRef> {
     tauri::async_runtime::spawn_blocking(move || {
-        fn list_media_files_flat(dir: &std::path::Path) -> Vec<String> {
-            let mut paths = Vec::new();
-            if let Ok(entries) = std::fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    let p = entry.path();
-                    if p.is_dir() {
-                        paths.extend(list_media_files_flat(&p));
-                    } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                        let lower = ext.to_lowercase();
-                        if matches!(
-                            lower.as_str(),
-                            "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp"
-                                | "mp4" | "webm" | "mov" | "mkv"
-                        ) {
-                            paths.push(p.to_string_lossy().to_string());
-                        }
-                    }
-                }
-            }
-            paths
-        }
-        let mut paths = list_media_files_flat(std::path::Path::new(&folder_path));
-        paths.sort();
-        paths
+        collect_media_files(std::path::Path::new(&folder_path), true, true)
     })
     .await
     .unwrap_or_default()
 }
 
+fn is_capture_extension(ext: &str, include_video: bool) -> bool {
+    let lower = ext.to_lowercase();
+    matches!(
+        lower.as_str(),
+        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp"
+    ) || (include_video && matches!(lower.as_str(), "mp4" | "webm" | "mov" | "mkv"))
+}
+
+/// Collect media files from a directory, newest first.
+///
+/// `include_video` opts into clip formats; `recursive` descends into
+/// subfolders. Shared by the recursive custom-folder scan and the
+/// per-folder Steam/system detectors so the two never disagree about
+/// which extensions count as a capture.
+pub(crate) fn collect_media_files(
+    dir: &Path,
+    include_video: bool,
+    recursive: bool,
+) -> Vec<MediaFileRef> {
+    fn walk(dir: &Path, include_video: bool, recursive: bool, out: &mut Vec<MediaFileRef>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if recursive {
+                    walk(&path, include_video, recursive, out);
+                }
+                continue;
+            }
+            let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+                continue;
+            };
+            if !is_capture_extension(ext, include_video) {
+                continue;
+            }
+            let modified_at = std::fs::metadata(&path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            out.push(MediaFileRef {
+                path: path.to_string_lossy().to_string(),
+                modified_at,
+            });
+        }
+    }
+
+    let mut files = Vec::new();
+    walk(dir, include_video, recursive, &mut files);
+    // Newest first; paths break ties so a rescan is stable.
+    files.sort_by(|a, b| {
+        b.modified_at
+            .cmp(&a.modified_at)
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    files
+}
+
 /// Serializable result for auto-detecting Steam screenshot folders.
-/// Maps to the frontend's per-game screenshot grouping UI on the
-/// Community â†’ Screenshots tab.
+/// Maps to the frontend's album grid on the Profile → Gallery tab.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SteamScreenshotFolder {
@@ -289,8 +337,8 @@ pub struct SteamScreenshotFolder {
     pub(crate) game_name: String,
     /// The absolute filesystem path to the screenshots folder.
     pub(crate) folder_path: String,
-    /// Sorted list of absolute paths to image files in this folder.
-    pub(crate) screenshots: Vec<String>,
+    /// Sorted list of capture files in this folder, newest first.
+    pub(crate) screenshots: Vec<MediaFileRef>,
 }
 
 /// Auto-detect Steam screenshot folders by scanning ALL userdata
@@ -357,7 +405,7 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
 
                         let screenshots_dir = p.join("screenshots");
                         if !screenshots_dir.exists() || !screenshots_dir.is_dir() {
-                            let loose: Vec<String> = list_image_files_flat(&p);
+                            let loose = collect_media_files(&p, false, false);
                             if loose.is_empty() {
                                 continue;
                             }
@@ -370,7 +418,7 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
                             continue;
                         }
 
-                        let images: Vec<String> = list_image_files_flat(&screenshots_dir);
+                        let images = collect_media_files(&screenshots_dir, false, false);
                         if images.is_empty() {
                             continue;
                         }
@@ -391,31 +439,6 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
     })
     .await
     .unwrap_or_default()
-}
-
-/// Non-recursive image-file lister for a single directory.
-fn list_image_files_flat(dir: &std::path::Path) -> Vec<String> {
-    let mut paths = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() {
-                if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                    let lower = ext.to_lowercase();
-                    if lower == "jpg" || lower == "jpeg" || lower == "png" || lower == "gif" || lower == "bmp" || lower == "webp" {
-                        paths.push(p.to_string_lossy().to_string());
-                    }
-                }
-            }
-        }
-    }
-    // Sort by modified time, newest first (better for screenshot browsing)
-    paths.sort_by(|a, b| {
-        let ma = std::fs::metadata(a).ok().and_then(|m| m.modified().ok());
-        let mb = std::fs::metadata(b).ok().and_then(|m| m.modified().ok());
-        mb.cmp(&ma)
-    });
-    paths
 }
 
 /// Persist a base64-encoded image — normally a PNG data URL produced by

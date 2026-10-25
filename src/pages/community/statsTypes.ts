@@ -1,8 +1,15 @@
 export type { Game, GameSession, GameAchievementData, Achievement } from "../../types/game";
 
-export type StatsSubtab = "overview" | "trends" | "achievements" | "captures" | "milestones";
+export type StatsSubtab = "overview" | "insights" | "achievements" | "gallery";
 
 export type TimeframePreset = "all" | "year" | "90d" | "30d";
+
+/** One capture file plus the timestamp the gallery filters/ranges on. */
+export interface MediaFile {
+  path: string;
+  /** Unix seconds; 0 when the scanner could not read metadata. */
+  modifiedAt: number;
+}
 
 export interface DayCell {
   date: Date;
@@ -171,7 +178,7 @@ export interface ScreenshotGroup {
   coverArtUrl?: string;
   platform?: string;
   folderPath: string;
-  screenshots: string[];
+  screenshots: MediaFile[];
   source?: string;
   customFolderId?: string;
 }
@@ -180,7 +187,7 @@ export interface CustomFolder {
   id: string;
   name: string;
   folderPath: string;
-  media: string[];
+  media: MediaFile[];
 }
 
 export interface UnlockedAchievementItem {

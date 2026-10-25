@@ -54,24 +54,23 @@ export function formatHours(totalMinutes: number): string {
 }
 
 // ── Filter sessions by timeframe preset ───────────────────────────
+export function rangeCutoffMs(
+  timeframe: "all" | "year" | "90d" | "30d",
+  now: Date = new Date()
+): number | null {
+  if (timeframe === "all") return null;
+  if (timeframe === "year") return new Date(now.getFullYear(), 0, 1).getTime();
+  return now.getTime() - (timeframe === "90d" ? 90 : 30) * 86400000;
+}
+
 export function filterSessionsByTimeframe(
   sessions: GameSession[],
   timeframe: "all" | "year" | "90d" | "30d"
 ): GameSession[] {
   if (timeframe === "all") return sessions;
-  const now = new Date();
-  let cutoff: Date;
-
-  if (timeframe === "year") {
-    cutoff = new Date(now.getFullYear(), 0, 1);
-  } else if (timeframe === "90d") {
-    cutoff = new Date(now.getTime() - 90 * 86400000);
-  } else {
-    // 30d
-    cutoff = new Date(now.getTime() - 30 * 86400000);
-  }
-
-  return sessions.filter((s) => new Date(s.date) >= cutoff);
+  const cutoff = rangeCutoffMs(timeframe);
+  if (cutoff === null) return sessions;
+  return sessions.filter((s) => new Date(s.date).getTime() >= cutoff);
 }
 
 // ── Heatmap generation (52 weeks or 7 weeks aligned to Mon-Sun) ────
