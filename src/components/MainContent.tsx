@@ -26,15 +26,25 @@ import { recordBreadcrumb } from "../utils/crashReporter";
  */
 export default function MainContent() {
   const location = useLocation();
+  // A game-detail tab is a new page surface; everything else in the query
+  // string (filters, search, the selected note) is state within the page.
+  const detailTab = new URLSearchParams(location.search).get("tab");
 
   // Every route change starts the page at the top. The desktop shell
   // scrolls `.app-main` (not the window), so without this a page mounts
   // at whatever scroll offset the previous route left behind — opening a
   // game from a scrolled-down library lands mid-page.
+  //
+  // Only the pathname and the detail tab reset the scroll. Filtering,
+  // paging or selecting an item writes query-string state without moving
+  // the reader, which is what those in-place updates expect.
   useEffect(() => {
     document.querySelector(".app-main")?.scrollTo({ top: 0 });
     window.scrollTo(0, 0);
-    // Record where the user navigated so a later crash report shows it.
+  }, [location.pathname, detailTab]);
+
+  // Record where the user navigated so a later crash report shows it.
+  useEffect(() => {
     recordBreadcrumb("route", `${location.pathname}${location.search}`);
   }, [location.pathname, location.search]);
 
