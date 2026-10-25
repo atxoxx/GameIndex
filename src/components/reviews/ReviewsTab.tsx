@@ -26,7 +26,6 @@ import {
   GameTabChips,
   GameTabEmpty,
   GameTabSearch,
-  GameTabShell,
   GameTabSkeleton,
   GameTabToolbar,
   useGameTabState,
@@ -717,18 +716,30 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         : quoteStore.quotes.length;
 
   return (
-    <GameTabShell
-      eyebrow={t("game.tab.reviews")}
-      title={t("review.reviewsTitle")}
-      description={
-        totalAll > 0
-          ? t("review.subtitleCount", { count: totalAll.toLocaleString() })
-          : t("review.subtitleNone")
-      }
-      icon={<MessageSquare size={20} />}
-      className="rv-workspace-shell"
-    >
+    <section className="game-tab rv-workspace-shell">
       <div className="rv-workspace" style={REVIEW_SOURCE_ACCENTS as CSSProperties}>
+        <header className="rv-rail__head">
+          <span className="game-tab__icon" aria-hidden="true">
+            <MessageSquare size={20} />
+          </span>
+          <div className="game-tab__heading">
+            <span className="game-tab__eyebrow">{t("game.tab.reviews")}</span>
+            <h2 className="game-tab__title">{t("review.reviewsTitle")}</h2>
+            <p className="game-tab__desc">
+              {totalAll > 0
+                ? t("review.subtitleCount", { count: totalAll.toLocaleString() })
+                : t("review.subtitleNone")}
+            </p>
+          </div>
+        </header>
+
+        <header className="rv-feed__head">
+          <span className="game-tab__eyebrow">
+            {t("review.feedCount", { count: feedCount })}
+          </span>
+          <h2 className="game-tab__title">{feedTitle}</h2>
+        </header>
+
         <aside className="rv-rail">
           <div className="rv-rail__summary">
             <ReviewSummaryHero
@@ -769,13 +780,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         </aside>
 
         <div className="rv-feed">
-          <div className="rv-feed__head">
-            <div>
-              <h3>{feedTitle}</h3>
-              <p>{t("review.feedCount", { count: feedCount })}</p>
-            </div>
-          </div>
-
           {state.view !== "saved" && (
             <GameTabToolbar
               search={
@@ -989,6 +993,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           )}
         </div>
       </div>
-    </GameTabShell>
+    </section>
   );
 }

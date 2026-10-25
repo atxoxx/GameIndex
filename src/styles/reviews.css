@@ -2212,13 +2212,29 @@ ol.rv-bbcode-list {
 .rv-workspace {
   display: grid;
   grid-template-columns: minmax(280px, 344px) minmax(0, 1fr);
-  gap: clamp(var(--space-lg), 2.2vw, var(--space-2xl));
+  grid-template-areas:
+    "rail-head feed-head"
+    "rail feed";
+  column-gap: clamp(var(--space-lg), 2.2vw, var(--space-2xl));
+  row-gap: var(--space-lg);
   align-items: start;
   width: 100%;
   min-width: 0;
 }
 
+/* Both column headings share the first grid row, so the page title and
+   the feed title sit on the same line and the summary rail starts level
+   with the feed's command row. */
+.rv-rail__head {
+  grid-area: rail-head;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
 .rv-rail {
+  grid-area: rail;
   position: sticky;
   top: 64px;
   display: flex;
@@ -2332,6 +2348,7 @@ ol.rv-bbcode-list {
 }
 
 .rv-feed {
+  grid-area: feed;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -2339,24 +2356,11 @@ ol.rv-bbcode-list {
 }
 
 .rv-feed__head {
+  grid-area: feed-head;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.rv-feed__head h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.rv-feed__head p {
-  margin: var(--space-3xs) 0 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
 }
 
 /* ── Filter popover ──────────────────────────────────────────────────── */
@@ -2574,6 +2578,11 @@ ol.rv-bbcode-list {
 @media (max-width: 1100px) {
   .rv-workspace {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "rail-head"
+      "rail"
+      "feed-head"
+      "feed";
   }
 
   .rv-rail {
