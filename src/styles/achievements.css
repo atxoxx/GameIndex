@@ -2431,6 +2431,15 @@
   gap: var(--space-xl);
 }
 
+/* GameTabShell nests the tab content in `.game-tab__body`, so the section
+   rhythm above never reaches the hero, shelf, toolbar and results stack. */
+.game-tab.achievements-tab .game-tab__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+}
+
 .game-tab.achievements-tab .game-tab-toolbar {
   gap: var(--space-lg);
 }
