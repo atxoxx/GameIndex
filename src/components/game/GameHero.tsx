@@ -515,7 +515,12 @@ export default function GameHero({
       {steamAppId != null && (
         <HeroStat
           icon={<IconUsers size={13} />}
-          value={<PlayerCountBadge appId={steamAppId} />}
+          value={
+            <PlayerCountBadge
+              appId={steamAppId}
+              gameName={game ? gameDisplayName(game) : undefined}
+            />
+          }
         />
       )}
     </div>

@@ -219,7 +219,7 @@ pub async fn lookup_steam_app_id_for_game(game_name: String) -> Result<Option<u3
 
 // === Steam Historical Player Count (steamcharts.com) ========================
 //
-// Long-range concurrent-player history for the hover popover's line chart.
+// Long-range concurrent-player history for the player-count modal's chart.
 //
 // Source: `https://steamcharts.com/app/{appid}/chart-data.json` — a free,
 // key-less JSON feed of `[unix_ms, count]` samples. This is the same Steam
@@ -254,10 +254,22 @@ pub struct SteamPlayerHistory {
     current: u64,
     /// Peak across the requested range.
     peak_in_range: u64,
+    /// Timestamp of the in-range peak (first sample that reached it).
+    #[serde(default)]
+    peak_in_range_at: Option<u64>,
     /// Peak across the entire steamcharts history (all-time).
     peak_all_time: u64,
+    /// Timestamp of the all-time peak.
+    #[serde(default)]
+    peak_all_time_at: Option<u64>,
     /// Arithmetic mean across the requested range.
     average_in_range: f64,
+    /// Mean across the equally long window immediately before the
+    /// requested range. `None` for the all-time view or when the feed
+    /// does not reach back that far, so the UI can hide the trend chip
+    /// instead of inventing a comparison.
+    #[serde(default)]
+    previous_average_in_range: Option<f64>,
     /// Number of points in the returned (downsampled) series.
     sample_count: u32,
     /// True when `points` was downsampled from a denser series, so the
@@ -348,9 +360,7 @@ pub async fn get_steam_player_history(
         series
     };
 
-    // ── 2. All-time peak + range filter ─────────────────────────────
-    let peak_all_time = series.iter().map(|&(_, c)| c).max().unwrap_or(0);
-
+    // ── 2. Range window + all-time peak ─────────────────────────────
     let cutoff_ms: u64 = if range_days == 0 {
         0
     } else {
@@ -360,6 +370,19 @@ pub async fn get_steam_player_history(
             .unwrap_or(0);
         now_ms.saturating_sub(range_days as u64 * 24 * 60 * 60 * 1000)
     };
+
+    // Track the timestamp alongside the value so the modal can say
+    // *when* the peak happened, not just how high it was. Strict `>`
+    // keeps the earliest sample when a peak repeats, which is the
+    // more interesting date for a "record" reading.
+    let mut peak_all_time = 0u64;
+    let mut peak_all_time_at: Option<u64> = None;
+    for &(ts, c) in &series {
+        if c > peak_all_time {
+            peak_all_time = c;
+            peak_all_time_at = Some(ts);
+        }
+    }
 
     let in_range: Vec<(u64, u64)> = if cutoff_ms == 0 {
         series.clone()
@@ -376,6 +399,30 @@ pub async fn get_steam_player_history(
         series.clone()
     } else {
         in_range
+    };
+
+    // Mean of the equally long window immediately before the requested
+    // range, used for the "vs previous 90d" trend chip. All-time has no
+    // previous window, and a feed that starts inside the window yields
+    // `None` rather than a misleading 0%.
+    let previous_average_in_range: Option<f64> = if range_days == 0 {
+        None
+    } else {
+        let span_ms = range_days as u64 * 24 * 60 * 60 * 1000;
+        let previous_start = cutoff_ms.saturating_sub(span_ms);
+        let mut sum = 0u64;
+        let mut count = 0u64;
+        for &(ts, c) in &series {
+            if ts >= previous_start && ts < cutoff_ms {
+                sum += c;
+                count += 1;
+            }
+        }
+        if count > 0 {
+            Some(sum as f64 / count as f64)
+        } else {
+            None
+        }
     };
 
     // ── 3. Downsample to ≤ MAX_POINTS (every-Nth decimation) ─────────
@@ -427,7 +474,14 @@ pub async fn get_steam_player_history(
     // and skew the average (mean of bucket means + a duplicated tail
     // point). Mean-of-samples matches steamcharts.com's own "Avg.
     // Players" definition (mean of the daily peak samples).
-    let peak_in_range = in_range.iter().map(|&(_, c)| c).max().unwrap_or(0);
+    let mut peak_in_range = 0u64;
+    let mut peak_in_range_at: Option<u64> = None;
+    for &(ts, c) in &in_range {
+        if c > peak_in_range {
+            peak_in_range = c;
+            peak_in_range_at = Some(ts);
+        }
+    }
     let in_range_len = in_range.len() as u64;
     let total: u64 = in_range.iter().map(|&(_, c)| c).sum();
     let average_in_range = if in_range_len > 0 {
@@ -443,20 +497,22 @@ pub async fn get_steam_player_history(
         points,
         current,
         peak_in_range,
+        peak_in_range_at,
         peak_all_time,
+        peak_all_time_at,
         average_in_range,
+        previous_average_in_range,
         sample_count,
         downsampled,
     })
 }
 
-// === Steam Game Stats (popover payload) =====================================
+// === Steam Game Stats (game page stats payload) ============================
 //
-// The player-count popover (click the badge to expand) needs a small bundle
-// of related stats: developer, publisher, release date, price, and recent
-// review breakdown. We expose all of them as a single Tauri command so the
-// frontend pays one IPC round-trip per open and we can fan out the two HTTP
-// fetches (`appdetails` + `GetAppReviews`) in parallel from Rust.
+// The Game page's stat cards need a small bundle of related stats:
+// developer, publisher, release date, price, and review breakdown. We expose
+// them as one Tauri command so the cards pay one IPC round-trip and we can
+// fan out the two HTTP fetches (`appdetails` + `GetAppReviews`) in parallel.
 //
 // Caching strategy
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -501,7 +557,7 @@ pub struct SteamGameStats {
     reviews: Option<SteamGameReviews>,
     /// Per-section error message so the frontend can render a clean
     /// "â€”" in place of the failed field rather than blanking the whole
-    /// popover. The field is `None` on success or when the request
+    /// card. The field is `None` on success or when the request
     /// returned `success: false` (which we treat as "no data", not as
     /// an error worth surfacing).
     details_error: Option<String>,
@@ -539,7 +595,7 @@ const STEAM_NEG_TTL: Duration = Duration::from_secs(300); //  5 min
 /// pool init runs every time and adds 50â€“200ms cold. The pre-existing
 /// `get_steam_player_count` and the new stats helpers were each
 /// rebuilding a fresh client per call (and `get_steam_game_stats` did
-/// it twice via `tokio::join!`), so a single popover open could
+/// it twice via `tokio::join!`), so a single card refresh could
 /// rebuild up to 3 clients in a frame. `OnceLock` gives us zero-cost
 /// lazy init: the client is built on the first call, then every
 /// subsequent caller gets the same pooled client for free.
@@ -667,7 +723,7 @@ async fn fetch_steam_game_details_impl(
         // appid (unlisted tools, demos, soundtracks, removed games,
         // unreleased test apps). This is a legitimate "no metadata"
         // answer, not a transport failure â€” surface it as `Ok(None)`
-        // so the popover renders the empty-state message instead of
+        // so the card renders the empty-state message instead of
         // flagging the title as broken. We also do NOT write a
         // negative-cache entry, since the answer is permanent for
         // this appid.
@@ -679,8 +735,8 @@ async fn fetch_steam_game_details_impl(
         "appdetails returned no data block".to_string()
     })?;
 
-    // Skip "coming soon" entries with no fixed date so the popover
-    // doesn't display an empty `Release date: ""` row.
+    // Skip "coming soon" entries with no fixed date so the release row
+    // doesn't display an empty `Release date: ""` value.
     let release_date = data
         .release_date
         .as_ref()
@@ -779,7 +835,7 @@ async fn fetch_steam_game_reviews_impl(
         // The score fields are only sent for the All review type.
         "review_type": 0,
         // All purchases — the store endpoint's default, which is what the
-        // popover's totals have always counted.
+        // review card's totals have always counted.
         "purchase_type": 1,
     });
 
@@ -809,7 +865,7 @@ async fn fetch_steam_game_reviews_impl(
 
     // An appid with no reviews answers with an empty `response` — the same
     // "legitimate no data" case as appdetails' `success: false`. Map it to
-    // `Ok(None)` so the popover renders the empty state instead of
+    // `Ok(None)` so the card renders the empty state instead of
     // flagging the title as broken. No negative-cache write: the answer is
     // permanent for this appid.
     let Some(summary) = payload.response.and_then(|body| body.query_summary) else {
@@ -817,7 +873,7 @@ async fn fetch_steam_game_reviews_impl(
     };
 
     // An empty `total_reviews` means Steam has no reviews at all for
-    // this title â€” represent that as `Some(empty)` so the popover
+    // this title â€” represent that as `Some(empty)` so the card
     // shows "No reviews" rather than the generic "â€”".
     let score_desc = if summary.review_score_desc.trim().is_empty() {
         None
@@ -843,22 +899,15 @@ async fn fetch_steam_game_reviews_impl(
     Ok(Some(reviews))
 }
 
-/// Aggregate all per-game Steam stats the popover renders in one IPC
-/// call. Internally fans out the two HTTP fetches via `tokio::join!`
-/// so the popover opens in roughly the time of the slowest endpoint
-/// (typically ~400ms cold, ~30ms warm from the backend cache) rather
-/// than the sum.
-///
-/// The `current_players` field is sourced from the existing
-/// `get_steam_player_count` command rather than fetched again, so
-/// the badge count and the popover header count are guaranteed to
-/// agree at the moment of click. The badge still keeps its own 60s
-/// polling loop, so by the time the user reopens the popover the
-/// number may have ticked up â€” that's expected.
+/// Aggregate the per-game Steam stats the Game page's stat cards render
+/// (review score, price, developer/publisher context) in one IPC call.
+/// Internally fans out the two HTTP fetches via `tokio::join!` so the
+/// cards resolve in roughly the time of the slowest endpoint (typically
+/// ~400ms cold, ~30ms warm from the backend cache) rather than the sum.
 ///
 /// Each section is returned independently with its own `*_error`
-/// field, so a Steam hiccup on `appdetails` doesn't blank the
-/// popover if reviews came back fine.
+/// field, so a Steam hiccup on `appdetails` doesn't blank the review
+/// score (and vice versa).
 #[tauri::command]
 pub async fn get_steam_game_stats(
     app: tauri::AppHandle,
@@ -870,14 +919,10 @@ pub async fn get_steam_game_stats(
     // never in the outer scope, so the borrow checker is happy.
     //
     // The current concurrent-player count is intentionally NOT fetched
-    // here: the frontend's `<SteamPlayerCount>` already polls it on a
-    // 60s loop and passes the latest value down to the popover as a
-    // prop. Re-fetching it from the backend would (a) burn a Steam API
-    // call we just made, and (b) introduce a small window where the
-    // badge and the popover header disagree (the badge polled at T=0,
-    // the popover opens at T=2s, the backend returns the count from
-    // T=0 + a fresh round-trip = T=0.1 â€” a different snapshot than
-    // what's painted on the badge).
+    // here: `<PlayerCountBadge>` and the player-count modal share the
+    // same frontend store, so both read one snapshot. Re-fetching here
+    // would burn a Steam call and risk the badge and the modal header
+    // disagreeing.
     let cache: tauri::State<'_, SteamGameStatsCache> = app.state();
     let (details_res, reviews_res) = tokio::join!(
         fetch_steam_game_details_impl(&cache, app_id),

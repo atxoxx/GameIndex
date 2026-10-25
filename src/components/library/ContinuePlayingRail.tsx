@@ -189,7 +189,7 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
         <span className="lib-rail-platform">{game.platform}</span>
         {steamAppId != null && (
           <div className="lib-rail-player-chip">
-            <PlayerCountBadge appId={steamAppId} className="lib-rail-player-chip-badge" />
+            <PlayerCountBadge appId={steamAppId} gameName={gameDisplayName(game)} className="lib-rail-player-chip-badge" />
           </div>
         )}
         <button

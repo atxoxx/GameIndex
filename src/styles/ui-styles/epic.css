@@ -399,8 +399,8 @@
 [data-ui-style="epic"] .settings-plugins-item-badge, [data-ui-style="epic"] .settings-subtab-item-badge, [data-ui-style="epic"] .settings-topnav-status-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .settings-wipe-count, [data-ui-style="epic"] .splashscreen-badge, [data-ui-style="epic"] .splashscreen-tip-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .stats-filter-pill, [data-ui-style="epic"] .stats-fps-overall-pill, [data-ui-style="epic"] .stats-section-badge { border-radius: 0 !important; }
-[data-ui-style="epic"] .steam-ctrl-badge, [data-ui-style="epic"] .steam-player-count, [data-ui-style="epic"] .steam-stats-popover-section-badge { border-radius: 0 !important; }
-[data-ui-style="epic"] .steam-stats-popover-skeleton-pill, [data-ui-style="epic"] .storage-drive-active-chip, [data-ui-style="epic"] .storage-kpi-badge { border-radius: 0 !important; }
+[data-ui-style="epic"] .steam-ctrl-badge, [data-ui-style="epic"] .steam-player-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .storage-drive-active-chip, [data-ui-style="epic"] .storage-kpi-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .storage-platform-chip, [data-ui-style="epic"] .storage-view-badge, [data-ui-style="epic"] .store-card-cw-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .store-card-inlib-pill, [data-ui-style="epic"] .store-compare-best-badge, [data-ui-style="epic"] .store-compare-chip { border-radius: 0 !important; }
 [data-ui-style="epic"] .store-filter-count-badge, [data-ui-style="epic"] .store-filter-match-count, [data-ui-style="epic"] .store-filter-preset-pill { border-radius: 0 !important; }

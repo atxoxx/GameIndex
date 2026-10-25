@@ -514,7 +514,7 @@ export default function BigScreenStoreGamePage() {
         </BigScreenPill>
         {resolvedSteamAppId != null && (
           <BigScreenPill tone="muted" size="md">
-            <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteam")}
+            <PlayerCountBadge appId={resolvedSteamAppId} interactive={false} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteam")}
           </BigScreenPill>
         )}
         {rating != null && rating > 0 && (

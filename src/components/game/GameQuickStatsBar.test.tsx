@@ -55,6 +55,7 @@ describe("GameQuickStatsBar", () => {
       data: steamStats,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
 
     render(<GameQuickStatsBar game={makeGame({ igdbRating: 78 })} sizeUnit="gib" />);
@@ -72,6 +73,7 @@ describe("GameQuickStatsBar", () => {
       data: null,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
 
     render(<GameQuickStatsBar game={makeGame()} sizeUnit="gib" />);
@@ -85,6 +87,7 @@ describe("GameQuickStatsBar", () => {
       data: null,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
 
     render(<GameQuickStatsBar game={makeGame({ igdbRating: 64 })} sizeUnit="gib" />);

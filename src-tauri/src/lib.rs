@@ -370,7 +370,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             get_steam_game_stats,
             // Long-range concurrent-player history from steamcharts.com
             // (free CCU feed, same data SteamDB charts show). Powers the
-            // hover popover's historical line chart.
+            // player-count modal's activity chart.
             get_steam_player_history,
             // New launcher settings â€” close-to-tray (L2), minimize
             // on launch (L3), disable UAC elevation prompts (L5),
@@ -899,7 +899,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             app.manage(PlayerCountCache::default());
 
             // Steam game-stats cache (appdetails + user reviews, used by
-            // the player-count popover). Same growth model as
+            // the player-count modal). Same growth model as
             // PlayerCountCache: 0 entries on startup, bounded by the
             // number of distinct Steam appids the user actually opens.
             app.manage(SteamGameStatsCache::default());

@@ -956,7 +956,7 @@ function ActivitySessionItem({
             />
             {steamAppId != null ? (
               <div className="activity-session-item__player-chip" aria-hidden={false}>
-                <PlayerCountBadge appId={steamAppId} className="activity-session-item__player-chip-badge" />
+                <PlayerCountBadge appId={steamAppId} gameName={session.gameName} className="activity-session-item__player-chip-badge" />
               </div>
             ) : null}
           </div>

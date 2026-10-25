@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { SteamGameStats } from "../types/game";
 
@@ -10,11 +10,11 @@ import type { SteamGameStats } from "../types/game";
  *  release date / price (the `details` block) and the aggregate review
  *  breakdown (the `reviews` block). Each block degrades independently —
  *  a Steam hiccup on `appdetails` blanks only its own fields, leaving
- *  the live count and reviews intact.
+ *  the reviews intact.
  *
- *  Shared between:
- *   - `SteamPlayerCountPopover` (header subtitle + reviews section)
- *   - `InfoKpiCard`           (the 4th KPI tile showing price)
+ *  Shared between the Game page's stat cards:
+ *   - `InfoKpiCard`      (the 4th KPI tile showing price)
+ *   - `RatingsKpiCard` / `GameQuickStatsBar` (review score)
  *
  *  The Rust backend caches `appdetails` for 24h, so it's safe for both
  *  consumers to call this hook simultaneously — the second call returns
@@ -23,21 +23,20 @@ import type { SteamGameStats } from "../types/game";
  *  Behavior
  *  ────────
  *  - `appId` of `undefined` returns `null` data and does no fetching.
- *    Consumers should still render and only fall back to "—" / skeleton
- *    when their own state requires data.
- *  - Errors are caught + logged once; `error` is returned for callers
- *    that want to surface a custom message, otherwise the hook falls
- *    back to `null` so the calling UI can degrade gracefully.
- *  - `isLoading` is `true` on the first fetch and `false` afterwards.
- *    The hook does not re-fire on focus / interval (no polling); the
- *    data Steam's appdetails returns is essentially static so a single
- *    fetch per mount is the right cadence.
+ *  - `refresh()` re-runs the request without blanking the current data,
+ *    so the drawer can show a spinner over live numbers instead of a
+ *    skeleton. It resolves when the request settles.
+ *  - Stale responses are dropped via a request id, which also covers the
+ *    case where a manual refresh races an appid change.
  */
+
 export interface UseSteamGameStatsResult {
   data: SteamGameStats | null;
   isLoading: boolean;
   /** Last fetch error message, or `null`. */
   error: string | null;
+  /** Re-fetch in the background. Resolves when the request settles. */
+  refresh: () => Promise<void>;
 }
 
 export function useSteamGameStats(
@@ -46,49 +45,64 @@ export function useSteamGameStats(
   const [data, setData] = useState<SteamGameStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  useEffect(() => {
-    // Defensive bail-out so non-Steam games (no appid) never trigger
-    // an IPC round-trip. The hook contract guarantees the consumer
-    // sees a clean `null` data state and isLoading=false in this case.
-    if (!appId) {
-      setData(null);
-      setError(null);
-      setIsLoading(false);
-      return;
-    }
-
-    // Cancellation guard. A fetched promise that resolves AFTER the
-    // appid changes (or the consuming component unmounts) must not
-    // clobber the new mount's fresh state. Using a flag instead of a
-    // ref keeps the closure simple — this effect re-runs whenever
-    // `appId` changes, so the local `cancelled` variable tracks the
-    // *current* run's lifetime.
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-    invoke<SteamGameStats>("get_steam_game_stats", { appId })
-      .then((result) => {
-        if (cancelled) return;
-        setData(result);
+  const load = useCallback(
+    async (showLoading: boolean) => {
+      if (!appId) {
+        setData(null);
+        setError(null);
         setIsLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
+        return;
+      }
+
+      const requestId = ++requestIdRef.current;
+      if (showLoading) setIsLoading(true);
+      setError(null);
+
+      try {
+        const result = await invoke<SteamGameStats>("get_steam_game_stats", {
+          appId,
+        });
+        if (requestIdRef.current !== requestId) return;
+        setData(result);
+      } catch (err) {
+        if (requestIdRef.current !== requestId) return;
         console.warn(
           `[useSteamGameStats] stats fetch failed for appid ${appId}:`,
           err
         );
         setError(String(err));
-        setIsLoading(false);
-      });
+      } finally {
+        if (requestIdRef.current === requestId) setIsLoading(false);
+      }
+    },
+    [appId]
+  );
 
+  useEffect(() => {
+    if (!appId) {
+      requestIdRef.current += 1;
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+    // A different game must not show the previous game's facts while the
+    // request is in flight.
+    setData(null);
+    void load(true);
     return () => {
-      cancelled = true;
+      // Invalidate any in-flight response from this appid.
+      requestIdRef.current += 1;
     };
-  }, [appId]);
+  }, [appId, load]);
 
-  return { data, isLoading, error };
+  const refresh = useCallback(async () => {
+    await load(false);
+  }, [load]);
+
+  return { data, isLoading, error, refresh };
 }
 
 /**
@@ -96,8 +110,8 @@ export function useSteamGameStats(
  * Renders as "Free" when `isFree`, falls back to a plain `N.NN` number
  * when no currency symbol matches the small map below.
  *
- * Shared between the popover header subtitle area's price pill (in
- * future refinements) and the InfoKpiCard's 4th KPI tile.
+ * Shared between the drawer's context facts and the InfoKpiCard's 4th
+ * KPI tile.
  */
 export function formatSteamPrice(
   cents: number | null | undefined,

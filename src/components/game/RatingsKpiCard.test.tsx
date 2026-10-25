@@ -112,6 +112,7 @@ describe("RatingsKpiCard", () => {
       data: steamStats,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
   });
 
@@ -141,6 +142,7 @@ describe("RatingsKpiCard", () => {
       data: null,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
     render(<RatingsKpiCard game={makeGame({ igdbRating: 91 })} />);
 
@@ -158,6 +160,7 @@ describe("RatingsKpiCard", () => {
       data: null,
       isLoading: false,
       error: null,
+      refresh: async () => {},
     });
     const { container } = render(<RatingsKpiCard game={makeGame()} />);
     expect(container.firstChild).toBeNull();

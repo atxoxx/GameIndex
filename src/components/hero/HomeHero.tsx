@@ -629,7 +629,7 @@ function HomeSteamPlayerChip({ game }: { game: Game }) {
   const { appId: resolvedAppId } = useSteamAppId(game);
   const steamAppId = typeof resolvedAppId === "number" ? resolvedAppId : game.steamAppId ?? null;
   if (!steamAppId) return null;
-  return <PlayerCountBadge appId={steamAppId} className="home-spotlight__player-badge" />;
+  return <PlayerCountBadge appId={steamAppId} gameName={gameDisplayName(game)} className="home-spotlight__player-badge" />;
 }
 
 export default memo(HomeHeroBase);

@@ -1429,15 +1429,14 @@ export interface SteamGameReviews {
 }
 
 /**
- * Combined popover payload from `get_steam_game_stats`. Each section is
- * returned independently so a partial failure on `appdetails` doesn't
- * blank the popover if reviews came back fine.
+ * Combined payload from `get_steam_game_stats`, consumed by the Game
+ * page's stat cards. Each section is returned independently so a partial
+ * failure on `appdetails` doesn't blank the review score.
  *
  * Note: the current concurrent-player count is intentionally absent.
- * The badge's own 60s poll already has the freshest value and passes
- * it down to the popover as a prop; re-fetching it from the backend
- * would burn a Steam call we just made and introduce a small window
- * where the badge number and the popover header disagree.
+ * `<PlayerCountBadge>` and the player-count modal share one frontend
+ * store, so re-fetching it here would burn a Steam call and risk the two
+ * surfaces disagreeing.
  */
 export interface SteamGameStats {
   appId: number;
@@ -1445,7 +1444,7 @@ export interface SteamGameStats {
   reviews: SteamGameReviews | null;
   /** Per-section error string, present only on failure. Renderers
    *  should show "—" (or a friendly fallback) for the failed field
-   *  rather than blanking the whole popover. */
+   *  rather than blanking the whole card. */
   detailsError: string | null;
   reviewsError: string | null;
 }
@@ -1479,10 +1478,17 @@ export interface SteamPlayerHistory {
   current: number;
   /** Peak across the requested range. */
   peakInRange: number;
+  /** Unix-ms timestamp of the in-range peak. `null` when unavailable. */
+  peakInRangeAt: number | null;
   /** Peak across the entire steamcharts history (all-time). */
   peakAllTime: number;
+  /** Unix-ms timestamp of the all-time peak. `null` when unavailable. */
+  peakAllTimeAt: number | null;
   /** Arithmetic mean across the requested range. */
   averageInRange: number;
+  /** Mean across the equally long window before the range. `null` for
+   *  all-time views or when the feed does not reach back that far. */
+  previousAverageInRange: number | null;
   /** Number of points in the returned (downsampled) series. */
   sampleCount: number;
   /** True when `points` was downsampled from a denser series. */
