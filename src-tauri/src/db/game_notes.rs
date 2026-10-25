@@ -73,8 +73,58 @@ pub fn list_for_game(db: &Db, game_id: &str) -> Result<Vec<GameNote>, String> {
     Ok(out)
 }
 
-/// Insert a new note or update an existing one (keyed by `id`).
+/// Search notes across every game.
 ///
+/// An empty query returns the most recently updated notes, which is what the
+/// Notes tab shows in its "All games" scope before the user types. Matching is
+/// case-insensitive for ASCII (SQLite `LIKE`) and covers title, Markdown body
+/// and tags. `%`/`_` are escaped so a literal query cannot turn into a wildcard.
+pub fn search(db: &Db, query: &str, limit: u32) -> Result<Vec<GameNote>, String> {
+    let conn = db.game_notes().map_err(|e| format!("game_notes conn: {e}"))?;
+    let limit = limit.clamp(1, 200) as i64;
+    let trimmed = query.trim();
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, game_id, title, content, tags_json, pinned, created_at, updated_at
+             FROM game_notes
+             WHERE ?1 = ''
+                OR title LIKE ?2 ESCAPE '\\'
+                OR content LIKE ?2 ESCAPE '\\'
+                OR tags_json LIKE ?2 ESCAPE '\\'
+             ORDER BY pinned DESC, updated_at DESC
+             LIMIT ?3",
+        )
+        .map_err(|e| format!("game_notes search prepare: {e}"))?;
+    let pattern = format!(
+        "%{}%",
+        trimmed
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    );
+    let rows = stmt
+        .query_map(params![trimmed, pattern, limit], |r| {
+            let tags_json: String = r.get(4)?;
+            Ok(GameNote {
+                id: r.get(0)?,
+                game_id: r.get(1)?,
+                title: r.get(2)?,
+                content: r.get(3)?,
+                tags: serde_json::from_str(&tags_json).unwrap_or_default(),
+                pinned: r.get::<_, i64>(5)? != 0,
+                created_at: r.get::<_, i64>(6)?.max(0) as u64,
+                updated_at: r.get::<_, i64>(7)?.max(0) as u64,
+            })
+        })
+        .map_err(|e| format!("game_notes search query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("game_notes search row: {e}"))?);
+    }
+    Ok(out)
+}
+
+/// Insert a new note or update an existing one (keyed by `id`).///
 /// Normalization happens here so the frontend can post a bare draft:
 /// a blank `id` gets a generated one, a zero `createdAt` is stamped
 /// with now, and `updatedAt` is always rewritten.
@@ -160,6 +210,35 @@ mod tests {
             created_at: 0,
             updated_at: 0,
         }
+    }
+
+    #[test]
+    fn search_matches_title_content_and_tags_across_games() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        upsert(&db, draft("game-a", "Boss guide", "Phase two: dodge the beam")).unwrap();
+        upsert(&db, draft("game-b", "Collectibles", "All 40 shards")).unwrap();
+
+        let by_title = search(&db, "boss", 50).unwrap();
+        assert_eq!(by_title.len(), 1);
+        assert_eq!(by_title[0].game_id, "game-a");
+
+        let by_body = search(&db, "SHARDS", 50).unwrap();
+        assert_eq!(by_body.len(), 1);
+        assert_eq!(by_body[0].game_id, "game-b");
+
+        let by_tag = search(&db, "guide", 50).unwrap();
+        assert!(by_tag.iter().all(|n| n.tags.iter().any(|tag| tag == "guide")));
+
+        // Both notes use the "guide" tag from the draft helper, so an empty
+        // query returns recent notes across games rather than nothing.
+        let recent = search(&db, "  ", 50).unwrap();
+        assert_eq!(recent.len(), 2);
+
+        // A literal wildcard is not treated as one.
+        assert!(search(&db, "%", 50).unwrap().is_empty());
     }
 
     #[test]

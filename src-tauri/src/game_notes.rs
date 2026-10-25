@@ -44,3 +44,15 @@ pub fn delete_game_notes_for_game(
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::game_notes::delete_for_game(db_state.inner(), &game_id)
 }
+
+/// Search notes across the whole library. Used by the Notes tab's
+/// "All games" scope; an empty query returns the most recently updated notes.
+#[tauri::command]
+pub fn search_game_notes(
+    app: tauri::AppHandle,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<GameNote>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::game_notes::search(db_state.inner(), &query, limit.unwrap_or(80))
+}

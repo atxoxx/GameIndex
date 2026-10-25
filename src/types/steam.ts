@@ -134,11 +134,17 @@ export interface SteamDlcItem {
   priceFormatted?: string;
   initialPriceFormatted?: string;
   discountPercent?: number;
+  /** Final price in the store's smallest currency unit (cents). */
+  finalPriceCents?: number;
+  /** Pre-discount price in the store's smallest currency unit. */
+  initialPriceCents?: number;
   isFree: boolean;
   releaseDate?: string;
   shortDescription?: string;
   isOwned: boolean;
   isInstalled: boolean;
+  /** Manual watchlist flag from the DLC tab. */
+  isWatched?: boolean;
 }
 
 export interface SteamGameDlcsResult {

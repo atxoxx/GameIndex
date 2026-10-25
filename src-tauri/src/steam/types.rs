@@ -153,6 +153,13 @@ pub struct SteamDlcItem {
     pub initial_price_formatted: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub discount_percent: Option<u32>,
+    /// Final price in the store's smallest currency unit (Steam returns cents).
+    /// Added for client-side price sorting; older cached payloads omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_price_cents: Option<u32>,
+    /// Pre-discount price in the smallest currency unit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_price_cents: Option<u32>,
     pub is_free: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release_date: Option<String>,
@@ -160,6 +167,9 @@ pub struct SteamDlcItem {
     pub short_description: Option<String>,
     pub is_owned: bool,
     pub is_installed: bool,
+    /// Manual "watch this DLC" flag used by the DLC tab's watchlist filter.
+    #[serde(default)]
+    pub is_watched: bool,
 }
 
 /// Full DLCs result for a game, including family sharing status.

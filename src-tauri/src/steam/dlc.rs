@@ -167,11 +167,14 @@ fn fallback_dlc_item(dlc_id: u32) -> SteamDlcItem {
         price_formatted: None,
         initial_price_formatted: None,
         discount_percent: None,
+        final_price_cents: None,
+        initial_price_cents: None,
         is_free: false,
         release_date: None,
         short_description: None,
         is_owned: false,
         is_installed: false,
+        is_watched: false,
     }
 }
 
@@ -241,6 +244,8 @@ pub async fn steam_get_game_dlcs(
 
         let manual_key = format!("steam_dlc_owned_{}", item.app_id);
         let manual_owned = db::kv::get(&db, &manual_key).ok().flatten();
+        let watch_key = format!("steam_dlc_watch_{}", item.app_id);
+        item.is_watched = db::kv::get(&db, &watch_key).ok().flatten().as_deref() == Some("1");
 
         if let Some(val) = manual_owned {
             item.is_owned = val == "1";
@@ -433,6 +438,14 @@ pub async fn steam_get_game_dlcs(
                 .and_then(|p| p.get("discount_percent"))
                 .and_then(|v| v.as_u64())
                 .map(|n| n as u32);
+            let final_price_cents = price_overview
+                .and_then(|p| p.get("final"))
+                .and_then(|v| v.as_u64())
+                .map(|n| n.min(u32::MAX as u64) as u32);
+            let initial_price_cents = price_overview
+                .and_then(|p| p.get("initial"))
+                .and_then(|v| v.as_u64())
+                .map(|n| n.min(u32::MAX as u64) as u32);
 
             let release_date = data.get("release_date")
                 .and_then(|r| r.get("date"))
@@ -451,11 +464,14 @@ pub async fn steam_get_game_dlcs(
                     price_formatted,
                     initial_price_formatted,
                     discount_percent,
+                    final_price_cents,
+                    initial_price_cents,
                     is_free,
                     release_date,
                     short_description,
                     is_owned: false,
                     is_installed: false,
+                    is_watched: false,
                 },
                 false,
             )
@@ -542,6 +558,21 @@ pub fn steam_mark_dlcs_owned(
     }
 
     Ok(written)
+}
+
+/// Tauri command: toggle a DLC's watchlist flag. The flag is deliberately
+/// stored in the kv domain (like the ownership override) so it survives
+/// catalog cache refreshes and travels in app backups.
+#[tauri::command]
+pub fn steam_set_dlc_watch(
+    app: AppHandle,
+    _app_id: u32,
+    dlc_app_id: u32,
+    watch: bool,
+) -> Result<(), String> {
+    let db = app.state::<db::Db>().inner().clone();
+    let watch_key = format!("steam_dlc_watch_{dlc_app_id}");
+    db::kv::set(&db, &watch_key, if watch { "1" } else { "0" })
 }
 
 #[cfg(test)]
