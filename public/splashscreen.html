@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameIndex</title>
     <style>
+      /* Outfit ships with the app (see public/fonts). The standalone splash
+         window used to render in the fallback face because it never loaded
+         the font at all. */
+      @font-face {
+        font-family: "Outfit";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url("/fonts/outfit-500-latin.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Outfit";
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url("/fonts/outfit-700-latin.woff2") format("woff2");
+      }
       :root {
         --bg: #08090c;
         --color-bg-primary: var(--bg);

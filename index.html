@@ -5,16 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GameIndex</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Fonts load asynchronously (media="print" swap) so a slow or absent
-         network connection never blocks the first paint of the shell.
-         display=swap in the URL keeps text visible in the fallback face
-         while the webfonts load. -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    </noscript>
+    <!-- Fonts are bundled (src/styles/fonts.css + public/fonts) so the UI
+         renders identically offline and never waits on fonts.googleapis.com.
+         Preload the two latin faces the shell paints with first. -->
+    <link rel="preload" href="/fonts/plus-jakarta-sans-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/outfit-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   </head>
 
   <body>
