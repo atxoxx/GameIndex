@@ -36,9 +36,21 @@ export default defineConfig(async ({ mode }) => ({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
-            if (id.includes("nostr-tools")) return "nostr";
+            // Nostr and QR are dynamic-import-only; keep their transitive
+            // crypto/QR dependencies in the same lazy chunk. Without the
+            // @noble/@scure/dijkstrajs patterns they fall into `vendor`,
+            // which the shell loads eagerly — paying to parse secp256k1 and
+            // QR encoder code on every launch for features most users
+            // never open.
+            if (
+              id.includes("nostr-tools") ||
+              id.includes("@noble") ||
+              id.includes("@scure")
+            ) {
+              return "nostr";
+            }
             if (id.includes("html2canvas")) return "html2canvas";
-            if (id.includes("qrcode")) return "qrcode";
+            if (id.includes("qrcode") || id.includes("dijkstrajs")) return "qrcode";
             if (id.includes("@tauri-apps")) return "tauri";
             if (id.includes("react-router")) return "router";
             if (id.includes("hls.js")) return "hls";
