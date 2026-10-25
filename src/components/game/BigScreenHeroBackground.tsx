@@ -38,13 +38,11 @@
 // target image is already decoded + painted before opacity flips,
 // preventing a one-frame FOUC.
 //
-// Pause-on-focus (deferred)
-// ─────────────────────────
-// Cycle runs continuously. We considered pausing on `data-focused`
-// inside the hero-actions row to give the player time to read the
-// hero before the BG flips, but the cycle interval (14s) is long
-// enough that it never feels rushed. If feedback proves otherwise,
-// add a `paused` prop and have the parent bubble focus state.
+// Pause contract
+// ──────────────
+// `paused` freezes the cycle tick and the Ken-Burns drift (the CSS reads
+// `data-paused`), so a page can hold the art still while the player reads
+// the hero. The parent passes it for the landing tab.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
@@ -68,11 +66,10 @@ interface BigScreenHeroBackgroundProps {
   /** Cross-fade duration in ms. Defaults to 1500. */
   fadeMs?: number;
   /**
-   * Pause the auto-cycle (and freeze the Ken-Burns keyframe via
-   * `data-paused`). The "video" mode is unaffected — a paused
-   * video would just stop playing, which is rarely what the user
-   * wants when reading the hero. Phase 5 polish will wire this to
-   * hero-actions focus so the cycle freezes while the user reads.
+   * Hold the ambient motion still: the cycle stops ticking, the
+   * Ken-Burns drift freezes (the CSS reads `data-paused`) and a
+   * background video pauses. An APNG / animated WebP layer keeps
+   * playing — the format has no pause.
    */
   paused?: boolean;
 }
@@ -193,7 +190,15 @@ export default function BigScreenHeroBackground({
   }
 
   if (mode === "single-shot") {
-    return <CycleBackground shots={screenshots!.slice(0, 1)} cycleMs={cycleMs} fadeMs={fadeMs} reducedMotion />;
+    return (
+      <CycleBackground
+        shots={screenshots!.slice(0, 1)}
+        cycleMs={cycleMs}
+        fadeMs={fadeMs}
+        paused={paused}
+        reducedMotion
+      />
+    );
   }
 
   if (mode === "banner") {
@@ -408,7 +413,12 @@ function CycleBackground({
   // ── Single static slide (no cycle) ──────────────────────
   if (shots.length === 1) {
     return (
-      <div className="bigscreen-gamepage-hero-bg-cycle" aria-hidden>
+      <div
+        className="bigscreen-gamepage-hero-bg-cycle"
+        data-slides="1"
+        data-paused={paused ? "true" : undefined}
+        aria-hidden
+      >
         <div className="bigscreen-gamepage-hero-bg-slide bigscreen-gamepage-hero-bg-slide--even bigscreen-gamepage-hero-bg-slide--visible">
           <img src={shots[0]} alt="" decoding="async" />
         </div>
@@ -419,6 +429,7 @@ function CycleBackground({
   return (
     <div
       className="bigscreen-gamepage-hero-bg-cycle"
+      data-slides={shots.length}
       data-paused={paused ? "true" : undefined}
       aria-hidden
     >

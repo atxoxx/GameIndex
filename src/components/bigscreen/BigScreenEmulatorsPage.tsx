@@ -367,7 +367,7 @@ function EmulatorTile({
   const focusProps = useFocusable(onSelect);
 
   return (
-    <button type="button" className="bigscreen-game-card" {...focusProps}>
+    <button type="button" className="bigscreen-game-card bigscreen-game-card--button" {...focusProps}>
       <div className="bigscreen-game-card-cover">
         <div className="bigscreen-game-card-cover-logo">
           {row.logo ? (
@@ -444,15 +444,9 @@ function RomRow({
           {rom.sizeBytes ? formatBytesShort(rom.sizeBytes) : "—"}
         </span>
         <span
-          className="bigscreen-option-badge"
-          style={{
-            background: running
-              ? "color-mix(in srgb, var(--bigscreen-success) 18%, transparent)"
-              : "color-mix(in srgb, var(--bigscreen-text) 8%, transparent)",
-            color: running
-              ? "var(--bigscreen-success-soft)"
-              : "color-mix(in srgb, var(--bigscreen-text) 50%, transparent)",
-          }}
+          className={`bigscreen-option-badge ${
+            running ? "bigscreen-option-badge--on" : "bigscreen-option-badge--off"
+          }`}
         >
           {running ? t("bigscreen.emulators.running") : t("emulators.games.launch")}
         </span>

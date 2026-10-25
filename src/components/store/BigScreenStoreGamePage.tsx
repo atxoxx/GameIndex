@@ -398,6 +398,7 @@ export default function BigScreenStoreGamePage() {
           paused={activeTab === "overview"}
         />
         <div className="bigscreen-gamepage-hero-mask" aria-hidden />
+        <div className="bigscreen-gamepage-hero-tint" aria-hidden />
         <div className="bigscreen-gamepage-hero-glow" aria-hidden />
 
         <div className="bigscreen-gamepage-hero-content">
@@ -413,120 +414,123 @@ export default function BigScreenStoreGamePage() {
             <span>{t("nav.store")}</span>
           </button>
 
-          <div className="bigscreen-gamepage-hero-info">
-            {(() => {
-              const effectiveLogo = game.logoUrl || (resolvedSteamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${resolvedSteamAppId}/logo.png` : null);
-              return effectiveLogo && !logoError ? (
-                <img
-                  src={effectiveLogo}
-                  alt={game.name}
-                  className="bigscreen-gamepage-hero-logo"
-                  width={480}
-                  height={140}
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <h1 className="bigscreen-gamepage-hero-title">{game.name}</h1>
-              );
-            })()}
-            <div className="bigscreen-gamepage-hero-subtitle-row">
-              {game.developer && (
-                <span className="bigscreen-gamepage-hero-subtitle">{game.developer}</span>
+          <div className="bigscreen-gamepage-hero-main">
+            <div className="bigscreen-gamepage-hero-info">
+              {(() => {
+                const effectiveLogo = game.logoUrl || (resolvedSteamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${resolvedSteamAppId}/logo.png` : null);
+                return effectiveLogo && !logoError ? (
+                  <img
+                    src={effectiveLogo}
+                    alt={game.name}
+                    className="bigscreen-gamepage-hero-logo"
+                    width={480}
+                    height={140}
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <h1 className="bigscreen-gamepage-hero-title">{game.name}</h1>
+                );
+              })()}
+              <div className="bigscreen-gamepage-hero-subtitle-row">
+                {game.developer && (
+                  <span className="bigscreen-gamepage-hero-subtitle">{game.developer}</span>
+                )}
+                {releaseYear && <span className="bigscreen-gamepage-hero-subtitle-dot" />}
+                {releaseYear && (
+                  <span className="bigscreen-gamepage-hero-subtitle">{releaseYear}</span>
+                )}
+              </div>
+
+              {/* Identity lives in the hero with the rest of the copy, so
+                  a centred preset can centre the whole block. */}
+              <BigScreenMetaStrip aria-label={t("bigscreen.store.gameMetadata")} className="bigscreen-gamepage-meta-strip-inline">
+                <BigScreenPill tone="accent" size="sm">
+                  {game.platform}
+                </BigScreenPill>
+                {resolvedSteamAppId != null && (
+                  <BigScreenPill tone="muted" size="sm">
+                    <PlayerCountBadge appId={resolvedSteamAppId} interactive={false} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteam")}
+                  </BigScreenPill>
+                )}
+                {rating != null && rating > 0 && (
+                  <BigScreenPill tone="muted" size="sm" icon={
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="14" height="14">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                  }>
+                    {t("bigscreen.store.pctRating", { pct: Math.round(rating) })}
+                  </BigScreenPill>
+                )}
+              </BigScreenMetaStrip>
+            </div>
+
+            <div className="bigscreen-gamepage-hero-actions">
+              <button
+                type="button"
+                className="bigscreen-details-btn bigscreen-details-btn--primary"
+                data-primary-action="true"
+                {...focusableAction}
+                disabled={adding}
+              >
+                {isInLibrary ? (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>{t("store.inLibrary")}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                     <span>{adding ? t("store.adding") : t("store.addToLibrary")}</span>
+                  </>
+                )}
+              </button>
+
+              {!isInLibrary && (
+                <button
+                  type="button"
+                  className="bigscreen-details-btn bigscreen-details-btn--secondary"
+                  {...focusableDownload}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20" aria-hidden>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <span>{t("game.findDownload")}</span>
+                </button>
               )}
-              {releaseYear && <span className="bigscreen-gamepage-hero-subtitle-dot" />}
-              {releaseYear && (
-                <span className="bigscreen-gamepage-hero-subtitle">{releaseYear}</span>
+
+              {playableTrailer && (
+                <button
+                  type="button"
+                  className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-gamepage-hero-btn--trailer"
+                  {...focusableTrailer}
+                  aria-label={t("game.watchTrailer")}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
+                    <polygon points="6 4 20 12 6 20 6 4" />
+                  </svg>
+                  <span>{t("game.trailer")}</span>
+                </button>
+              )}
+
+              {downloadOpen && (
+                <DownloadModal
+                  gameName={game.name}
+                  gamePoster={game.bannerUrl ?? game.coverArtUrl}
+                  steamAppId={resolvedSteamAppId || undefined}
+                  onClose={() => setDownloadOpen(false)}
+                />
               )}
             </div>
           </div>
-
-          <div className="bigscreen-gamepage-hero-actions">
-            <button
-              type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--primary"
-              data-primary-action="true"
-              {...focusableAction}
-              disabled={adding}
-            >
-              {isInLibrary ? (
-                <>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span>{t("store.inLibrary")}</span>
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                   <span>{adding ? t("store.adding") : t("store.addToLibrary")}</span>
-                </>
-              )}
-            </button>
-
-            {!isInLibrary && (
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--secondary"
-                {...focusableDownload}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20" aria-hidden>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span>{t("game.findDownload")}</span>
-              </button>
-            )}
-
-            {playableTrailer && (
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--secondary"
-                {...focusableTrailer}
-                aria-label={t("game.watchTrailer")}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
-                  <polygon points="6 4 20 12 6 20 6 4" />
-                </svg>
-                <span>{t("game.trailer")}</span>
-              </button>
-            )}
-
-            {downloadOpen && (
-              <DownloadModal
-                gameName={game.name}
-                gamePoster={game.bannerUrl ?? game.coverArtUrl}
-                steamAppId={resolvedSteamAppId || undefined}
-                onClose={() => setDownloadOpen(false)}
-              />
-            )}
-          </div>
         </div>
       </section>
-
-      {/* ── Metadata pills ── */}
-      <BigScreenMetaStrip aria-label={t("bigscreen.store.gameMetadata")} className="bigscreen-gamepage-meta-strip">
-        <BigScreenPill tone="accent" size="md">
-          {game.platform}
-        </BigScreenPill>
-        {resolvedSteamAppId != null && (
-          <BigScreenPill tone="muted" size="md">
-            <PlayerCountBadge appId={resolvedSteamAppId} interactive={false} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteam")}
-          </BigScreenPill>
-        )}
-        {rating != null && rating > 0 && (
-          <BigScreenPill tone="muted" size="md" icon={
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="14" height="14">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          }>
-            {t("bigscreen.store.pctRating", { pct: Math.round(rating) })}
-          </BigScreenPill>
-        )}
-      </BigScreenMetaStrip>
 
       {/* ── Tab bar ── */}
       <BigScreenTabBar

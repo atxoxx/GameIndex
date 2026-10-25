@@ -32,22 +32,19 @@ import { useLocation } from "react-router-dom";
 import type { Game } from "../../types/game";
 import BigScreenGameCard from "../library/BigScreenGameCard";
 import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
-import { scrollElementIntoViewControlled } from "../../hooks/gamepad/gamepadUtils";
+import { scrollElementIntoViewControlled, scrollMargins } from "../../hooks/gamepad/gamepadUtils";
 import { parseFocusGameKey, recallFocus } from "../../utils/focusMemory";
 import "../../library.css";
 
 const VIRTUALIZE_THRESHOLD = 36;
 
-/** `.bigscreen-library-grid` column floor: `minmax(170px, 1fr)`. */
-const CARD_MIN_WIDTH = 170;
-/** `.bigscreen-library-grid` row gap (28px). */
-const GAP = 28;
+/** Fallbacks used until the painted grid reports its real geometry. */
+const FALLBACK_COL_WIDTH = 170;
+const FALLBACK_GAP = 28;
 /** Default 2:3 card height at 170px wide; re-measured at runtime. */
 const DEFAULT_CARD_HEIGHT = 255;
 /** Rows of overscan mounted above/below the visible window. */
 const OVERSCAN = 2;
-/** Scroll inset used to land the restored row near the top. */
-const FOCUS_SCROLL_MARGIN = 120;
 
 interface GameGridProps {
   /** Filtered/sorted games to render in the grid. */
@@ -67,6 +64,8 @@ export default function GameGrid({
   const [viewportH, setViewportH] = useState(0);
   const [containerW, setContainerW] = useState(0);
   const [cardH, setCardH] = useState(DEFAULT_CARD_HEIGHT);
+  const [colW, setColW] = useState(FALLBACK_COL_WIDTH);
+  const [gap, setGap] = useState(FALLBACK_GAP);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastFocusedIdRef = useRef<string | null>(null);
   const prevKeyRef = useRef<string | null>(null);
@@ -87,8 +86,20 @@ export default function GameGrid({
     const rect = el.getBoundingClientRect();
     setViewportH(rect.height);
     setContainerW(rect.width);
-    // Measure a painted card so the row stride survives the
-    // rem-scaled density pass / breakpoint card sizes.
+
+    // Read the painted grid instead of assuming a card size: the
+    // layout preset owns the column width, gap and aspect ratio, so a
+    // preset swap re-shapes the grid without touching this file.
+    const grid = el.querySelector<HTMLElement>(".bigscreen-library-grid");
+    if (grid) {
+      const cs = getComputedStyle(grid);
+      const columnGap = parseFloat(cs.columnGap) || FALLBACK_GAP;
+      const rowGap = parseFloat(cs.rowGap) || columnGap;
+      const firstTrack = parseFloat((cs.gridTemplateColumns || "").split(" ")[0] ?? "");
+      if (Number.isFinite(firstTrack) && firstTrack > 0) setColW(firstTrack);
+      setGap(rowGap);
+    }
+
     const card = el.querySelector<HTMLElement>(".bigscreen-game-card");
     if (card) {
       const h = card.getBoundingClientRect().height;
@@ -107,6 +118,10 @@ export default function GameGrid({
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    // The cards resize with the layout preset (aspect + column width),
+    // and the preset can change without the container resizing.
+    const grid = el.querySelector<HTMLElement>(".bigscreen-library-grid");
+    if (grid) ro.observe(grid);
 
     const onScroll = () => setScrollTop(Math.max(0, el.scrollTop));
     onScroll();
@@ -142,17 +157,17 @@ export default function GameGrid({
       if (!useVirtual) return;
       const idx = games.findIndex((g) => g.id === id);
       if (idx < 0) return;
-      const cols = Math.max(1, Math.floor((containerW + GAP) / (CARD_MIN_WIDTH + GAP)));
-      const rowStride = cardH + GAP;
+      const cols = Math.max(1, Math.floor((containerW + gap) / (colW + gap)));
+      const rowStride = cardH + gap;
       const row = Math.floor(idx / cols);
-      root.scrollTop = Math.max(0, row * rowStride - FOCUS_SCROLL_MARGIN);
+      root.scrollTop = Math.max(0, row * rowStride - scrollMargins().top);
       requestAnimationFrame(() => {
         const mounted = root.querySelector<HTMLElement>(selector);
         mounted?.focus({ preventScroll: true });
         if (mounted) scrollElementIntoViewControlled(mounted);
       });
     },
-    [games, useVirtual, containerW, cardH],
+    [games, useVirtual, containerW, cardH, colW, gap],
   );
 
   // Focus restore on list change.
@@ -250,10 +265,10 @@ export default function GameGrid({
     );
   }
 
-  const cols = Math.max(1, Math.floor((containerW + GAP) / (CARD_MIN_WIDTH + GAP)));
-  const rowStride = cardH + GAP;
+  const cols = Math.max(1, Math.floor((containerW + gap) / (colW + gap)));
+  const rowStride = cardH + gap;
   const rowCount = Math.ceil(games.length / cols);
-  const totalHeight = rowCount * cardH + (rowCount - 1) * GAP;
+  const totalHeight = rowCount * cardH + (rowCount - 1) * gap;
 
   const firstRow = Math.max(0, Math.floor(scrollTop / rowStride) - OVERSCAN);
   const visibleRows = Math.ceil(viewportH / rowStride) + OVERSCAN * 2;

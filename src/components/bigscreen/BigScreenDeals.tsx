@@ -1,10 +1,17 @@
+// Deals — one of the three Discover areas.
+//
+// The area tab strip (DiscoverTabs) owns the top; everything below it is
+// the page body. Game Pass, ITAD discounts and giveaways all live on the
+// page (no sub-tabs), so the three feeds load in parallel and each rail
+// keeps its own error surface instead of blanking out its neighbours.
+
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
-import BigScreenCover from "./BigScreenCover";
 import BigScreenRailSection from "./BigScreenRailSection";
+import DiscoverTabs from "./DiscoverTabs";
 import {
   BigScreenEmptyState,
   BigScreenErrorState,
@@ -31,8 +38,8 @@ export default function BigScreenDeals() {
   const [selectedDeal, setSelectedDeal] = useState<DealItem | null>(null);
   const [selectedGiveaway, setSelectedGiveaway] = useState<Giveaway | null>(null);
 
-  // Top-level section: controller Back is owned by the shell resolver,
-  // which offers the exit confirmation at this level.
+  // Discover area route: controller Back is owned by the shell resolver,
+  // which returns to the hub at this level.
 
   const loadAll = useCallback(() => {
     setLoading(true);
@@ -76,9 +83,8 @@ export default function BigScreenDeals() {
     return Promise.allSettled([gamepassLoader(), dealsLoader(), giveawaysLoader()]);
   }, [t]);
 
-  // All three sections live on the page now (no tabs), so fire every
-  // fetch on mount in parallel. The single loading flag only clears
-  // once all of them have settled.
+  // All three sections live on the page, so fire every fetch on mount in
+  // parallel. The single loading flag only clears once all of them settle.
   useEffect(() => {
     let active = true;
     loadAll().then(() => {
@@ -99,120 +105,121 @@ export default function BigScreenDeals() {
   }, [loadAll]);
 
   return (
-    <div className="bigscreen-store-dashboard">
-      {/* Background Hero Banner */}
-      <div className="bigscreen-hero-backdrop">
-        {selectedGamepass?.coverImage ? (
-          <img src={selectedGamepass.coverImage} alt="" className="bigscreen-hero-bg-img" />
-        ) : selectedGiveaway?.imageUrl ? (
-          <img src={selectedGiveaway.imageUrl} alt="" className="bigscreen-hero-bg-img" />
-        ) : null}
-        <div className="bigscreen-hero-overlay" />
-      </div>
+    <div className="bs-discover-page">
+      <DiscoverTabs />
 
-      <div className="bigscreen-dashboard-scrollable-content bigscreen-deals-content">
-        {/* Spotlight Hero Section — Game Pass is the page's default/first
-            section, so it owns the hero; deals and giveaways only step in
-            if no Game Pass selection has loaded yet. */}
-        {selectedGamepass ? (
-          <div className="bigscreen-spotlight-hero">
-            <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge bigscreen-badge--success">
-                {t("bigscreen.deals.xboxGamePass")}
-              </span>
-              <h1 className="bigscreen-spotlight-title">
-                {selectedGamepass.title}
-              </h1>
-              {selectedGamepass.categories && selectedGamepass.categories.length > 0 && (
-                <p className="bigscreen-spotlight-meta">
-                  {selectedGamepass.categories.join(" • ")}
-                </p>
-              )}
-            </div>
+      <div className="bs-discover-page-body">
+        <div className="bigscreen-store-dashboard bigscreen-deals-page">
+          {/* Ambient art for the hero below. */}
+          <div className="bigscreen-hero-backdrop" aria-hidden="true">
+            {selectedGamepass?.coverImage ? (
+              <img src={selectedGamepass.coverImage} alt="" className="bigscreen-hero-bg-img" />
+            ) : selectedGiveaway?.imageUrl ? (
+              <img src={selectedGiveaway.imageUrl} alt="" className="bigscreen-hero-bg-img" />
+            ) : null}
+            <div className="bigscreen-hero-overlay" />
           </div>
-        ) : selectedDeal ? (
-          <div className="bigscreen-spotlight-hero">
-            <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge bigscreen-badge--danger">
-                {t("bigscreen.deals.discountBadge", { pct: selectedDeal.discountPercent })}
-              </span>
-              <h1 className="bigscreen-spotlight-title">
-                {selectedDeal.gameTitle}
-              </h1>
-              <div className="bigscreen-spotlight-price-row">
-                <span className="bigscreen-spotlight-price">{formatPrice(selectedDeal.dealPrice, language)}</span>
-                <span className="bigscreen-spotlight-store">
-                  {t("bigscreen.deals.onStore", { store: selectedDeal.storeName })}
-                </span>
-              </div>
-            </div>
+
+          <div className="bigscreen-dashboard-scrollable-content bigscreen-deals-content">
+            {/* Spotlight hero — Game Pass is the page's first section, so it
+                owns the hero; deals and giveaways only step in if no Game
+                Pass selection has loaded yet. */}
+            {selectedGamepass ? (
+              <section className="bigscreen-spotlight-hero">
+                <div className="bigscreen-spotlight-info">
+                  <span className="bigscreen-badge bigscreen-badge--success">
+                    {t("bigscreen.deals.xboxGamePass")}
+                  </span>
+                  <h1 className="bigscreen-spotlight-title">{selectedGamepass.title}</h1>
+                  {selectedGamepass.categories && selectedGamepass.categories.length > 0 && (
+                    <p className="bigscreen-spotlight-meta">
+                      {selectedGamepass.categories.join(" • ")}
+                    </p>
+                  )}
+                </div>
+              </section>
+            ) : selectedDeal ? (
+              <section className="bigscreen-spotlight-hero">
+                <div className="bigscreen-spotlight-info">
+                  <span className="bigscreen-badge bigscreen-badge--danger">
+                    {t("bigscreen.deals.discountBadge", { pct: selectedDeal.discountPercent })}
+                  </span>
+                  <h1 className="bigscreen-spotlight-title">{selectedDeal.gameTitle}</h1>
+                  <div className="bigscreen-spotlight-price-row">
+                    <span className="bigscreen-spotlight-price">
+                      {formatPrice(selectedDeal.dealPrice, language)}
+                    </span>
+                    <span className="bigscreen-spotlight-store">
+                      {t("bigscreen.deals.onStore", { store: selectedDeal.storeName })}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            ) : selectedGiveaway ? (
+              <section className="bigscreen-spotlight-hero">
+                <div className="bigscreen-spotlight-info">
+                  <span className="bigscreen-badge bigscreen-badge--info">
+                    {t("bigscreen.deals.freeGiveawayBadge")}
+                  </span>
+                  <h1 className="bigscreen-spotlight-title">{selectedGiveaway.title}</h1>
+                  <p className="bigscreen-spotlight-meta">
+                    {t("bigscreen.deals.freeOnStore", { store: selectedGiveaway.storeName })}
+                  </p>
+                </div>
+              </section>
+            ) : null}
+
+            {/* One page-level loading surface: the three feeds settle
+                together, so three stacked spinners would only add noise. */}
+            {loading ? (
+              <BigScreenLoadingState message={t("bigscreen.deals.loadingDeals")} />
+            ) : (
+              <>
+                <DealsRail
+                  railId="deals-gamepass"
+                  title={t("bigscreen.deals.gamepassTitles")}
+                  error={gamepass.error}
+                  empty={gamepass.items.length === 0}
+                  emptyMessage={t("bigscreen.deals.noGamepass")}
+                  onRetry={retry}
+                  items={gamepass.items}
+                  renderItem={(game) => (
+                    <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
+                  )}
+                  itemKey={(game) => game.id}
+                />
+
+                <DealsRail
+                  railId="deals-discounts"
+                  title={t("bigscreen.deals.topDiscounts")}
+                  error={deals.error}
+                  empty={deals.items.length === 0}
+                  emptyMessage={t("bigscreen.deals.noDeals")}
+                  onRetry={retry}
+                  items={deals.items}
+                  renderItem={(deal) => (
+                    <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
+                  )}
+                  itemKey={(deal) => deal.id}
+                />
+
+                <DealsRail
+                  railId="deals-giveaways"
+                  title={t("bigscreen.deals.freeGamesTitle")}
+                  error={giveaways.error}
+                  empty={giveaways.items.length === 0}
+                  emptyMessage={t("bigscreen.deals.noGiveaways")}
+                  onRetry={retry}
+                  items={giveaways.items}
+                  renderItem={(giveaway) => (
+                    <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
+                  )}
+                  itemKey={(giveaway) => giveaway.id}
+                />
+              </>
+            )}
           </div>
-        ) : selectedGiveaway ? (
-          <div className="bigscreen-spotlight-hero">
-            <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge bigscreen-badge--info">
-                {t("bigscreen.deals.freeGiveawayBadge")}
-              </span>
-              <h1 className="bigscreen-spotlight-title">
-                {selectedGiveaway.title}
-              </h1>
-              <p className="bigscreen-spotlight-meta">
-                {t("bigscreen.deals.freeOnStore", { store: selectedGiveaway.storeName })}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Game Pass section */}
-        <DealsRail
-          railId="deals-gamepass"
-          title={t("bigscreen.deals.gamepassTitles")}
-          loading={loading}
-          error={gamepass.error}
-          empty={gamepass.items.length === 0}
-          emptyMessage={t("bigscreen.deals.noGamepass")}
-          loadingMessage={t("bigscreen.deals.loadingGamepass")}
-          onRetry={retry}
-          items={gamepass.items}
-          renderItem={(game) => (
-            <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
-          )}
-          itemKey={(game) => game.id}
-        />
-
-        {/* Deals section */}
-        <DealsRail
-          railId="deals-discounts"
-          title={t("bigscreen.deals.topDiscounts")}
-          loading={loading}
-          error={deals.error}
-          empty={deals.items.length === 0}
-          emptyMessage={t("bigscreen.deals.noDeals")}
-          loadingMessage={t("bigscreen.deals.loadingDeals")}
-          onRetry={retry}
-          items={deals.items}
-          renderItem={(deal) => (
-            <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
-          )}
-          itemKey={(deal) => deal.id}
-        />
-
-        {/* Giveaways section */}
-        <DealsRail
-          railId="deals-giveaways"
-          title={t("bigscreen.deals.freeGamesTitle")}
-          loading={loading}
-          error={giveaways.error}
-          empty={giveaways.items.length === 0}
-          emptyMessage={t("bigscreen.deals.noGiveaways")}
-          loadingMessage={t("bigscreen.deals.loadingGiveaways")}
-          onRetry={retry}
-          items={giveaways.items}
-          renderItem={(giveaway) => (
-            <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
-          )}
-          itemKey={(giveaway) => giveaway.id}
-        />
+        </div>
       </div>
     </div>
   );
@@ -221,10 +228,8 @@ export default function BigScreenDeals() {
 interface DealsRailProps<T> {
   railId: string;
   title: string;
-  loading: boolean;
   error: string | null;
   empty: boolean;
-  loadingMessage: string;
   emptyMessage: string;
   onRetry: () => void;
   items: T[];
@@ -237,19 +242,14 @@ interface DealsRailProps<T> {
 function DealsRail<T>({
   railId,
   title,
-  loading,
   error,
   empty,
-  loadingMessage,
   emptyMessage,
   onRetry,
   items,
   renderItem,
   itemKey,
 }: DealsRailProps<T>) {
-  if (loading) {
-    return <BigScreenLoadingState message={loadingMessage} />;
-  }
   if (error) {
     return <BigScreenErrorState message={error} onRetry={onRetry} />;
   }
@@ -267,15 +267,53 @@ function DealsRail<T>({
   );
 }
 
+/** Poster-sized cover shared by the three deal card shapes. */
+function DealCover({ url, alt }: { url?: string; alt: string }) {
+  return (
+    <div className="bigscreen-game-card-cover">
+      {url ? (
+        <img
+          className="bigscreen-game-card-cover-static"
+          src={url}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <div className="bigscreen-game-card-cover-placeholder">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            width="44"
+            height="44"
+            aria-hidden="true"
+          >
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GamePassCard({ game, onSelect }: { game: GamePassGame; onSelect: () => void }) {
   const focusProps = useFocusable(onSelect);
   return (
-    <div className="bigscreen-game-card" {...focusProps} role="button">
-      <BigScreenCover url={game.coverImage || undefined} alt={game.title} aspectRatio="2 / 3" />
-      <div className="bigscreen-card-meta">
-        <h4 className="bigscreen-card-title">{game.title}</h4>
+    <div
+      className="bigscreen-game-card"
+      {...focusProps}
+      role="button"
+      data-focus-key={`deals:gamepass:${game.id}`}
+    >
+      <DealCover url={game.coverImage || undefined} alt={game.title} />
+      <div className="bigscreen-game-card-body">
+        <h4 className="bigscreen-game-card-name">{game.title}</h4>
         {game.categories && game.categories.length > 0 && (
-          <span className="bigscreen-card-subtitle">{game.categories[0]}</span>
+          <div className="bigscreen-game-card-meta">
+            <span className="bigscreen-game-card-platform">{game.categories[0]}</span>
+          </div>
         )}
       </div>
     </div>
@@ -296,13 +334,18 @@ function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) 
   });
 
   return (
-    <div className="bigscreen-game-card" {...focusProps} role="link">
-      <BigScreenCover url={item.thumbnail || undefined} alt={item.gameTitle} aspectRatio="2 / 3" />
-      <div className="bigscreen-card-meta">
-        <h4 className="bigscreen-card-title">{item.gameTitle}</h4>
-        <div className="bigscreen-card-deal-row">
-          <span className="bigscreen-card-price">{formatPrice(item.dealPrice, language)}</span>
-          <span className="bigscreen-card-discount">-{item.discountPercent}%</span>
+    <div
+      className="bigscreen-game-card"
+      {...focusProps}
+      role="link"
+      data-focus-key={`deals:deal:${item.id}`}
+    >
+      <DealCover url={item.thumbnail || undefined} alt={item.gameTitle} />
+      <div className="bigscreen-game-card-body">
+        <h4 className="bigscreen-game-card-name">{item.gameTitle}</h4>
+        <div className="bigscreen-game-card-meta bigscreen-deal-price-row">
+          <span className="bigscreen-deal-price">{formatPrice(item.dealPrice, language)}</span>
+          <span className="bigscreen-deal-discount">-{item.discountPercent}%</span>
         </div>
       </div>
     </div>
@@ -323,15 +366,21 @@ function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void
   });
 
   return (
-    <div className="bigscreen-game-card" {...focusProps} role="link">
-      <BigScreenCover url={item.imageUrl || undefined} alt={item.title} aspectRatio="2 / 3" />
-      <div className="bigscreen-card-meta">
-        <h4 className="bigscreen-card-title">{item.title}</h4>
-        <span className="bigscreen-card-free">
-          {t("bigscreen.deals.freeStoreBadge", { store: item.storeName })}
-        </span>
+    <div
+      className="bigscreen-game-card"
+      {...focusProps}
+      role="link"
+      data-focus-key={`deals:giveaway:${item.id}`}
+    >
+      <DealCover url={item.imageUrl || undefined} alt={item.title} />
+      <div className="bigscreen-game-card-body">
+        <h4 className="bigscreen-game-card-name">{item.title}</h4>
+        <div className="bigscreen-game-card-meta">
+          <span className="bigscreen-deal-free">
+            {t("bigscreen.deals.freeStoreBadge", { store: item.storeName })}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
-

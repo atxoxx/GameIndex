@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import BigScreenNews from "./BigScreenNews";
 
 vi.mock("../../context/NewsContext", () => ({
@@ -26,12 +27,19 @@ vi.mock("../../context/LanguageContext", () => ({
   useLanguage: () => ({ t: (key: string) => key }),
 }));
 vi.mock("../../hooks/GamepadProvider", () => ({
-  useGamepad: () => ({ registerAction: () => () => {} }),
+  useGamepad: () => ({
+    registerAction: () => () => {},
+    registerTabCycler: () => () => {},
+  }),
 }));
 
 describe("BigScreenNews article card", () => {
   it("announces itself as a button and nests no other control", () => {
-    render(<BigScreenNews />);
+    render(
+      <MemoryRouter>
+        <BigScreenNews />
+      </MemoryRouter>,
+    );
 
     const card = screen.getByRole("button", { name: /Headline one/ });
     expect(card.querySelectorAll("button")).toHaveLength(0);
@@ -41,7 +49,11 @@ describe("BigScreenNews article card", () => {
   });
 
   it("opens the reader when activated", () => {
-    const { container } = render(<BigScreenNews />);
+    const { container } = render(
+      <MemoryRouter>
+        <BigScreenNews />
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Headline one/ }));
 

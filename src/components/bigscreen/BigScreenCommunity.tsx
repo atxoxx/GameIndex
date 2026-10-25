@@ -1,3 +1,10 @@
+// Community — one of the three Discover areas.
+//
+// Library-wide play stats as a KPI row, then most-played games beside the
+// genre/platform breakdowns. Read-only until the Top Played rows, which
+// open a game's library page. One scroll region (the page body); the
+// panels themselves never scroll.
+
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
@@ -6,6 +13,7 @@ import { useAchievements } from "../../context/AchievementContext";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { gameDisplayName } from "../../types/game";
+import DiscoverTabs from "./DiscoverTabs";
 
 function formatHours(totalMinutes: number): string {
   if (!totalMinutes || totalMinutes <= 0) return "0m";
@@ -32,12 +40,12 @@ export default function BigScreenCommunity() {
     [achStats]
   );
 
-  // Total achievements completion %
   const achievementPct = achievementCounts.total > 0
     ? Math.round((achievementCounts.unlocked / achievementCounts.total) * 100)
     : 0;
 
-  // Ranked top games (most played)
+  // Ranked top games (most played), with each game's share of the most
+  // played title so the row can carry a comparison bar.
   const topGames = useMemo(() => {
     const maxMin = stats.topGames.length > 0 ? stats.topGames[0].minutes : 0;
     return stats.topGames.map((g) => {
@@ -53,114 +61,138 @@ export default function BigScreenCommunity() {
   }, [stats.topGames, games]);
 
   return (
-    <div className="bigscreen-community-page">
-      <h2>{t("bigscreen.community.gamerStats")}</h2>
+    <div className="bs-discover-page">
+      <DiscoverTabs />
 
-      {/* KPI Cards Row — informational tiles (not focusable) */}
-      <div className="bigscreen-gamepage-2col bigscreen-kpi-grid" data-cols="4">
-        <div className="bigscreen-kpi-card">
-          <span className="bigscreen-kpi-label">{t("bigscreen.community.totalPlaytime")}</span>
-          <span className="bigscreen-kpi-value bigscreen-kpi-value--accent">{formatHours(stats.totalPlayTimeMin)}</span>
-          <span className="bigscreen-kpi-sub">{t("bigscreen.community.acrossLaunches")}</span>
-        </div>
+      <div className="bs-discover-page-body">
+        <div className="bigscreen-community-page">
+          <header className="bigscreen-community-head">
+            <h2 className="bigscreen-community-title">
+              {t("bigscreen.community.gamerStats")}
+            </h2>
+          </header>
 
-        <div className="bigscreen-kpi-card">
-          <span className="bigscreen-kpi-label">{t("bigscreen.community.achievements")}</span>
-          <span className="bigscreen-kpi-value bigscreen-kpi-value--success">{achievementCounts.unlocked} / {achievementCounts.total}</span>
-          <span className="bigscreen-kpi-sub">{achievementPct}{t("bigscreen.community.pctUnlocked")}</span>
-        </div>
-
-        <div className="bigscreen-kpi-card">
-          <span className="bigscreen-kpi-label">{t("bigscreen.community.librarySize")}</span>
-          <span className="bigscreen-kpi-value">{games.length} {t("bigscreen.friends.games")}</span>
-          <span className="bigscreen-kpi-sub">{t("bigscreen.community.importedFrom")}</span>
-        </div>
-
-        <div className="bigscreen-kpi-card">
-          <span className="bigscreen-kpi-label">{t("bigscreen.community.launchActivity")}</span>
-          <span className="bigscreen-kpi-value bigscreen-kpi-value--warning">{sessions.length} {t("bigscreen.community.launches")}</span>
-          <span className="bigscreen-kpi-sub">{t("bigscreen.community.sessionsTracked")}</span>
-        </div>
-      </div>
-
-      {/* Main Grid: Left side Top Played, Right side breakdowns */}
-      <div className="bigscreen-gamepage-2col bigscreen-community-main-grid" data-cols="2">
-
-        {/* Top Played Games */}
-        <div className="bigscreen-panel-card">
-          <h3>{t("bigscreen.community.mostPlayed")}</h3>
-          {topGames.length === 0 ? (
-            <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noPlaytime")}</p>
-          ) : (
-            <div className="bigscreen-sessions-list" style={{ gap: "var(--space-lg)" }}>
-              {topGames.slice(0, 5).map((g) => (
-                <TopGameRow
-                  key={g.gameId}
-                  game={g}
-                  onOpen={() => navigate(`/library/${g.gameId}`)}
-                />
-              ))}
+          {/* KPI tiles — informational, deliberately not focusable. */}
+          <div className="bigscreen-gamepage-2col bigscreen-community-kpis" data-cols="4">
+            <div className="bigscreen-kpi-card">
+              <span className="bigscreen-kpi-label">{t("bigscreen.community.totalPlaytime")}</span>
+              <span className="bigscreen-kpi-value bigscreen-kpi-value--accent">
+                {formatHours(stats.totalPlayTimeMin)}
+              </span>
+              <span className="bigscreen-kpi-sub">{t("bigscreen.community.acrossLaunches")}</span>
             </div>
-          )}
-        </div>
 
-        {/* Breakdown by Genre and Platform */}
-        <div className="bigscreen-sessions-list" style={{ gap: "var(--space-xl)", width: "100%" }}>
-          <div className="bigscreen-panel-card">
-            <h3>{t("bigscreen.community.playtimeByGenre")}</h3>
-            {stats.genreBreakdown.length === 0 ? (
-              <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noGenres")}</p>
-            ) : (
-              <div className="bigscreen-breakdown-list">
-                {stats.genreBreakdown.slice(0, 5).map((gen) => (
-                  <div key={gen.genre} className="bigscreen-breakdown-row">
-                    <div className="bigscreen-breakdown-header">
-                      <span className="bigscreen-breakdown-name">{gen.genre}</span>
-                      <span className="bigscreen-breakdown-value">{formatHours(gen.minutes)}</span>
-                    </div>
-                    <div className="bigscreen-breakdown-track">
-                      <div
-                        className="bigscreen-breakdown-fill bigscreen-breakdown-fill--accent"
-                        style={{ width: `${Math.min(100, (gen.minutes / stats.totalPlayTimeMin) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="bigscreen-kpi-card">
+              <span className="bigscreen-kpi-label">{t("bigscreen.community.achievements")}</span>
+              <span className="bigscreen-kpi-value bigscreen-kpi-value--success">
+                {achievementCounts.unlocked} / {achievementCounts.total}
+              </span>
+              <span className="bigscreen-kpi-sub">
+                {achievementPct}{t("bigscreen.community.pctUnlocked")}
+              </span>
+            </div>
+
+            <div className="bigscreen-kpi-card">
+              <span className="bigscreen-kpi-label">{t("bigscreen.community.librarySize")}</span>
+              <span className="bigscreen-kpi-value">
+                {games.length} {t("bigscreen.friends.games")}
+              </span>
+              <span className="bigscreen-kpi-sub">{t("bigscreen.community.importedFrom")}</span>
+            </div>
+
+            <div className="bigscreen-kpi-card">
+              <span className="bigscreen-kpi-label">{t("bigscreen.community.launchActivity")}</span>
+              <span className="bigscreen-kpi-value bigscreen-kpi-value--warning">
+                {sessions.length} {t("bigscreen.community.launches")}
+              </span>
+              <span className="bigscreen-kpi-sub">{t("bigscreen.community.sessionsTracked")}</span>
+            </div>
           </div>
 
-          <div className="bigscreen-panel-card">
-            <h3>{t("bigscreen.community.playtimeByPlatform")}</h3>
-            {stats.platformBreakdown.length === 0 ? (
-              <p className="bigscreen-kpi-sub" style={{ fontSize: "var(--text-sm)" }}>{t("bigscreen.community.noPlatforms")}</p>
-            ) : (
-              <div className="bigscreen-breakdown-list">
-                {stats.platformBreakdown.slice(0, 5).map((plat) => (
-                  <div key={plat.platform} className="bigscreen-breakdown-row">
-                    <div className="bigscreen-breakdown-header">
-                      <span className="bigscreen-breakdown-name">{plat.platform}</span>
-                      <span className="bigscreen-breakdown-value">{formatHours(plat.minutes)}</span>
-                    </div>
-                    <div className="bigscreen-breakdown-track">
-                      <div
-                        className="bigscreen-breakdown-fill bigscreen-breakdown-fill--warning"
-                        style={{ width: `${Math.min(100, (plat.minutes / stats.totalPlayTimeMin) * 100)}%` }}
-                      />
-                    </div>
+          {/* Most played on the left, breakdowns stacked on the right. */}
+          <div className="bigscreen-gamepage-2col bigscreen-community-main-grid" data-cols="2">
+            <div className="bigscreen-panel-card">
+              <h3>{t("bigscreen.community.mostPlayed")}</h3>
+              {topGames.length === 0 ? (
+                <p className="bigscreen-community-note">{t("bigscreen.community.noPlaytime")}</p>
+              ) : (
+                <div className="bigscreen-topgame-list">
+                  {topGames.slice(0, 5).map((g) => (
+                    <TopGameRow
+                      key={g.gameId}
+                      game={g}
+                      onOpen={() => navigate(`/library/${g.gameId}`)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bigscreen-community-column">
+              <div className="bigscreen-panel-card">
+                <h3>{t("bigscreen.community.playtimeByGenre")}</h3>
+                {stats.genreBreakdown.length === 0 ? (
+                  <p className="bigscreen-community-note">{t("bigscreen.community.noGenres")}</p>
+                ) : (
+                  <div className="bigscreen-breakdown-list">
+                    {stats.genreBreakdown.slice(0, 5).map((gen) => (
+                      <div key={gen.genre} className="bigscreen-breakdown-row">
+                        <div className="bigscreen-breakdown-header">
+                          <span className="bigscreen-breakdown-name">{gen.genre}</span>
+                          <span className="bigscreen-breakdown-value">
+                            {formatHours(gen.minutes)}
+                          </span>
+                        </div>
+                        <div className="bigscreen-breakdown-track">
+                          <div
+                            className="bigscreen-breakdown-fill bigscreen-breakdown-fill--accent"
+                            style={{
+                              width: `${Math.min(100, (gen.minutes / stats.totalPlayTimeMin) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
+
+              <div className="bigscreen-panel-card">
+                <h3>{t("bigscreen.community.playtimeByPlatform")}</h3>
+                {stats.platformBreakdown.length === 0 ? (
+                  <p className="bigscreen-community-note">{t("bigscreen.community.noPlatforms")}</p>
+                ) : (
+                  <div className="bigscreen-breakdown-list">
+                    {stats.platformBreakdown.slice(0, 5).map((plat) => (
+                      <div key={plat.platform} className="bigscreen-breakdown-row">
+                        <div className="bigscreen-breakdown-header">
+                          <span className="bigscreen-breakdown-name">{plat.platform}</span>
+                          <span className="bigscreen-breakdown-value">
+                            {formatHours(plat.minutes)}
+                          </span>
+                        </div>
+                        <div className="bigscreen-breakdown-track">
+                          <div
+                            className="bigscreen-breakdown-fill bigscreen-breakdown-fill--warning"
+                            style={{
+                              width: `${Math.min(100, (plat.minutes / stats.totalPlayTimeMin) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-
       </div>
     </div>
   );
 }
 
-// ─── Top Played Game Row ────────────────────────────────────────────
+// ─── Top played row ───────────────────────────────────────────────
 // Focusable: controller A opens the game's library hub page.
 
 function TopGameRow({
@@ -172,6 +204,7 @@ function TopGameRow({
     gameName: string;
     minutes: number;
     sessions: number;
+    pct: number;
     coverArtUrl?: string;
   };
   onOpen: () => void;
@@ -184,10 +217,11 @@ function TopGameRow({
       {...focusProps}
       role="link"
       className="bigscreen-topgame-row"
+      data-focus-key={`community:game:${game.gameId}`}
     >
       <div className="bigscreen-topgame-cover">
         {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt="" />
+          <img src={game.coverArtUrl} alt="" loading="lazy" />
         ) : (
           <div className="bigscreen-topgame-cover-fallback">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -200,7 +234,16 @@ function TopGameRow({
       <div className="bigscreen-topgame-id">
         <div className="bigscreen-topgame-name">{game.gameName}</div>
         <div className="bigscreen-topgame-meta">
-          {t("bigscreen.community.gameLaunches", { time: formatHours(game.minutes), count: game.sessions })}
+          {t("bigscreen.community.gameLaunches", {
+            time: formatHours(game.minutes),
+            count: game.sessions,
+          })}
+        </div>
+        <div className="bigscreen-topgame-meter" aria-hidden="true">
+          <span
+            className="bigscreen-topgame-meter-fill"
+            style={{ width: `${Math.max(4, game.pct)}%` }}
+          />
         </div>
       </div>
     </div>

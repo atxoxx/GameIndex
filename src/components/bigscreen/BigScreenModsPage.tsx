@@ -385,28 +385,18 @@ function ModRow({
         </span>
       </span>
       <span className="bigscreen-option-row-trail">
-        <span
-          className="bigscreen-option-badge"
-          style={{
-            background: "color-mix(in srgb, var(--bigscreen-accent) 15%, transparent)",
-            color: "var(--bigscreen-accent-soft-text)",
-          }}
-        >
+        <span className="bigscreen-option-badge bigscreen-option-badge--accent">
           {ENGINE_LABELS[mod.engine] ?? mod.engine}
         </span>
         <span className="bigscreen-option-size">
           {formatModSize(mod.sizeBytes)}
         </span>
         <span
-          className="bigscreen-option-badge"
-          style={{
-            background: mod.enabled
-              ? "color-mix(in srgb, var(--bigscreen-success) 18%, transparent)"
-              : "color-mix(in srgb, var(--bigscreen-text) 8%, transparent)",
-            color: mod.enabled
-              ? "var(--bigscreen-success-soft)"
-              : "color-mix(in srgb, var(--bigscreen-text) 50%, transparent)",
-          }}
+          className={`bigscreen-option-badge ${
+            mod.enabled
+              ? "bigscreen-option-badge--on"
+              : "bigscreen-option-badge--off"
+          }`}
         >
           {mod.enabled ? t("mods.enabled") : t("mods.disabled")}
         </span>

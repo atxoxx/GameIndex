@@ -1,3 +1,10 @@
+// News — one of the three Discover areas.
+//
+// DiscoverTabs owns the top strip; the body below is a single scroll
+// region: a page header (feeds + refresh), a source filter row, then the
+// article grid. Articles open in a reader panel that pins its banner and
+// footer while only the copy scrolls.
+
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useNewsDemand } from "../../context/NewsContext";
@@ -6,6 +13,7 @@ import type { NewsArticle } from "../../types/news";
 import { useFocusable } from "../../hooks/useFocusable";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BigScreenPill from "./BigScreenPill";
+import DiscoverTabs from "./DiscoverTabs";
 import {
   BigScreenEmptyState,
   BigScreenErrorState,
@@ -38,39 +46,43 @@ export default function BigScreenNews() {
     [allArticles, activeSource],
   );
 
-  // Left Sidebar Sources
   const allSources = useMemo(() => ["All Sources", ...sourceNames], [sourceNames]);
   const hasFatalError = error !== null && articles.length === 0;
 
   return (
-    <div className="bigscreen-system-hub">
-      {/* Left Menu Pane - Filter by Source */}
-      <div className="bigscreen-system-left-pane">
-        <h2 className="bigscreen-system-title">{t("bigscreen.news.feeds")}</h2>
-        <div className="bigscreen-system-menu" role="tablist">
-          {allSources.map((src) => {
-            const isAll = src === "All Sources";
-            const isActive = isAll ? activeSource === null : activeSource === src;
-            return (
-              <SourceRow
-                key={src}
-                src={src}
-                isAll={isAll}
-                isActive={isActive}
-                onSelect={() => setSourceFilter(isAll ? null : src)}
-              />
-            );
-          })}
-        </div>
-      </div>
+    <div className="bs-discover-page">
+      <DiscoverTabs />
 
-      {/* Right Content Pane - Articles Grid */}
-      <div className="bigscreen-system-right-pane" style={{ padding: "0" }}>
-        <div className="bigscreen-system-section-view bigscreen-news-content">
-          <div className="bigscreen-news-toolbar">
-            <h3>{t("bigscreen.news.latestArticles")}</h3>
+      <div className="bs-discover-page-body">
+        <div className="bigscreen-news-page">
+          <header className="bigscreen-news-header">
+            <div className="bigscreen-news-heading">
+              <h2 className="bigscreen-news-title">{t("bigscreen.news.feeds")}</h2>
+              <span className="bigscreen-news-total">{articles.length}</span>
+            </div>
             <NewsRefreshButton onRefresh={() => void refresh(true)} />
+          </header>
+
+          <div
+            className="bigscreen-news-sources"
+            role="tablist"
+            aria-label={t("bigscreen.news.feeds")}
+          >
+            {allSources.map((src) => {
+              const isAll = src === "All Sources";
+              const isActive = isAll ? activeSource === null : activeSource === src;
+              return (
+                <SourceChip
+                  key={src}
+                  label={isAll ? t("bigscreen.news.allSources") : src}
+                  isActive={isActive}
+                  onSelect={() => setSourceFilter(isAll ? null : src)}
+                />
+              );
+            })}
           </div>
+
+          <h3 className="bigscreen-news-section-title">{t("bigscreen.news.latestArticles")}</h3>
 
           {loading ? (
             <BigScreenLoadingState message={t("bigscreen.news.loading")} />
@@ -106,7 +118,7 @@ export default function BigScreenNews() {
         </div>
       </div>
 
-      {/* Fullscreen Article Reader Modal */}
+      {/* Fullscreen article reader modal */}
       {selectedArticle && (
         <BigScreenNewsReader article={selectedArticle} onClose={() => setSelectedArticle(null)} />
       )}
@@ -114,10 +126,10 @@ export default function BigScreenNews() {
   );
 }
 
-// ─── Refresh Button ───────────────────────────────────────────────
-// Owns its useFocusable call unconditionally (rules-of-hooks) — the
-// previous inline `{...useFocusable(refresh)}` in the toolbar JSX
-// skipped the hook whenever the loading branch rendered.
+// ─── Refresh button ───────────────────────────────────────────────
+// Owns its useFocusable call unconditionally (rules-of-hooks) — an
+// inline `{...useFocusable(refresh)}` in the header JSX would skip the
+// hook whenever the loading branch rendered.
 
 function NewsRefreshButton({ onRefresh }: { onRefresh: () => void }) {
   const { t } = useLanguage();
@@ -126,7 +138,8 @@ function NewsRefreshButton({ onRefresh }: { onRefresh: () => void }) {
   return (
     <button
       type="button"
-      className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+      className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-news-refresh"
+      data-focus-key="news:refresh"
       {...refreshProps}
     >
       {t("bigscreen.news.refresh")}
@@ -134,54 +147,36 @@ function NewsRefreshButton({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
-// ─── Source Row Component ─────────────────────────────────────────
-// Owns its useFocusable call unconditionally (rules-of-hooks) — the
-// previous inline `useFocusable(selectSource)` inside `allSources.map`
-// was a hook-in-map violation. Mirrors the NewsArticleCard pattern.
+// ─── Source chip ──────────────────────────────────────────────────
+// Same reason as the refresh button: one hook instance per chip rather
+// than a hook inside `allSources.map`.
 
-function SourceRow({
-  src,
-  isAll,
+function SourceChip({
+  label,
   isActive,
   onSelect,
 }: {
-  src: string;
-  isAll: boolean;
+  label: string;
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const { t } = useLanguage();
   const focusProps = useFocusable(onSelect);
 
   return (
     <button
       type="button"
+      role="tab"
       aria-selected={isActive}
-      className={`bigscreen-system-menu-item ${isActive ? "active" : ""}`}
+      className={`bigscreen-filter-chip${isActive ? " active" : ""}`}
+      data-focus-key={`news:source:${label}`}
       {...focusProps}
     >
-      <span className="menu-item-icon">
-        <svg
-          viewBox="0 0 24 24"
-          width="20"
-          height="20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-          <path d="M14 3v4h4M8 11h8M8 15h8" />
-        </svg>
-      </span>
-      <span className="menu-item-label">{isAll ? t("bigscreen.news.allSources") : src}</span>
+      {label}
     </button>
   );
 }
 
-// ─── News Card Component ─────────────────────────────────────────────
+// ─── News card ────────────────────────────────────────────────────
 
 function NewsArticleCard({
   article,
@@ -198,13 +193,14 @@ function NewsArticleCard({
       className="bigscreen-game-card bigscreen-news-card"
       {...focusProps}
       role="button"
+      data-focus-key={`news:article:${article.link}`}
     >
       <div className="bigscreen-news-card-cover">
         {article.imageUrl ? (
           <img src={article.imageUrl} alt="" loading="lazy" />
         ) : (
           <div className="bigscreen-game-card-cover-placeholder">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="40" height="40">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="40" height="40" aria-hidden="true">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
             </svg>
           </div>
@@ -212,13 +208,13 @@ function NewsArticleCard({
         <span className="bigscreen-news-accent-dot" />
       </div>
       <div className="bigscreen-news-card-body">
-        <h4 className="bigscreen-news-card-title">
-          {article.title}
-        </h4>
+        <h4 className="bigscreen-news-card-title">{article.title}</h4>
         <div className="bigscreen-news-card-meta">
           <span className="bigscreen-news-source">{article.sourceName}</span>
           {article.pubDate && (
-            <span className="bigscreen-news-date">{formatArticleDate(article.pubDate, language)}</span>
+            <span className="bigscreen-news-date">
+              {formatArticleDate(article.pubDate, language)}
+            </span>
           )}
         </div>
       </div>
@@ -226,7 +222,7 @@ function NewsArticleCard({
   );
 }
 
-// ─── News Reader Modal Component ─────────────────────────────────────
+// ─── News reader modal ────────────────────────────────────────────
 
 function BigScreenNewsReader({
   article,
@@ -263,19 +259,13 @@ function BigScreenNewsReader({
   }, [onClose]);
 
   return (
-    <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={onClose}>
+    <div
+      data-bigscreen-overlay="true"
+      className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
+      onClick={onClose}
+    >
       <div
-        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
-        style={{
-          width: "80%",
-          maxWidth: "800px",
-          height: "80%",
-          maxHeight: "650px",
-          padding: "0",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
+        className="bigscreen-overlay-drawer-panel bigscreen-news-reader-panel"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Banner image or placeholder */}
@@ -283,15 +273,15 @@ function BigScreenNewsReader({
           {article.imageUrl ? (
             <img src={article.imageUrl} alt="" />
           ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", opacity: 0.1 }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="80" height="80">
+            <div className="bigscreen-news-reader-banner-empty" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
             </div>
           )}
         </div>
 
-        {/* Article Details */}
+        {/* Article details */}
         <div className="bigscreen-news-reader-body">
           <div className="bigscreen-news-reader-meta">
             <BigScreenPill tone="accent" size="sm">{article.sourceName}</BigScreenPill>
@@ -307,7 +297,7 @@ function BigScreenNewsReader({
           </p>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer actions */}
         <div className="bigscreen-news-reader-footer">
           <button
             type="button"

@@ -254,6 +254,13 @@ export default function BigScreenStore() {
         <div className="bigscreen-store-panel-content">
           {view === "wishlist" ? (
             <div className="store-wishlist-panel">
+              <header className="store-wishlist-head">
+                <h2 className="store-wishlist-title">{t("nav.wishlist")}</h2>
+                <span className="store-wishlist-count">
+                  {wishlist.length} {t("bigscreen.discover.wishlistCount")}
+                </span>
+              </header>
+
               {wishlist.length === 0 ? (
                 <div className="wishlist-empty-state">
                   <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" width="64" height="64" opacity="0.3">
@@ -328,10 +335,16 @@ function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
       {...focusProps}
       role="link"
       aria-label={item.name}
+      data-focus-key={`store:wishlist:${item.slug}`}
     >
       <div className="bigscreen-game-card-cover">
         {item.coverUrl ? (
-          <img src={item.coverUrl} alt={item.name} loading="lazy" />
+          <img
+            className="bigscreen-game-card-cover-static"
+            src={item.coverUrl}
+            alt={item.name}
+            loading="lazy"
+          />
         ) : (
           <div className="bigscreen-game-card-cover-placeholder">
             <svg
@@ -350,8 +363,8 @@ function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
           </div>
         )}
       </div>
-      <div className="bigscreen-store-card-details">
-        <h4 className="deal-game-title">{item.name}</h4>
+      <div className="bigscreen-game-card-body">
+        <h3 className="bigscreen-game-card-name">{item.name}</h3>
       </div>
     </div>
   );

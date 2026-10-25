@@ -248,87 +248,86 @@ export default function BigScreenFriends() {
     : null;
 
   return (
-    <div className="bigscreen-store-dashboard" ref={pageRef}>
-      <div className="bigscreen-dashboard-scrollable-content bigscreen-friends-content">
-        {/* Header Tabs */}
-        <div className="bigscreen-friends-toolbar">
-          <BigScreenTabBar
-            tabs={FRIENDS_TABS}
-            activeTab={activeTab}
-            onActivate={handleSelectTab}
-            onEnterContent={handleEnterTabContent}
-          />
-          <div className="bigscreen-friends-toolbar-actions">
+    <div className="bigscreen-friends" ref={pageRef}>
+      {/* Fixed toolbar: hub tabs on the left, utilities on the right. */}
+      <div className="bigscreen-friends-toolbar">
+        <BigScreenTabBar
+          tabs={FRIENDS_TABS}
+          activeTab={activeTab}
+          onActivate={handleSelectTab}
+          onEnterContent={handleEnterTabContent}
+        />
+        <div className="bigscreen-friends-toolbar-actions">
+          <button
+            type="button"
+            className={`bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact${syncBusy ? " is-syncing" : ""}`}
+            {...focusSyncBtn}
+          >
+            {Icons.refresh()}
+            {t("bigscreen.friends.syncNetwork")}
+          </button>
+          {activeTab === "list" && (
             <button
               type="button"
-              className={`bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact${syncBusy ? " is-syncing" : ""}`}
-              {...focusSyncBtn}
+              className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
+              {...focusAddFriendBtn}
             >
-              {Icons.refresh()}
-              {t("bigscreen.friends.syncNetwork")}
+              {Icons.plus()}
+              {t("bigscreen.friends.addFriend")}
             </button>
-            {activeTab === "list" && (
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
-                {...focusAddFriendBtn}
-              >
-                {Icons.plus()}
-                {t("bigscreen.friends.addFriend")}
-              </button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Tab Panels */}
-        <div className="bigscreen-gamepage-tab-scroll-region bigscreen-friends-tab-region">
-          <BigScreenTabPanel tabId="list" activeTab={activeTab}>
-            <FriendsListTab
-              social={social}
-              profileName={profile.name}
-              onOpenDm={handleOpenDm}
-              onInviteToLobby={handleInviteToLobby}
-              onCompare={handleCompare}
-              onSetNickname={handleSetNickname}
-            />
-          </BigScreenTabPanel>
+      {/* One scroll owner per tab: the active panel scrolls, the region
+          itself never does. DMs and lobbies use full-height panes. */}
+      <div className="bigscreen-friends-tab-region">
+        <BigScreenTabPanel tabId="list" activeTab={activeTab}>
+          <FriendsListTab
+            social={social}
+            profileName={profile.name}
+            onOpenDm={handleOpenDm}
+            onInviteToLobby={handleInviteToLobby}
+            onCompare={handleCompare}
+            onSetNickname={handleSetNickname}
+          />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="activity" activeTab={activeTab}>
-            <ActivityTab social={social} />
-          </BigScreenTabPanel>
+        <BigScreenTabPanel tabId="activity" activeTab={activeTab}>
+          <ActivityTab social={social} />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="dms" activeTab={activeTab}>
-            <DmsTab social={social} profileName={profile.name} />
-          </BigScreenTabPanel>
+        <BigScreenTabPanel tabId="dms" activeTab={activeTab} className="bigscreen-friends-pane">
+          <DmsTab social={social} profileName={profile.name} />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="sessions" activeTab={activeTab}>
-            <SessionsTab
-              social={social}
-              profileName={profile.name}
-              initialInvites={pendingLobbyInvites}
-              onConsumeInitialInvites={() => setPendingLobbyInvites([])}
-            />
-          </BigScreenTabPanel>
+        <BigScreenTabPanel tabId="sessions" activeTab={activeTab} className="bigscreen-friends-pane">
+          <SessionsTab
+            social={social}
+            profileName={profile.name}
+            initialInvites={pendingLobbyInvites}
+            onConsumeInitialInvites={() => setPendingLobbyInvites([])}
+          />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="social" activeTab={activeTab}>
-            <SocialTab social={social} profileName={profile.name} />
-          </BigScreenTabPanel>
+        <BigScreenTabPanel tabId="social" activeTab={activeTab}>
+          <SocialTab social={social} profileName={profile.name} />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="compare" activeTab={activeTab}>
-            <CompareTab social={social} profile={profile} selfStats={selfStats} />
-          </BigScreenTabPanel>
+        <BigScreenTabPanel tabId="compare" activeTab={activeTab}>
+          <CompareTab social={social} profile={profile} selfStats={selfStats} />
+        </BigScreenTabPanel>
 
-          <BigScreenTabPanel tabId="profile" activeTab={activeTab}>
-            <ProfileTab
-              social={social}
-              profile={profile}
-              setProfile={setProfile}
-              selfStats={selfStats}
-              generatedFriendCode={generatedFriendCode}
-              onSave={() => void social.saveProfile()}
-            />
-          </BigScreenTabPanel>
-        </div>
+        <BigScreenTabPanel tabId="profile" activeTab={activeTab}>
+          <ProfileTab
+            social={social}
+            profile={profile}
+            setProfile={setProfile}
+            selfStats={selfStats}
+            generatedFriendCode={generatedFriendCode}
+            onSave={() => void social.saveProfile()}
+          />
+        </BigScreenTabPanel>
       </div>
 
       {/* Add Friend Modal */}

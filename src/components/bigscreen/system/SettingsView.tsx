@@ -1,18 +1,21 @@
 // SettingsView — System hub sub-view with the couch-relevant quick
-// preferences: cycle the active theme and the app landing page.
-// Deliberately kept to two rows — everything else belongs to the
-// desktop Settings page reachable from this row set.
+// preferences: the Big Screen layout preset, the active theme and the
+// app landing page. Everything else belongs to the desktop Settings
+// page.
 
 import { useCallback } from "react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useSettings } from "../../../context/SettingsContext";
 import { useTheme } from "../../../context/ThemeContext";
+import { useBigScreenPrefs } from "../../../context/BigScreenPrefsContext";
 import { useFocusable } from "../../../hooks/useFocusable";
+import PresetPicker from "../shell/PresetPicker";
 
 export default function SettingsView() {
   const { t } = useLanguage();
   const { currentTheme, setTheme, themes } = useTheme();
   const { landingPage, setLandingPage } = useSettings();
+  const { prefs, setPreset } = useBigScreenPrefs();
 
   const handleCycleTheme = useCallback(() => {
     const ids = themes.map((t) => t.id);
@@ -41,6 +44,21 @@ export default function SettingsView() {
     <div className="bigscreen-system-section-view">
       <h3>{t("bigscreen.system.preferencesTitle")}</h3>
       <div className="system-settings-list">
+        <div className="system-setting-row system-setting-row--stacked">
+          <div className="setting-info">
+            <span className="setting-label">
+              {t("bigscreen.system.layoutStyle")}
+            </span>
+            <span className="setting-desc">
+              {t("bigscreen.system.layoutStyleDesc")}
+            </span>
+          </div>
+          <PresetPicker value={prefs.preset} onChange={setPreset} />
+          <span className="setting-hint">
+            {t("bigscreen.system.layoutStyleHint")}
+          </span>
+        </div>
+
         <div className="system-setting-row">
           <div className="setting-info">
             <span className="setting-label">{t("bigscreen.system.appearance")}</span>

@@ -445,7 +445,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
               </BigScreenPill>
               {resolvedSteamAppId != null && (
                 <BigScreenPill tone="muted" size="sm">
-                  <PlayerCountBadge appId={resolvedSteamAppId} interactive={false} className="bigscreen-steam-players" /> on Steam
+                  <PlayerCountBadge appId={resolvedSteamAppId} interactive={false} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteam")}
                 </BigScreenPill>
               )}
               {game.installed ? (
