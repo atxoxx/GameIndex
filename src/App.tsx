@@ -32,13 +32,19 @@ import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
-import { SetupWizardProvider } from "./context/SetupWizardContext";
-import SetupWizard from "./components/setup/SetupWizard";
 import { UpdateProvider } from "./context/UpdateContext";
 import { SteamGridDbProvider } from "./context/SteamGridDbContext";
 import { CrackWatchProvider } from "./context/CrackWatchContext";
 import { PriceProvider } from "./context/PriceContext";
-import { UpdateModal } from "./components/ui/UpdateModal";
+import { SetupWizardProvider } from "./context/SetupWizardContext";
+// First-run-only and update-only surfaces. Loading them lazily keeps the
+// setup wizard's onboarding steps — which statically pull the store
+// integrations, the import modal and the folder scanner — out of the boot
+// bundle. Each renders nothing until its own trigger fires.
+const SetupWizard = lazy(() => import("./components/setup/SetupWizard"));
+const UpdateModal = lazy(() =>
+  import("./components/ui/UpdateModal").then((m) => ({ default: m.UpdateModal })),
+);
 import { UpdateNotification } from "./components/ui/UpdateNotification";
 import {
   SidebarCollapseProvider,
@@ -265,8 +271,10 @@ function App() {
                                                 <GameAccentSync />
                                                 <ShellBridges />
                                                 <AppShell />
-                                                <SetupWizard />
-                                                <UpdateModal />
+                                                <Suspense fallback={null}>
+                                                  <SetupWizard />
+                                                  <UpdateModal />
+                                                </Suspense>
                                                 <UpdateNotification />
                                               </SetupWizardProvider>
                                             </PresenceProvider>

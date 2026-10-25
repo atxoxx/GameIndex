@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -20,10 +20,16 @@ import {
   type GameMetadataResult,
   type PlayStatus,
 } from "../../types/game";
-import ImportModal, { type ExeInfo } from "../ImportModal";
-import FolderScanProgressModal from "../library/FolderScanProgressModal";
-import SidebarFilterPopover from "../SidebarFilterPopover";
+import type { ExeInfo } from "../ImportModal";
 import { SidebarHoverPreview } from "../SidebarHoverPreview";
+// Import, folder-scan and filter dialogs are heavy and only ever mounted on
+// demand, so their chunks are fetched the first time one is opened instead
+// of being parsed on every launch with the sidebar.
+const ImportModal = lazy(() => import("../ImportModal"));
+const FolderScanProgressModal = lazy(
+  () => import("../library/FolderScanProgressModal"),
+);
+const SidebarFilterPopover = lazy(() => import("../SidebarFilterPopover"));
 import SidebarShelves from "../shelves/SidebarShelves";
 import SidebarHeader from "./SidebarHeader";
 import SidebarImportDropdown from "./SidebarImportDropdown";
@@ -1229,52 +1235,58 @@ export default function Sidebar() {
         )}
 
       {showImportModal && (
-        <ImportModal
-          exeInfos={scannedExes}
-          rootPath={importRootPath}
-          existingPaths={games.map((g) => g.path)}
-          onConfirm={handleConfirmImport}
-          onCancel={() => setShowImportModal(false)}
-        />
+        <Suspense fallback={null}>
+          <ImportModal
+            exeInfos={scannedExes}
+            rootPath={importRootPath}
+            existingPaths={games.map((g) => g.path)}
+            onConfirm={handleConfirmImport}
+            onCancel={() => setShowImportModal(false)}
+          />
+        </Suspense>
       )}
 
       {showScanProgressModal && (
-        <FolderScanProgressModal
-          open={showScanProgressModal}
-          folderPaths={scanFolderPaths}
-          existingPaths={existingPathsSet}
-          onComplete={handleScanComplete}
-          onCancel={() => setShowScanProgressModal(false)}
-        />
+        <Suspense fallback={null}>
+          <FolderScanProgressModal
+            open={showScanProgressModal}
+            folderPaths={scanFolderPaths}
+            existingPaths={existingPathsSet}
+            onComplete={handleScanComplete}
+            onCancel={() => setShowScanProgressModal(false)}
+          />
+        </Suspense>
       )}
 
       {showFilterPopover && (
-        <SidebarFilterPopover
-          anchorRef={filterBtnRef}
-          status={filterState.status}
-          playStatus={filterState.playStatus}
-          vrOnly={filterState.vrOnly}
-          selectedGenres={filterState.genres}
-          selectedPlatforms={filterState.platforms}
-          yearMin={filterState.yearMin}
-          yearMax={filterState.yearMax}
-          ratingMin={filterState.ratingMin}
-          sort={filterState.sort}
-          availableGenres={availableGenres}
-          availablePlatforms={availablePlatforms}
-          totalGames={games.length}
-          filteredCount={processedFilteredGames.length}
-          onStatusChange={setStatus}
-          onPlayStatusChange={setPlayStatus}
-          onVrOnlyChange={setVrOnly}
-          onGenresChange={setGenres}
-          onPlatformsChange={setPlatforms}
-          onYearRangeChange={setYearRange}
-          onRatingMinChange={setRatingMin}
-          onSortChange={setSort}
-          onReset={reset}
-          onClose={() => setShowFilterPopover(false)}
-        />
+        <Suspense fallback={null}>
+          <SidebarFilterPopover
+            anchorRef={filterBtnRef}
+            status={filterState.status}
+            playStatus={filterState.playStatus}
+            vrOnly={filterState.vrOnly}
+            selectedGenres={filterState.genres}
+            selectedPlatforms={filterState.platforms}
+            yearMin={filterState.yearMin}
+            yearMax={filterState.yearMax}
+            ratingMin={filterState.ratingMin}
+            sort={filterState.sort}
+            availableGenres={availableGenres}
+            availablePlatforms={availablePlatforms}
+            totalGames={games.length}
+            filteredCount={processedFilteredGames.length}
+            onStatusChange={setStatus}
+            onPlayStatusChange={setPlayStatus}
+            onVrOnlyChange={setVrOnly}
+            onGenresChange={setGenres}
+            onPlatformsChange={setPlatforms}
+            onYearRangeChange={setYearRange}
+            onRatingMinChange={setRatingMin}
+            onSortChange={setSort}
+            onReset={reset}
+            onClose={() => setShowFilterPopover(false)}
+          />
+        </Suspense>
       )}
 
       {/* Hover preview */}
