@@ -14,7 +14,8 @@ import {
 } from "../../types/game";
 import type { SgdbAllAssets, SgdbGameSuggestion } from "../../types/steamgriddb";
 import { Button } from "../ui";
-import "./EditGameModal.css";
+import { useLanguage } from "../../context/LanguageContext";
+import "./edit/EditGameModal.css";
 
 export type MediaSlot = "icon" | "cover" | "hero" | "logo";
 export type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp" | "ico";
@@ -37,11 +38,11 @@ interface SearchRequest {
   nonce: number;
 }
 
-const SLOT_LABEL: Record<MediaSlot, string> = {
-  icon: "Icon",
-  cover: "Cover",
-  hero: "Hero",
-  logo: "Logo",
+const SLOT_LABEL_KEY: Record<MediaSlot, string> = {
+  icon: "edit.label.icon",
+  cover: "edit.label.cover",
+  hero: "edit.label.hero",
+  logo: "edit.label.logo",
 };
 
 const ALLOWED_EXT = /\.(jpe?g|png|webp|ico)(\?|$)/i;
@@ -337,6 +338,8 @@ function CandidateCard({
   onApply,
   onPreview,
 }: CandidateCardProps) {
+  const { t } = useLanguage();
+  const slotLabel = t(SLOT_LABEL_KEY[slot]);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -377,7 +380,7 @@ function CandidateCard({
         onClick={() => onPreview(candidate)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        title="Click to preview"
+        title={t("editImage.clickToPreview")}
       >
         {hasVideo ? (
           <video
@@ -399,14 +402,14 @@ function CandidateCard({
           shouldAnimate ? (
             <img
               src={candidate.url}
-              alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
+              alt={`${candidate.source} ${slotLabel}`}
               decoding="async"
               className="media-fetch-img-active"
             />
           ) : (
             <img
               src={staticThumbUrl}
-              alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
+              alt={`${candidate.source} ${slotLabel}`}
               loading="lazy"
               decoding="async"
               className="media-fetch-img-static"
@@ -420,7 +423,7 @@ function CandidateCard({
         ) : (
           <img
             src={staticThumbUrl}
-            alt={`${candidate.source} ${SLOT_LABEL[slot]}`}
+            alt={`${candidate.source} ${slotLabel}`}
             loading="lazy"
             decoding="async"
             fetchPriority={candidate.source === "Steam" ? "high" : "low"}
@@ -451,7 +454,7 @@ function CandidateCard({
         isLoading={isApplying}
         onClick={() => onApply(candidate.url)}
       >
-        Set as {SLOT_LABEL[slot]}
+        {t("editImage.setAs", { slot: slotLabel })}
       </Button>
     </div>
   );
@@ -485,6 +488,8 @@ export function MediaCandidateGallery({
   variant = "modal",
   showSearch = true,
 }: MediaCandidateGalleryProps) {
+  const { t } = useLanguage();
+  const slotLabel = t(SLOT_LABEL_KEY[slot]);
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [launchboxCandidates, setLaunchboxCandidates] = useState<Candidate[]>([]);
@@ -693,8 +698,8 @@ export function MediaCandidateGallery({
                 if (draftQuery.trim() !== pickedTermRef.current) setSuggestionsOpen(true);
               }}
               onBlur={() => setSuggestionsOpen(false)}
-              placeholder="Search for a game title…"
-              aria-label="Search game title"
+              placeholder={t("editImage.searchPlaceholder")}
+              aria-label={t("editImage.searchAria")}
               aria-autocomplete="list"
               aria-expanded={suggestionsOpen && suggestions.length > 0}
               aria-controls={
@@ -711,7 +716,7 @@ export function MediaCandidateGallery({
                 className="media-fetch-suggest"
                 id={SUGGEST_LIST_ID}
                 role="listbox"
-                aria-label="SteamGridDB matches"
+                aria-label={t("editImage.matchesAria")}
               >
                 {suggestions.length === 0 ? (
                   <li className="media-fetch-suggest-status">Searching SteamGridDB…</li>
@@ -736,7 +741,7 @@ export function MediaCandidateGallery({
                         </span>
                       ) : null}
                       {suggestion.verified && (
-                        <span className="media-fetch-suggest-verified">verified</span>
+                        <span className="media-fetch-suggest-verified">{t("editImage.verified")}</span>
                       )}
                     </li>
                   ))
@@ -745,7 +750,7 @@ export function MediaCandidateGallery({
             )}
           </div>
           <Button variant="primary" size="sm" type="submit">
-            Search
+            {t("common.search")}
           </Button>
         </form>
       )}
@@ -788,19 +793,19 @@ export function MediaCandidateGallery({
         {loading ? (
           <div className="metadata-loading">
             <div className="metadata-spinner" />
-            <p>Searching for {SLOT_LABEL[slot].toLowerCase()} images for “{shownQuery}”…</p>
+            <p>{t("editImage.searchingFor", { slot: slotLabel, query: shownQuery })}</p>
           </div>
         ) : allCandidates.length === 0 ? (
           <div className="metadata-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-            <p>No {SLOT_LABEL[slot].toLowerCase()} images found for “{shownQuery}”. Try another title.</p>
+            <p>{t("editImage.noImagesFor", { slot: slotLabel, query: shownQuery })}</p>
           </div>
         ) : filteredCandidates.length === 0 ? (
           <div className="metadata-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-            <p>No {formatFilter.toUpperCase()} images found for “{shownQuery}”.</p>
+            <p>{t("editImage.noImagesFor", { slot: slotLabel, query: shownQuery })}</p>
             <Button variant="secondary" size="sm" onClick={() => setFormatFilter("all")}>
-              Show all images ({allCandidates.length})
+              {t("editImage.showAllImages", { count: allCandidates.length })}
             </Button>
           </div>
         ) : (
@@ -840,12 +845,12 @@ export function MediaCandidateGallery({
             }}
           >
             <div className="media-fetch-preview" onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}  onClick={() => setPreviewCandidate(null)} aria-label="Close preview"></Button>
+              <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}  onClick={() => setPreviewCandidate(null)} aria-label={t("editImage.closePreview")}></Button>
               <div className={`media-fetch-preview-img${isTransparentSlot(slot) ? " transparent" : ""}`}>
                 {isVideoUrl(previewCandidate.url) ? (
                   <video src={previewCandidate.url} controls autoPlay loop muted playsInline />
                 ) : (
-                  <img src={previewCandidate.url} alt={`${previewCandidate.source} ${SLOT_LABEL[slot]} preview`} decoding="async" />
+                  <img src={previewCandidate.url} alt={`${previewCandidate.source} ${slotLabel} preview`} decoding="async" />
                 )}
               </div>
               <div className="media-fetch-preview-meta">
@@ -863,7 +868,7 @@ export function MediaCandidateGallery({
                 isLoading={applyingUrl === previewCandidate.url}
                 onClick={() => handleApply(previewCandidate!.url)}
               >
-                Set as {SLOT_LABEL[slot]}
+                {t("editImage.setAs", { slot: slotLabel })}
               </Button>
             </div>
           </div>,
@@ -872,3 +877,5 @@ export function MediaCandidateGallery({
     </>
   );
 }
+
+

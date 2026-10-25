@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "./Button";
+import "./ArrayEditor.css";
 
 export interface ArrayEditorColumn<T> {
   key: keyof T & string;

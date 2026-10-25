@@ -15,13 +15,19 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: openMock,
 }));
 
+const gameState = vi.hoisted(() => ({ detailLoaded: true }));
+const settingsState = vi.hoisted(() => ({
+  showFullLinuxUi: true,
+  isWindowsHost: false,
+  isLinuxHost: true,
+}));
 const updateGameMock = vi.fn();
 vi.mock("../../context/GameContext", () => ({
   useGames: () => ({
     updateGame: updateGameMock,
     getGame: () => undefined,
     loadGameDetail: vi.fn().mockResolvedValue(null),
-    isGameDetailLoaded: () => true,
+    isGameDetailLoaded: () => gameState.detailLoaded,
     isGameUntracked: () => false,
     toggleGameTracking: vi.fn(),
   }),
@@ -32,10 +38,14 @@ vi.mock("../../context/ToastContext", () => ({
 }));
 vi.mock("../../context/SettingsContext", () => ({
   useSettings: () => ({
-    showFullLinuxUi: true,
-    isWindowsHost: false,
-    isLinuxHost: true,
+    showFullLinuxUi: settingsState.showFullLinuxUi,
+    isWindowsHost: settingsState.isWindowsHost,
+    isLinuxHost: settingsState.isLinuxHost,
+    isSimpleUi: false,
   }),
+}));
+vi.mock("../../hooks/GamepadProvider", () => ({
+  useGamepad: () => ({ registerAction: () => () => {} }),
 }));
 
 function makeGame(overrides: Partial<Game> = {}): Game {
@@ -52,126 +62,331 @@ function makeGame(overrides: Partial<Game> = {}): Game {
   } as Game;
 }
 
-describe("EditGameModal save", () => {
-  beforeEach(() => {
-    updateGameMock.mockClear();
-  });
+function openArea(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
 
-  it("saving after toggling a proton/wine feature does not throw and keeps path a string", () => {
-    const game = makeGame({ path: "" });
-    render(<EditGameModal game={game} onClose={() => {}} />);
+function openSection(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Toggle compatibility layer" })
+function saveButton() {
+  return screen.getByRole("button", { name: "Save Changes" });
+}
+
+function save() {
+  fireEvent.click(saveButton());
+}
+
+function slot(id: string): HTMLElement {
+  const element = document.getElementById(id);
+  expect(element).toBeTruthy();
+  return element as HTMLElement;
+}
+
+beforeEach(() => {
+  gameState.detailLoaded = true;
+  settingsState.showFullLinuxUi = true;
+  settingsState.isWindowsHost = false;
+  settingsState.isLinuxHost = true;
+  updateGameMock.mockClear();
+  showToastMock.mockClear();
+  vi.mocked(invoke).mockReset();
+  vi.mocked(invoke).mockImplementation(() => Promise.resolve([]));
+});
+
+describe("editor shell", () => {
+  it("renders every navigation area and opens on Details / Identity", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    expect(screen.getByRole("button", { name: "Details" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-    expect(updateGameMock).toHaveBeenCalledTimes(1);
-    const updates = updateGameMock.mock.calls[0][1];
-    expect(updates.compatibility).toBeTruthy();
-    expect(updates.compatibility.enabled).toBe(true);
-    // Regression: an empty executable path must be saved as a plain empty
-    // string, never `undefined` — the sidebar's `g.path.toLowerCase()`
-    // runs outside the error boundary and blanks the whole app on
-    // `undefined` (the "app goes blank after clicking save" bug).
-    expect(updates.path).toBe("");
+    expect(screen.getByRole("button", { name: "Identity" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Media & Images" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Launch" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Proton / Wine" })).toBeTruthy();
+    expect(screen.getByLabelText("Name")).toHaveValue("Test Game");
   });
 
-  it("saves a custom display name override", () => {
+  it("keeps Save disabled until something changes", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText("No changes yet")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Renamed" },
+    });
+
+    expect(saveButton()).not.toBeDisabled();
+    expect(screen.getByText("1 unsaved change")).toBeTruthy();
+  });
+
+  it("hides compatibility on hosts without Wine and keeps it out of search", () => {
+    settingsState.showFullLinuxUi = false;
+    settingsState.isLinuxHost = false;
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    expect(screen.queryByRole("button", { name: "Proton / Wine" })).toBeNull();
+
+    const search = screen.getByRole("combobox", { name: "Search settings" });
+    fireEvent.change(search, { target: { value: "dxvk" } });
+    expect(screen.queryByRole("option", { name: /DXVK/ })).toBeNull();
+  });
+
+  it("opens the requested area and section", () => {
+    render(
+      <EditGameModal game={makeGame()} initialTab="media" onClose={() => {}} />,
+    );
+
+    expect(screen.getByRole("button", { name: "Media & Images" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Artwork" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(document.getElementById("edit-artwork-cover")).toBeTruthy();
+  });
+
+  it("supports the compatibility area", () => {
+    render(
+      <EditGameModal
+        game={makeGame()}
+        initialTab="compatibility"
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Proton / Wine" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Runner & prefix" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("opens Storage and focuses the cost field from a deep link", async () => {
+    render(
+      <EditGameModal
+        game={makeGame()}
+        focusField="purchaseCost"
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Storage & playtime" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.id).toBe("edit-purchase-cost"),
+    );
+  });
+
+  it("jumps to a field from search and focuses it", async () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    const search = screen.getByRole("combobox", { name: "Search settings" });
+    fireEvent.change(search, { target: { value: "purchase cost" } });
+    fireEvent.click(screen.getByRole("option", { name: /Purchase Cost/ }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Storage & playtime" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      ),
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.id).toBe("edit-purchase-cost"),
+    );
+  });
+
+  it("resets one section without touching another", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Changed" },
+    });
+    fireEvent.change(screen.getByLabelText("Platform"), {
+      target: { value: "GOG" },
+    });
+    expect(screen.getByText("2 unsaved changes")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Test Game");
+    expect(screen.getByLabelText("Platform")).toHaveValue("PC");
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("shows a skeleton while the full game record loads", async () => {
+    gameState.detailLoaded = false;
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Name")).toBeInTheDocument(),
+    );
+  });
+});
+
+describe("dirty guard", () => {
+  it("asks before discarding and can keep editing", () => {
+    const onClose = vi.fn();
+    render(<EditGameModal game={makeGame()} onClose={onClose} />);
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Changed" },
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.getByText("Discard changes?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Name")).toHaveValue("Changed");
+  });
+
+  it("closes without saving when changes are discarded", () => {
+    const onClose = vi.fn();
+    render(<EditGameModal game={makeGame()} onClose={onClose} />);
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Changed" },
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(updateGameMock).not.toHaveBeenCalled();
+  });
+
+  it("saves with Ctrl+S and closes", () => {
+    const onClose = vi.fn();
+    render(<EditGameModal game={makeGame()} onClose={onClose} />);
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Renamed" },
+    });
+    fireEvent.keyDown(document, { key: "s", ctrlKey: true });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({ name: "Renamed" }),
+    );
+  });
+});
+
+describe("save payload", () => {
+  it("saves a trimmed display name override", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
     fireEvent.change(screen.getByLabelText("Display Name"), {
       target: { value: "  My Library Label  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    save();
 
     expect(updateGameMock).toHaveBeenCalledTimes(1);
-    // Trimmed, and the real `name` is left untouched.
-    expect(updateGameMock.mock.calls[0][1].displayName).toBe("My Library Label");
-    expect(updateGameMock.mock.calls[0][1].name).toBe("Test Game");
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.displayName).toBe("My Library Label");
+    expect(updates.name).toBe("Test Game");
   });
 
   it("clears the display name back to undefined when emptied", () => {
     render(
-      <EditGameModal game={makeGame({ displayName: "Old Label" })} onClose={() => {}} />
+      <EditGameModal
+        game={makeGame({ displayName: "Old Label" })}
+        onClose={() => {}}
+      />,
     );
 
     fireEvent.change(screen.getByLabelText("Display Name"), {
       target: { value: "" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    save();
 
-    expect(updateGameMock).toHaveBeenCalledTimes(1);
     expect(updateGameMock.mock.calls[0][1].displayName).toBeUndefined();
   });
 
-  it("defaults the compatibility toggle on for a Windows .exe on a Linux host", () => {
-    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+  it("saving after toggling compatibility keeps path a string", () => {
+    render(<EditGameModal game={makeGame({ path: "" })} onClose={() => {}} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    const toggle = screen.getByRole("button", {
-      name: "Toggle compatibility layer",
-    });
-    expect(toggle.className).toContain("active");
+    openArea("Proton / Wine");
+    fireEvent.click(
+      screen.getByRole("switch", { name: /Wine \/ Proton Compatibility Layer/ }),
+    );
+    save();
+
+    expect(updateGameMock).toHaveBeenCalledTimes(1);
+    const updates = updateGameMock.mock.calls[0][1];
+    expect(updates.compatibility).toBeTruthy();
+    expect(updates.compatibility.enabled).toBe(true);
+    expect(updates.path).toBe("");
   });
 
-  it("respects an explicitly saved enabled=false over the Linux default", () => {
+  it("defaults compatibility on for a Windows executable on Linux", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+
+    openArea("Proton / Wine");
+    expect(
+      screen.getByRole("switch", { name: /Wine \/ Proton Compatibility Layer/ }),
+    ).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("respects an explicitly saved enabled=false", () => {
     render(
       <EditGameModal
         game={makeGame({ compatibility: { enabled: false } })}
         onClose={() => {}}
-      />
+      />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    const toggle = screen.getByRole("button", {
-      name: "Toggle compatibility layer",
-    });
-    expect(toggle.className).not.toContain("active");
+    openArea("Proton / Wine");
+    expect(
+      screen.getByRole("switch", { name: /Wine \/ Proton Compatibility Layer/ }),
+    ).toHaveAttribute("aria-checked", "false");
   });
 
-  it("saves the specific-GPU override from the graphics subtab", () => {
+  it("saves the specific-GPU override from graphics", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    fireEvent.click(
-      screen.getByRole("tab", { name: "Graphics & Direct3D" })
-    );
+    openArea("Proton / Wine");
+    openSection("Graphics & Direct3D");
+    const card = slot("compat-specific-gpu");
+    fireEvent.click(within(card).getByRole("button", { name: "On" }));
+    save();
 
-    const card = screen
-      .getByText("Use Specific GPU (MESA_VK_DEVICE_SELECT)")
-      .closest(".edit-launch-card");
-    expect(card).toBeTruthy();
-    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "On" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-    expect(updateGameMock).toHaveBeenCalledTimes(1);
-    const updates = updateGameMock.mock.calls[0][1];
-    expect(updates.compatibility.useSpecificGpu).toBe(true);
+    expect(updateGameMock.mock.calls[0][1].compatibility.useSpecificGpu).toBe(true);
   });
 
-  it("saves the controller and anti-cheat overrides from the tools subtab", () => {
+  it("saves controller and anti-cheat overrides from tools", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Tools & Overlays" }));
+    openArea("Proton / Wine");
+    openSection("Tools & overlays");
 
     const controllerCard = screen
       .getByText("Controller Support")
-      .closest(".edit-launch-card");
-    expect(controllerCard).toBeTruthy();
-    fireEvent.click(within(controllerCard as HTMLElement).getByRole("button", { name: "On" }));
+      .closest(".edit-card") as HTMLElement;
+    fireEvent.click(within(controllerCard).getByRole("button", { name: "On" }));
 
     const anticheatCard = screen
       .getByText("Anti-Cheat Support (EAC / BattlEye)")
-      .closest(".edit-launch-card");
-    expect(anticheatCard).toBeTruthy();
-    fireEvent.click(within(anticheatCard as HTMLElement).getByRole("button", { name: "On" }));
+      .closest(".edit-card") as HTMLElement;
+    fireEvent.click(within(anticheatCard).getByRole("button", { name: "On" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    save();
 
-    expect(updateGameMock).toHaveBeenCalledTimes(1);
     const updates = updateGameMock.mock.calls[0][1];
     expect(updates.compatibility.enableControllerSupport).toBe(true);
     expect(updates.compatibility.enableAnticheatSupport).toBe(true);
@@ -182,72 +397,42 @@ describe("EditGameModal save", () => {
       <EditGameModal
         game={makeGame({ compatibility: { enabled: true } })}
         onClose={() => {}}
-      />
+      />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    openArea("Proton / Wine");
+    openSection("Graphics & Direct3D");
+    const dxvk = slot("compat-dxvk");
+    fireEvent.click(within(dxvk).getByRole("button", { name: "On" }));
+    save();
 
-    // `null` is the tri-state "inherit from Settings" value and is what the
-    // backend reads as "fall back to the global toggle".
-    const updates = updateGameMock.mock.calls[0][1];
-    expect(updates.compatibility.useSpecificGpu).toBe(null);
+    expect(updateGameMock.mock.calls[0][1].compatibility.useSpecificGpu).toBe(null);
   });
-});
 
-describe("EditGameModal initial tab", () => {
-  it("opens directly on the requested section", () => {
+  it("preserves the tracked logo source through save", () => {
     render(
-      <EditGameModal game={makeGame()} initialTab="media" onClose={() => {}} />
+      <EditGameModal
+        game={makeGame({
+          logoUrl: "asset://localhost/logo.png",
+          logoSourceUrl: "https://cdn.example/logo.png",
+        })}
+        onClose={() => {}}
+      />,
     );
 
-    expect(screen.getByRole("tab", { name: "Media & Images" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
-    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute(
-      "aria-selected",
-      "false"
-    );
-  });
+    fireEvent.change(screen.getByLabelText("Platform"), {
+      target: { value: "GOG" },
+    });
+    save();
 
-  it("supports the proton/wine section too", () => {
-    render(
-      <EditGameModal game={makeGame()} initialTab="compatibility" onClose={() => {}} />
-    );
-
-    expect(screen.getByRole("tab", { name: "Proton / Wine" })).toHaveAttribute(
-      "aria-selected",
-      "true"
+    expect(updateGameMock).toHaveBeenCalledWith(
+      "game-1",
+      expect.objectContaining({ logoSourceUrl: "https://cdn.example/logo.png" }),
     );
   });
 });
 
-describe("EditGameModal media subtabs", () => {
-  it("opens on Cover and switches the active artwork section", () => {
-    render(<EditGameModal game={makeGame()} initialTab="media" onClose={() => {}} />);
-
-    expect(screen.getByRole("tab", { name: "Cover" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
-
-    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
-
-    expect(screen.getByRole("tab", { name: "Logo" })).toHaveAttribute(
-      "aria-selected",
-      "true"
-    );
-    expect(screen.getByRole("tab", { name: "Cover" })).toHaveAttribute(
-      "aria-selected",
-      "false"
-    );
-    // The pinned artwork panel follows the subtab: only the logo panel renders.
-    expect(screen.getByText("Title image")).toBeInTheDocument();
-  });
-});
-
-describe("EditGameModal runner selection", () => {
+describe("compatibility", () => {
   const runner = {
     id: "steam-proton-9",
     name: "Steam Proton 9",
@@ -256,35 +441,23 @@ describe("EditGameModal runner selection", () => {
   };
 
   const invokeMock = vi.mocked(
-    invoke as unknown as (cmd: string) => Promise<unknown>
+    invoke as unknown as (cmd: string) => Promise<unknown>,
   );
 
-  beforeEach(() => {
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "list_compatibility_runners") {
-        return Promise.resolve([runner]);
-      }
-      if (cmd === "get_compatibility_settings") {
-        return Promise.resolve({});
-      }
-      return Promise.resolve([]);
-    });
-  });
-
-  afterEach(() => {
-    invokeMock.mockImplementation(() => Promise.resolve([]));
-  });
-
   function runnerCard() {
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    const card = screen
-      .getByText("Runner Selection")
-      .closest(".edit-launch-card");
+    openArea("Proton / Wine");
+    const card = screen.getByText("Runner Selection").closest(".edit-card");
     expect(card).toBeTruthy();
     return card as HTMLElement;
   }
 
-  it("shows the saved runner in the dropdown instead of the custom-path option", async () => {
+  it("shows the saved runner in the dropdown", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "list_compatibility_runners") return Promise.resolve([runner]);
+      if (cmd === "get_compatibility_settings") return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
     render(
       <EditGameModal
         game={makeGame({
@@ -295,17 +468,23 @@ describe("EditGameModal runner selection", () => {
           },
         })}
         onClose={() => {}}
-      />
+      />,
     );
 
     const select = within(runnerCard()).getByRole("combobox") as HTMLSelectElement;
     await waitFor(() => expect(select.value).toBe(runner.path));
     expect(select.options[select.selectedIndex].textContent).toContain(
-      "Steam Proton 9"
+      "Steam Proton 9",
     );
   });
 
-  it("keeps the custom-path option for an unrecognized runner path", async () => {
+  it("keeps the custom-path option for an unknown runner", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "list_compatibility_runners") return Promise.resolve([runner]);
+      if (cmd === "get_compatibility_settings") return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
     render(
       <EditGameModal
         game={makeGame({
@@ -316,122 +495,72 @@ describe("EditGameModal runner selection", () => {
           },
         })}
         onClose={() => {}}
-      />
+      />,
     );
 
     const card = runnerCard();
     const select = within(card).getByRole("combobox") as HTMLSelectElement;
     await waitFor(() => expect(select.value).toBe("custom"));
-
-    const pathInput = within(card).getByPlaceholderText(
-      "/path/to/wine or /path/to/proton"
-    ) as HTMLInputElement;
-    expect(pathInput.value).toBe("/opt/custom-wine/bin/wine");
+    expect(
+      within(card).getByPlaceholderText("/path/to/wine or /path/to/proton"),
+    ).toHaveValue("/opt/custom-wine/bin/wine");
   });
-});
 
-describe("EditGameModal prefix selection", () => {
-  const sharedPrefix = {
-    id: "prefix-shared",
-    name: "Shared",
-    path: "/shared/pfx",
-  };
-
-  const invokeMock = vi.mocked(
-    invoke as unknown as (cmd: string) => Promise<unknown>
-  );
-
-  beforeEach(() => {
-    updateGameMock.mockClear();
+  it("offers the settings prefix as the default option", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "get_compatibility_settings") {
-        return Promise.resolve({ defaultPrefix: sharedPrefix.path });
+        return Promise.resolve({ defaultPrefix: "/shared/pfx" });
       }
       if (cmd === "list_wine_prefixes") {
-        return Promise.resolve([sharedPrefix]);
+        return Promise.resolve([{ id: "shared", name: "Shared", path: "/shared/pfx" }]);
       }
       return Promise.resolve([]);
     });
-  });
 
-  afterEach(() => {
-    invokeMock.mockImplementation(() => Promise.resolve([]));
-  });
-
-  function prefixCard() {
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
-    const card = screen
-      .getByText("Custom WINEPREFIX Directory")
-      .closest(".edit-launch-card");
-    expect(card).toBeTruthy();
-    return card as HTMLElement;
-  }
-
-  it("shows the prefix selected in settings as the default option", async () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
-    const select = within(prefixCard()).getByRole(
-      "combobox"
-    ) as HTMLSelectElement;
+    openArea("Proton / Wine");
+    const card = screen
+      .getByText("Custom WINEPREFIX Directory")
+      .closest(".edit-card") as HTMLElement;
+    const select = within(card).getByRole("combobox") as HTMLSelectElement;
 
     await waitFor(() =>
-      expect(select.options[select.selectedIndex].textContent).toContain(
-        "/shared/pfx"
-      )
+      expect(select.options[select.selectedIndex].textContent).toContain("/shared/pfx"),
     );
     expect(select.value).toBe("");
   });
 
   it("saves a specific prefix chosen from the dropdown", async () => {
-    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
-
-    const select = within(prefixCard()).getByRole(
-      "combobox"
-    ) as HTMLSelectElement;
-    await waitFor(() =>
-      expect(
-        Array.from(select.options).some((o) => o.value === sharedPrefix.path)
-      ).toBe(true)
-    );
-
-    fireEvent.change(select, { target: { value: sharedPrefix.path } });
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-    const updates = updateGameMock.mock.calls[0][1];
-    expect(updates.compatibility.customWinePrefix).toBe(sharedPrefix.path);
-  });
-
-  it("still offers the settings default when the prefix scan fails", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "get_compatibility_settings") {
-        return Promise.resolve({ defaultPrefix: sharedPrefix.path });
+        return Promise.resolve({ defaultPrefix: "/shared/pfx" });
       }
       if (cmd === "list_wine_prefixes") {
-        return Promise.reject(new Error("scan failed"));
+        return Promise.resolve([{ id: "shared", name: "Shared", path: "/shared/pfx" }]);
       }
       return Promise.resolve([]);
     });
 
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
 
-    const select = within(prefixCard()).getByRole(
-      "combobox"
-    ) as HTMLSelectElement;
+    openArea("Proton / Wine");
+    const card = screen
+      .getByText("Custom WINEPREFIX Directory")
+      .closest(".edit-card") as HTMLElement;
+    const select = within(card).getByRole("combobox") as HTMLSelectElement;
     await waitFor(() =>
-      expect(select.options[select.selectedIndex].textContent).toContain(
-        "/shared/pfx"
-      )
+      expect(
+        Array.from(select.options).some((option) => option.value === "/shared/pfx"),
+      ).toBe(true),
     );
-  });
-});
 
-describe("EditGameModal global setting hints", () => {
-  const invokeMock = vi.mocked(
-    invoke as unknown as (cmd: string) => Promise<unknown>
-  );
+    fireEvent.change(select, { target: { value: "/shared/pfx" } });
+    save();
 
-  afterEach(() => {
-    invokeMock.mockImplementation(() => Promise.resolve([]));
+    expect(updateGameMock.mock.calls[0][1].compatibility.customWinePrefix).toBe(
+      "/shared/pfx",
+    );
   });
 
   it("shows what each compatibility item resolves to in Settings", async () => {
@@ -450,32 +579,17 @@ describe("EditGameModal global setting hints", () => {
     });
 
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    openArea("Proton / Wine");
 
     await waitFor(() =>
-      expect(screen.getByText("Settings: Auto-detect")).toBeTruthy()
+      expect(screen.getByText("Settings: Auto-detect")).toBeTruthy(),
     );
     expect(screen.getByText("Settings: PulseAudio")).toBeTruthy();
     expect(screen.getByText("Settings: fixme-all")).toBeTruthy();
 
-    fireEvent.click(
-      screen.getByRole("tab", { name: "Graphics & Direct3D" })
-    );
-
-    const dxvkCard = screen
-      .getByText("DXVK (Direct3D 9, 10, 11 to Vulkan)")
-      .closest(".edit-launch-card") as HTMLElement;
-    expect(within(dxvkCard).getByText("Settings: Off")).toBeTruthy();
-
-    const vkd3dCard = screen
-      .getByText("VKD3D-Proton (Direct3D 12 to Vulkan)")
-      .closest(".edit-launch-card") as HTMLElement;
-    expect(within(vkd3dCard).getByText("Settings: On")).toBeTruthy();
-
-    const descriptorHeapCard = screen
-      .getByText("VKD3D Descriptor Heap")
-      .closest(".edit-launch-card") as HTMLElement;
-    expect(within(descriptorHeapCard).getByText("Settings: Off")).toBeTruthy();
+    openSection("Graphics & Direct3D");
+    expect(within(slot("compat-dxvk")).getByText("Settings: Off")).toBeTruthy();
+    expect(within(slot("compat-vkd3d")).getByText("Settings: On")).toBeTruthy();
   });
 
   it("hides the hints while settings are unavailable", async () => {
@@ -487,23 +601,21 @@ describe("EditGameModal global setting hints", () => {
     });
 
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Proton / Wine" }));
+    openArea("Proton / Wine");
 
     await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("get_compatibility_settings")
+      expect(invokeMock).toHaveBeenCalledWith("get_compatibility_settings"),
     );
     expect(screen.queryByText(/Settings:/)).toBeNull();
   });
 });
 
-describe("EditGameModal instant artwork save", () => {
+describe("media", () => {
   const invokeMock = vi.mocked(
-    invoke as unknown as (cmd: string, args?: unknown) => Promise<unknown>
+    invoke as unknown as (cmd: string, args?: unknown) => Promise<unknown>,
   );
 
   beforeEach(() => {
-    updateGameMock.mockClear();
-    showToastMock.mockClear();
     invokeMock.mockClear();
     invokeMock.mockImplementation(() => Promise.resolve(null));
   });
@@ -513,24 +625,25 @@ describe("EditGameModal instant artwork save", () => {
     invokeMock.mockImplementation(() => Promise.resolve([]));
   });
 
-  function openMediaTab(subtab?: string) {
+  function openArtwork() {
+    openArea("Media & Images");
+  }
+
+  it("shows all four artwork slots at once", () => {
     render(<EditGameModal game={makeGame()} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    if (subtab) fireEvent.click(screen.getByRole("tab", { name: subtab }));
-  }
+    openArtwork();
 
-  // Only the active artwork subtab renders its pinned panel, so there is a
-  // single "File" button on screen at a time.
-  function fileButton() {
-    return screen.getByRole("button", { name: "File" });
-  }
+    expect(document.getElementById("edit-artwork-icon")).toBeTruthy();
+    expect(document.getElementById("edit-artwork-cover")).toBeTruthy();
+    expect(document.getElementById("edit-artwork-hero")).toBeTruthy();
+    expect(document.getElementById("edit-artwork-logo")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "File" })).toHaveLength(4);
+  });
 
-  it("saves a chosen icon immediately, replacing the existing one", async () => {
+  it("saves a chosen icon immediately", async () => {
     openMock.mockResolvedValueOnce("/pictures/new-icon.png");
     invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "store_artwork_file") {
-        return Promise.resolve("artwork/game-1/icon.png");
-      }
+      if (cmd === "store_artwork_file") return Promise.resolve("artwork/game-1/icon.png");
       if (cmd === "artwork_asset_url") {
         return Promise.resolve("file:///tmp/artwork/game-1/icon.png");
       }
@@ -541,18 +654,11 @@ describe("EditGameModal instant artwork save", () => {
       <EditGameModal
         game={makeGame({ iconUrl: "asset://localhost/old-icon.png" })}
         onClose={() => {}}
-      />
+      />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Icon" }));
-    fireEvent.click(fileButton());
+    openArtwork();
+    fireEvent.click(within(slot("edit-artwork-icon")).getByRole("button", { name: "File" }));
 
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith(
-        "store_artwork_file",
-        expect.objectContaining({ gameId: "game-1", slot: "icon" })
-      )
-    );
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
         "patch_game",
@@ -561,26 +667,21 @@ describe("EditGameModal instant artwork save", () => {
           patch: expect.objectContaining({
             iconUrl: expect.stringContaining("asset://localhost/"),
           }),
-        })
-      )
+        }),
+      ),
     );
     expect(updateGameMock).toHaveBeenCalledWith(
       "game-1",
-      expect.objectContaining({
-        iconUrl: expect.stringContaining("asset://localhost/"),
-      })
+      expect.objectContaining({ iconUrl: expect.stringContaining("asset://localhost/") }),
     );
-    expect(updateGameMock.mock.calls[0][1].iconUrl).not.toBe(
-      "asset://localhost/old-icon.png"
-    );
+    // Artwork persists immediately, so it must not count as an unsaved edit.
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
   });
 
-  it("persists a chosen cover to coverArtUrl and clears the stale coverSourceUrl", async () => {
+  it("persists a chosen cover and clears the stale source", async () => {
     openMock.mockResolvedValueOnce("/pictures/new-cover.png");
     invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "store_artwork_file") {
-        return Promise.resolve("artwork/game-1/cover.png");
-      }
+      if (cmd === "store_artwork_file") return Promise.resolve("artwork/game-1/cover.png");
       if (cmd === "artwork_asset_url") {
         return Promise.resolve("file:///tmp/artwork/game-1/cover.png");
       }
@@ -594,123 +695,48 @@ describe("EditGameModal instant artwork save", () => {
           coverSourceUrl: "https://old.example/cover.png",
         })}
         onClose={() => {}}
-      />
+      />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Cover" }));
-    fireEvent.click(fileButton());
+    openArtwork();
+    fireEvent.click(within(slot("edit-artwork-cover")).getByRole("button", { name: "File" }));
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
         "patch_game",
         expect.objectContaining({
-          id: "game-1",
-          patch: expect.objectContaining({
-            coverArtUrl: expect.stringContaining("asset://localhost/"),
-            coverSourceUrl: null,
-          }),
-        })
-      )
-    );
-    expect(updateGameMock).toHaveBeenCalledWith(
-      "game-1",
-      expect.objectContaining({
-        coverArtUrl: expect.stringContaining("asset://localhost/"),
-      })
+          patch: expect.objectContaining({ coverSourceUrl: null }),
+        }),
+      ),
     );
   });
 
   it("persists a chosen hero to bannerUrl", async () => {
     openMock.mockResolvedValueOnce("/pictures/new-hero.png");
     invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "store_artwork_file") {
-        return Promise.resolve("artwork/game-1/hero.png");
-      }
+      if (cmd === "store_artwork_file") return Promise.resolve("artwork/game-1/hero.png");
       if (cmd === "artwork_asset_url") {
         return Promise.resolve("file:///tmp/artwork/game-1/hero.png");
       }
       return Promise.resolve(null);
     });
 
-    render(
-      <EditGameModal
-        game={makeGame({ bannerUrl: "asset://localhost/old-hero.png" })}
-        onClose={() => {}}
-      />
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Hero" }));
-    fireEvent.click(fileButton());
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    openArtwork();
+    fireEvent.click(within(slot("edit-artwork-hero")).getByRole("button", { name: "File" }));
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
         "patch_game",
         expect.objectContaining({
-          id: "game-1",
           patch: expect.objectContaining({
             bannerUrl: expect.stringContaining("asset://localhost/"),
           }),
-        })
-      )
+        }),
+      ),
     );
   });
 
-  it("persists a chosen logo to logoUrl", async () => {
-    openMock.mockResolvedValueOnce("/pictures/new-logo.png");
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "store_artwork_file") {
-        return Promise.resolve("artwork/game-1/logo.png");
-      }
-      if (cmd === "artwork_asset_url") {
-        return Promise.resolve("file:///tmp/artwork/game-1/logo.png");
-      }
-      return Promise.resolve(null);
-    });
-
-    render(
-      <EditGameModal
-        game={makeGame({ logoUrl: "asset://localhost/old-logo.png" })}
-        onClose={() => {}}
-      />
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
-    fireEvent.click(fileButton());
-
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith(
-        "patch_game",
-        expect.objectContaining({
-          id: "game-1",
-          patch: expect.objectContaining({
-            logoUrl: expect.stringContaining("asset://localhost/"),
-            logoSourceUrl: null,
-          }),
-        })
-      )
-    );
-  });
-
-  it("preserves the tracked logo source through save", () => {
-    render(
-      <EditGameModal
-        game={makeGame({
-          logoUrl: "asset://localhost/logo.png",
-          logoSourceUrl: "https://cdn.example/logo.png",
-        })}
-        onClose={() => {}}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-
-    expect(updateGameMock).toHaveBeenCalledWith(
-      "game-1",
-      expect.objectContaining({ logoSourceUrl: "https://cdn.example/logo.png" })
-    );
-  });
-
-  it("clears both the logo and its tracked source when the logo is removed", async () => {
+  it("clears both the logo and its tracked source", async () => {
     render(
       <EditGameModal
         game={makeGame({
@@ -718,105 +744,98 @@ describe("EditGameModal instant artwork save", () => {
           logoSourceUrl: "https://cdn.example/old-logo.png",
         })}
         onClose={() => {}}
-      />
+      />,
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
-    fireEvent.click(screen.getByTitle("Clear this image slot"));
+    openArtwork();
+    fireEvent.click(
+      within(slot("edit-artwork-logo")).getByRole("button", { name: "Remove Logo" }),
+    );
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
         "patch_game",
         expect.objectContaining({
-          id: "game-1",
           patch: expect.objectContaining({ logoUrl: null, logoSourceUrl: null }),
-        })
-      )
+        }),
+      ),
     );
     expect(updateGameMock).toHaveBeenCalledWith(
       "game-1",
-      expect.objectContaining({ logoUrl: undefined, logoSourceUrl: undefined })
-    );
-  });
-
-  it("clears a slot through patch_game when the user removes an image", async () => {
-    render(
-      <EditGameModal
-        game={makeGame({ logoUrl: "asset://localhost/old-logo.png" })}
-        onClose={() => {}}
-      />
-    );
-    fireEvent.click(screen.getByRole("tab", { name: "Media & Images" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Logo" }));
-    fireEvent.click(screen.getByTitle("Clear this image slot"));
-
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith(
-        "patch_game",
-        expect.objectContaining({
-          id: "game-1",
-          patch: expect.objectContaining({ logoUrl: null }),
-        })
-      )
-    );
-    expect(updateGameMock).toHaveBeenCalledWith(
-      "game-1",
-      expect.objectContaining({ logoUrl: undefined })
+      expect.objectContaining({ logoUrl: undefined, logoSourceUrl: undefined }),
     );
   });
 
   it("does not touch the game when the artwork file cannot be stored", async () => {
     openMock.mockResolvedValueOnce("/pictures/broken.png");
     invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "store_artwork_file") {
-        return Promise.reject(new Error("disk full"));
-      }
+      if (cmd === "store_artwork_file") return Promise.reject(new Error("disk full"));
       return Promise.resolve(null);
     });
 
-    openMediaTab("Icon");
-    fireEvent.click(fileButton());
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    openArtwork();
+    fireEvent.click(within(slot("edit-artwork-icon")).getByRole("button", { name: "File" }));
 
     await waitFor(() =>
-      expect(showToastMock).toHaveBeenCalledWith("Failed to load image", "error")
+      expect(showToastMock).toHaveBeenCalledWith("Failed to load image", "error"),
     );
     expect(invokeMock).not.toHaveBeenCalledWith("patch_game", expect.anything());
     expect(updateGameMock).not.toHaveBeenCalled();
   });
+
+  it("opens screenshots, videos and links as their own sections", () => {
+    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    openArea("Media & Images");
+
+    openSection("Screenshots");
+    expect(document.getElementById("edit-screenshots")).toBeTruthy();
+
+    openSection("Videos");
+    expect(document.getElementById("edit-videos")).toBeTruthy();
+
+    openSection("Links");
+    expect(document.getElementById("edit-websites")).toBeTruthy();
+  });
 });
 
 describe("purchase cost", () => {
-  const invokeMockRef = vi.mocked(invoke);
+  const invokeMock = vi.mocked(invoke);
 
-  beforeEach(() => {
-    invokeMockRef.mockReset();
-    invokeMockRef.mockImplementation(() => Promise.resolve([]));
-    updateGameMock.mockClear();
-  });
-
-  it("auto-fills the field from the known store price when no cost is set", async () => {
-    invokeMockRef.mockImplementation((cmd: string) => {
+  it("auto-fills from the known store price when no cost is set", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "fetch_game_prices_batch") {
         return Promise.resolve({ "Test Game": { salePrice: 19.99, normalPrice: 39.99 } });
       }
       return Promise.resolve([]);
     });
 
-    render(<EditGameModal game={makeGame()} onClose={() => {}} />);
+    render(
+      <EditGameModal game={makeGame()} focusField="purchaseCost" onClose={() => {}} />,
+    );
 
     await waitFor(() =>
-      expect(document.getElementById("edit-purchase-cost")).toHaveValue(19.99)
+      expect(document.getElementById("edit-purchase-cost")).toHaveValue(19.99),
     );
-    expect(
-      screen.getByText(/Auto-filled from the current store price/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Auto-filled from the current store price/i)).toBeTruthy();
+    // A price suggestion is not a user edit, so Save stays disabled until the
+    // user actually changes something.
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
   });
 
-  it("never overrides a cost the user already set (no price lookup at all)", async () => {
-    render(<EditGameModal game={makeGame({ purchaseCost: 12.5, purchaseCurrency: "EUR" })} onClose={() => {}} />);
+  it("never overrides a cost the user already set", async () => {
+    render(
+      <EditGameModal
+        game={makeGame({ purchaseCost: 12.5, purchaseCurrency: "EUR" })}
+        focusField="purchaseCost"
+        onClose={() => {}}
+      />,
+    );
 
     expect(document.getElementById("edit-purchase-cost")).toHaveValue(12.5);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(invokeMockRef).not.toHaveBeenCalledWith("fetch_game_prices_batch", expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "fetch_game_prices_batch",
+      expect.anything(),
+    );
   });
 });

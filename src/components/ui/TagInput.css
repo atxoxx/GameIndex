@@ -1,0 +1,107 @@
+/* TagInput — extracted from the editor so every consumer gets the styles. */
+
+.tag-input {
+  width: 100%;
+}
+
+.tag-input-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: text;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+.tag-input.is-focused .tag-input-field {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs) var(--space-3xs) var(--space-sm);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.tag-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.tag-chip-remove:hover {
+  background: color-mix(in srgb, var(--color-danger) 22%, transparent);
+  color: var(--color-danger);
+}
+
+.tag-chip-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tag-input-control {
+  flex: 1 1 80px;
+  min-width: 80px;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--text-md);
+  font-family: inherit;
+  padding: var(--space-2xs) var(--space-3xs);
+}
+
+.tag-input-control::placeholder {
+  color: var(--color-text-muted);
+}
+
+.tag-input-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.tag-suggestion {
+  padding: var(--space-3xs) var(--space-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.tag-suggestion:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ---- */

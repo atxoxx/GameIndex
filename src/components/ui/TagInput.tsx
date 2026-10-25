@@ -1,5 +1,6 @@
 import { useState, useRef, type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import "./TagInput.css";
 
 interface TagInputProps {
   id?: string;

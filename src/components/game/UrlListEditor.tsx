@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { UrlAddRow } from "./UrlAddRow";
-import "./EditGameModal.css";
+import "./edit/EditGameModal.css";
 
 function getUrlDomain(url: string): string {
   try {
@@ -28,6 +29,7 @@ export function UrlListEditor({
   thumbnail?: (url: string) => string | undefined;
   primaryActions?: (url: string) => ReactNode;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="url-list-editor">
       <div className="url-list-header">
@@ -64,7 +66,7 @@ export function UrlListEditor({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="url-list-ext-btn"
-                    title="Open link in browser"
+                    title={t("edit.openSourcePage")}
                   >
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -76,7 +78,7 @@ export function UrlListEditor({
                     type="button"
                     className="lb-apply-btn url-list-remove"
                     onClick={() => onChange(items.filter((_, i) => i !== idx))}
-                    title="Remove link"
+                    title={t("common.remove")}
                   >
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
