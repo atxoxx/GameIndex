@@ -1523,13 +1523,11 @@
   border-radius: var(--radius-xl);
   background: var(--panel-tint-raised);
   overflow: hidden;
-  transition: background var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard);
 }
 
 .wl-hub-card:hover {
   background: var(--panel-tint);
-  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--color-text-primary) 55%, transparent);
 }
 
 .wl-hub-card__open {
