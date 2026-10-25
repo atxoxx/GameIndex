@@ -29,7 +29,7 @@ import {
   useGameTabState,
 } from "../tabs";
 import DlcCard from "./DlcCard";
-import DlcDrawer from "./DlcDrawer";
+import DlcModal from "./DlcModal";
 import DlcTable from "./DlcTable";
 import {
   DLC_FILTERS,
@@ -69,8 +69,8 @@ const DEFAULT_STATE: DlcTabState = {
  *
  * The header carries the collection figures (clickable, so a figure doubles as
  * a filter), the command row holds search/filter/sort/view, and the catalog
- * renders as an art gallery or a dense table. One add-on opens in a right-side
- * drawer instead of a centered modal, keeping the catalog in view.
+ * renders as an art gallery or a dense table. One add-on opens in a centered
+ * modal over the catalog.
  */
 export default function GameDlcTab({ game, storeAppId }: GameDlcTabProps) {
   const { t, language } = useLanguage();
@@ -508,13 +508,15 @@ export default function GameDlcTab({ game, storeAppId }: GameDlcTabProps) {
         </div>
       )}
 
-      <DlcDrawer
-        dlc={selected}
-        onClose={() => setState({ item: "" })}
-        onToggleWatch={(dlc) => void handleToggleWatch(dlc)}
-        onToggleOwned={(dlc) => void handleToggleOwned(dlc)}
-        onOpenStore={handleOpenStore}
-      />
+      {selected && (
+        <DlcModal
+          dlc={selected}
+          onClose={() => setState({ item: "" })}
+          onToggleWatch={(dlc) => void handleToggleWatch(dlc)}
+          onToggleOwned={(dlc) => void handleToggleOwned(dlc)}
+          onOpenStore={handleOpenStore}
+        />
+      )}
 
       <ConfirmModal
         open={confirmMarkAll}

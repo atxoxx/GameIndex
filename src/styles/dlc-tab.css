@@ -2,7 +2,7 @@
    DLC & Add-ons tab
    ──────────────────────────────────────────────────────────────────────
    The tab is a workspace over Steam's catalog: gallery or table, one
-   add-on inspected in a drawer. Surfaces stay tonal and undelimited; the
+   add-on inspected in a modal. Surfaces stay tonal and undelimited; the
    only identity edges are ownership (success) and sale (warning).
    ========================================================================== */
 
@@ -393,16 +393,142 @@
   color: var(--color-text-muted);
 }
 
-/* ── Drawer contents ─────────────────────────────────────────────────── */
+/* ── Detail modal ────────────────────────────────────────────────────── */
 
-.dlc-drawer__meta {
+.dlc-modal {
+  width: min(680px, 94vw);
+  max-height: min(86vh, 800px);
+  max-height: min(86dvh, 800px);
+}
+
+.dlc-modal__hero {
+  position: relative;
+  flex: 0 0 auto;
+  height: clamp(160px, 24vh, 220px);
+  overflow: hidden;
+  background: var(--panel-tint-sunken);
+}
+
+.dlc-modal__hero.is-empty {
+  background: radial-gradient(
+      circle at 18% 22%,
+      color-mix(in srgb, var(--color-accent) 16%, transparent),
+      transparent 62%
+    ),
+    var(--panel-tint-sunken);
+}
+
+.dlc-modal__hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dlc-modal__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    var(--color-bg-secondary) 0%,
+    color-mix(in srgb, var(--color-bg-secondary) 74%, transparent) 34%,
+    transparent 80%
+  );
+}
+
+.dlc-modal__close {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.dlc-modal__close:hover {
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, transparent);
+}
+
+.dlc-modal__intro {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: 0 var(--space-xl) var(--space-md);
+  min-width: 0;
+}
+
+.dlc-modal__eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.dlc-modal__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.dlc-modal__released {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.dlc-modal__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
+}
+
+.dlc-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl) var(--space-xl);
+}
+
+.dlc-modal__footer-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.dlc-modal__meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
   margin: 0;
 }
 
-.dlc-drawer__meta > div {
+.dlc-modal__meta > div {
   display: flex;
   flex-direction: column;
   gap: var(--space-3xs);
@@ -411,7 +537,7 @@
   background: var(--panel-tint);
 }
 
-.dlc-drawer__meta dt {
+.dlc-modal__meta dt {
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
@@ -419,29 +545,29 @@
   color: var(--color-text-muted);
 }
 
-.dlc-drawer__meta dd {
+.dlc-modal__meta dd {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-primary);
 }
 
-.dlc-drawer__meta dd.is-sale {
+.dlc-modal__meta dd.is-sale {
   color: var(--color-warning);
 }
 
-.dlc-drawer__was {
+.dlc-modal__was {
   margin-left: var(--space-xs);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
-.dlc-drawer__mono {
+.dlc-modal__mono {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
 
-.dlc-drawer__section h3 {
+.dlc-modal__section h3 {
   margin: 0 0 var(--space-xs);
   font-family: var(--font-display);
   font-size: var(--text-md);
@@ -449,7 +575,7 @@
   color: var(--color-text-primary);
 }
 
-.dlc-drawer__section p {
+.dlc-modal__section p {
   margin: 0;
   white-space: pre-line;
   font-size: var(--text-sm);
@@ -457,16 +583,20 @@
   color: var(--color-text-secondary);
 }
 
-.dlc-drawer__spacer {
-  flex: 1 1 auto;
-}
-
 @media (max-width: 700px) {
   .dlc-gallery {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 
-  .dlc-drawer__meta {
+  .dlc-modal__intro {
+    padding: 0 var(--space-lg) var(--space-md);
+  }
+
+  .dlc-modal__body {
+    padding: var(--space-md) var(--space-lg) var(--space-lg);
+  }
+
+  .dlc-modal__meta {
     grid-template-columns: 1fr;
   }
 }
