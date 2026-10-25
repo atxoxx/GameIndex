@@ -491,7 +491,7 @@
   min-width: 220px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .ach-tab-title-row {
@@ -555,7 +555,7 @@
   display: flex;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  margin-top: var(--space-3xs);
+  margin-top: var(--space-2xs);
 }
 
 .ach-tab-date {
@@ -681,8 +681,8 @@
 .ach-rarity-side-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xs);
-  padding-bottom: var(--space-md);
+  gap: var(--space-sm);
+  padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -894,7 +894,7 @@
 .ach-rarity-filter-pills {
   display: flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   flex-wrap: wrap;
 }
 
@@ -1093,7 +1093,7 @@
 .achievements-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 .achievements-no-results {
@@ -1124,7 +1124,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-md);
+  padding: var(--space-lg);
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
   position: relative;
   overflow: hidden;
@@ -1200,7 +1200,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
 }
 
 .achievement-card-header {
@@ -1284,7 +1284,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-top: var(--space-2xs);
+  margin-top: var(--space-xs);
 }
 
 .achievement-card-rarity-bar {
@@ -1346,7 +1346,7 @@
 .ach-compact-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .ach-compact-row {
@@ -1538,7 +1538,7 @@
 .ach-journey-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 /* Sidebar remaining box */
@@ -2420,6 +2420,16 @@
 
 /* ══ Tab workspace pass ═══════════════════════════════════════════════ */
 
+/* The achievements workspace keeps the older, roomier section rhythm:
+   hero, shelf, command row and grid each need their own breathing room. */
+.game-tab.achievements-tab {
+  gap: var(--space-xl);
+}
+
+.game-tab.achievements-tab .game-tab-toolbar {
+  gap: var(--space-md);
+}
+
 .ach-tab-hero {
   background: var(--panel-tint);
   border: 0;
@@ -2449,7 +2459,7 @@
 
 .ach-tab-sources {
   display: block;
-  margin-top: var(--space-xs);
+  margin-top: var(--space-sm);
 }
 
 .ach-tab-sources .ach-source-picker {
@@ -2473,8 +2483,8 @@
 .ach-shelf {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   border-radius: var(--radius-2xl);
   background: color-mix(in srgb, var(--color-accent) 7%, transparent);
 }
@@ -2519,14 +2529,14 @@
 .ach-shelf__items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
 .ach-shelf__item {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
+  gap: var(--space-md);
+  padding: var(--space-md);
   border-radius: var(--radius-lg);
   background: var(--panel-tint-raised);
   min-width: 0;
@@ -2597,8 +2607,8 @@
 .ach-rarity-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-md);
+  gap: var(--space-lg);
+  padding: var(--space-lg);
   border-radius: var(--radius-2xl);
   background: var(--panel-tint);
   position: sticky;
@@ -2637,7 +2647,7 @@
 .ach-rarity-panel__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 .ach-rarity-panel .ach-rarity-side-stats {

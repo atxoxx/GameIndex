@@ -612,6 +612,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
         pct,
       })}
       icon={<Trophy size={20} />}
+      className="achievements-tab"
     >
       <AchievementTabHero
         game={game}
