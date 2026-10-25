@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { lazy, Suspense, useMemo, useState, useEffect, useCallback } from "react";
 import { useDownloads } from "../context/DownloadContext";
 import { useToast } from "../context/ToastContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
@@ -16,18 +16,27 @@ import {
 } from "../types/download";
 import BandwidthHero from "../components/downloads/BandwidthHero";
 import BandwidthSparkline from "../components/downloads/BandwidthSparkline";
-import AddDownloadModal from "../components/downloads/AddDownloadModal";
 import DownloadsToolbar from "../components/downloads/DownloadsToolbar";
 import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloads/DownloadsFilterBar";
 import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
-import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
 import DownloadsTabs, { type DownloadsTabKey } from "../components/downloads/DownloadsTabs";
-import DownloadsScheduledTab from "../components/downloads/DownloadsScheduledTab";
 import DownloadsHistoryTab from "../components/downloads/DownloadsHistoryTab";
 import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
+// Stats (61 KB), the add-download flow (37 KB) and the scheduler tab are
+// all opened on demand; keeping them out of the initial downloads chunk
+// means the queue paints from a third of the code.
+const DownloadStatsModal = lazy(
+  () => import("../components/downloads/DownloadStatsModal"),
+);
+const AddDownloadModal = lazy(
+  () => import("../components/downloads/AddDownloadModal"),
+);
+const DownloadsScheduledTab = lazy(
+  () => import("../components/downloads/DownloadsScheduledTab"),
+);
 import "../styles/page-downloads.css";
 import "../styles/downloads-v2.css";
 import "../styles/download-stats-v2.css";
@@ -512,7 +521,9 @@ export default function DownloadsPage() {
       {activeTab === "scheduled" && (
         <PageWidget page="downloads" widget="downloadsScheduled">
         <div className="ui-item-downloadsScheduled">
-          <DownloadsScheduledTab />
+          <Suspense fallback={null}>
+            <DownloadsScheduledTab />
+          </Suspense>
         </div>
         </PageWidget>
       )}
@@ -600,19 +611,27 @@ export default function DownloadsPage() {
       />
 
       {/* Download Statistics & Diagnostics Modal */}
-      <DownloadStatsModal
-        open={statsModalOpen}
-        onClose={() => setStatsModalOpen(false)}
-        downloads={downloads}
-        history={history}
-        onResetStats={refreshHistory}
-      />
+      {statsModalOpen && (
+        <Suspense fallback={null}>
+          <DownloadStatsModal
+            open={statsModalOpen}
+            onClose={() => setStatsModalOpen(false)}
+            downloads={downloads}
+            history={history}
+            onResetStats={refreshHistory}
+          />
+        </Suspense>
+      )}
 
       {/* Add Download Modal */}
-      <AddDownloadModal
-        open={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
-      />
+      {addModalOpen && (
+        <Suspense fallback={null}>
+          <AddDownloadModal
+            open={addModalOpen}
+            onClose={() => setAddModalOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePresence } from "../context/PresenceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
@@ -20,10 +20,14 @@ import StoreQuickPicks from "../components/store/StoreQuickPicks";
 import StoreGameGrid from "../components/store/StoreGameGrid";
 import StoreBulkBar from "../components/store/StoreBulkBar";
 import StoreCompareTray from "../components/store/StoreCompareTray";
-import StoreCompareModal from "../components/store/StoreCompareModal";
 import PageWidget from "../components/PageWidget";
 import type { StoreGameSummary } from "../types/game";
 import "../styles/page-store.css";
+
+// Comparison is opened from the tray, never on first paint.
+const StoreCompareModal = lazy(
+  () => import("../components/store/StoreCompareModal"),
+);
 
 const HERO_EXPANDED_KEY = "store.hero.manuallyExpanded";
 const QUICK_PICKS_KEY = "store.quickPicks.hidden";
@@ -336,19 +340,21 @@ export default function StorePage() {
         )}
 
         {c.compareOpen && c.compareGames.length > 0 && (
-          <StoreCompareModal
-            games={c.compareGames}
-            availableGames={c.games}
-            isInLibrary={c.isInLibrary}
-            onClose={() => c.setCompareOpen(false)}
-            onRemove={c.removeCompare}
-            onAdd={c.addCompare}
-            onClear={c.clearCompare}
-            onOpenGame={(g) => {
-              c.setCompareOpen(false);
-              c.onCardClick(g);
-            }}
-          />
+          <Suspense fallback={null}>
+            <StoreCompareModal
+              games={c.compareGames}
+              availableGames={c.games}
+              isInLibrary={c.isInLibrary}
+              onClose={() => c.setCompareOpen(false)}
+              onRemove={c.removeCompare}
+              onAdd={c.addCompare}
+              onClear={c.clearCompare}
+              onOpenGame={(g) => {
+                c.setCompareOpen(false);
+                c.onCardClick(g);
+              }}
+            />
+          </Suspense>
         )}
       </div>
     </div>

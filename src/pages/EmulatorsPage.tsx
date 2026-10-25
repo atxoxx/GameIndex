@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
@@ -50,10 +50,18 @@ import EmulatorRomBrowser from "../components/emulators/EmulatorRomBrowser";
 import EmulatorRomInspector from "../components/emulators/EmulatorRomInspector";
 import EmulatorFirmwareTab from "../components/emulators/EmulatorFirmwareTab";
 import EmulatorHealthTab from "../components/emulators/EmulatorHealthTab";
-import EmulatorRomDetailModal from "../components/emulators/EmulatorRomDetailModal";
-import EmulatorAddModal from "../components/emulators/EmulatorAddModal";
-import EmulatorEditorModal from "./EmulatorEditorModal";
-import DownloadEmulatorModal from "../components/emulators/DownloadEmulatorModal";
+// The full emulator editor (paths, BIOS, launch rules) and the downloader
+// only mount from their explicit actions.
+const EmulatorEditorModal = lazy(() => import("./EmulatorEditorModal"));
+const DownloadEmulatorModal = lazy(
+  () => import("../components/emulators/DownloadEmulatorModal"),
+);
+const EmulatorRomDetailModal = lazy(
+  () => import("../components/emulators/EmulatorRomDetailModal"),
+);
+const EmulatorAddModal = lazy(
+  () => import("../components/emulators/EmulatorAddModal"),
+);
 import {
   computeEmulatorKpis,
   emulatorVisual,
@@ -1059,51 +1067,59 @@ export default function EmulatorsPage() {
       )}
 
       {showAdd && (
-        <EmulatorAddModal
-          emulators={emulators}
-          onClose={() => setShowAdd(false)}
-          onAddDiscovered={handleAddDiscovered}
-          onConfigureKnown={openAddKnown}
-          onCustom={openCustom}
-          onOpenDownload={openDownload}
-        />
+        <Suspense fallback={null}>
+          <EmulatorAddModal
+            emulators={emulators}
+            onClose={() => setShowAdd(false)}
+            onAddDiscovered={handleAddDiscovered}
+            onConfigureKnown={openAddKnown}
+            onCustom={openCustom}
+            onOpenDownload={openDownload}
+          />
+        </Suspense>
       )}
 
       {showEditor && (
-        <EmulatorEditorModal
-          emulator={editing}
-          presetKnown={presetKnown}
-          onClose={() => {
-            setShowEditor(false);
-            setEditing(null);
-            setPresetKnown(null);
-          }}
-          onSaved={handleSaved}
-        />
+        <Suspense fallback={null}>
+          <EmulatorEditorModal
+            emulator={editing}
+            presetKnown={presetKnown}
+            onClose={() => {
+              setShowEditor(false);
+              setEditing(null);
+              setPresetKnown(null);
+            }}
+            onSaved={handleSaved}
+          />
+        </Suspense>
       )}
 
       {showDownload && (
-        <DownloadEmulatorModal
-          onClose={() => setShowDownload(false)}
-          onInstalled={handleDownloadInstalled}
-        />
+        <Suspense fallback={null}>
+          <DownloadEmulatorModal
+            onClose={() => setShowDownload(false)}
+            onInstalled={handleDownloadInstalled}
+          />
+        </Suspense>
       )}
 
       {inspectRom && (
-        <EmulatorRomDetailModal
-          game={inspectRom}
-          emulator={selectedEmulator ?? undefined}
-          isRunning={runningGameIds.includes(inspectRom.id)}
-          onClose={() => setInspectRom(null)}
-          onLaunch={launchGame}
-          onOpenLocation={handleOpenLocation}
-          onRename={openRename}
-          onDelete={(g) => setConfirmDeleteRom(g)}
-          onGameUpdated={(updated) => {
-            updateGame(updated.id, updated);
-            setInspectRom(updated);
-          }}
-        />
+        <Suspense fallback={null}>
+          <EmulatorRomDetailModal
+            game={inspectRom}
+            emulator={selectedEmulator ?? undefined}
+            isRunning={runningGameIds.includes(inspectRom.id)}
+            onClose={() => setInspectRom(null)}
+            onLaunch={launchGame}
+            onOpenLocation={handleOpenLocation}
+            onRename={openRename}
+            onDelete={(g) => setConfirmDeleteRom(g)}
+            onGameUpdated={(updated) => {
+              updateGame(updated.id, updated);
+              setInspectRom(updated);
+            }}
+          />
+        </Suspense>
       )}
 
       <ConfirmModal
