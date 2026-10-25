@@ -19,7 +19,6 @@ import "./styles/ui.css";
 import "./styles/store-discover.css";
 import "./styles/store-polish.css";
 import "./styles/download.css";
-import "./styles/download-modal.css";
 
 // The friends page resolves its Nostr signing key lazily via `getNostrKeys`,
 // which falls back to a session-stable placeholder when the backend key

@@ -8,23 +8,19 @@
 @import "./styles/settings.css";
 @import "./styles/game-cards.css";
 @import "./styles/game-page.css";
-@import "./styles/game-hero.css";
-@import "./styles/exec-extras.css";
-@import "./styles/game-edit.css";
 @import "./styles/toasts.css";
 @import "./styles/modals.css";
 @import "./styles/changelog.css";
 @import "./styles/imports.css";
-@import "./styles/splashscreen.css";
 @import "./styles/crackwatch.css";
+@import "./styles/game-edit.css";
+@import "./styles/dlc.css";
 @import "./styles/status-badges.css";
-@import "./styles/command-palette.css";
 @import "./styles/platform-linux.css";
 @import "./styles/perf.css";
-@import "./styles/theme-creator.css";
-@import "./styles/mo2-manager.css";
-@import "./styles/dlc.css";
-@import "./styles/saves.css";
-@import "./styles/settings-diagnostics.css";
-@import "./styles/setup.css";
+
+/* Page- and dialog-specific styles live with the chunk that renders them
+   (see the `import "../styles/…css"` in each component) so the boot
+   stylesheet stays limited to the shell and the primitives every route
+   paints: theme tokens, layout, nav, cards, modals, badges. */
 

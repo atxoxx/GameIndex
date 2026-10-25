@@ -5,6 +5,7 @@ import { Play, Plus, Shield, Trash2 } from "lucide-react";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { gameDisplayName, type Game, type GameExecutable } from "../../types/game";
+import "../../styles/exec-extras.css";
 
 /**
  * GameExecutablePickerModal

@@ -14,6 +14,7 @@ import { formatPlayTimeCompact } from "./game/shared";
 import { useLanguage } from "../context/LanguageContext";
 import { Button } from "./ui/Button";
 import { getGameMo2Config } from "../utils/mo2Storage";
+import "../styles/splashscreen.css";
 
 /**
  * Minimum visibility before fade-out begins. Holds the splash long

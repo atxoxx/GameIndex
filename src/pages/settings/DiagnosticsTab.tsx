@@ -14,6 +14,7 @@ import {
   RefreshIcon,
 } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
+import "../../styles/settings-diagnostics.css";
 
 interface CrashReportInfo {
   name: string;

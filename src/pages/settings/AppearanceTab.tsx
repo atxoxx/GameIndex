@@ -22,6 +22,7 @@ import {
   type ThemeImportIssue,
 } from "../../utils/customTheme";
 import { getThemePreviewColors } from "../../utils/themePreview";
+import "../../styles/theme-creator.css";
 
 /** Curated preset accent colors exposed on the Appearance tab. `key` is a
  *  stable machine identifier; localized display names come from

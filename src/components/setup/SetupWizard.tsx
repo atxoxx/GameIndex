@@ -6,6 +6,7 @@ import { useSetupWizard } from "../../context/SetupWizardContext";
 import { GamepadProvider } from "../../hooks/GamepadProvider";
 import { Button } from "../ui";
 import { SETUP_STEPS } from "./setupSteps";
+import "../../styles/setup.css";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

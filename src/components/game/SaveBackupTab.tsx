@@ -41,6 +41,7 @@ import {
   type SaveLocationHealth,
 } from "../../types/saves";
 import { formatRelative } from "../../utils/savesTime";
+import "../../styles/saves.css";
 
 export { formatRelative } from "../../utils/savesTime";
 

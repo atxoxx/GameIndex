@@ -34,6 +34,7 @@ import SnapshotsTab from "./SnapshotsTab";
 import SnapshotDrawer from "./SnapshotDrawer";
 import { buildSavesOverview, protectionRank, type TrackedSaveGame } from "./savesData";
 import { useSavesLibrary } from "./useSavesLibrary";
+import "../../styles/saves.css";
 
 type SavesTab = "games" | "snapshots" | "system" | "settings";
 

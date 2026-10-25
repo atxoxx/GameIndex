@@ -14,6 +14,7 @@ import { gameDisplayName, type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings, useHeroElementLayout, useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
+import "../../styles/game-hero.css";
 import { useAchievements } from "../../context/AchievementContext";
 import { useToast } from "../../context/ToastContext";
 import { HERO_ELEMENTS, type HeroElementKey } from "../../context/interfaceLayout";

@@ -28,6 +28,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
 import { searchDownloadsStream } from "../../context/SourceContext";
+import "../../styles/download-modal.css";
 import { useGames } from "../../context/GameContext";
 import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
 import { useToast } from "../../context/ToastContext";
