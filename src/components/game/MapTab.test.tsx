@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import MapTab from "./MapTab";
 import type { MapSourceResult } from "../../types/game";
 
@@ -45,12 +46,15 @@ const searchedSource: MapSourceResult = {
   ],
 };
 
-function openSearch() {
-  fireEvent.click(screen.getByLabelText("map.searchOpen"));
+function renderTab(props: React.ComponentProps<typeof MapTab>) {
+  return render(
+    <MemoryRouter>
+      <MapTab {...props} />
+    </MemoryRouter>,
+  );
 }
 
 function submitSearch(value: string) {
-  openSearch();
   const input = screen.getByLabelText("map.searchPlaceholder");
   fireEvent.change(input, { target: { value } });
   fireEvent.submit(input.closest("form") as HTMLFormElement);
@@ -72,17 +76,16 @@ describe("MapTab lookup search", () => {
       return undefined;
     });
 
-    render(<MapTab sources={[initialSource]} gameName="Old Name" />);
-    expect(screen.getByText("Old Match")).toBeTruthy();
-    expect(screen.queryByLabelText("map.searchPlaceholder")).toBeNull();
+    renderTab({ sources: [initialSource], gameName: "Old Name" });
+    expect(screen.getAllByText("Old Match").length).toBeGreaterThan(0);
 
     submitSearch("STALKER");
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "STALKER" })
     );
-    expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
-    expect(screen.queryByText("Old Match")).toBeNull();
+    expect((await screen.findAllByText("STALKER 2: Heart of Chornobyl")).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Old Match").length).toBe(0);
   });
 
   it("runs a lookup from a suggestion", async () => {
@@ -92,9 +95,9 @@ describe("MapTab lookup search", () => {
       return undefined;
     });
 
-    render(<MapTab sources={[initialSource]} gameName="Old Name" />);
-    openSearch();
+    renderTab({ sources: [initialSource], gameName: "Old Name" });
     const input = screen.getByLabelText("map.searchPlaceholder");
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "stalk" } });
 
     const option = await screen.findByRole("option", {
@@ -115,9 +118,11 @@ describe("MapTab lookup search", () => {
       return undefined;
     });
 
-    const first = render(
-      <MapTab sources={[initialSource]} gameName="Old Name" searchKey="game-1" />
-    );
+    const first = renderTab({
+      sources: [initialSource],
+      gameName: "Old Name",
+      searchKey: "game-1",
+    });
     submitSearch("STALKER");
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "STALKER" })
@@ -125,12 +130,12 @@ describe("MapTab lookup search", () => {
     first.unmount();
 
     invokeMock.mockClear();
-    render(<MapTab sources={[initialSource]} gameName="Old Name" searchKey="game-1" />);
+    renderTab({ sources: [initialSource], gameName: "Old Name", searchKey: "game-1" });
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "STALKER" })
     );
-    expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
+    expect((await screen.findAllByText("STALKER 2: Heart of Chornobyl")).length).toBeGreaterThan(0);
   });
 
   it("restores a saved search even when it matches the game name", async () => {
@@ -141,12 +146,12 @@ describe("MapTab lookup search", () => {
     });
 
     // No automatic match: only the saved manual lookup can provide a map.
-    render(<MapTab sources={[]} gameName="Old Name" searchKey="game-1" />);
+    renderTab({ sources: [], gameName: "Old Name", searchKey: "game-1" });
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("fetch_game_maps", { gameName: "Old Name" })
     );
-    expect(await screen.findByText("STALKER 2: Heart of Chornobyl")).toBeTruthy();
+    expect((await screen.findAllByText("STALKER 2: Heart of Chornobyl")).length).toBeGreaterThan(0);
   });
 
   it("shows an error state when the lookup fails", async () => {
@@ -155,7 +160,7 @@ describe("MapTab lookup search", () => {
       return undefined;
     });
 
-    render(<MapTab sources={[initialSource]} gameName="Old Name" />);
+    renderTab({ sources: [initialSource], gameName: "Old Name" });
     submitSearch("Something Obscure");
 
     const messages = await screen.findAllByText("map.searchError");
@@ -168,7 +173,7 @@ describe("MapTab lookup search", () => {
       return undefined;
     });
 
-    render(<MapTab sources={[initialSource]} gameName="Old Name" />);
+    renderTab({ sources: [initialSource], gameName: "Old Name" });
     submitSearch("Something Obscure");
 
     await waitFor(() =>
@@ -176,8 +181,6 @@ describe("MapTab lookup search", () => {
         gameName: "Something Obscure",
       })
     );
-    expect(
-      (await screen.findAllByText("map.noResults")).length
-    ).toBeGreaterThan(0);
+    expect((await screen.findAllByText("map.noResults")).length).toBeGreaterThan(0);
   });
 });

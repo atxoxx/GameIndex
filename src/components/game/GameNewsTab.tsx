@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { Newspaper } from "lucide-react";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import type { NewsArticle } from "../../types/news";
@@ -10,29 +11,34 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
+import { GameTabEmpty, GameTabSkeleton, GameTabShell, useGameTabState } from "./tabs";
 import GameNewsCard from "./news/GameNewsCard";
 import NewsArticlePreview from "../news/NewsArticlePreview";
-
-import {
-  classifyArticle,
-  loadGameCustomFeeds,
-  parseSteamNewsApi,
-  saveGameCustomFeeds,
-  steamNewsApiUrl,
-  type CustomGameFeed,
-  type GameNewsFilterCategory,
-  type GameNewsViewMode,
-  type GameNewsSortOption,
-} from "./news/gameNewsTypes";
 import GameNewsHero from "./news/GameNewsHero";
 import GameNewsToolbar from "./news/GameNewsToolbar";
-import GameNewsTimeline, {
-  GameNewsTimelineSkeleton,
-} from "./news/GameNewsTimeline";
-import GameNewsListView, {
-  GameNewsListSkeleton,
-} from "./news/GameNewsListView";
+import GameNewsBriefing from "./news/GameNewsBriefing";
+import GameNewsTimeline, { GameNewsTimelineSkeleton } from "./news/GameNewsTimeline";
+import GameNewsListView, { GameNewsListSkeleton } from "./news/GameNewsListView";
 import GameNewsCustomFeedsModal from "./news/GameNewsCustomFeedsModal";
+import {
+  articleTime,
+  loadGameCustomFeeds,
+  parseSteamNewsApi,
+  readGameNewsLastVisit,
+  saveGameCustomFeeds,
+  steamNewsApiUrl,
+  writeGameNewsLastVisit,
+  type CustomGameFeed,
+  type GameNewsFilterCategory,
+  type GameNewsPageView,
+  type GameNewsSortOption,
+  type GameNewsViewMode,
+} from "./news/gameNewsTypes";
+import {
+  buildGameNewsBriefing,
+  clusterLeads,
+  matchesNewsCategory,
+} from "./news/gameNewsBriefingData";
 
 /** How many Steam news items to request per "load more" page. */
 const STEAM_PAGE_SIZE = 20;
@@ -53,11 +59,7 @@ function steamFeedUrl(appId: number, langCode: string): string {
   return `https://store.steampowered.com/feeds/news/app/${appId}/?cc=us&l=${steamLang}&format=rss`;
 }
 
-/**
- * Derive search keys for a game name to match real-world headlines:
- * full name first, then stripped of edition suffixes / parentheticals,
- * then base name before colon or dash.
- */
+/** Derive search keys for a game name to match real-world headlines. */
 function buildMatchKeys(gameName: string): string[] {
   const keys = new Set<string>();
   const name = gameName.toLowerCase().trim();
@@ -69,7 +71,7 @@ function buildMatchKeys(gameName: string): string[] {
     .replace(/\(.*?\)/g, " ")
     .replace(
       /\b(?:deluxe|ultimate|game of the year|goty|gold|collector'?s|standard|remastered|remake|definitive|complete|digital|premium|enhanced|edition)\b/g,
-      " "
+      " ",
     )
     .replace(/\s+/g, " ")
     .trim();
@@ -83,20 +85,36 @@ function buildMatchKeys(gameName: string): string[] {
 
 function articleMatchesGame(article: NewsArticle, keys: string[]): boolean {
   const text = `${article.title} ${article.description || ""}`.toLowerCase();
-  return keys.some((k) => text.includes(k));
+  return keys.some((key) => text.includes(key));
 }
 
-function articleDateMs(article: NewsArticle): number {
-  const ms = new Date(article.pubDate).getTime();
-  return Number.isNaN(ms) ? 0 : ms;
+interface NewsTabState {
+  view: GameNewsPageView;
+  category: GameNewsFilterCategory;
+  density: GameNewsViewMode;
+  sort: GameNewsSortOption;
 }
 
+const DEFAULT_STATE: NewsTabState = {
+  view: "briefing",
+  category: "all",
+  density: "grid",
+  sort: "newest",
+};
+
+/**
+ * News & Updates for one game.
+ *
+ * The tab opens on a briefing (headline, what changed since the last visit,
+ * latest patch notes) and keeps the full merged feed one switch away. Steam's
+ * official posts, custom per-game feeds and matching global headlines are
+ * merged, de-duplicated by URL and clustered by story.
+ */
 export default function GameNewsTab({ game }: { game: Game }) {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  // Dynamic Steam App ID lookup
   const { appId: resolvedSteamAppId, isResolving: steamResolving } = useSteamAppId(game);
   const steamAppId = resolvedSteamAppId ?? game.steamAppId ?? null;
 
@@ -115,53 +133,47 @@ export default function GameNewsTab({ game }: { game: Game }) {
     loadArticle,
   } = useNewsDemand();
 
-  // ── State for custom per-game feeds ─────────────────────────────────
+  const [state, setState] = useGameTabState<NewsTabState>({
+    prefix: "news",
+    defaults: DEFAULT_STATE,
+    allowed: {
+      view: ["briefing", "feed"],
+      category: ["all", "unread", "patch_notes", "official", "press", "saved"],
+      density: ["grid", "list", "timeline"],
+      sort: ["newest", "oldest"],
+    },
+  });
+
   const [customFeeds, setCustomFeeds] = useState<CustomGameFeed[]>(() =>
-    loadGameCustomFeeds(game.id)
+    loadGameCustomFeeds(game.id),
   );
   const [showCustomFeedsModal, setShowCustomFeedsModal] = useState(false);
   const [customArticles, setCustomArticles] = useState<NewsArticle[]>([]);
   const [customLoading, setCustomLoading] = useState(false);
 
-  // ── Official Steam news for this app id ─────────────────────────────
   const [steamArticles, setSteamArticles] = useState<NewsArticle[]>([]);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState(false);
 
-  // ── Older Steam news pulled past the RSS 10-item cap, on demand ─────
   const [steamApiArticles, setSteamApiArticles] = useState<NewsArticle[]>([]);
   const [steamNewsCount, setSteamNewsCount] = useState(0);
   const [steamTotal, setSteamTotal] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // ── Filter, Search, View, Sort states ───────────────────────────────
-  const [activeCategory, setActiveCategory] = useState<GameNewsFilterCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<GameNewsViewMode>(() => {
-    try {
-      const stored = localStorage.getItem("gamelib_news_view_mode");
-      if (stored && ["grid", "timeline", "list"].includes(stored)) {
-        return stored as GameNewsViewMode;
-      }
-    } catch {
-      // ignore
-    }
-    return "grid";
-  });
-  const [sortOption, setSortOption] = useState<GameNewsSortOption>("newest");
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE);
+  const [lastVisit, setLastVisit] = useState(0);
+  const visitedGameRef = useRef<string | null>(null);
 
-  const handleViewModeChange = (mode: GameNewsViewMode) => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem("gamelib_news_view_mode", mode);
-    } catch {
-      // ignore
-    }
-  };
+  // Capture the previous visit before stamping the new one.
+  useEffect(() => {
+    if (visitedGameRef.current === game.id) return;
+    visitedGameRef.current = game.id;
+    setLastVisit(readGameNewsLastVisit(game.id));
+    writeGameNewsLastVisit(game.id);
+  }, [game.id]);
 
-  // Fetch Steam feed
   useEffect(() => {
     if (!steamAppId) {
       setSteamArticles([]);
@@ -180,11 +192,11 @@ export default function GameNewsTab({ game }: { game: Game }) {
         if (hasTauri) {
           xmlText = await invoke<string>("fetch_url", { url });
         } else {
-          const res = await fetch(url, {
+          const response = await fetch(url, {
             headers: { Accept: "application/rss+xml, application/xml, text/xml, */*" },
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          xmlText = await res.text();
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          xmlText = await response.text();
         }
         if (!active) return;
         setSteamArticles(parseRSS(xmlText, sourceName, url));
@@ -201,7 +213,6 @@ export default function GameNewsTab({ game }: { game: Game }) {
     };
   }, [steamAppId, game.name, language, t]);
 
-  // Reset the paginated Steam-news window whenever the game changes.
   useEffect(() => {
     setSteamApiArticles([]);
     setSteamTotal(null);
@@ -209,9 +220,6 @@ export default function GameNewsTab({ game }: { game: Game }) {
     setVisibleCount(LIST_PAGE_SIZE);
   }, [steamAppId]);
 
-  // Fetch older Steam news in pages of STEAM_PAGE_SIZE. Replaces the
-  // previous slice so the list stays de-duplicated (the RSS items and the
-  // first API page overlap and collapse on their shared `/view/<gid>` link).
   useEffect(() => {
     if (!steamAppId || steamNewsCount <= 0) return;
     let active = true;
@@ -226,9 +234,9 @@ export default function GameNewsTab({ game }: { game: Game }) {
         if (hasTauri) {
           jsonText = await invoke<string>("fetch_url", { url });
         } else {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          jsonText = await res.text();
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          jsonText = await response.text();
         }
         if (!active) return;
         const { articles, total } = parseSteamNewsApi(jsonText, steamAppId, sourceName);
@@ -246,9 +254,8 @@ export default function GameNewsTab({ game }: { game: Game }) {
     };
   }, [steamAppId, steamNewsCount, game.name, t]);
 
-  // Fetch per-game custom feeds
   const fetchCustomFeeds = useCallback(async () => {
-    const enabled = customFeeds.filter((f) => f.enabled);
+    const enabled = customFeeds.filter((feed) => feed.enabled);
     if (enabled.length === 0) {
       setCustomArticles([]);
       return;
@@ -264,17 +271,17 @@ export default function GameNewsTab({ game }: { game: Game }) {
           if (hasTauri) {
             xmlText = await invoke<string>("fetch_url", { url: feed.url });
           } else {
-            const res = await fetch(feed.url, {
+            const response = await fetch(feed.url, {
               headers: { Accept: "application/rss+xml, application/xml, text/xml, */*" },
             });
-            if (!res.ok) return [];
-            xmlText = await res.text();
+            if (!response.ok) return [];
+            xmlText = await response.text();
           }
           return parseRSS(xmlText, feed.name, feed.url);
         } catch {
           return [];
         }
-      })
+      }),
     );
 
     setCustomArticles(results.flat());
@@ -291,154 +298,133 @@ export default function GameNewsTab({ game }: { game: Game }) {
     showToast(t("game.news.customFeedsSaved"), "success");
   };
 
-  // ── Merged, de-duplicated article collection ─────────────────────────
   const matchKeys = useMemo(() => buildMatchKeys(game.name), [game.name]);
 
   const allMergedArticles = useMemo(() => {
     const byLink = new Map<string, NewsArticle>();
-    const add = (a: NewsArticle) => {
-      const key = a.link.trim().toLowerCase();
-      if (!byLink.has(key)) byLink.set(key, a);
+    const add = (article: NewsArticle) => {
+      const key = article.link.trim().toLowerCase();
+      if (!byLink.has(key)) byLink.set(key, article);
     };
 
-    // Official Steam posts first, then older API pages, then custom game
-    // feeds, then matched general feeds.
-    for (const a of steamArticles) add(a);
-    for (const a of steamApiArticles) add(a);
-    for (const a of customArticles) add(a);
-    for (const a of allArticles) {
-      if (articleMatchesGame(a, matchKeys)) add(a);
+    for (const article of steamArticles) add(article);
+    for (const article of steamApiArticles) add(article);
+    for (const article of customArticles) add(article);
+    for (const article of allArticles) {
+      if (articleMatchesGame(article, matchKeys)) add(article);
     }
 
-    return Array.from(byLink.values()).sort(
-      (a, b) => articleDateMs(b) - articleDateMs(a)
-    );
+    return Array.from(byLink.values()).sort((a, b) => articleTime(b) - articleTime(a));
   }, [steamArticles, steamApiArticles, customArticles, allArticles, matchKeys]);
 
-  // Category counts
-  const categoryCounts = useMemo(() => {
-    let patchCount = 0;
-    let officialCount = 0;
-    let pressCount = 0;
-    let savedCount = 0;
+  const unreadLinks = useMemo(() => {
+    const set = new Set<string>();
+    for (const article of allMergedArticles) {
+      if (readLinks.has(article.link)) continue;
+      if (lastVisit > 0 && articleTime(article) <= lastVisit) continue;
+      set.add(article.link);
+    }
+    return set;
+  }, [allMergedArticles, readLinks, lastVisit]);
 
-    for (const a of allMergedArticles) {
-      const classification = classifyArticle(a);
+  const filteredArticles = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const list = allMergedArticles.filter((article) => {
       if (
-        classification === "patch" ||
-        classification === "major" ||
-        classification === "hotfix"
+        !matchesNewsCategory(article, state.category, savedLinks, unreadLinks)
       ) {
-        patchCount++;
+        return false;
       }
-      if (
-        classification === "announcement" ||
-        a.sourceName.toLowerCase().includes("steam")
-      ) {
-        officialCount++;
-      }
-      if (classification === "press") {
-        pressCount++;
-      }
-      if (savedLinks.has(a.link)) {
-        savedCount++;
-      }
-    }
-
-    return {
-      all: allMergedArticles.length,
-      patch_notes: patchCount,
-      official: officialCount,
-      press: pressCount,
-      saved: savedCount,
-    };
-  }, [allMergedArticles, savedLinks]);
-
-  // ── Filtered & Sorted Articles ──────────────────────────────────────
-  const displayedArticles = useMemo(() => {
-    let list = allMergedArticles;
-
-    // Filter by Category
-    if (activeCategory === "patch_notes") {
-      list = list.filter((a) => {
-        const c = classifyArticle(a);
-        return c === "patch" || c === "major" || c === "hotfix";
-      });
-    } else if (activeCategory === "official") {
-      list = list.filter(
-        (a) =>
-          classifyArticle(a) === "announcement" ||
-          a.sourceName.toLowerCase().includes("steam")
+      if (!query) return true;
+      return (
+        article.title.toLowerCase().includes(query) ||
+        (article.description ?? "").toLowerCase().includes(query) ||
+        article.sourceName.toLowerCase().includes(query)
       );
-    } else if (activeCategory === "press") {
-      list = list.filter((a) => classifyArticle(a) === "press");
-    } else if (activeCategory === "saved") {
-      list = list.filter((a) => savedLinks.has(a.link));
-    }
-
-    // Filter by Search Query
-    if (searchQuery.trim().length > 0) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          (a.description && a.description.toLowerCase().includes(q)) ||
-          a.sourceName.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort
-    return [...list].sort((a, b) => {
-      if (sortOption === "oldest") {
-        return articleDateMs(a) - articleDateMs(b);
-      }
-      // default: newest
-      return articleDateMs(b) - articleDateMs(a);
     });
-  }, [allMergedArticles, activeCategory, searchQuery, sortOption, savedLinks]);
+    return state.sort === "oldest"
+      ? [...list].sort((a, b) => articleTime(a) - articleTime(b))
+      : list;
+  }, [allMergedArticles, state.category, state.sort, searchQuery, savedLinks, unreadLinks]);
 
-  // ── Pagination: reveal the merged pool in pages, fetching more Steam
-  // news beyond the RSS 10-item cap when the window is exhausted ───────
-  const totalDisplayed = displayedArticles.length;
+  const { leads, alsoByLink } = useMemo(
+    () => clusterLeads(filteredArticles, readLinks),
+    [filteredArticles, readLinks],
+  );
+
+  const orderedLeads = useMemo(
+    () =>
+      state.sort === "oldest"
+        ? [...leads].sort((a, b) => articleTime(a) - articleTime(b))
+        : leads,
+    [leads, state.sort],
+  );
+
+  const briefing = useMemo(
+    () => buildGameNewsBriefing(orderedLeads, readLinks, lastVisit),
+    [orderedLeads, readLinks, lastVisit],
+  );
+
+  const categoryCounts = useMemo(() => {
+    const base = {
+      all: allMergedArticles.length,
+      unread: unreadLinks.size,
+      patch_notes: 0,
+      official: 0,
+      press: 0,
+      saved: 0,
+    };
+    for (const article of allMergedArticles) {
+      if (matchesNewsCategory(article, "patch_notes", savedLinks, unreadLinks)) {
+        base.patch_notes += 1;
+      }
+      if (matchesNewsCategory(article, "official", savedLinks, unreadLinks)) {
+        base.official += 1;
+      }
+      if (matchesNewsCategory(article, "press", savedLinks, unreadLinks)) {
+        base.press += 1;
+      }
+      if (savedLinks.has(article.link)) base.saved += 1;
+    }
+    return base;
+  }, [allMergedArticles, savedLinks, unreadLinks]);
+
+  const totalDisplayed = orderedLeads.length;
   const hasMoreLocal = totalDisplayed > visibleCount;
   const steamHasMore =
     steamAppId != null && (steamTotal === null || steamApiArticles.length < steamTotal);
   const hasMore = hasMoreLocal || steamHasMore;
 
   const paginatedArticles = useMemo(
-    () => displayedArticles.slice(0, visibleCount),
-    [displayedArticles, visibleCount]
+    () => orderedLeads.slice(0, visibleCount),
+    [orderedLeads, visibleCount],
   );
 
-  // A fresh filter/search/sort starts the list over at the first page.
   useEffect(() => {
     setVisibleCount(LIST_PAGE_SIZE);
-  }, [activeCategory, searchQuery, sortOption]);
+  }, [state.category, state.sort, searchQuery, state.view]);
 
   const handleLoadMore = useCallback(() => {
     setVisibleCount((count) => count + LIST_PAGE_SIZE);
     if (steamHasMore) {
-      setSteamNewsCount((count) =>
-        count <= 0 ? STEAM_PAGE_SIZE : count + STEAM_PAGE_SIZE
-      );
+      setSteamNewsCount((count) => (count <= 0 ? STEAM_PAGE_SIZE : count + STEAM_PAGE_SIZE));
     }
   }, [steamHasMore]);
 
-  // Spotlight Hero Article (Top article in Grid mode when on All/PatchNotes and not searching)
   const showHero =
-    viewMode === "grid" &&
+    state.view === "feed" &&
+    state.density === "grid" &&
     !searchQuery &&
-    (activeCategory === "all" || activeCategory === "patch_notes") &&
+    (state.category === "all" || state.category === "patch_notes") &&
     paginatedArticles.length > 0;
 
   const heroArticle = showHero ? paginatedArticles[0] : null;
   const gridArticles = showHero ? paginatedArticles.slice(1) : paginatedArticles;
 
-  // ── Reader Modal cycling ─────────────────────────────────────────────
   const selectedIndex = useMemo(() => {
     if (!selectedArticle) return -1;
-    return displayedArticles.findIndex((a) => a.link === selectedArticle.link);
-  }, [selectedArticle, displayedArticles]);
+    return orderedLeads.findIndex((article) => article.link === selectedArticle.link);
+  }, [selectedArticle, orderedLeads]);
 
   const handleOpenArticle = useCallback(
     (article: NewsArticle) => {
@@ -448,12 +434,14 @@ export default function GameNewsTab({ game }: { game: Game }) {
       if (!article.content) {
         void loadArticle(article.link).then((full) => {
           if (full) {
-            setSelectedArticle((prev) => (prev && prev.link === full.link ? full : prev));
+            setSelectedArticle((prev) =>
+              prev && prev.link === full.link ? full : prev,
+            );
           }
         });
       }
     },
-    [addToHistory, loadArticle, markRead]
+    [addToHistory, loadArticle, markRead],
   );
 
   const handleClosePreview = useCallback(() => {
@@ -461,23 +449,24 @@ export default function GameNewsTab({ game }: { game: Game }) {
     setSelectedArticle(null);
   }, [selectedArticle, markRead]);
 
-  const handleToggleSave = useCallback((article: NewsArticle) => {
-    void toggleSaved(article);
-  }, [toggleSaved]);
+  const handleToggleSave = useCallback(
+    (article: NewsArticle) => {
+      void toggleSaved(article);
+    },
+    [toggleSaved],
+  );
 
   const handleToggleRead = useCallback(
     (article: NewsArticle) => {
       setRead(article.link, !readLinks.has(article.link));
     },
-    [readLinks, setRead]
+    [readLinks, setRead],
   );
 
   const handleMarkAllRead = useCallback(() => {
-    for (const a of displayedArticles) {
-      markRead(a.link);
-    }
+    for (const article of filteredArticles) markRead(article.link);
     showToast(t("game.news.allReadDone"), "success");
-  }, [displayedArticles, markRead, showToast, t]);
+  }, [filteredArticles, markRead, showToast, t]);
 
   const handleRefresh = useCallback(() => {
     void refreshGlobalFeeds(true);
@@ -497,8 +486,8 @@ export default function GameNewsTab({ game }: { game: Game }) {
           if (hasTauri) {
             xmlText = await invoke<string>("fetch_url", { url });
           } else {
-            const res = await fetch(url);
-            xmlText = await res.text();
+            const response = await fetch(url);
+            xmlText = await response.text();
           }
           setSteamArticles(parseRSS(xmlText, sourceName, url));
         } catch {
@@ -511,106 +500,112 @@ export default function GameNewsTab({ game }: { game: Game }) {
   }, [refreshGlobalFeeds, fetchCustomFeeds, steamAppId, language, t]);
 
   const loading = feedsLoading || steamLoading || customLoading || steamResolving;
-  const hasUnread = useMemo(
-    () => displayedArticles.some((a) => !readLinks.has(a.link)),
-    [displayedArticles, readLinks]
-  );
-
+  const hasUnread = unreadLinks.size > 0;
   const failed =
-    allMergedArticles.length === 0 &&
-    feedsError &&
-    (steamAppId === null || steamError);
+    allMergedArticles.length === 0 && feedsError && (steamAppId === null || steamError);
 
   return (
-    <div className="game-news-tab">
-      {/* Dynamic Toolbar */}
-      <GameNewsToolbar
-        activeCategory={activeCategory}
-        onSelectCategory={setActiveCategory}
-        counts={categoryCounts}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-        sortOption={sortOption}
-        onSortChange={setSortOption}
-        onMarkAllRead={handleMarkAllRead}
-        onOpenCustomFeeds={() => setShowCustomFeedsModal(true)}
-        onRefresh={handleRefresh}
-        onOpenNewsHub={() => navigate("/news")}
-        isRefreshing={loading}
-        hasUnread={hasUnread}
-      />
-
-      {/* Loading Skeletons */}
+    <GameTabShell
+      eyebrow={t("game.news.eyebrow")}
+      title={t("game.news.title")}
+      description={
+        allMergedArticles.length > 0
+          ? t("game.news.subtitleCount", {
+              count: allMergedArticles.length,
+              game: gameDisplayName(game),
+            })
+          : t("game.news.subtitle", { game: gameDisplayName(game) })
+      }
+      icon={<Newspaper size={20} />}
+      toolbar={
+        <GameNewsToolbar
+          view={state.view}
+          onViewChange={(view) => setState({ view })}
+          density={state.density}
+          onDensityChange={(density) => setState({ density })}
+          activeCategory={state.category}
+          onSelectCategory={(category) => setState({ category })}
+          counts={categoryCounts}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          sortOption={state.sort}
+          onSortChange={(sort) => setState({ sort })}
+          onMarkAllRead={handleMarkAllRead}
+          onOpenCustomFeeds={() => setShowCustomFeedsModal(true)}
+          onRefresh={handleRefresh}
+          onOpenNewsHub={() => navigate("/news")}
+          isRefreshing={loading}
+          hasUnread={hasUnread}
+          unreadCount={unreadLinks.size}
+        />
+      }
+    >
       {loading && allMergedArticles.length === 0 ? (
-        viewMode === "timeline" ? (
+        state.view === "feed" && state.density === "timeline" ? (
           <GameNewsTimelineSkeleton />
-        ) : viewMode === "list" ? (
+        ) : state.view === "feed" && state.density === "list" ? (
           <GameNewsListSkeleton />
         ) : (
-          <div className="game-news-grid" aria-hidden="true">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="game-news-grid-card game-news-grid-card--skeleton" />
-            ))}
-          </div>
+          <GameTabSkeleton count={6} height={220} />
         )
-      ) : displayedArticles.length === 0 ? (
-        /* Empty State */
-        <div className="game-news-empty">
-          <div className="game-news-empty-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
-              <path d="M18 14h-8" />
-              <path d="M15 18h-5" />
-              <path d="M10 6h8v4h-8V6Z" />
-            </svg>
-          </div>
-          <h3>
-            {searchQuery || activeCategory !== "all"
+      ) : totalDisplayed === 0 ? (
+        <GameTabEmpty
+          icon={<Newspaper size={26} />}
+          title={
+            searchQuery || state.category !== "all"
               ? t("game.news.noMatchTitle")
-              : t("game.news.emptyTitle")}
-          </h3>
-          <p>
-            {searchQuery || activeCategory !== "all"
+              : t("game.news.emptyTitle")
+          }
+          description={
+            searchQuery || state.category !== "all"
               ? t("game.news.noMatchSubtitle")
               : failed
-              ? t("game.news.emptyError")
-              : t("game.news.emptySubtitle", { game: gameDisplayName(game) })}
-          </p>
-          <div className="game-news-empty-actions">
-            {searchQuery || activeCategory !== "all" ? (
+                ? t("game.news.emptyError")
+                : t("game.news.emptySubtitle", { game: gameDisplayName(game) })
+          }
+          actions={
+            searchQuery || state.category !== "all" ? (
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => {
                   setSearchQuery("");
-                  setActiveCategory("all");
+                  setState({ category: "all" });
                 }}
               >
                 {t("game.news.clearFilter")}
               </Button>
             ) : (
-              <Button variant="ghost" size="sm" onClick={handleRefresh}>
-                {t("common.retry")}
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowCustomFeedsModal(true)}
-            >
-              {t("game.news.customFeedsTitle")}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/news")}>
-              {t("game.news.openNewsHub")}
-            </Button>
-          </div>
-        </div>
+              <>
+                <Button variant="primary" size="sm" onClick={handleRefresh}>
+                  {t("common.retry")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCustomFeedsModal(true)}
+                >
+                  {t("game.news.customFeedsTitle")}
+                </Button>
+              </>
+            )
+          }
+        />
+      ) : state.view === "briefing" ? (
+        <GameNewsBriefing
+          hero={briefing.hero}
+          unread={briefing.unread}
+          patchNotes={briefing.patchNotes}
+          unreadCount={briefing.unreadCount}
+          readLinks={readLinks}
+          savedLinks={savedLinks}
+          onOpenArticle={handleOpenArticle}
+          onToggleSave={handleToggleSave}
+          onToggleRead={handleToggleRead}
+          onShowFeed={() => setState({ view: "feed" })}
+        />
       ) : (
-        /* Active View Modes */
         <div className="game-news-content-area">
-          {/* Spotlight Hero (Grid Mode Only) */}
           {heroArticle && (
             <GameNewsHero
               article={heroArticle}
@@ -621,8 +616,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
             />
           )}
 
-          {/* Timeline View */}
-          {viewMode === "timeline" ? (
+          {state.density === "timeline" ? (
             <GameNewsTimeline
               articles={paginatedArticles}
               readLinks={readLinks}
@@ -631,8 +625,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
               onToggleSave={handleToggleSave}
               onToggleRead={handleToggleRead}
             />
-          ) : viewMode === "list" ? (
-            /* List View */
+          ) : state.density === "list" ? (
             <GameNewsListView
               articles={paginatedArticles}
               readLinks={readLinks}
@@ -642,7 +635,6 @@ export default function GameNewsTab({ game }: { game: Game }) {
               onToggleRead={handleToggleRead}
             />
           ) : (
-            /* Grid View */
             <div className="game-news-grid">
               {gridArticles.map((article) => (
                 <GameNewsCard
@@ -653,12 +645,12 @@ export default function GameNewsTab({ game }: { game: Game }) {
                   onToggleRead={handleToggleRead}
                   read={readLinks.has(article.link)}
                   saved={savedLinks.has(article.link)}
+                  alsoCount={alsoByLink.get(article.link)}
                 />
               ))}
             </div>
           )}
 
-          {/* Load More */}
           {hasMore && (
             <div className="game-news-load-more">
               <Button
@@ -666,26 +658,12 @@ export default function GameNewsTab({ game }: { game: Game }) {
                 size="sm"
                 onClick={handleLoadMore}
                 disabled={loadingMore}
-                leftIcon={
-                  <svg
-                    className={loadingMore ? "spin-animation" : ""}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                }
               >
                 {loadingMore ? t("common.loading") : t("news.loadMore")}
               </Button>
             </div>
           )}
 
-          {/* Footer Summary */}
           <div className="game-news-footer">
             <span>
               {t("game.news.footer", {
@@ -700,37 +678,23 @@ export default function GameNewsTab({ game }: { game: Game }) {
         </div>
       )}
 
-      {/* Reader Modal */}
       <NewsArticlePreview
         article={selectedArticle}
-        saved={
-          selectedArticle
-            ? savedLinks.has(selectedArticle.link)
-            : false
-        }
+        saved={selectedArticle ? savedLinks.has(selectedArticle.link) : false}
         onClose={handleClosePreview}
         onToggleSave={handleToggleSave}
         onPrevArticle={() => {
-          if (selectedIndex > 0) {
-            const prev = displayedArticles[selectedIndex - 1];
-            handleOpenArticle(prev);
-          }
+          if (selectedIndex > 0) handleOpenArticle(orderedLeads[selectedIndex - 1]);
         }}
         onNextArticle={() => {
-          if (
-            selectedIndex >= 0 &&
-            selectedIndex < displayedArticles.length - 1
-          ) {
-            handleOpenArticle(displayedArticles[selectedIndex + 1]);
+          if (selectedIndex >= 0 && selectedIndex < orderedLeads.length - 1) {
+            handleOpenArticle(orderedLeads[selectedIndex + 1]);
           }
         }}
         hasPrev={selectedIndex > 0}
-        hasNext={
-          selectedIndex >= 0 && selectedIndex < displayedArticles.length - 1
-        }
+        hasNext={selectedIndex >= 0 && selectedIndex < orderedLeads.length - 1}
       />
 
-      {/* Custom Game Feeds Manager Modal */}
       <GameNewsCustomFeedsModal
         gameName={game.name}
         isOpen={showCustomFeedsModal}
@@ -738,6 +702,6 @@ export default function GameNewsTab({ game }: { game: Game }) {
         feeds={customFeeds}
         onSaveFeeds={handleSaveCustomFeeds}
       />
-    </div>
+    </GameTabShell>
   );
 }

@@ -1320,3 +1320,368 @@
     transform: none;
   }
 }
+
+/* ── Web Links ───────────────────────────────────────────────────────── */
+
+/* Source tab strip: keep the underline metaphor, fade the rail. */
+.game-page--immersive .wl-source-tabs {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-source-tab.active {
+  border-bottom-color: var(--color-accent);
+}
+
+/* URL bar: a floating command slab on the wash, not a boxed toolbar. */
+.game-page--immersive .wl-urlbar {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-urlbar-form {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* Browser frame: full-bleed tint panel like an Overview media card. */
+.game-page--immersive .wl-preview {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .wl-webview-frame,
+.game-page--immersive .wl-webview-loader {
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+}
+
+/* My Links manager: editor card, chips and link cards on the wash. */
+.game-page--immersive .wl-mylinks-editor-card {
+  background: var(--panel-tint);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-favicon {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .wl-mylink-card:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-mylink-card.active {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+    0 2px 14px var(--color-accent-glow);
+}
+
+.game-page--immersive .wl-mylinks-empty {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-page--immersive .wl-mylink-btn-icon,
+.game-page--immersive .wl-urlbar-btn,
+.game-page--immersive .wl-preset-chip,
+.game-page--immersive .wl-source-tab-count,
+.game-page--immersive .wl-category-menu-count,
+.game-page--immersive .wl-steam-subtab {
+  background: var(--panel-tint-sunken);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* Branded/active states keep their own identity surfaces. */
+.game-page--immersive .wl-steam-subtab.active:not(.disabled) {
+  background: var(--brand-steam);
+  border-color: var(--brand-steam);
+}
+
+.game-page--immersive .wl-urlbar-btn.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.game-page--immersive .wl-urlbar-btn.active-pin {
+  border-color: color-mix(in srgb, var(--wl-pin-gold) 40%, transparent);
+}
+
+/* ══ 12. Link hub ═══════════════════════════════════════════════════════
+   The hub is the tab's landing surface: every destination grouped by what
+   it is for, with the last-visited source offered as a resume card. */
+
+.wl-hub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+}
+
+.wl-hub-resume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.wl-hub-resume:hover {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.wl-hub-resume > svg {
+  margin-left: auto;
+  color: var(--color-accent);
+  flex: 0 0 auto;
+}
+
+.wl-hub-resume__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.wl-hub-resume__eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.wl-hub-resume__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.wl-hub-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.wl-hub-section__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.wl-hub-section__head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.wl-hub-section__head > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-hub-section__head > .ui-button {
+  margin-left: auto;
+}
+
+.wl-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-sm);
+}
+
+.wl-hub-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint-raised);
+  overflow: hidden;
+  transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.wl-hub-card:hover {
+  background: var(--panel-tint);
+  box-shadow: 0 14px 28px -24px color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+}
+
+.wl-hub-card__open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-md);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wl-hub-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.wl-hub-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.wl-hub-card__icon--link {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+}
+
+.wl-hub-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.wl-hub-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-hub-card__host {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-hub-card__go {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.wl-hub-card:hover .wl-hub-card__go {
+  opacity: 1;
+  color: var(--color-accent);
+}
+
+.wl-hub-card__external {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.wl-hub-card:hover .wl-hub-card__external,
+.wl-hub-card__external:focus-visible {
+  opacity: 1;
+}
+
+.wl-hub-card__external:hover {
+  color: var(--color-accent);
+}
+
+.wl-hub-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px dashed color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-radius: var(--radius-xl);
+}
+
+.wl-hub-empty p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.wl-hub-noresults {
+  margin: 0;
+  padding: var(--space-xl);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.wl-hub-footnote {
+  justify-content: space-between;
+}
+
+.wl-footnote__hub {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+@media (hover: none) {
+  .wl-hub-card__go,
+  .wl-hub-card__external {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-hub-card,
+  .wl-hub-resume,
+  .wl-hub-card__go,
+  .wl-hub-card__external {
+    transition: none;
+  }
+}

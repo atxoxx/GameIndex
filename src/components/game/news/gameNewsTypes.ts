@@ -2,12 +2,16 @@ import type { NewsArticle } from "../../../types/news";
 
 export type GameNewsFilterCategory =
   | "all"
+  | "unread"
   | "patch_notes"
   | "official"
   | "press"
   | "saved";
 
 export type GameNewsViewMode = "grid" | "timeline" | "list";
+
+/** Top-level News tab surface. */
+export type GameNewsPageView = "briefing" | "feed";
 
 export type GameNewsSortOption = "newest" | "oldest" | "read_time";
 
@@ -134,6 +138,39 @@ export function saveGameCustomFeeds(
     // ignore
   }
 }
+
+/* ── Visit memory ─────────────────────────────────────────────────────
+ * The briefing's "new since your last visit" row is anchored to the last
+ * time the reader opened this game's News tab, not to a global read state. */
+
+export function getGameNewsLastVisitKey(gameId: string): string {
+  return `gamelib.gameNews.lastVisit.${gameId}`;
+}
+
+export function readGameNewsLastVisit(gameId: string): number {
+  try {
+    const raw = localStorage.getItem(getGameNewsLastVisitKey(gameId));
+    const value = raw ? Number(raw) : 0;
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeGameNewsLastVisit(gameId: string, timestamp = Date.now()): void {
+  try {
+    localStorage.setItem(getGameNewsLastVisitKey(gameId), String(timestamp));
+  } catch {
+    // Storage unavailable — the briefing falls back to "all unread".
+  }
+}
+
+/** Article publication time in ms, 0 when the feed omitted a date. */
+export function articleTime(article: NewsArticle): number {
+  const parsed = new Date(article.pubDate).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 
 /* ── Steam Web API news ───────────────────────────────────────────────
  * The per-app RSS feed Steam publishes is hard-capped at 10 items. The

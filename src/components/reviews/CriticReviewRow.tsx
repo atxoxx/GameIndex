@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Bookmark, Quote } from "lucide-react";
 import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -8,6 +9,9 @@ import { useFocusProps } from "./focusable";
 interface CriticReviewRowProps {
   review: ReviewItem;
   searchQuery?: string;
+  bookmarked?: boolean;
+  onBookmark?: (review: ReviewItem) => void;
+  onSaveQuote?: (review: ReviewItem, excerpt: string) => void;
 }
 
 function SourceMonogram({ source }: { source: ReviewItem["source"] }) {
@@ -33,10 +37,17 @@ function formatShortDate(ts?: number): string {
   }
 }
 
-export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
+export function CriticReviewRow({
+  review,
+  searchQuery,
+  bookmarked = false,
+  onBookmark,
+  onSaveQuote,
+}: CriticReviewRowProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const isPos = review.sentiment === "positive" || (review.rating !== null && review.rating >= 60);
 
   const handleCopyReview = async () => {
@@ -48,10 +59,26 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
     }
   };
 
+  const handleSaveQuote = () => {
+    if (!onSaveQuote) return;
+    const selection = window.getSelection();
+    let excerpt = "";
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0 && contentRef.current) {
+      const range = selection.getRangeAt(0);
+      if (contentRef.current.contains(range.commonAncestorContainer)) {
+        excerpt = selection.toString().trim();
+      }
+    }
+    if (!excerpt) excerpt = review.content.replace(/\s+/g, " ").trim().slice(0, 320);
+    if (excerpt) onSaveQuote(review, excerpt);
+  };
+
   const isLong = review.content.length > 400;
 
   const copyFocus = useFocusProps(handleCopyReview);
   const expandFocus = useFocusProps(() => setExpanded((p) => !p));
+  const quoteFocus = useFocusProps(handleSaveQuote);
+  const bookmarkFocus = useFocusProps(() => onBookmark?.(review));
 
   return (
     <article className={`rv-row rv-critic-row rv-source-${review.source}`}>
@@ -74,6 +101,34 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
           </span>
         )}
 
+        {onSaveQuote && (
+          <button
+            ref={quoteFocus.ref}
+            tabIndex={quoteFocus.tabIndex}
+            type="button"
+            className="rv-copy-review-btn"
+            onClick={quoteFocus.onClick}
+            onMouseDown={(event) => event.preventDefault()}
+            title={t("review.saveQuote")}
+            aria-label={t("review.saveQuote")}
+          >
+            <Quote size={13} />
+          </button>
+        )}
+        {onBookmark && (
+          <button
+            ref={bookmarkFocus.ref}
+            tabIndex={bookmarkFocus.tabIndex}
+            type="button"
+            className={`rv-copy-review-btn${bookmarked ? " is-bookmarked" : ""}`}
+            onClick={bookmarkFocus.onClick}
+            aria-pressed={bookmarked}
+            title={bookmarked ? t("review.savedBookmark") : t("review.saveBookmark")}
+            aria-label={bookmarked ? t("review.savedBookmark") : t("review.saveBookmark")}
+          >
+            <Bookmark size={13} fill={bookmarked ? "currentColor" : "none"} />
+          </button>
+        )}
         <button
           ref={copyFocus.ref}
           tabIndex={copyFocus.tabIndex}
@@ -94,7 +149,10 @@ export function CriticReviewRow({ review, searchQuery }: CriticReviewRowProps) {
 
       {review.content && (
         <div className="rv-critic-body">
-          <div className={`rv-critic-content${!expanded && isLong ? " clamp" : ""}`}>
+          <div
+            ref={contentRef}
+            className={`rv-critic-content${!expanded && isLong ? " clamp" : ""}`}
+          >
             <BbCodeRenderer text={review.content} highlightQuery={searchQuery} />
           </div>
           {isLong && (

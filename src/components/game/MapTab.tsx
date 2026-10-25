@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Webview } from "@tauri-apps/api/webview";
-import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { RotateCcw, Search, X } from "lucide-react";
+import { LayoutGrid, MapPinned, RotateCcw, Search, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
@@ -14,33 +12,22 @@ import {
   writePersistedLookup,
   writePersistedLookupFound,
 } from "./mapLookupStorage";
+import { readMapMemory, rememberMapChoice, type MapMemory } from "./map/mapMemory";
+import { useMapPreview } from "./map/useMapPreview";
+import MapLaunchpad from "./map/MapLaunchpad";
 import WebviewControls from "../webview/WebviewControls";
 import { IconExternalLink, IconMap } from "./icons";
+import { Button } from "../ui";
+import { GameTabShell } from "./tabs";
 import type { MapSourceResult } from "../../types/game";
-import { currentWindowLabel } from "../../utils/windowLabel";
-
-const MAP_WEBVIEW_PREFIX = "mapgenie-preview-";
-
-/** Tear down every map webview, tolerating ones already gone. */
-async function closeMapWebviews() {
-  try {
-    const all = await Webview.getAll();
-    for (const wv of all) {
-      if (wv.label.startsWith(MAP_WEBVIEW_PREFIX)) {
-        await invoke("close_preview_webview", { label: wv.label }).catch(() => {});
-        await wv.close().catch(() => {});
-      }
-    }
-  } catch {
-    // Not running under Tauri (frontend-only dev) — nothing to close.
-  }
-}
 
 interface MapTabProps {
   sources: MapSourceResult[];
+  /** True while the automatic provider lookup is still running. */
+  loading?: boolean;
   /** Name used for the automatic lookup; the search field starts here. */
   gameName?: string;
-  /** Stable per-game key used to remember a manual lookup. */
+  /** Stable per-game key used to remember a manual lookup and map choices. */
   searchKey?: string;
   /** Notifies the parent whether any provider map is currently available. */
   onResultChange?: (hasResults: boolean) => void;
@@ -49,21 +36,17 @@ interface MapTabProps {
 }
 
 /**
- * Interactive map tab backed by one or more external providers
- * (MapGenie, GameMaps, GameMappers, Wand, Game-Maps).
+ * Interactive Map — a provider launchpad backed by the native preview webview.
  *
- * Pages are served through the same native child-webview pipeline the
- * WebLinks preview uses (`create_preview_webview`), so they are fully
- * interactive and sidestep iframe/framing restrictions. The DOM only
- * owns the toolbars and the frame placeholder the native view tracks.
- *
- * The heading doubles as a lookup search: the provider matcher is
- * deliberately conservative, so a wrong or missing auto-match can be
- * corrected by typing another name and re-running the providers. The
- * chosen name is remembered per game.
+ * The tab lands on a launchpad: every provider that matched the game exposes
+ * its map list, with the last-used map highlighted. Opening a map switches to
+ * the browser surface, which keeps the provider/map selectors, the browser
+ * controls and a search for correcting the game match. "All maps" returns to
+ * the launchpad; the chosen map is remembered per provider.
  */
 export default function MapTab({
   sources,
+  loading = false,
   gameName = "",
   searchKey,
   onResultChange,
@@ -72,14 +55,9 @@ export default function MapTab({
   const { t } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
   const containerRef = useRef<HTMLDivElement>(null);
+  const expandedFrameRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
-  const [activeMapUrl, setActiveMapUrl] = useState<string | null>(null);
-  const [webviewInst, setWebviewInst] = useState<Webview | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [reloadNonce, setReloadNonce] = useState(0);
-
-  // A manual search overrides the automatic lookup until the game changes.
   const [manualResults, setManualResults] = useState<MapSourceResult[] | null>(null);
   const [draft, setDraft] = useState(gameName);
   const [query, setQuery] = useState(gameName);
@@ -88,73 +66,82 @@ export default function MapTab({
   const [searchOpen, setSearchOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
   const [expanded, setExpanded] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const expandedFrameRef = useRef<HTMLDivElement>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [memory, setMemory] = useState<MapMemory>(() => readMapMemory(searchKey));
+
+  const [mode, setMode] = useState<"launchpad" | "map">("launchpad");
+  const [provider, setProvider] = useState("");
+  const [mapSelection, setMapSelection] = useState("");
 
   const results = manualResults ?? sources;
+  const autoLoading = loading && manualResults === null;
   const suggestions = useMapSuggestions(draft, searchOpen);
-  // The native webview composites above the DOM, so hide it while the search
-  // popover is open or the suggestions would render behind the map.
-  const webviewVisible = visible && !searchOpen;
-
-  useEffect(() => {
-    if (searchOpen) {
-      searchInputRef.current?.focus();
-      setHighlight(-1);
-    }
-  }, [searchOpen]);
+  const resultSignature = results.map((source) => source.id).join("|");
 
   const activeSource =
-    results.find((s) => s.id === activeSourceId) ?? results[0] ?? null;
+    mode === "map"
+      ? results.find((source) => source.id === provider) ?? results[0] ?? null
+      : null;
 
-  // Prefer an explicitly chosen map, but fall back to the provider's
-  // preferred URL when the source (and therefore map list) changes.
-  const activeUrl =
-    activeMapUrl && activeSource?.maps.some((m) => m.url === activeMapUrl)
-      ? activeMapUrl
-      : activeSource?.url ?? "";
+  const activeUrl = useMemo(() => {
+    if (!activeSource) return null;
+    if (
+      mapSelection &&
+      (activeSource.url === mapSelection ||
+        activeSource.maps.some((map) => map.url === mapSelection))
+    ) {
+      return mapSelection;
+    }
+    return activeSource.url;
+  }, [activeSource, mapSelection]);
+
+  const { webview, status } = useMapPreview({
+    url: activeUrl,
+    containerRef,
+    expandedFrameRef,
+    expanded,
+    visible: visible && !searchOpen,
+    reloadNonce,
+    contentFilterEnabled,
+  });
 
   const { navState, goBack, goForward } = useEmbeddedWebviewNav(
-    webviewInst?.label ?? null,
-    activeUrl,
-    webviewVisible && status === "ready"
+    webview?.label ?? null,
+    activeUrl ?? "",
+    visible && !searchOpen && status === "ready",
   );
 
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
-
-  const goHome = useCallback(() => {
-    setActiveMapUrl(null);
-    setReloadNonce((n) => n + 1);
-  }, []);
-
-  const dismissCookies = useCallback(() => {
-    dismissWebviewConsent(webviewInst?.label ?? null);
-  }, [webviewInst]);
-
   const toggleExpand = useCallback(() => setExpanded((v) => !v), []);
+  const dismissCookies = useCallback(() => {
+    dismissWebviewConsent(webview?.label ?? null);
+  }, [webview]);
 
-  const resultSignature = results.map((s) => s.id).join("|");
+  // A missing provider after a lookup change or game switch falls back to the
+  // launchpad instead of showing an empty map frame.
   useEffect(() => {
-    // Prefer Wand (it exposes per-map sub-maps) when available.
-    setActiveSourceId(results.some((source) => source.id === "wand") ? "wand" : null);
-    setActiveMapUrl(null);
-  }, [resultSignature, results]);
+    if (mode !== "map") return;
+    if (!results.some((source) => source.id === provider)) {
+      setMode("launchpad");
+      setProvider("");
+      setMapSelection("");
+    }
+  }, [resultSignature, results, mode, provider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Report availability so the parent's Map tab status dot stays in sync,
   // including after a manual search that found (or lost) a map.
   useEffect(() => {
-    // Wait for a persisted manual lookup to be restored first, so the dot
-    // does not flicker to the automatic result and back.
+    if (loading && manualResults === null) return;
     if (manualResults === null && readPersistedLookup(searchKey)) return;
     onResultChange?.(results.length > 0);
-  }, [resultSignature, results, manualResults, onResultChange, searchKey]);
+  }, [resultSignature, results, manualResults, onResultChange, searchKey, loading]);
 
-  const openExternal = useCallback(() => {
-    if (!activeUrl) return;
-    openUrl(activeUrl).catch(() => {
-      window.open(activeUrl, "_blank", "noopener,noreferrer");
+  const openExternal = useCallback((url: string) => {
+    if (!url) return;
+    openUrl(url).catch(() => {
+      window.open(url, "_blank", "noopener,noreferrer");
     });
-  }, [activeUrl]);
+  }, []);
 
   const runSearch = useCallback(async (raw: string) => {
     const name = raw.trim();
@@ -184,6 +171,7 @@ export default function MapTab({
     const stored = readPersistedLookup(searchKey);
     setManualResults(null);
     setSearchError(false);
+    setMemory(readMapMemory(searchKey));
     if (stored) {
       setDraft(stored);
       setQuery(stored);
@@ -203,15 +191,26 @@ export default function MapTab({
     writePersistedLookupFound(searchKey, null);
   }, [gameName, searchKey]);
 
-  const isSearchDirty = manualResults !== null || draft.trim() !== gameName.trim();
+  useEffect(() => {
+    if (!visible) setExpanded(false);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   const chooseSuggestion = useCallback(
     (title: string) => {
       setDraft(title);
-      runSearch(title);
+      void runSearch(title);
       setSearchOpen(false);
     },
-    [runSearch]
+    [runSearch],
   );
 
   const closeSearch = useCallback(() => {
@@ -234,175 +233,153 @@ export default function MapTab({
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeSearch();
+      searchInputRef.current?.blur();
     }
   };
 
-  // Keep the native view glued to the DOM frame as the page scrolls/resizes.
-  useEffect(() => {
-    const frame =
-      expanded && expandedFrameRef.current ? expandedFrameRef.current : containerRef.current;
-    if (!frame || !webviewInst) return;
+  const openProvider = useCallback(
+    (source: MapSourceResult, mapUrl: string) => {
+      setMode("map");
+      setProvider(source.id);
+      setMapSelection(mapUrl);
+      setSearchOpen(false);
+      rememberMapChoice(searchKey, source.id, mapUrl);
+      setMemory((prev) => ({
+        maps: { ...prev.maps, [source.id]: mapUrl },
+        provider: source.id,
+      }));
+      setReloadNonce((n) => n + 1);
+    },
+    [searchKey],
+  );
 
-    const sync = () => {
-      const rect = frame.getBoundingClientRect();
-      webviewInst
-        .setPosition(new LogicalPosition(rect.left, rect.top))
-        .catch(() => {});
-      webviewInst
-        .setSize(new LogicalSize(rect.width, rect.height))
-        .catch(() => {});
-      invoke("reposition_preview_webview", {
-        label: webviewInst.label,
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height,
-      }).catch(() => {});
-    };
+  const openLaunchpad = useCallback(() => {
+    setMode("launchpad");
+    setProvider("");
+    setMapSelection("");
+    setExpanded(false);
+  }, []);
 
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(frame);
-    window.addEventListener("resize", sync);
-    window.addEventListener("scroll", sync, true);
+  const selectProvider = useCallback(
+    (providerId: string) => {
+      const source = results.find((entry) => entry.id === providerId);
+      if (!source) return;
+      const rememberedUrl = memory.maps[providerId];
+      const nextUrl =
+        rememberedUrl &&
+        (source.url === rememberedUrl ||
+          source.maps.some((map) => map.url === rememberedUrl))
+          ? rememberedUrl
+          : source.url;
+      openProvider(source, nextUrl);
+    },
+    [memory.maps, openProvider, results],
+  );
 
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", sync);
-      window.removeEventListener("scroll", sync, true);
-    };
-  }, [webviewInst, expanded]);
+  const selectMap = useCallback(
+    (mapUrl: string) => {
+      if (!activeSource) return;
+      openProvider(activeSource, mapUrl);
+    },
+    [activeSource, openProvider],
+  );
 
-  // Leave the enlarged view when the tab is hidden or the user presses Escape.
-  useEffect(() => {
-    if (!visible) setExpanded(false);
-  }, [visible]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
-
-  // Native webviews composite above the DOM, so hide it while a modal is open.
-  useEffect(() => {
-    if (!webviewInst) return;
-    invoke("set_preview_webview_visible", {
-      label: webviewInst.label,
-      visible: webviewVisible,
-    }).catch(() => {});
-    (webviewVisible ? webviewInst.show() : webviewInst.hide()).catch(() => {});
-  }, [webviewInst, webviewVisible]);
-
-  // (Re)create the native webview whenever the selected URL changes.
-  useEffect(() => {
-    let active = true;
-    let local: Webview | null = null;
-
-    if (!activeUrl) {
-      setStatus("loading");
-      return;
-    }
-
-    setStatus("loading");
-
-    async function init() {
-      await closeMapWebviews();
-      if (!active || !containerRef.current) return;
-
-      const rect = containerRef.current.getBoundingClientRect();
-      const label = MAP_WEBVIEW_PREFIX + Math.random().toString(36).slice(2, 9);
-
-      try {
-        await invoke("create_preview_webview", {
-          label,
-          url: activeUrl,
-          x: rect.left,
-          y: rect.top,
-          width: rect.width,
-          height: rect.height,
-          contentFilter: contentFilterEnabled,
-          window: currentWindowLabel(),
-        });
-        const webview = await Webview.getByLabel(label);
-        if (!webview) throw new Error("map webview was not created");
-
-        if (!active) {
-          invoke("close_preview_webview", { label }).catch(() => {});
-          webview.close().catch(() => {});
-          return;
-        }
-
-        local = webview;
-        setWebviewInst(webview);
-        setStatus("ready");
-      } catch (err) {
-        console.error("Failed to create map webview:", err);
-        if (active) setStatus("error");
-      }
-    }
-
-    init();
-
-    return () => {
-      active = false;
-      setWebviewInst(null);
-      if (local) {
-        invoke("close_preview_webview", { label: local.label }).catch(() => {});
-        local.close().catch(() => {});
-      } else {
-        closeMapWebviews();
-      }
-    };
-  }, [activeUrl, contentFilterEnabled, reloadNonce]);
-
-  const displayTitle = activeSource
-    ? activeSource.title
-    : searching
-      ? t("map.searching", { name: query })
-      : searchError
-        ? t("map.searchError")
-        : t("map.noResults", { name: query });
-
-  // Shared between the in-tab toolbar and the fullscreen toolbar.
-  const mapSelectors = (
-    <>
-      {activeSource && results.length > 1 && (
-        <label className="map-tab__field">
-          <span className="map-tab__field-label">{t("map.sourceLabel")}</span>
-          <select
-            className="map-tab__select"
-            value={activeSource.id}
-            aria-label={t("map.selectSource")}
-            onChange={(event) => {
-              setActiveSourceId(event.target.value);
-              setActiveMapUrl(null);
-            }}
+  const searchForm = (
+    <div className="map-search">
+      <form
+        className="game-tab-search map-search__field"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void runSearch(draft);
+          setSearchOpen(false);
+        }}
+      >
+        <Search size={14} aria-hidden="true" />
+        <input
+          ref={searchInputRef}
+          type="search"
+          className="game-tab-search__input"
+          value={draft}
+          placeholder={t("map.searchPlaceholder")}
+          aria-label={t("map.searchPlaceholder")}
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={suggestions.length > 0}
+          aria-controls="map-tab-suggestions"
+          onFocus={() => setSearchOpen(true)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setSearchOpen(true);
+            setHighlight(-1);
+          }}
+          onKeyDown={handleSearchKeyDown}
+        />
+        {draft.trim() !== gameName.trim() && (
+          <button
+            type="button"
+            className="game-tab-search__clear"
+            onClick={resetSearch}
+            title={t("map.searchReset")}
+            aria-label={t("map.searchReset")}
           >
-            {results.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            <RotateCcw size={13} />
+          </button>
+        )}
+        <button type="submit" className="map-search__go" disabled={searching || !draft.trim()}>
+          {searching ? <span className="map-search__spinner" /> : t("map.searchAction")}
+        </button>
+      </form>
+
+      {suggestions.length > 0 && searchOpen && (
+        <ul className="map-search__suggestions" id="map-tab-suggestions" role="listbox">
+          {suggestions.map((title, index) => (
+            <li key={title}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={index === highlight}
+                className={`map-search__suggestion${index === highlight ? " is-active" : ""}`}
+                onMouseEnter={() => setHighlight(index)}
+                onClick={() => chooseSuggestion(title)}
+              >
+                {title}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
+    </div>
+  );
 
-      {activeSource && activeSource.maps.length > 1 && (
-        <label className="map-tab__field">
-          <span className="map-tab__field-label">{t("map.mapLabel")}</span>
+  const mapSelectors = activeSource ? (
+    <>
+      <label className="map-browser__field">
+        <span>{t("map.sourceLabel")}</span>
+        <select
+          className="map-browser__select"
+          value={activeSource.id}
+          aria-label={t("map.selectSource")}
+          onChange={(event) => selectProvider(event.target.value)}
+        >
+          {results.map((source) => (
+            <option key={source.id} value={source.id}>
+              {source.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {activeSource.maps.length > 1 && (
+        <label className="map-browser__field">
+          <span>{t("map.mapLabel")}</span>
           <select
-            className="map-tab__select"
-            value={activeUrl}
+            className="map-browser__select"
+            value={activeUrl ?? activeSource.url}
             aria-label={t("map.selectMap")}
-            onChange={(event) => setActiveMapUrl(event.target.value)}
+            onChange={(event) => selectMap(event.target.value)}
           >
-            {!activeSource.maps.some((map) => map.url === activeUrl) && (
-              <option value={activeSource.url}>{t("map.mapList")}</option>
-            )}
+            <option value={activeSource.url}>{t("map.mapList")}</option>
             {activeSource.maps.map((map) => (
               <option key={map.url} value={map.url}>
                 {map.title}
@@ -412,201 +389,104 @@ export default function MapTab({
         </label>
       )}
     </>
-  );
+  ) : null;
+
+  if (mode === "launchpad" || !activeSource) {
+    const totalMaps = results.reduce((sum, source) => sum + Math.max(1, source.maps.length), 0);
+    return (
+      <GameTabShell
+        eyebrow={t("map.source")}
+        title={t("map.launchpadTitle", { game: gameName })}
+        description={
+          results.length > 0
+            ? t("map.launchpadSummary", { providers: results.length, maps: totalMaps })
+            : autoLoading
+              ? t("map.searching", { name: gameName })
+              : t("map.noResults", { name: query })
+        }
+        icon={<IconMap size={20} />}
+        actions={
+          draft.trim() !== gameName.trim() ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<RotateCcw size={14} />}
+              onClick={resetSearch}
+            >
+              {t("map.searchReset")}
+            </Button>
+          ) : undefined
+        }
+        toolbar={searchForm}
+      >
+        <MapLaunchpad
+          sources={results}
+          query={query}
+          searching={searching || autoLoading}
+          searchError={searchError}
+          remembered={memory.maps}
+          canReset={draft.trim() !== gameName.trim()}
+          onOpenProvider={openProvider}
+          onOpenExternal={openExternal}
+          onSearchAnother={() => searchInputRef.current?.focus()}
+          onResetLookup={resetSearch}
+        />
+      </GameTabShell>
+    );
+  }
+
+  const displayTitle = activeSource.title || activeSource.label;
 
   return (
-    <div className="map-tab">
-      <div className="map-tab__toolbar">
-        <div className="map-tab__heading">
-          <span className="map-tab__icon" aria-hidden="true">
-            <IconMap size={18} />
-          </span>
-          <div className="map-tab__heading-text">
-            <span className="map-tab__eyebrow">{t("map.source")}</span>
-            <span className="map-tab__game" title={displayTitle}>
-              {displayTitle}
-            </span>
-          </div>
-          {activeSource && (
-            <span className="map-tab__provider-chip">{activeSource.label}</span>
-          )}
-        </div>
+    <div className="map-browser">
+      <div className="map-browser__bar">
+        <button
+          type="button"
+          className="map-browser__all"
+          onClick={openLaunchpad}
+          title={t("map.allMaps")}
+        >
+          <LayoutGrid size={14} />
+          <span>{t("map.allMaps")}</span>
+        </button>
 
-        <div className="map-tab__search-box">
-          {!searchOpen ? (
-            <div className="map-tab__search-triggers">
-              {manualResults !== null && (
-                <button
-                  type="button"
-                  className="map-tab__search-reset-standalone"
-                  onClick={resetSearch}
-                  title={t("map.searchReset")}
-                  aria-label={t("map.searchReset")}
-                >
-                  <RotateCcw size={14} />
-                </button>
-              )}
-              <button
-                type="button"
-                className={`map-tab__search-toggle${manualResults !== null ? " is-active" : ""}`}
-                onClick={() => setSearchOpen(true)}
-                title={t("map.searchOpen")}
-                aria-label={t("map.searchOpen")}
-              >
-                <Search size={15} />
-              </button>
-            </div>
-          ) : (
-            <div className="map-tab__search-panel">
-              <form
-                className="map-tab__search"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  runSearch(draft);
-                }}
-              >
-                <span className="map-tab__search-icon" aria-hidden="true">
-                  <Search size={14} />
-                </span>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className="map-tab__search-input"
-                  value={draft}
-                  placeholder={t("map.searchPlaceholder")}
-                  aria-label={t("map.searchPlaceholder")}
-                  autoComplete="off"
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-expanded={suggestions.length > 0}
-                  aria-controls="map-tab-suggestions"
-                  onChange={(event) => {
-                    setDraft(event.target.value);
-                    setHighlight(-1);
-                  }}
-                  onKeyDown={handleSearchKeyDown}
-                />
-                {isSearchDirty && (
-                  <button
-                    type="button"
-                    className="map-tab__search-reset"
-                    onClick={() => {
-                      resetSearch();
-                      setSearchOpen(false);
-                    }}
-                    title={t("map.searchReset")}
-                    aria-label={t("map.searchReset")}
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="map-tab__search-go"
-                  disabled={searching || !draft.trim()}
-                >
-                  {searching ? <span className="map-tab__search-spinner" /> : t("map.searchAction")}
-                </button>
-                <button
-                  type="button"
-                  className="map-tab__search-close"
-                  onClick={closeSearch}
-                  title={t("map.searchClose")}
-                  aria-label={t("map.searchClose")}
-                >
-                  <X size={13} />
-                </button>
-              </form>
+        <span className="map-browser__heading">
+          <MapPinned size={15} aria-hidden="true" />
+          <span title={displayTitle}>{displayTitle}</span>
+        </span>
 
-              {suggestions.length > 0 && (
-                <ul className="map-tab__suggestions" id="map-tab-suggestions" role="listbox">
-                  {suggestions.map((title, index) => (
-                    <li key={title}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={index === highlight}
-                        className={`map-tab__suggestion${index === highlight ? " is-active" : ""}`}
-                        onMouseEnter={() => setHighlight(index)}
-                        onClick={() => chooseSuggestion(title)}
-                      >
-                        {title}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+        {mapSelectors}
 
-        <div className="map-tab__controls">
-          <WebviewControls
-            canGoBack={navState.back}
-            canGoForward={navState.forward}
-            onBack={goBack}
-            onForward={goForward}
-            onReload={reload}
-            onHome={goHome}
-            onDismissCookies={dismissCookies}
-            expanded={expanded}
-            onToggleExpand={activeSource ? toggleExpand : undefined}
-          />
+        <WebviewControls
+          canGoBack={navState.back}
+          canGoForward={navState.forward}
+          onBack={goBack}
+          onForward={goForward}
+          onReload={reload}
+          onHome={reload}
+          onDismissCookies={dismissCookies}
+          expanded={expanded}
+          onToggleExpand={toggleExpand}
+        />
 
-          {mapSelectors}
-
-          {activeSource && (
-            <button
-              type="button"
-              className="map-tab__external"
-              onClick={openExternal}
-              title={t("map.openOnProvider", { provider: activeSource.label })}
-            >
-              <IconExternalLink size={15} />
-              <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          className="map-browser__external"
+          onClick={() => openExternal(activeUrl ?? activeSource.url)}
+          title={t("map.openOnProvider", { provider: activeSource.label })}
+        >
+          <IconExternalLink size={15} />
+        </button>
       </div>
 
-      <div className="map-tab__frame" ref={containerRef}>
-        {!activeSource ? (
-          <div className="map-tab__placeholder">
-            {searching ? (
-              <>
-                <div className="map-tab__spinner" />
-                <span>{t("map.searching", { name: query })}</span>
-              </>
-            ) : (
-              <>
-                <span className="map-tab__placeholder-icon">
-                  <IconMap size={22} />
-                </span>
-                <span>{searchError ? t("map.searchError") : t("map.noResults", { name: query })}</span>
-                <span className="map-tab__placeholder-hint">{t("map.noResultsHint")}</span>
-                <div className="map-tab__placeholder-actions">
-                  <button
-                    type="button"
-                    className="map-tab__search-go map-tab__search-go--wide"
-                    onClick={() => setSearchOpen(true)}
-                  >
-                    <Search size={14} />
-                    {t("map.searchOpen")}
-                  </button>
-                  {isSearchDirty && (
-                    <button type="button" className="map-tab__external" onClick={resetSearch}>
-                      {t("map.searchReset")}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        ) : status !== "ready" ? (
-          <div className="map-tab__placeholder">
+      <div className="map-browser__searchrow">{searchForm}</div>
+
+      <div className="map-browser__frame" ref={containerRef}>
+        {!activeUrl || status !== "ready" ? (
+          <div className="map-browser__placeholder">
             {status === "loading" ? (
               <>
-                <div className="map-tab__spinner" />
+                <div className="map-browser__spinner" />
                 <span>{t("map.loading")}</span>
               </>
             ) : (
@@ -614,8 +494,8 @@ export default function MapTab({
                 <span>{t("map.unavailable")}</span>
                 <button
                   type="button"
-                  className="map-tab__external"
-                  onClick={openExternal}
+                  className="map-browser__external map-browser__external--text"
+                  onClick={() => openExternal(activeUrl ?? activeSource.url)}
                 >
                   <IconExternalLink size={15} />
                   <span>{t("map.openOnProvider", { provider: activeSource.label })}</span>
@@ -627,34 +507,42 @@ export default function MapTab({
       </div>
 
       {expanded &&
-        activeSource &&
         createPortal(
           <div
             className="map-tab__expand-overlay"
             role="dialog"
             aria-modal="true"
-            aria-label={activeSource.title}
+            aria-label={displayTitle}
           >
             <div className="map-tab__expand-modal">
-              <div className="map-tab__expand-toolbar">
+              <div className="map-browser__bar">
+                <button
+                  type="button"
+                  className="map-browser__all"
+                  onClick={openLaunchpad}
+                  title={t("map.allMaps")}
+                >
+                  <LayoutGrid size={14} />
+                  <span>{t("map.allMaps")}</span>
+                </button>
+                <span className="map-browser__heading">
+                  <span title={displayTitle}>{displayTitle}</span>
+                </span>
+                {mapSelectors}
                 <WebviewControls
                   canGoBack={navState.back}
                   canGoForward={navState.forward}
                   onBack={goBack}
                   onForward={goForward}
                   onReload={reload}
-                  onHome={goHome}
+                  onHome={reload}
                   onDismissCookies={dismissCookies}
                   expanded
                   onToggleExpand={toggleExpand}
                 />
-                {mapSelectors}
-                <span className="map-tab__expand-title" title={activeSource.title}>
-                  {activeSource.title}
-                </span>
                 <button
                   type="button"
-                  className="map-tab__expand-close"
+                  className="map-browser__external"
                   onClick={() => setExpanded(false)}
                   title={t("weblinks.closeExpand")}
                   aria-label={t("weblinks.closeExpand")}
@@ -664,10 +552,10 @@ export default function MapTab({
               </div>
               <div ref={expandedFrameRef} className="map-tab__expand-frame">
                 {status !== "ready" && (
-                  <div className="map-tab__placeholder">
+                  <div className="map-browser__placeholder">
                     {status === "loading" ? (
                       <>
-                        <div className="map-tab__spinner" />
+                        <div className="map-browser__spinner" />
                         <span>{t("map.loading")}</span>
                       </>
                     ) : (
@@ -678,7 +566,7 @@ export default function MapTab({
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

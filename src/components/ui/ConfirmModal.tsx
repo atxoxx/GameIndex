@@ -54,6 +54,8 @@ export interface ConfirmModalProps {
   warning?: ReactNode;
   /** Label of the destructive action button. Defaults to "Delete". */
   confirmLabel?: ReactNode;
+  /** Visual tone of the confirm button. Destructive actions stay `danger`. */
+  confirmVariant?: "danger" | "primary";
   /** Label of the cancel button. Defaults to "Cancel". */
   cancelLabel?: ReactNode;
   /** Disable both buttons while async work is in flight. */
@@ -70,6 +72,7 @@ export function ConfirmModal({
   message,
   warning,
   confirmLabel = "common.delete",
+  confirmVariant = "danger",
   cancelLabel = "common.cancel",
   busy = false,
   onConfirm,
@@ -215,7 +218,7 @@ export function ConfirmModal({
               {label(cancelLabel)}
             </Button>
             <Button
-              variant="danger"
+              variant={confirmVariant}
               ref={registerConfirm}
               tabIndex={focusTabIndex}
               onClick={activateConfirm}

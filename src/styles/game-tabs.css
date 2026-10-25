@@ -1,0 +1,553 @@
+/* ==========================================================================
+   Game detail subtabs — shared workspace shell
+   ──────────────────────────────────────────────────────────────────────
+   Every detail tab opens with the same rhythm: a quiet identity row, an
+   optional figure band, one command row, then the tab's own content. The
+   surfaces are undelimited (tint and spacing, no strokes) to match the
+   Overview panel language, so switching tabs never feels like switching
+   apps.
+
+   Feature-specific styling lives with its feature stylesheet; only the
+   shell, command row, chips and shared empty states belong here.
+   ========================================================================== */
+
+.game-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+  min-width: 0;
+  padding: clamp(var(--space-lg), 2.2vw, var(--space-2xl)) 0 var(--space-3xl);
+  animation: game-tab-enter var(--duration-normal) var(--ease-standard);
+}
+
+@keyframes game-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.game-tab__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.game-tab__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.game-tab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.game-tab__heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.game-tab__eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.game-tab__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(var(--text-xl), 1.7vw, var(--text-2xl));
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.015em;
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+}
+
+.game-tab__desc {
+  margin: 0;
+  max-width: 76ch;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.game-tab__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* The shared StatBand reads as the tab's own figures, not a widget row.
+   The band's chips carry the tint; the wrapper only supplies rhythm. */
+.game-tab__stats {
+  margin-top: calc(-1 * var(--space-2xs));
+}
+
+/* ── Command row ─────────────────────────────────────────────────────── */
+
+.game-tab-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.game-tab-toolbar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.game-tab-toolbar__search {
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 0;
+}
+
+.game-tab-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.game-tab-toolbar__view {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.game-tab-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.game-tab-toolbar__below {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+/* ── Search ──────────────────────────────────────────────────────────── */
+
+.game-tab-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-muted);
+  transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.game-tab-search:focus-within {
+  background: var(--panel-tint-sunken);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.game-tab-search__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.game-tab-search__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.game-tab-search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.game-tab-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.game-tab-search__clear:hover {
+  background: var(--panel-tint-sunken);
+  color: var(--color-text-primary);
+}
+
+/* ── Chips ───────────────────────────────────────────────────────────── */
+
+.game-tab-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.game-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.game-tab-chip:hover {
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+}
+
+.game-tab-chip.is-active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.game-tab-chip--warning {
+  color: var(--color-warning);
+}
+
+.game-tab-chip--success {
+  color: var(--color-success);
+}
+
+.game-tab-chip__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── View switch + select ────────────────────────────────────────────── */
+
+.game-tab-views {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+}
+
+.game-tab-views__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 28px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.game-tab-views__btn:hover {
+  color: var(--color-text-primary);
+}
+
+.game-tab-views__btn.is-active {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.game-tab-select {
+  min-height: 32px;
+  padding: 0 var(--space-2xl) 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.game-tab-select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+/* ── Empty / no-match / error ────────────────────────────────────────── */
+
+.game-tab-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 240px;
+  padding: var(--space-2xl) var(--space-xl);
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  text-align: center;
+}
+
+.game-tab-state--empty {
+  border: 1px dashed color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.game-tab-state__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-muted);
+}
+
+.game-tab-state--error .game-tab-state__icon {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.game-tab-state__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.game-tab-state__desc {
+  margin: 0;
+  max-width: 54ch;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.game-tab-state__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-2xs);
+}
+
+/* ── Skeletons ───────────────────────────────────────────────────────── */
+
+.game-tab-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-md);
+}
+
+@media (max-width: 900px) {
+  .game-tab__head {
+    align-items: flex-start;
+  }
+
+  .game-tab__actions {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .game-tab__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .game-tab-toolbar__view {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-tab {
+    animation: none;
+  }
+}
+
+
+/* ── Sticky strip scrim ────────────────────────────────────────────────
+ * The sticky strip is pulled up over the hero's dissolve (game-page.css,
+ * negative margin), so `.ui-subtabs--sticky::before` paints its page-colored
+ * band straight onto the banner art — a grey rectangle bleeding onto the
+ * fade. The band exists for legibility once the strip floats over scrolling
+ * content; SubTabs flags that moment with `is-stuck`, so here the band
+ * stays dormant while the strip rests on the artwork and fades in only
+ * when it actually pins under the chrome. Other routes keep the default
+ * always-painted band (over a page background it's invisible anyway). */
+
+.game-page--immersive .ui-subtabs--sticky::before {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+/* Pinned over real content: a page-colored plate darkens/thickens with the
+   theme but always sits too close to the surfaces scrolling beneath it to
+   separate the labels. The engaged strip goes frosted glass instead — the
+   root blanks and blurs whatever is behind it, the feathered ::before band
+   is turned off so two plates don't stack. The plate hugs the tab row (a
+   centered capsule) rather than painting a full-width slab across the
+   page: both states center the row, so nothing jumps when it engages. */
+.game-page--immersive .ui-subtabs--sticky.is-stuck {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding-inline: var(--space-lg);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  box-shadow: 0 8px 24px -16px color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck::before {
+  opacity: 0;
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__tab {
+  color: var(--color-text-secondary);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__tab:hover {
+  color: var(--color-text-primary);
+}
+
+.game-page--immersive .ui-subtabs--sticky.is-stuck .ui-subtabs__count {
+  color: var(--color-text-secondary);
+}
+
+
+
+/* ── Quick Stats band ──────────────────────────────────────────────────
+ * StatBand's default is figures floating free of any surface. On the
+ * immersive detail pages each metric steps up to a raised KPI chip of the
+ * Overview family: a wash, a tone-tinted icon chip and a hover lift, so
+ * the masthead reads as the page's own widgets without becoming boxes. */
+
+.game-page--immersive .ui-statband {
+  row-gap: var(--space-md);
+  column-gap: clamp(var(--space-xl), 3.5vw, var(--space-3xl));
+}
+
+.game-page--immersive .ui-statband__item {
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl) var(--space-lg);
+  background: var(--panel-tint);
+  border-radius: var(--radius-xl);
+  transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.game-page--immersive .ui-statband__item:hover {
+  background: var(--panel-tint-raised);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--statband-icon-tone, var(--color-text-muted)) 10%, transparent);
+}
+
+/* The metric glyph becomes a tone-tinted coin, giving the label row its
+   own figure to anchor on. */
+.game-page--immersive .ui-statband__icon {
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: calc(-1 * var(--space-2xs));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--statband-icon-tone, var(--color-text-muted)) 14%, transparent);
+  color: var(--statband-icon-tone);
+  opacity: 1;
+}
+
+.game-page--immersive .ui-statband__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.game-page--immersive .ui-statband__detail {
+  color: var(--color-text-secondary);
+}
+
+/* ── Compact tab strip ────────────────────────────────────────────────
+   Eleven detail tabs cannot all fit with icons and counts on a handheld
+   or a narrow desktop window. Keep every label reachable by scrolling and
+   drop the non-essential counts first, then the icons. */
+
+@media (max-width: 1280px) {
+  .game-page--immersive .game-tabs .ui-subtabs__count {
+    display: none;
+  }
+
+  .game-page--immersive .game-tabs .ui-subtabs__tab {
+    gap: var(--space-2xs);
+    padding-inline: var(--space-sm);
+  }
+}
+
+@media (max-width: 900px) {
+  .game-page--immersive .game-tabs .ui-subtabs__icon {
+    display: none;
+  }
+}

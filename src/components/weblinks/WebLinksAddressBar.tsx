@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Cookie } from "lucide-react";
+import { Cookie, LayoutGrid } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   BackIcon,
@@ -26,6 +26,8 @@ interface WebLinksAddressBarProps {
   onGoForward: () => void;
   onReload: () => void;
   onHome: () => void;
+  /** Returns to the link hub (Web Links only). */
+  onOpenHub?: () => void;
   onDismissCookies?: () => void;
   onNavigate: (url: string) => void;
   onOpenExternal: (url?: string) => void;
@@ -47,6 +49,7 @@ export default function WebLinksAddressBar({
   onGoForward,
   onReload,
   onHome,
+  onOpenHub,
   onDismissCookies,
   onNavigate,
   onOpenExternal,
@@ -127,6 +130,17 @@ export default function WebLinksAddressBar({
     >
       {/* Navigation history controls */}
       <div className="wl-urlbar-nav">
+        {onOpenHub && (
+          <button
+            className="wl-urlbar-btn"
+            onClick={onOpenHub}
+            type="button"
+            title={t("weblinks.hub.back")}
+            aria-label={t("weblinks.hub.back")}
+          >
+            <LayoutGrid size={15} />
+          </button>
+        )}
         <button
           className={`wl-urlbar-btn${navState.back ? "" : " disabled"}`}
           onClick={onGoBack}

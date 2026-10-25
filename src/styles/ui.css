@@ -1778,6 +1778,203 @@
   );
 }
 
+/* ── Detail drawer ─────────────────────────────────────────────────────
+   A slide-over inspector used by the game detail tabs. Overlays are the
+   one place a defined surface is right: the panel must separate itself
+   from the page it floats above. */
+
+.ui-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 430;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--color-bg-primary) 48%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: ui-drawer-fade var(--duration-fast) var(--ease-standard);
+}
+
+.ui-drawer__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 94vw);
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-secondary);
+  box-shadow: -28px 0 70px -38px color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+  animation: ui-drawer-in var(--duration-normal) var(--ease-standard);
+}
+
+.ui-drawer__panel--wide {
+  width: min(680px, 96vw);
+}
+
+.ui-drawer__media {
+  position: relative;
+  flex: 0 0 auto;
+  height: clamp(150px, 26vh, 230px);
+  overflow: hidden;
+  background: var(--panel-tint-sunken);
+}
+
+.ui-drawer__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ui-drawer__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg-secondary) 92%, transparent) 0%,
+    transparent 58%
+  );
+  pointer-events: none;
+}
+
+.ui-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  min-width: 0;
+}
+
+.ui-drawer__panel--media .ui-drawer__head {
+  margin-top: calc(-1 * var(--space-2xl));
+  position: relative;
+  z-index: 1;
+}
+
+.ui-drawer__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.ui-drawer__eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ui-drawer__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ui-drawer__description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.ui-drawer__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-2xs);
+}
+
+.ui-drawer__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.ui-drawer__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-drawer__close:hover {
+  background: var(--panel-tint-sunken);
+  color: var(--color-text-primary);
+}
+
+.ui-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--space-xl) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.ui-drawer__footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-xl);
+  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  background: var(--color-bg-secondary);
+}
+
+@keyframes ui-drawer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-drawer-in {
+  from {
+    transform: translateX(28px);
+    opacity: 0.4;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .ui-drawer__panel,
+  .ui-drawer__panel--wide {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-drawer,
+  .ui-drawer__panel {
+    animation: none;
+  }
+}
+
 @media (max-width: 1100px) {
   .ui-subtabs__strip {
     mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);

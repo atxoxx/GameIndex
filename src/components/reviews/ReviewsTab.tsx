@@ -1,14 +1,41 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import {
+  Bookmark,
+  MessageSquare,
+  Newspaper,
+  RefreshCw,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePersistedState } from "../../hooks/usePersistedState";
+import { useSettings } from "../../context/SettingsContext";
+import { Button } from "../ui";
+import {
+  GameTabChips,
+  GameTabEmpty,
+  GameTabSearch,
+  GameTabShell,
+  GameTabSkeleton,
+  GameTabToolbar,
+  useGameTabState,
+} from "../game/tabs";
 import {
   type Game,
   type IgdbReview,
   type ReviewFetchResult,
+  STEAM_LANGUAGES,
   gameDisplayName,
   extractSteamAppId,
   resolveSteamAppId,
@@ -20,97 +47,119 @@ import {
   type PlaytimePresetFilter,
   type PurchaseTypeFilter,
   type ReviewItem,
-  type ReviewTypeFilter,
   type ReviewsTabProps,
-  type SourceFilter,
 } from "./types";
 import { ReviewSummaryHero } from "./ReviewSummaryHero";
 import { ReviewRow } from "./ReviewRow";
 import { CriticReviewRow } from "./CriticReviewRow";
-import { ReviewsToolbar } from "./ReviewsToolbar";
 import { ReviewsExternalShowcase } from "./ReviewsExternalShowcase";
 import { ReviewsEmptyState } from "./ReviewsEmptyState";
-import { useFocusProps } from "./focusable";
+import ReviewsSavedQuotes from "./ReviewsSavedQuotes";
+import ReviewsFilterPopover from "./ReviewsFilterPopover";
+import { useReviewQuotes } from "./useReviewQuotes";
+import { excerptDraft, reviewDraft, reviewKeyOf } from "./reviewQuoteUtils";
 
-/**
- * Review-source brand accents, defined once as custom properties so the
- * showcase's inline accent styling resolves through tokens instead of raw
- * colour literals (see eslint-rules/no-hardcoded-colors).
- */
 const REVIEW_SOURCE_ACCENTS = {
   "--review-source-steam": "#1b9ae0",
   "--review-source-metacritic": "#ffcc33",
   "--review-source-opencritic": "#ff5722",
 } as const;
 
+const LANGUAGE_FILTERS = ["all", ...STEAM_LANGUAGES.map((language) => language.code)];
+
+type ReviewsView = "community" | "critics" | "saved";
+type CriticSource = "all" | "metacritic" | "opencritic";
+
+interface ReviewsTabState {
+  view: ReviewsView;
+  source: CriticSource;
+  sentiment: "all" | "positive" | "negative";
+}
+
+const DEFAULT_STATE: ReviewsTabState = {
+  view: "community",
+  source: "all",
+  sentiment: "all",
+};
+
 function ratingToSentiment(score: number | null): "positive" | "negative" | null {
   if (score === null) return null;
-  if (score >= 60) return "positive";
-  return "negative";
+  return score >= 60 ? "positive" : "negative";
 }
 
 function buildExternalUrl(game: Game, site: "metacritic" | "opencritic"): string {
-  const q = encodeURIComponent(game.name);
-  switch (site) {
-    case "metacritic":
-      return `https://www.metacritic.com/search/game/${q}/results`;
-    case "opencritic":
-      return `https://opencritic.com/search?criteria=${q}`;
-  }
+  const query = encodeURIComponent(game.name);
+  return site === "metacritic"
+    ? `https://www.metacritic.com/search/game/${query}/results`
+    : `https://opencritic.com/search?criteria=${query}`;
 }
 
 function getSteamCommunityUrl(path: string): string | null {
   const id = extractSteamAppId(path);
-  if (id === null) return null;
-  return `https://steamcommunity.com/app/${id}/reviews/?browsefilter=toprated`;
+  return id === null ? null : `https://steamcommunity.com/app/${id}/reviews/?browsefilter=toprated`;
 }
 
+/**
+ * Reviews — a summary rail beside a feed.
+ *
+ * The rail holds the score board, sentiment distribution and the three
+ * surfaces (community / critics / saved quotes). The feed carries one reading
+ * column with search, a filter popover and, for community reviews, endless
+ * paging. Bookmarks and highlighted excerpts are durable user state.
+ */
 export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) {
   const { isBigScreen } = useBigScreen();
   const { showToast } = useToast();
   const { updateGame } = useGames();
   const { t } = useLanguage();
+  const { showDeckVerified } = useSettings();
 
-  // ── Filters State ──────────────────────────────────────────────────────────
-  const [display, setDisplay] = useState<DisplayOrder>("all");
-  const [reviewType, setReviewType] = useState<ReviewTypeFilter>("all");
-  const [purchaseType, setPurchaseType] = useState<PurchaseTypeFilter>("all");
-  const [languageFilter, setLanguageFilter] = useState("all");
-  const [playtimePreset, setPlaytimePreset] = useState<PlaytimePresetFilter>("none");
+  const [state, setState] = useGameTabState<ReviewsTabState>({
+    prefix: "rv",
+    defaults: DEFAULT_STATE,
+    allowed: {
+      view: ["community", "critics", "saved"],
+      source: ["all", "metacritic", "opencritic"],
+      sentiment: ["all", "positive", "negative"],
+    },
+  });
+
+  const [display, setDisplay] = usePersistedState<DisplayOrder>(
+    "gamelib.reviews.display_v1",
+    "all",
+    ["summary", "all", "recent", "funny"],
+  );
+  const [purchaseType, setPurchaseType] = usePersistedState<PurchaseTypeFilter>(
+    "gamelib.reviews.purchase_v1",
+    "all",
+    ["all", "steam", "other"],
+  );
+  const [languageFilter, setLanguageFilter] = usePersistedState<string>(
+    "gamelib.reviews.language_v1",
+    "all",
+    LANGUAGE_FILTERS,
+  );
+  const [playtimePreset, setPlaytimePreset] = usePersistedState<PlaytimePresetFilter>(
+    "gamelib.reviews.playtime_v1",
+    "none",
+    ["none", "over_1h", "over_10h", "custom"],
+  );
+  const [playtimeDevice, setPlaytimeDevice] = usePersistedState<PlaytimeDeviceFilter>(
+    "gamelib.reviews.device_v1",
+    "all",
+    ["all", "deck"],
+  );
+  const [helpfulnessRaw, setHelpfulnessRaw] = usePersistedState(
+    "gamelib.reviews.helpful_v1",
+    "0",
+    ["0", "1"],
+  );
+  const useHelpfulSystem = helpfulnessRaw === "1";
+
   const [playtimeMinHours, setPlaytimeMinHours] = useState(0);
   const [playtimeMaxHours, setPlaytimeMaxHours] = useState(0);
-  const [playtimeDevice, setPlaytimeDevice] = useState<PlaytimeDeviceFilter>("all");
-  const [useHelpfulSystem, setUseHelpfulSystem] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-
-  const queryKey = useMemo(
-    () =>
-      JSON.stringify({
-        d: display,
-        rt: reviewType,
-        pt: purchaseType,
-        l: languageFilter,
-        pp: playtimePreset,
-        pmin: playtimeMinHours,
-        pmax: playtimeMaxHours,
-        pd: playtimeDevice,
-        uhs: useHelpfulSystem,
-      }),
-    [
-      display,
-      reviewType,
-      purchaseType,
-      languageFilter,
-      playtimePreset,
-      playtimeMinHours,
-      playtimeMaxHours,
-      playtimeDevice,
-      useHelpfulSystem,
-    ],
-  );
-
-  // ── Steam Review Data ──────────────────────────────────────────────────────
+  const [filterOpen, setFilterOpen] = useState(false);
   const [isFetchingReviews, setIsFetchingReviews] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -119,13 +168,14 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   const [steamReviewScore, setSteamReviewScore] = useState<number | null>(null);
   const [steamTotalPositive, setSteamTotalPositive] = useState<number | null>(null);
   const [steamTotalNegative, setSteamTotalNegative] = useState<number | null>(null);
+  const [reviewsList, setReviewsList] = useState<IgdbReview[]>([]);
 
   const autoFetchedForRef = useRef<string | null>(null);
   const fetchInFlightRef = useRef(false);
   const currentFetchGameIdRef = useRef<string>(game.id);
   const reviewsListRef = useRef<IgdbReview[]>([]);
+  const quoteStore = useReviewQuotes(game.id);
 
-  const [reviewsList, setReviewsList] = useState<IgdbReview[]>([]);
   useEffect(() => {
     setReviewsList(game.igdbReviews ?? []);
     reviewsListRef.current = game.igdbReviews ?? [];
@@ -135,8 +185,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     reviewsListRef.current = reviewsList;
   }, [reviewsList]);
 
-  // ── External Critic Reviews (Metacritic, OpenCritic) ──────────────────────
-  const externalReviewsRef = useRef<Record<string, IgdbReview[]>>({});
   const [externalReviews, setExternalReviews] = useState<Record<string, IgdbReview[]>>({});
   const [externalLoading, setExternalLoading] = useState<Record<string, boolean>>({
     metacritic: false,
@@ -154,7 +202,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           gameName: game.name,
           source: src,
         });
-        externalReviewsRef.current = { ...externalReviewsRef.current, [src]: reviews };
         setExternalReviews((prev) => ({ ...prev, [src]: reviews }));
         if (reviews.length > 0) {
           const labels: Record<string, string> = {
@@ -162,7 +209,10 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
             opencritic: "OpenCritic",
           };
           showToast(
-            `Fetched ${reviews.length} review${reviews.length === 1 ? "" : "s"} from ${labels[src] || src}`,
+            t("review.fetchedFromSource", {
+              count: reviews.length,
+              source: labels[src] || src,
+            }),
             "success",
           );
         }
@@ -173,31 +223,31 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         setExternalLoading((prev) => ({ ...prev, [src]: false }));
       }
     },
-    [game.name, showToast],
+    [game.name, showToast, t],
   );
 
   useEffect(() => {
-    externalReviewsRef.current = {};
     setExternalReviews({});
     setExternalLoading({ metacritic: false, opencritic: false });
     externalFetchedRef.current = new Set();
-    // Proactively fetch Metacritic reviews so they are immediately available in All view and counts
     void fetchExternalReviews("metacritic");
   }, [game.id, fetchExternalReviews]);
 
   useEffect(() => {
-    if (sourceFilter === "metacritic" || sourceFilter === "opencritic") {
-      void fetchExternalReviews(sourceFilter);
+    if (state.view !== "critics") return;
+    if (state.source === "metacritic" || state.source === "opencritic") {
+      void fetchExternalReviews(state.source);
+    } else {
+      void fetchExternalReviews("metacritic");
+      void fetchExternalReviews("opencritic");
     }
-  }, [sourceFilter, game.id, fetchExternalReviews]);
+  }, [state.view, state.source, game.id, fetchExternalReviews]);
 
-  // ── Fetch Steam Reviews ────────────────────────────────────────────────────
   const fetchReviews = useCallback(
     async (force = false, cursor: string | null = null, currentLang: string = languageFilter) => {
       if (fetchInFlightRef.current) return;
       const targetGameId = game.id;
       fetchInFlightRef.current = true;
-      const acquiredLock = true;
       const isLoadMore = cursor !== null && cursor !== "";
 
       if (isLoadMore) setIsLoadingMore(true);
@@ -216,12 +266,12 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
             playtimePreset === "over_1h"
               ? 1
               : playtimePreset === "over_10h"
-              ? 10
-              : playtimePreset === "custom"
-              ? playtimeMinHours
-              : null,
+                ? 10
+                : playtimePreset === "custom"
+                  ? playtimeMinHours
+                  : null,
           playtimeMaxHours: playtimePreset === "custom" ? playtimeMaxHours : null,
-          reviewType: reviewType === "all" ? null : reviewType,
+          reviewType: state.sentiment === "all" ? null : state.sentiment,
           playtimeDevice: playtimeDevice === "all" ? null : playtimeDevice,
           useHelpfulSystem: useHelpfulSystem || null,
         });
@@ -247,20 +297,20 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           const next: IgdbReview[] = [];
 
           if (isLoadMore) {
-            for (const r of reviewsListRef.current) {
-              const key = `${r.username || ""}_${r.timestampCreated || ""}_${(r.content || "").slice(0, 40)}`;
+            for (const review of reviewsListRef.current) {
+              const key = `${review.username || ""}_${review.timestampCreated || ""}_${(review.content || "").slice(0, 40)}`;
               if (!seen.has(key)) {
                 seen.add(key);
-                next.push(r);
+                next.push(review);
               }
             }
           }
 
-          for (const r of result.reviews) {
-            const key = `${r.username || ""}_${r.timestampCreated || ""}_${(r.content || "").slice(0, 40)}`;
+          for (const review of result.reviews) {
+            const key = `${review.username || ""}_${review.timestampCreated || ""}_${(review.content || "").slice(0, 40)}`;
             if (!seen.has(key)) {
               seen.add(key);
-              next.push(r);
+              next.push(review);
             }
           }
 
@@ -271,34 +321,25 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
 
           if (isLoadMore) {
             showToast(
-              `Loaded ${result.reviews.length} more reviews (${next.length} total)`,
+              t("review.loadedMore", { count: result.reviews.length, total: next.length }),
               "success",
             );
           } else if (force) {
-            const sourceLabel =
-              result.source === "steam"
-                ? "Steam"
-                : result.source === "igdb"
-                ? "IGDB"
-                : "community";
-            showToast(
-              `Fetched ${result.reviews.length} review${result.reviews.length === 1 ? "" : "s"} from ${sourceLabel}`,
-              "success",
-            );
+            showToast(t("review.fetchedFromSource", { count: result.reviews.length, source: "Steam" }), "success");
           }
         } else if (isLoadMore) {
           setNextCursor(null);
-          showToast("No more reviews available", "info");
+          showToast(t("review.noMoreReviews"), "info");
         } else if (force) {
-          showToast("No reviews available from any source", "info");
+          showToast(t("review.noneAvailable"), "info");
         }
       } catch (err) {
-        console.error("Auto-fetch reviews failed:", err);
+        console.error("Fetch reviews failed:", err);
         if (force || isLoadMore) {
-          showToast(`Failed to fetch reviews: ${err}`, "error");
+          showToast(t("review.fetchFailed"), "error");
         }
       } finally {
-        if (acquiredLock && targetGameId === currentFetchGameIdRef.current) {
+        if (targetGameId === currentFetchGameIdRef.current) {
           fetchInFlightRef.current = false;
           setIsFetchingReviews(false);
           setIsLoadingMore(false);
@@ -306,11 +347,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
       }
     },
     [
-      game.id,
-      game.name,
-      game.path,
-      game.platform,
-      game.steamAppId,
+      game,
       showToast,
       updateGame,
       onReviewsFetched,
@@ -320,13 +357,13 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
       playtimePreset,
       playtimeMinHours,
       playtimeMaxHours,
-      reviewType,
+      state.sentiment,
       playtimeDevice,
       useHelpfulSystem,
+      t,
     ],
   );
 
-  // Auto-fetch on game selection change
   useEffect(() => {
     if (autoFetchedForRef.current === game.id) return;
     autoFetchedForRef.current = game.id;
@@ -337,24 +374,39 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     if (game.igdbReviews && game.igdbReviews.length > 0) {
       setReviewsList(game.igdbReviews);
       reviewsListRef.current = game.igdbReviews;
-      setTotalReviewCount(0);
-      setSteamReviewScoreDesc(null);
-      setSteamReviewScore(null);
-      setSteamTotalPositive(null);
-      setSteamTotalNegative(null);
     } else {
       setReviewsList([]);
       reviewsListRef.current = [];
-      setTotalReviewCount(0);
-      setSteamReviewScoreDesc(null);
-      setSteamReviewScore(null);
-      setSteamTotalPositive(null);
-      setSteamTotalNegative(null);
     }
-    void fetchReviews(false, null, "all");
+    void fetchReviews(false, null, languageFilter);
   }, [game.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Refetch when server query parameters change
+  const queryKey = useMemo(
+    () =>
+      JSON.stringify({
+        d: display,
+        st: state.sentiment,
+        pt: purchaseType,
+        l: languageFilter,
+        pp: playtimePreset,
+        pmin: playtimeMinHours,
+        pmax: playtimeMaxHours,
+        pd: playtimeDevice,
+        uhs: useHelpfulSystem,
+      }),
+    [
+      display,
+      state.sentiment,
+      purchaseType,
+      languageFilter,
+      playtimePreset,
+      playtimeMinHours,
+      playtimeMaxHours,
+      playtimeDevice,
+      useHelpfulSystem,
+    ],
+  );
+
   const queryKeyRef = useRef(queryKey);
   useEffect(() => {
     if (queryKeyRef.current === queryKey) return;
@@ -363,106 +415,105 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     void fetchReviews(true, null, languageFilter);
   }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Build Unified Reviews List ─────────────────────────────────────────────
   const allReviews: ReviewItem[] = useMemo(() => {
     const items: ReviewItem[] = [];
 
-    // 1. Steam / Cached reviews
-    if (reviewsList.length > 0) {
-      reviewsList.forEach((r: IgdbReview, idx: number) => {
-        const content = r.content || "";
-        items.push({
-          id: `steam-${idx}`,
-          sourceIndex: idx,
-          source: "steam",
-          sourceLabel: "Steam",
-          username: r.username || `Steam Player`,
-          rating: r.rating ?? null,
-          ratingLabel: r.rating !== undefined ? `${r.rating}/100` : "—",
-          title: r.title || "",
-          content,
-          dateAdded: r.timestampCreated ? r.timestampCreated * 1000 : undefined,
-          reviewLength: content.length,
-          reviewLengthBytes: new Blob([content]).size,
-          language: r.language,
-          sentiment: ratingToSentiment(r.rating ?? null),
-          votesUp: r.votesUp,
-          votesFunny: r.votesFunny,
-          reactions: r.reactions,
-          commentCount: r.commentCount,
-          authorPlaytimeAtReview: r.authorPlaytimeAtReview,
-          authorPlaytimeForever: r.authorPlaytimeForever,
-          authorDeckPlaytimeAtReview: r.authorDeckPlaytimeAtReview,
-          primarilySteamDeck: r.primarilySteamDeck,
-          receivedForFree: r.receivedForFree,
-          writtenDuringEarlyAccess: r.writtenDuringEarlyAccess,
-          steamPurchase: r.steamPurchase,
-          authorSteamId: r.authorSteamId,
-          hw: r.hw,
-        });
+    reviewsList.forEach((review: IgdbReview, index: number) => {
+      const content = review.content || "";
+      items.push({
+        id: `steam-${index}`,
+        sourceIndex: index,
+        source: "steam",
+        sourceLabel: "Steam",
+        username: review.username || t("review.steamPlayer"),
+        rating: review.rating ?? null,
+        ratingLabel: review.rating !== undefined ? `${review.rating}/100` : "—",
+        title: review.title || "",
+        content,
+        dateAdded: review.timestampCreated ? review.timestampCreated * 1000 : undefined,
+        reviewLength: content.length,
+        reviewLengthBytes: content.length,
+        language: review.language,
+        sentiment: ratingToSentiment(review.rating ?? null),
+        votesUp: review.votesUp,
+        votesFunny: review.votesFunny,
+        reactions: review.reactions,
+        commentCount: review.commentCount,
+        authorPlaytimeAtReview: review.authorPlaytimeAtReview,
+        authorPlaytimeForever: review.authorPlaytimeForever,
+        authorDeckPlaytimeAtReview: review.authorDeckPlaytimeAtReview,
+        primarilySteamDeck: review.primarilySteamDeck,
+        receivedForFree: review.receivedForFree,
+        writtenDuringEarlyAccess: review.writtenDuringEarlyAccess,
+        steamPurchase: review.steamPurchase,
+        authorSteamId: review.authorSteamId,
+        hw: review.hw,
       });
-    }
+    });
 
-    // 2. External Critic reviews (Metacritic, OpenCritic)
     const externalLabels: Record<string, string> = {
       metacritic: "Metacritic",
       opencritic: "OpenCritic",
     };
 
-    let externalIdx = items.length;
-    for (const [src, label] of Object.entries(externalLabels)) {
-      const revs = externalReviews[src];
-      if (revs && revs.length > 0) {
-        revs.forEach((r: IgdbReview) => {
-          const content = r.content || "";
-          items.push({
-            id: `${src}-${externalIdx++}`,
-            sourceIndex: externalIdx,
-            source: src as ReviewItem["source"],
-            sourceLabel: label,
-            username: r.username || label,
-            rating: r.rating ?? null,
-            ratingLabel: r.rating !== undefined ? `${Math.round(r.rating)}/100` : "—",
-            title: r.title || "",
-            content,
-            dateAdded: r.timestampCreated ? r.timestampCreated * 1000 : undefined,
-            reviewLength: content.length,
-            reviewLengthBytes: new Blob([content]).size,
-            language: r.language,
-            sentiment: ratingToSentiment(r.rating ?? null),
-          });
+    let externalIndex = items.length;
+    for (const [source, label] of Object.entries(externalLabels)) {
+      const reviews = externalReviews[source];
+      if (!reviews || reviews.length === 0) continue;
+      reviews.forEach((review: IgdbReview) => {
+        const content = review.content || "";
+        items.push({
+          id: `${source}-${externalIndex++}`,
+          sourceIndex: externalIndex,
+          source: source as ReviewItem["source"],
+          sourceLabel: label,
+          username: review.username || label,
+          rating: review.rating ?? null,
+          ratingLabel: review.rating !== undefined ? `${Math.round(review.rating)}/100` : "—",
+          title: review.title || "",
+          content,
+          dateAdded: review.timestampCreated ? review.timestampCreated * 1000 : undefined,
+          reviewLength: content.length,
+          reviewLengthBytes: content.length,
+          language: review.language,
+          sentiment: ratingToSentiment(review.rating ?? null),
         });
-      }
+      });
     }
 
     return items;
-  }, [reviewsList, externalReviews]);
+  }, [reviewsList, externalReviews, t]);
 
-  // ── Client-side Filter Pass ────────────────────────────────────────────────
   const filteredReviews = useMemo(() => {
     let list = allReviews.slice();
-
-    if (sourceFilter !== "all") {
-      list = list.filter((r) => r.source === sourceFilter);
+    if (state.view === "community") {
+      list = list.filter((review) => review.source === "steam");
+    } else if (state.view === "critics") {
+      list = list.filter((review) => review.source !== "steam");
+      if (state.source !== "all") {
+        list = list.filter((review) => review.source === state.source);
+      }
+      if (state.sentiment !== "all") {
+        list = list.filter((review) => review.sentiment === state.sentiment);
+      }
+    } else {
+      list = [];
     }
     if (languageFilter !== "all") {
-      list = list.filter((r) => r.language === languageFilter);
+      list = list.filter((review) => review.language === languageFilter);
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase();
       list = list.filter(
-        (r) =>
-          r.content.toLowerCase().includes(q) ||
-          r.title.toLowerCase().includes(q) ||
-          r.username.toLowerCase().includes(q),
+        (review) =>
+          review.content.toLowerCase().includes(query) ||
+          review.title.toLowerCase().includes(query) ||
+          review.username.toLowerCase().includes(query),
       );
     }
+    return list.sort((a, b) => a.sourceIndex - b.sourceIndex);
+  }, [allReviews, state.view, state.source, state.sentiment, languageFilter, searchQuery]);
 
-    list.sort((a, b) => a.sourceIndex - b.sourceIndex);
-    return list;
-  }, [allReviews, sourceFilter, languageFilter, searchQuery]);
-
-  // ── External Critic Showcase Sources ───────────────────────────────────────
   const externalSources: ExternalSourceDescriptor[] = useMemo(() => {
     const sources: ExternalSourceDescriptor[] = [];
     if (game.metadataUrl && game.metadataSource) {
@@ -470,7 +521,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         id: "metadata",
         name: game.metadataSource,
         url: game.metadataUrl,
-        description: `View on ${game.metadataSource}`,
+        description: t("review.viewMetadata", { source: game.metadataSource }),
         accent: "var(--color-accent)",
       });
     }
@@ -481,7 +532,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           id: "steam-reviews",
           name: "Steam Reviews",
           url: community,
-          description: "Read Steam community reviews",
+          description: t("review.readSteamReviews"),
           accent: "var(--review-source-steam)",
         });
       }
@@ -491,7 +542,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         id: "metacritic",
         name: "Metacritic",
         url: buildExternalUrl(game, "metacritic"),
-        description: `Search “${gameDisplayName(game)}” on Metacritic`,
+        description: t("review.searchOnSite", { site: "Metacritic", name: gameDisplayName(game) }),
         accent: "var(--review-source-metacritic)",
         criticKey: "metacritic",
       },
@@ -499,16 +550,18 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         id: "opencritic",
         name: "OpenCritic",
         url: buildExternalUrl(game, "opencritic"),
-        description: `Search “${gameDisplayName(game)}” on OpenCritic`,
+        description: t("review.searchOnSite", { site: "OpenCritic", name: gameDisplayName(game) }),
         accent: "var(--review-source-opencritic)",
         criticKey: "opencritic",
       },
     );
     return sources;
-  }, [game.metadataUrl, game.metadataSource, game.platform, game.path, game.name, game.displayName]);
+  }, [game, t]);
 
   const steamCount =
-    totalReviewCount > 0 ? totalReviewCount : allReviews.filter((r) => r.source === "steam").length;
+    totalReviewCount > 0
+      ? totalReviewCount
+      : allReviews.filter((review) => review.source === "steam").length;
   const metacriticCount = externalReviews.metacritic?.length ?? 0;
   const opencriticCount = externalReviews.opencritic?.length ?? 0;
   const totalCritics = metacriticCount + opencriticCount;
@@ -516,11 +569,8 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   const appId = resolveSteamAppId(game);
 
   const criticCounts = useMemo(
-    () => ({
-      metacritic: externalReviews.metacritic?.length ?? 0,
-      opencritic: externalReviews.opencritic?.length ?? 0,
-    }),
-    [externalReviews],
+    () => ({ metacritic: metacriticCount, opencritic: opencriticCount }),
+    [metacriticCount, opencriticCount],
   );
 
   const criticLabels: Record<string, string> = {
@@ -528,221 +578,417 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     opencritic: "OpenCritic",
   };
 
-  const isCriticSource =
-    sourceFilter === "metacritic" || sourceFilter === "opencritic";
+  const openExternal = useCallback(
+    (url: string) => {
+      openUrl(url).catch((err) => {
+        showToast(t("review.openLinkFailed"), "error");
+        console.error(err);
+      });
+    },
+    [showToast, t],
+  );
 
-  function openExternal(url: string) {
-    openUrl(url).catch((err) => {
-      showToast(`Could not open link: ${err}`, "error");
-    });
-  }
+  const criticLoading =
+    state.source === "all"
+      ? externalLoading.metacritic || externalLoading.opencritic
+      : externalLoading[state.source];
 
-  const handleResetFilters = () => {
-    setReviewType("all");
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (purchaseType !== "all") count += 1;
+    if (languageFilter !== "all") count += 1;
+    if (playtimePreset !== "none") count += 1;
+    if (showDeckVerified && playtimeDevice !== "all") count += 1;
+    if (useHelpfulSystem) count += 1;
+    if (display !== "all") count += 1;
+    return count;
+  }, [
+    display,
+    purchaseType,
+    languageFilter,
+    playtimePreset,
+    playtimeDevice,
+    useHelpfulSystem,
+    showDeckVerified,
+  ]);
+
+  const handleResetFilters = useCallback(() => {
+    setDisplay("all");
     setPurchaseType("all");
     setLanguageFilter("all");
     setPlaytimePreset("none");
     setPlaytimeMinHours(0);
     setPlaytimeMaxHours(0);
     setPlaytimeDevice("all");
-    setUseHelpfulSystem(false);
+    setHelpfulnessRaw("0");
     setSearchQuery("");
-  };
+    setState({ sentiment: "all" });
+  }, [setDisplay, setHelpfulnessRaw, setLanguageFilter, setPlaytimeDevice, setPlaytimePreset, setState]);
 
-  const refreshFocus = useFocusProps(() => {
-    setNextCursor(null);
-    void fetchReviews(true, null);
-  });
-  const loadMoreFocus = useFocusProps(() => void fetchReviews(false, nextCursor, languageFilter));
+  const reviewUrlFor = useCallback(
+    (review: ReviewItem): string | null => {
+      if (review.source !== "steam") return null;
+      if (!review.authorSteamId || !appId) return null;
+      return `https://steamcommunity.com/profiles/${review.authorSteamId}/recommended/${appId}/`;
+    },
+    [appId],
+  );
+
+  const handleBookmark = useCallback(
+    async (review: ReviewItem) => {
+      const key = reviewKeyOf(review);
+      const existing = quoteStore.quotes.find(
+        (quote) => quote.kind === "review" && quote.reviewKey === key,
+      );
+      if (existing) {
+        const ok = await quoteStore.remove(existing.id);
+        showToast(
+          ok ? t("review.bookmarkRemoved") : t("review.quoteSaveFailed"),
+          ok ? "info" : "error",
+        );
+        return;
+      }
+      const saved = await quoteStore.save(reviewDraft(game, review, reviewUrlFor(review)));
+      showToast(
+        saved ? t("review.bookmarkSaved") : t("review.quoteSaveFailed"),
+        saved ? "success" : "error",
+      );
+    },
+    [game, quoteStore, reviewUrlFor, showToast, t],
+  );
+
+  const handleSaveQuote = useCallback(
+    async (review: ReviewItem, excerpt: string) => {
+      const saved = await quoteStore.save(
+        excerptDraft(game, review, excerpt, reviewUrlFor(review)),
+      );
+      showToast(
+        saved ? t("review.quoteSaved") : t("review.quoteSaveFailed"),
+        saved ? "success" : "error",
+      );
+    },
+    [game, quoteStore, reviewUrlFor, showToast, t],
+  );
+
+  const handleDeleteQuote = useCallback(
+    async (id: string) => {
+      const ok = await quoteStore.remove(id);
+      showToast(
+        ok ? t("review.quoteDeleted") : t("review.quoteSaveFailed"),
+        ok ? "info" : "error",
+      );
+    },
+    [quoteStore, showToast, t],
+  );
+
+  const tabNav = [
+    {
+      id: "community" as const,
+      label: t("review.userReviews"),
+      icon: MessageSquare,
+      count: steamCount,
+    },
+    {
+      id: "critics" as const,
+      label: t("reviewsTab.critics"),
+      icon: Newspaper,
+      count: totalCritics,
+    },
+    {
+      id: "saved" as const,
+      label: t("review.savedQuotes"),
+      icon: Bookmark,
+      count: quoteStore.quotes.length,
+    },
+  ];
+
+  const feedTitle =
+    state.view === "community"
+      ? t("review.communityReviews")
+      : state.view === "critics"
+        ? t("reviewsTab.critics")
+        : t("review.savedQuotes");
+
+  const feedCount =
+    state.view === "community"
+      ? steamCount
+      : state.view === "critics"
+        ? totalCritics
+        : quoteStore.quotes.length;
 
   return (
-    <div className="rv-root" style={REVIEW_SOURCE_ACCENTS as CSSProperties}>
-      {/* ── Header ── */}
-      <header className="rv-header">
-        <div className="rv-header-left">
-          <span className="rv-header-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              <line x1="9" y1="10" x2="15" y2="10" />
-              <line x1="12" y1="13" x2="12" y2="13" />
-            </svg>
-          </span>
-          <div className="rv-header-text">
-            <h2 className="rv-header-title">{t("review.communityReviews")}</h2>
-            <p className="rv-header-subtitle">
-              {totalAll > 0
-                ? t("review.subtitleCount", { count: totalAll.toLocaleString() })
-                : totalAll === 0
-                ? t("review.subtitleNone")
-                : t("review.subtitleOne")}
-            </p>
-          </div>
-        </div>
-
-        <div className="rv-header-actions">
-          <button
-            ref={refreshFocus.ref}
-            tabIndex={refreshFocus.tabIndex}
-            type="button"
-            className="rv-refresh-btn"
-            onClick={refreshFocus.onClick}
-            disabled={isFetchingReviews}
-            title="Fetch latest reviews from Steam"
-            aria-label="Refresh reviews"
-          >
-            {isFetchingReviews ? (
-              <>
-                <span className="rv-spinner" aria-hidden="true" />
-                {t("review.fetchingReviews")}
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10" />
-                  <polyline points="1 20 1 14 7 14" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
-                {t("review.refreshReviews")}
-              </>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* ── Summary Hero Dashboard ── */}
-      {!isCriticSource && (
-        <ReviewSummaryHero
-          reviews={allReviews}
-          totalReviewCount={totalAll}
-          steamReviewScoreDesc={steamReviewScoreDesc}
-          steamReviewScore={steamReviewScore}
-          steamTotalPositive={steamTotalPositive}
-          steamTotalNegative={steamTotalNegative}
-          onFilterSentiment={(s) => setReviewType(s)}
-          activeSentimentFilter={reviewType}
-        />
-      )}
-
-      {/* ── Toolbar & Segmented Sources ── */}
-      <ReviewsToolbar
-        display={display}
-        onDisplayChange={setDisplay}
-        reviewType={reviewType}
-        onReviewTypeChange={setReviewType}
-        purchaseType={purchaseType}
-        onPurchaseTypeChange={setPurchaseType}
-        languageFilter={languageFilter}
-        onLanguageFilterChange={setLanguageFilter}
-        playtimePreset={playtimePreset}
-        onPlaytimePresetChange={setPlaytimePreset}
-        playtimeMinHours={playtimeMinHours}
-        onPlaytimeMinHoursChange={setPlaytimeMinHours}
-        playtimeMaxHours={playtimeMaxHours}
-        onPlaytimeMaxHoursChange={setPlaytimeMaxHours}
-        playtimeDevice={playtimeDevice}
-        onPlaytimeDeviceChange={setPlaytimeDevice}
-        useHelpfulSystem={useHelpfulSystem}
-        onUseHelpfulSystemChange={setUseHelpfulSystem}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        sourceFilter={sourceFilter}
-        onSourceFilterChange={setSourceFilter}
-        totalAll={totalAll}
-        steamCount={steamCount}
-        criticCounts={criticCounts}
-        criticLoading={externalLoading as { metacritic: boolean; opencritic: boolean }}
-        matchCount={searchQuery.trim() ? filteredReviews.length : undefined}
-        onResetFilters={handleResetFilters}
-      />
-
-      {/* ── Review Content Feed ── */}
-      {isCriticSource && externalLoading[sourceFilter] ? (
-        <ReviewsEmptyState
-          type="critic-loading"
-          criticSource={sourceFilter}
-          criticLabel={criticLabels[sourceFilter]}
-        />
-      ) : isCriticSource && (externalReviews[sourceFilter]?.length ?? 0) === 0 ? (
-        <ReviewsEmptyState
-          type="critic-empty"
-          criticSource={sourceFilter}
-          criticLabel={criticLabels[sourceFilter]}
-          onOpenExternalCritic={() =>
-            openExternal(buildExternalUrl(game, sourceFilter as "metacritic" | "opencritic"))
-          }
-        />
-      ) : totalAll === 0 ? (
-        <ReviewsEmptyState type="empty-all" />
-      ) : filteredReviews.length === 0 ? (
-        <ReviewsEmptyState type="no-matches" onResetFilters={handleResetFilters} />
-      ) : (
-        <div className="rv-list">
-          <div className="rv-list-rows">
-            {filteredReviews.map((review) =>
-              review.source === "metacritic" ||
-              review.source === "opencritic" ? (
-                <CriticReviewRow
-                  key={review.id}
-                  review={review}
-                  searchQuery={searchQuery}
-                />
-              ) : (
-                <ReviewRow
-                  key={review.id}
-                  review={review}
-                  appId={appId}
-                  searchQuery={searchQuery}
-                />
-              ),
-            )}
+    <GameTabShell
+      eyebrow={t("game.tab.reviews")}
+      title={t("review.reviewsTitle")}
+      description={
+        totalAll > 0
+          ? t("review.subtitleCount", { count: totalAll.toLocaleString() })
+          : t("review.subtitleNone")
+      }
+      icon={<MessageSquare size={20} />}
+      className="rv-workspace-shell"
+    >
+      <div className="rv-workspace" style={REVIEW_SOURCE_ACCENTS as CSSProperties}>
+        <aside className="rv-rail">
+          <div className="rv-rail__summary">
+            <ReviewSummaryHero
+              reviews={allReviews}
+              totalReviewCount={totalAll}
+              steamReviewScoreDesc={steamReviewScoreDesc}
+              steamReviewScore={steamReviewScore}
+              steamTotalPositive={steamTotalPositive}
+              steamTotalNegative={steamTotalNegative}
+              onFilterSentiment={(sentiment) => setState({ sentiment })}
+              activeSentimentFilter={state.sentiment}
+            />
           </div>
 
-          {nextCursor && !isCriticSource && (
-            <div className="rv-load-more-row">
-              <button
-                ref={loadMoreFocus.ref}
-                tabIndex={loadMoreFocus.tabIndex}
-                type="button"
-                className="rv-btn rv-btn-ghost rv-btn-large"
-                onClick={loadMoreFocus.onClick}
-                disabled={isLoadingMore}
-              >
-                {isLoadingMore ? (
-                  <>
-                    <span className="rv-spinner" aria-hidden="true" />
-                    {t("review.loadingMore")}
-                  </>
+          <nav className="rv-rail__nav" aria-label={t("review.viewsLabel")}>
+            {tabNav.map((item) => {
+              const Icon = item.icon;
+              const active = state.view === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`rv-rail__nav-btn${active ? " is-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setState({ view: item.id })}
+                >
+                  <Icon size={15} />
+                  <span>{item.label}</span>
+                  {item.count > 0 && <span className="rv-rail__nav-count">{item.count}</span>}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="rv-rail__meta">
+            <span>{t("review.railHint")}</span>
+          </div>
+        </aside>
+
+        <div className="rv-feed">
+          <div className="rv-feed__head">
+            <div>
+              <h3>{feedTitle}</h3>
+              <p>{t("review.feedCount", { count: feedCount })}</p>
+            </div>
+          </div>
+
+          {state.view !== "saved" && (
+            <GameTabToolbar
+              search={
+                <GameTabSearch
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t("review.searchPlaceholder")}
+                  label={t("review.searchPlaceholder")}
+                  clearLabel={t("review.clearSearch")}
+                />
+              }
+              filters={
+                state.view === "community" ? (
+                  <GameTabChips
+                    items={[
+                      { id: "all" as const, label: t("review.allReviews") },
+                      { id: "positive" as const, label: t("review.recommended") },
+                      { id: "negative" as const, label: t("review.notRecommended") },
+                    ]}
+                    value={state.sentiment}
+                    onChange={(sentiment) => setState({ sentiment })}
+                    ariaLabel={t("review.reviewType")}
+                  />
                 ) : (
-                  <>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <polyline points="19 12 12 19 5 12" />
-                    </svg>
-                    {t("review.loadMoreReviews")}
-                    {totalReviewCount > 0 && (
-                      <span className="rv-load-more-count">
-                        {t("review.loadedCount", {
-                          loaded: reviewsList.length,
-                          total: totalReviewCount,
-                        })}
+                  <GameTabChips
+                    items={[
+                      { id: "all" as const, label: t("review.allCritics"), count: totalCritics },
+                      {
+                        id: "metacritic" as const,
+                        label: "Metacritic",
+                        count: criticCounts.metacritic,
+                      },
+                      {
+                        id: "opencritic" as const,
+                        label: "OpenCritic",
+                        count: criticCounts.opencritic,
+                      },
+                    ]}
+                    value={state.source}
+                    onChange={(source) => setState({ source })}
+                    ariaLabel={t("review.sourceLabel")}
+                  />
+                )
+              }
+              actions={
+                <>
+                  <div className="rv-filter-anchor">
+                    <Button
+                      variant={activeFilterCount > 0 ? "secondary" : "ghost"}
+                      size="sm"
+                      leftIcon={<SlidersHorizontal size={14} />}
+                      onClick={() => setFilterOpen((open) => !open)}
+                      aria-expanded={filterOpen}
+                    >
+                      {t("review.filters")}
+                      {activeFilterCount > 0 && (
+                        <span className="rv-filter-count">{activeFilterCount}</span>
+                      )}
+                    </Button>
+                    <ReviewsFilterPopover
+                      open={filterOpen}
+                      onClose={() => setFilterOpen(false)}
+                      display={display}
+                      onDisplayChange={setDisplay}
+                      purchaseType={purchaseType}
+                      onPurchaseTypeChange={setPurchaseType}
+                      languageFilter={languageFilter}
+                      onLanguageFilterChange={setLanguageFilter}
+                      playtimePreset={playtimePreset}
+                      onPlaytimePresetChange={setPlaytimePreset}
+                      playtimeMinHours={playtimeMinHours}
+                      onPlaytimeMinHoursChange={setPlaytimeMinHours}
+                      playtimeMaxHours={playtimeMaxHours}
+                      onPlaytimeMaxHoursChange={setPlaytimeMaxHours}
+                      playtimeDevice={playtimeDevice}
+                      onPlaytimeDeviceChange={setPlaytimeDevice}
+                      useHelpfulSystem={useHelpfulSystem}
+                      onUseHelpfulSystemChange={(value) => setHelpfulnessRaw(value ? "1" : "0")}
+                      showDeckVerified={showDeckVerified}
+                      onReset={handleResetFilters}
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={
+                      <RefreshCw
+                        size={14}
+                        className={isFetchingReviews ? "spin-animation" : undefined}
+                      />
+                    }
+                    onClick={() => void fetchReviews(true, null)}
+                    disabled={isFetchingReviews}
+                  >
+                    {t("review.refreshReviews")}
+                  </Button>
+                </>
+              }
+              below={
+                activeFilterCount > 0 || searchQuery ? (
+                  <div className="rv-active-filters">
+                    {activeFilterCount > 0 && (
+                      <span className="rv-active-filters__label">
+                        {t("review.filterCount", { count: activeFilterCount })}
                       </span>
                     )}
-                  </>
+                    <button type="button" onClick={handleResetFilters}>
+                      {t("review.resetFilters")}
+                    </button>
+                  </div>
+                ) : null
+              }
+            />
+          )}
+
+          {state.view === "saved" ? (
+            <ReviewsSavedQuotes
+              quotes={quoteStore.quotes}
+              loading={quoteStore.loading}
+              onDelete={(id) => void handleDeleteQuote(id)}
+            />
+          ) : state.view === "critics" && criticLoading ? (
+            <ReviewsEmptyState
+              type="critic-loading"
+              criticSource={state.source === "all" ? "metacritic" : state.source}
+              criticLabel={criticLabels[state.source === "all" ? "metacritic" : state.source]}
+            />
+          ) : state.view === "critics" && totalCritics === 0 ? (
+            <ReviewsEmptyState
+              type="critic-empty"
+              criticSource={state.source}
+              criticLabel={criticLabels[state.source === "all" ? "metacritic" : state.source]}
+              onOpenExternalCritic={() =>
+                openExternal(
+                  buildExternalUrl(
+                    game,
+                    state.source === "opencritic" ? "opencritic" : "metacritic",
+                  ),
+                )
+              }
+            />
+          ) : isFetchingReviews && filteredReviews.length === 0 ? (
+            <GameTabSkeleton count={3} height={180} />
+          ) : totalAll === 0 ? (
+            <GameTabEmpty
+              icon={<MessageSquare size={26} />}
+              title={t("review.emptyTitle")}
+              description={t("review.emptyDesc")}
+              actions={
+                <Button variant="primary" size="sm" onClick={() => void fetchReviews(true, null)}>
+                  {t("review.refreshReviews")}
+                </Button>
+              }
+            />
+          ) : filteredReviews.length === 0 ? (
+            <ReviewsEmptyState type="no-matches" onResetFilters={handleResetFilters} />
+          ) : (
+            <div className="rv-list">
+              <div className="rv-list-rows">
+                {filteredReviews.map((review) =>
+                  review.source === "metacritic" || review.source === "opencritic" ? (
+                    <CriticReviewRow
+                      key={review.id}
+                      review={review}
+                      searchQuery={searchQuery}
+                      bookmarked={quoteStore.isBookmarked(reviewKeyOf(review))}
+                      onBookmark={(next) => void handleBookmark(next)}
+                      onSaveQuote={(next, excerpt) => void handleSaveQuote(next, excerpt)}
+                    />
+                  ) : (
+                    <ReviewRow
+                      key={review.id}
+                      review={review}
+                      appId={appId}
+                      searchQuery={searchQuery}
+                      bookmarked={quoteStore.isBookmarked(reviewKeyOf(review))}
+                      onBookmark={(next) => void handleBookmark(next)}
+                      onSaveQuote={(next, excerpt) => void handleSaveQuote(next, excerpt)}
+                    />
+                  ),
                 )}
-              </button>
+              </div>
+
+              {nextCursor && state.view === "community" && (
+                <div className="rv-load-more-row">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void fetchReviews(false, nextCursor, languageFilter)}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore
+                      ? t("review.loadingMore")
+                      : t("review.loadMoreReviews")}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ── Critics Across the Web Showcase ── */}
-      <ReviewsExternalShowcase
-        sources={externalSources}
-        openExternal={openExternal}
-        isBigScreen={isBigScreen}
-        criticCounts={criticCounts}
-        onShowInApp={(src) => setSourceFilter(src)}
-      />
-    </div>
+          {state.view !== "saved" && (
+            <ReviewsExternalShowcase
+              sources={externalSources}
+              openExternal={openExternal}
+              isBigScreen={isBigScreen}
+              criticCounts={criticCounts}
+              onShowInApp={(source) =>
+                setState({ view: "critics", source: source as CriticSource })
+              }
+            />
+          )}
+        </div>
+      </div>
+    </GameTabShell>
   );
 }

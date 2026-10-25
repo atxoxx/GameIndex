@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useState, useRef, useMemo, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
@@ -21,11 +30,8 @@ import PageWidget from "../components/PageWidget";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game, gameDisplayName } from "../types/game";
-import WebLinksTab from "../components/WebLinksTab";
-import ReviewsTab from "../components/ReviewsTab";
 import CrackWatchCard from "../components/CrackWatchCard";
 import ProtonDBCard from "../components/ProtonDBCard";
-import AchievementsTab from "../components/AchievementsTab";
 import ModsTab from "../components/mods/ModsTab";
 import GameRelationsCard from "../components/GameRelationsCard";
 import {
@@ -50,18 +56,15 @@ import {
   WineLogsModal,
   SteamFeaturesCard,
   GameDlcCard,
-  GameDlcTab,
   GameSaveBackupCard,
   GameFamilyShareBanner,
   DetailRail,
   GAME_RAIL_GROUPS,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
-import GameNewsTab from "../components/game/GameNewsTab";
-import MapTab from "../components/game/MapTab";
 import { readPersistedLookupFound } from "../components/game/mapLookupStorage";
-import NotesTab from "../components/game/notes/NotesTab";
 import SaveBackupTab from "../components/game/SaveBackupTab";
+import { GameTabSkeleton } from "../components/game/tabs";
 import { useGameNotes } from "../hooks/useGameNotes";
 import { useGameMaps } from "../hooks/useGameMaps";
 import "../styles/activity.css";
@@ -70,7 +73,8 @@ import "../styles/reviews.css";
 import "../styles/game-news.css";
 import "../styles/mapgenie.css";
 import "../styles/weblinks.css";
-import "../styles/game-tab-immersive.css";
+import "../styles/game-tabs.css";
+
 import { useAchievements } from "../context/AchievementContext";
 import { useSaves } from "../context/SavesContext";
 import { Button, ConfirmModal } from "../components/ui";
@@ -87,6 +91,19 @@ import {
   IconSave,
   IconMap,
 } from "../components/game/icons";
+
+/**
+ * The seven content-heavy detail tabs are lazy chunks: opening a game should
+ * not pay for the review parser, the map viewer and the achievement grid
+ * before the Overview has painted.
+ */
+const ReviewsTab = lazy(() => import("../components/reviews/ReviewsTab"));
+const AchievementsTab = lazy(() => import("../components/AchievementsTab"));
+const WebLinksTab = lazy(() => import("../components/WebLinksTab"));
+const GameNewsTab = lazy(() => import("../components/game/GameNewsTab"));
+const MapTab = lazy(() => import("../components/game/MapTab"));
+const NotesTab = lazy(() => import("../components/game/notes/NotesTab"));
+const GameDlcTab = lazy(() => import("../components/game/dlc/DlcTab"));
 
 type GamePageTab =
   | "overview"
@@ -708,34 +725,46 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
         </>
       )}
 
-      {effectiveTab === "reviews" && <ReviewsTab game={game} />}
+      {effectiveTab === "reviews" && (
+        <Suspense fallback={<GameTabSkeleton count={4} height={190} />}>
+          <ReviewsTab game={game} />
+        </Suspense>
+      )}
 
       {effectiveTab === "activity" && <GameActivityTab game={game} />}
 
       {effectiveTab === "notes" && (
-        <NotesTab
-          game={game}
-          notes={gameNotes}
-          loading={notesLoading}
-          onCreate={createNote}
-          onUpdate={updateNote}
-          onDelete={deleteNote}
-        />
+        <Suspense fallback={<GameTabSkeleton count={3} height={220} />}>
+          <NotesTab
+            game={game}
+            notes={gameNotes}
+            loading={notesLoading}
+            onCreate={createNote}
+            onUpdate={updateNote}
+            onDelete={deleteNote}
+          />
+        </Suspense>
       )}
 
       {effectiveTab === "weblinks" && (
-        <WebLinksTab
-          game={game}
-          visible={!editing && !lightboxOpen}
-          onWebsitesChange={(websites) =>
-            updateGame(game.id, {
-              websites: websites.length > 0 ? websites : undefined,
-            })
-          }
-        />
+        <Suspense fallback={<GameTabSkeleton count={4} height={180} />}>
+          <WebLinksTab
+            game={game}
+            visible={!editing && !lightboxOpen}
+            onWebsitesChange={(websites) =>
+              updateGame(game.id, {
+                websites: websites.length > 0 ? websites : undefined,
+              })
+            }
+          />
+        </Suspense>
       )}
 
-      {effectiveTab === "achievements" && <AchievementsTab game={game} />}
+      {effectiveTab === "achievements" && (
+        <Suspense fallback={<GameTabSkeleton count={4} height={190} />}>
+          <AchievementsTab game={game} />
+        </Suspense>
+      )}
 
       {effectiveTab === "mods" && (
         <ModsTab
@@ -751,24 +780,33 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
         />
       )}
 
-      {effectiveTab === "news" && <GameNewsTab game={game} />}
+      {effectiveTab === "news" && (
+        <Suspense fallback={<GameTabSkeleton count={4} height={190} />}>
+          <GameNewsTab game={game} />
+        </Suspense>
+      )}
 
       {effectiveTab === "saves" && (
         <SaveBackupTab gameId={game.id} gameName={gameDisplayName(game)} />
       )}
 
       {effectiveTab === "dlc" && (
-        <GameDlcTab game={game} storeAppId={heroSteamAppId} />
+        <Suspense fallback={<GameTabSkeleton count={6} height={210} />}>
+          <GameDlcTab game={game} storeAppId={heroSteamAppId} />
+        </Suspense>
       )}
 
       {effectiveTab === "map" && (
-        <MapTab
-          sources={mapLookup.sources}
-          gameName={game.name}
-          searchKey={game.id}
-          onResultChange={setMapHasResult}
-          visible={!editing && !lightboxOpen && !showRemoveConfirm}
-        />
+        <Suspense fallback={<GameTabSkeleton count={3} height={220} />}>
+          <MapTab
+            sources={mapLookup.sources}
+            loading={mapLookup.status === "loading"}
+            gameName={game.name}
+            searchKey={game.id}
+            onResultChange={setMapHasResult}
+            visible={!editing && !lightboxOpen && !showRemoveConfirm}
+          />
+        </Suspense>
       )}
 
       {/* Edit Game Modal */}

@@ -1,6 +1,16 @@
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Link2 } from "lucide-react";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { Button } from "../ui";
+import {
+  GameTabChips,
+  GameTabSearch,
+  GameTabShell,
+  GameTabToolbar,
+  useGameTabState,
+} from "../game/tabs";
 import { CloseIcon } from "./WebLinksIcons";
 import WebLinksSourceStrip from "./WebLinksSourceStrip";
 import WebLinksSteamSections from "./WebLinksSteamSections";
@@ -8,9 +18,28 @@ import WebLinksAddressBar from "./WebLinksAddressBar";
 import WebLinksWebview from "./WebLinksWebview";
 import MyLinksManager from "./MyLinksManager";
 import WebLinksBigScreen from "./WebLinksBigScreen";
+import WebLinksHub from "./WebLinksHub";
 import { useWebLinksBrowser } from "./useWebLinksBrowser";
-import type { WebLinksTabProps } from "./types";
+import { readLastSource, writeLastSource } from "./weblinksStorage";
+import { FIXED_SOURCES, MY_LINKS_KEY, SOURCE_CATEGORIES } from "./sources";
+import type { SourceCategoryKey, WebLinksTabProps } from "./types";
 
+interface WebLinksTabState {
+  category: SourceCategoryKey;
+}
+
+const DEFAULT_STATE: WebLinksTabState = {
+  category: "all",
+};
+
+/**
+ * Web Links — a hub that maps every useful destination for a game, backed by
+ * the existing native preview browser.
+ *
+ * The hub is the landing surface; opening a card moves into the browser, and
+ * the grid button in its address bar returns to the hub. The last opened
+ * source is remembered per game and offered as a resume card.
+ */
 export default function WebLinksTab({
   game,
   visible = true,
@@ -19,9 +48,117 @@ export default function WebLinksTab({
   const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const browser = useWebLinksBrowser({ game, visible, onWebsitesChange });
+  const [state, setState] = useGameTabState<WebLinksTabState>({
+    prefix: "wl",
+    defaults: DEFAULT_STATE,
+    allowed: {
+      category: SOURCE_CATEGORIES.map((category) => category.key),
+    },
+  });
+  const [mode, setMode] = useState<"hub" | "browser">("hub");
+  const [hubSearch, setHubSearch] = useState("");
+  const [lastSourceKey, setLastSourceKey] = useState<string | null>(() =>
+    readLastSource(game.id),
+  );
+
+  useEffect(() => {
+    setLastSourceKey(readLastSource(game.id));
+  }, [game.id]);
+
+  const openSource = (sourceKey: string) => {
+    browser.setActiveSourceKey(sourceKey);
+    setMode("browser");
+    if (sourceKey !== MY_LINKS_KEY && !/^https?:\/\//i.test(sourceKey)) {
+      writeLastSource(game.id, sourceKey);
+      setLastSourceKey(sourceKey);
+    }
+  };
+
+  const openManager = () => {
+    browser.setActiveSourceKey(MY_LINKS_KEY);
+    setMode("browser");
+  };
+
+  const openHub = () => {
+    if (browser.expanded) browser.toggleExpanded();
+    setMode("hub");
+  };
+
+  const lastSource = useMemo(
+    () => FIXED_SOURCES.find((source) => source.key === lastSourceKey) ?? null,
+    [lastSourceKey],
+  );
 
   if (isBigScreen) {
     return <WebLinksBigScreen game={game} />;
+  }
+
+  if (mode === "hub") {
+    const categoryItems = SOURCE_CATEGORIES.filter(
+      (category) => category.key !== "all",
+    ).map((category) => ({
+      id: category.key,
+      label: t(category.i18nKey),
+    }));
+
+    return (
+      <GameTabShell
+        eyebrow={t("weblinks.hub.eyebrow")}
+        title={t("game.tab.weblinks")}
+        description={t("weblinks.hub.summary", {
+          game: game.name,
+          sources: FIXED_SOURCES.length,
+          links: browser.customLinks.length,
+        })}
+        icon={<Link2 size={20} />}
+        actions={
+          browser.editable ? (
+            <Button variant="secondary" size="sm" onClick={openManager}>
+              {t("weblinks.hub.manage")}
+            </Button>
+          ) : undefined
+        }
+        toolbar={
+          <GameTabToolbar
+            search={
+              <GameTabSearch
+                value={hubSearch}
+                onChange={setHubSearch}
+                placeholder={t("weblinks.hub.searchPlaceholder")}
+                label={t("weblinks.hub.searchPlaceholder")}
+                clearLabel={t("weblinks.hub.clearSearch")}
+              />
+            }
+            filters={
+              <GameTabChips
+                items={[
+                  { id: "all" as SourceCategoryKey, label: t("weblinks.categories.all") },
+                  ...categoryItems,
+                ]}
+                value={state.category}
+                onChange={(category) => setState({ category })}
+                ariaLabel={t("weblinks.filterByCategory")}
+              />
+            }
+          />
+        }
+      >
+        <WebLinksHub
+          game={game}
+          sources={FIXED_SOURCES}
+          customLinks={browser.parsedCustomLinks}
+          activeCategory={state.category}
+          query={hubSearch}
+          lastSource={lastSource}
+          appId={browser.appId}
+          editable={browser.editable}
+          onOpenSource={(source) => openSource(source.key)}
+          onOpenCustom={(link) => openSource(link.url)}
+          onOpenExternal={(url) => void browser.openExternal(url)}
+          onManageLinks={openManager}
+        />
+      </GameTabShell>
+    );
   }
 
   const addressBar = (
@@ -33,6 +170,7 @@ export default function WebLinksTab({
       onGoForward={browser.goForward}
       onReload={browser.reload}
       onHome={browser.home}
+      onOpenHub={openHub}
       onDismissCookies={browser.dismissCookies}
       onNavigate={browser.navigate}
       onOpenExternal={browser.openExternal}
@@ -49,11 +187,10 @@ export default function WebLinksTab({
 
   return (
     <div className="wl-tab">
-      {/* ─── 1. Source Tabs Strip with inline category filter ──────── */}
       <WebLinksSourceStrip
         sources={browser.filteredSources}
         activeSourceKey={browser.activeSourceKey}
-        onSelectSource={browser.setActiveSourceKey}
+        onSelectSource={openSource}
         customLinksCount={browser.customLinks.length}
         showMyLinksTab={true}
         activeCategory={browser.activeCategory}
@@ -62,7 +199,6 @@ export default function WebLinksTab({
         onMenuOpenChange={browser.setCategoryMenuOpen}
       />
 
-      {/* ─── 2. Steam Sub-Sections (When Steam is selected) ──────────── */}
       {browser.isSteamActive && (
         <WebLinksSteamSections
           activeSection={browser.steamSection}
@@ -72,7 +208,6 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 3. My Links Custom Manager ─────────────────────────────── */}
       {browser.isMyLinksManagerActive && (
         <MyLinksManager
           game={game}
@@ -85,10 +220,8 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 4. Browser Address Bar & Actions Toolbar ───────────────── */}
       {browser.hasPreviewableUrl && addressBar}
 
-      {/* ─── 5. Native Webview Preview Frame ────────────────────────── */}
       {browser.hasPreviewableUrl && (
         <WebLinksWebview
           url={browser.webviewUrl}
@@ -120,7 +253,6 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 6. Footnote Informational Bar ──────────────────────────── */}
       <div className="wl-footnote">
         <svg
           viewBox="0 0 24 24"
@@ -135,9 +267,11 @@ export default function WebLinksTab({
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
         <span>{t("weblinks.footnote")}</span>
+        <button type="button" className="wl-footnote__hub" onClick={openHub}>
+          {t("weblinks.hub.back")}
+        </button>
       </div>
 
-      {/* ─── 7. Enlarged Browser Modal (near-full-window) ────────────── */}
       {browser.expanded &&
         browser.hasPreviewableUrl &&
         createPortal(
@@ -175,7 +309,7 @@ export default function WebLinksTab({
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

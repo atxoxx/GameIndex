@@ -65,7 +65,7 @@ import "../styles/reviews.css";
 import "../styles/game-news.css";
 import "../styles/mapgenie.css";
 import "../styles/weblinks.css";
-import "../styles/game-tab-immersive.css";
+import "../styles/game-tabs.css";
 
 /* ------------------------------------------------------------------ */
 /*  Error and Not Found States                                         */
@@ -808,6 +808,7 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
       {effectiveTab === "map" && (
         <MapTab
           sources={mapLookup.sources}
+          loading={mapLookup.status === "loading"}
           gameName={data?.title}
           searchKey={gameSlug}
           onResultChange={setMapHasResult}

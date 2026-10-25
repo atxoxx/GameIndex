@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Bookmark, Quote } from "lucide-react";
 import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -19,6 +20,11 @@ interface ReviewRowProps {
   review: ReviewItem;
   appId: number | null;
   searchQuery?: string;
+  /** Whole-review bookmark state and action. */
+  bookmarked?: boolean;
+  onBookmark?: (review: ReviewItem) => void;
+  /** Save a highlighted passage (or a fallback excerpt) as a quote. */
+  onSaveQuote?: (review: ReviewItem, excerpt: string) => void;
 }
 
 function ThumbBadge({ sentiment }: { sentiment: ReviewItem["sentiment"] }) {
@@ -65,6 +71,7 @@ function ReactionBadge({ reactionType, count }: { reactionType: number; count: n
 }
 
 function ReactionBar({ review }: { review: ReviewItem }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const hasVotesUp = (review.votesUp ?? 0) > 0;
   const hasVotesFunny = (review.votesFunny ?? 0) > 0;
@@ -96,9 +103,9 @@ function ReactionBar({ review }: { review: ReviewItem }) {
           type="button"
           className="rv-reaction-show-more"
           onClick={showMoreFocus.onClick}
-          title="Show all reactions"
+          title={t("reviewsTab.showAllReactions")}
         >
-          +{augmented.length - 4} more
+          {t("reviewsTab.moreReactions", { count: augmented.length - 4 })}
         </button>
       )}
     </div>
@@ -162,14 +169,22 @@ function formatShortDate(ts?: number): string {
   }
 }
 
-export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
+export function ReviewRow({
+  review,
+  appId,
+  searchQuery,
+  bookmarked = false,
+  onBookmark,
+  onSaveQuote,
+}: ReviewRowProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { showDeckVerified } = useSettings();
   const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const isSteam = review.source === "steam";
-  const username = review.username || "Steam Player";
+  const username = review.username || t("review.steamPlayer");
   const profileUrl =
     isSteam && review.authorSteamId
       ? `${STEAM_PROFILE_URL}/${review.authorSteamId}/`
@@ -184,10 +199,27 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
     }
   };
 
+  const handleSaveQuote = () => {
+    if (!onSaveQuote) return;
+    const selection = window.getSelection();
+    let excerpt = "";
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0 && contentRef.current) {
+      const range = selection.getRangeAt(0);
+      if (contentRef.current.contains(range.commonAncestorContainer)) {
+        excerpt = selection.toString().trim();
+      }
+    }
+    if (!excerpt) excerpt = review.content.replace(/\s+/g, " ").trim().slice(0, 320);
+    if (!excerpt) return;
+    onSaveQuote(review, excerpt);
+  };
+
   const isLong = review.content.length > 420;
 
   const copyFocus = useFocusProps(handleCopyReview);
   const expandFocus = useFocusProps(() => setExpanded((p) => !p));
+  const quoteFocus = useFocusProps(handleSaveQuote);
+  const bookmarkFocus = useFocusProps(() => onBookmark?.(review));
   const profileFocus = useFocusableNative<HTMLAnchorElement>();
   const commentsFocus = useFocusableNative<HTMLAnchorElement>();
 
@@ -207,7 +239,7 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={`Open ${username}'s Steam profile`}
+                title={t("reviewsTab.openProfile", { name: username })}
               >
                 {username}
               </a>
@@ -223,7 +255,7 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
-                {formatPlayTime(review.authorPlaytimeAtReview)} on record
+                {formatPlayTime(review.authorPlaytimeAtReview)} {t("reviewsTab.onRecord")}
               </span>
             )}
             {review.authorPlaytimeForever !== undefined && (
@@ -231,7 +263,7 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                 </svg>
-                {formatPlayTime(review.authorPlaytimeForever)} total
+                {formatPlayTime(review.authorPlaytimeForever)} {t("reviewsTab.totalPlaytimeShort")}
               </span>
             )}
             {review.dateAdded && (
@@ -263,8 +295,36 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
           </div>
         </div>
 
-        {/* Quick action: Copy review */}
+        {/* Quick action: save quote / bookmark / copy */}
         <div className="rv-row-top-actions">
+          {onSaveQuote && (
+            <button
+              ref={quoteFocus.ref}
+              tabIndex={quoteFocus.tabIndex}
+              type="button"
+              className="rv-copy-review-btn"
+              onClick={quoteFocus.onClick}
+              onMouseDown={(event) => event.preventDefault()}
+              title={t("review.saveQuote")}
+              aria-label={t("review.saveQuote")}
+            >
+              <Quote size={13} />
+            </button>
+          )}
+          {onBookmark && (
+            <button
+              ref={bookmarkFocus.ref}
+              tabIndex={bookmarkFocus.tabIndex}
+              type="button"
+              className={`rv-copy-review-btn${bookmarked ? " is-bookmarked" : ""}`}
+              onClick={bookmarkFocus.onClick}
+              aria-pressed={bookmarked}
+              title={bookmarked ? t("review.savedBookmark") : t("review.saveBookmark")}
+              aria-label={bookmarked ? t("review.savedBookmark") : t("review.saveBookmark")}
+            >
+              <Bookmark size={13} fill={bookmarked ? "currentColor" : "none"} />
+            </button>
+          )}
           <button
             ref={copyFocus.ref}
             tabIndex={copyFocus.tabIndex}
@@ -286,7 +346,10 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
       {review.title && <h3 className="rv-row-title">{review.title}</h3>}
       {review.content && (
         <div className="rv-row-body">
-          <div className={`rv-row-content${!expanded && isLong ? " clamp" : ""}`}>
+          <div
+            ref={contentRef}
+            className={`rv-row-content${!expanded && isLong ? " clamp" : ""}`}
+          >
             <BbCodeRenderer text={review.content} highlightQuery={searchQuery} />
           </div>
           {isLong && (
@@ -339,12 +402,14 @@ export function ReviewRow({ review, appId, searchQuery }: ReviewRowProps) {
             href={`https://steamcommunity.com/profiles/${review.authorSteamId}/recommended/${appId}/`}
             target="_blank"
             rel="noopener noreferrer"
-            title={`${review.commentCount} comments on Steam`}
+            title={t("reviewsTab.commentsOnSteam", {
+              count: review.commentCount?.toLocaleString() ?? "0",
+            })}
           >
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            {review.commentCount?.toLocaleString()} comments
+            {t("reviewsTab.commentsCount", { count: review.commentCount?.toLocaleString() ?? "0" })}
           </a>
         )}
       </div>

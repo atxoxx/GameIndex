@@ -2025,3 +2025,590 @@ ol.rv-bbcode-list {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Reviews ─────────────────────────────────────────────────────────── */
+
+/* Score board: Overview-panel surface, reading column rhythm. */
+.game-page--immersive .rv-summary {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.game-page--immersive .rv-summary-left {
+  border-right-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* Toolbar tray: a raised tint, not a boxed toolbar. */
+.game-page--immersive .rv-toolbar {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .rv-source-tabs-divider::before,
+.game-page--immersive .rv-source-tabs-divider::after {
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* Segmented trays inherit the panel wash instead of a hard outline. */
+.game-page--immersive .rv-source-seg,
+.game-page--immersive .rv-seg {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+/* Review rows: tonal cards, dusk-quiet until hovered. */
+.game-page--immersive .rv-row,
+.game-page--immersive .rv-critic-row {
+  background: var(--panel-tint);
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: var(--radius-xl);
+}
+
+.game-page--immersive .rv-row:hover,
+.game-page--immersive .rv-critic-row:hover {
+  background: var(--panel-tint-raised);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  box-shadow: none;
+}
+
+/* Row internals that sat on a boxed surface now sit on a wash. */
+.game-page--immersive .rv-row-pill-muted {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-critic-score {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-critic-footer {
+  border-top-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.game-page--immersive .rv-hw-specs {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* "Critics across the web" cards ride the same card tint. */
+.game-page--immersive .rv-external-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.game-page--immersive .rv-external-card:hover {
+  background: color-mix(in srgb, var(--accent, var(--color-accent)) 6%, transparent);
+  border-color: color-mix(in srgb, var(--accent, var(--color-accent)) 35%, transparent);
+}
+
+.game-page--immersive .rv-header {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+
+
+/* ── Review row detail pass ────────────────────────────────────────────
+ * The tonal base landed with the bridge above; this pass sharpens the
+ * row's own elements so a critic/community review reads with the same
+ * hierarchy Overview gives its sections. All geometry-preserving. */
+
+/* Source rail: identity at rest, full ink on attention. */
+.game-page--immersive .rv-row::before {
+  opacity: 0.35;
+}
+
+.game-page--immersive .rv-row:hover::before {
+  opacity: 0.95;
+}
+
+/* The verdict badge gets a glow of its own tone, like hero accents, and
+   grows with its label — a fixed 58px shell clipped "RECOMMANDÉ". */
+.game-page--immersive .rv-thumb-badge {
+  width: auto;
+  min-width: 74px;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-md);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 18px color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.game-page--immersive .rv-thumb-label {
+  letter-spacing: 0.3px;
+}
+
+/* The header needs air between the badge and the signature block, and
+   the meta lines shouldn't stack on top of each other. */
+.game-page--immersive .rv-row-header,
+.game-page--immersive .rv-critic-header {
+  gap: var(--space-lg);
+}
+
+.game-page--immersive .rv-row-meta {
+  gap: var(--space-sm);
+}
+
+.game-page--immersive .rv-row-details {
+  gap: var(--space-sm);
+}
+
+/* Author line reads as the signature of the card. */
+.game-page--immersive .rv-row-name {
+  font-size: var(--text-md);
+  letter-spacing: -0.01em;
+}
+
+/* Quiet meter text: secondary, not tertiary, on the wash. */
+.game-page--immersive .rv-helpful-text {
+  color: var(--color-text-secondary);
+}
+
+/* Micro-controls sit on sunken wells: reactions, copy, reveal checks. */
+.game-page--immersive .rv-reaction-badge,
+.game-page--immersive .rv-reaction-show-more,
+.game-page--immersive .rv-copy-review-btn {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-reaction-badge:hover,
+.game-page--immersive .rv-reaction-show-more:hover,
+.game-page--immersive .rv-copy-review-btn:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+}
+
+.game-page--immersive .rv-reaction-show-more {
+  border-style: dashed;
+}
+
+/* BBCode artifacts (inline code, quotes) drop into the sunken well too,
+ * so quoted notes don't light up as boxes inside a wash. */
+.game-page--immersive .rv-bbcode {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .rv-bbcode-quote {
+  background: var(--panel-tint-sunken);
+}
+
+/* Hardware disclosure rests quieter until pointed at. */
+.game-page--immersive .rv-hw-specs-toggle {
+  color: var(--color-text-secondary);
+}
+
+.game-page--immersive .rv-hw-specs-toggle:hover {
+  color: var(--color-accent);
+}
+
+/* ══ Workspace: summary rail + feed ═══════════════════════════════════ */
+
+.rv-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 344px) minmax(0, 1fr);
+  gap: clamp(var(--space-lg), 2.2vw, var(--space-2xl));
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.rv-rail {
+  position: sticky;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.rv-rail__summary .rv-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.rv-rail__summary .rv-summary-left {
+  padding: var(--space-lg);
+  gap: var(--space-md);
+  border-right: 0;
+  background: transparent;
+}
+
+.rv-rail__summary .rv-summary-score {
+  font-size: var(--text-4xl);
+  letter-spacing: -1px;
+}
+
+.rv-rail__summary .rv-summary-right {
+  padding: 0 var(--space-lg) var(--space-lg);
+  gap: var(--space-sm);
+}
+
+.rv-rail__summary .rv-summary-kpis {
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.rv-rail__summary .rv-distribution-row {
+  gap: var(--space-sm);
+}
+
+.rv-rail__summary .rv-distribution-count {
+  min-width: 0 !important;
+  font-size: var(--text-2xs);
+}
+
+.rv-rail__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint);
+}
+
+.rv-rail__nav-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 38px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.rv-rail__nav-btn:hover {
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+}
+
+.rv-rail__nav-btn.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.rv-rail__nav-btn svg {
+  flex: 0 0 auto;
+}
+
+.rv-rail__nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.rv-rail__meta {
+  padding: 0 var(--space-sm);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+
+.rv-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.rv-feed__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.rv-feed__head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.rv-feed__head p {
+  margin: var(--space-3xs) 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Filter popover ──────────────────────────────────────────────────── */
+
+.rv-filter-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.rv-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: var(--space-2xs);
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.rv-filter-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 70;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--elevation-3);
+}
+
+.rv-filter-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.rv-filter-popover__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.rv-filter-popover__close:hover {
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+}
+
+.rv-filter-popover__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.rv-filter-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.rv-filter-field > span {
+  flex: 0 0 auto;
+}
+
+.rv-filter-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.rv-filter-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.rv-filter-input {
+  width: 70px;
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+}
+
+.rv-filter-popover__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.rv-active-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.rv-active-filters button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+/* ── Saved quotes ────────────────────────────────────────────────────── */
+
+.rv-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.rv-quote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint);
+}
+
+.rv-quote__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.rv-quote__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.rv-quote__source {
+  color: var(--color-text-secondary);
+}
+
+.rv-quote__date {
+  margin-left: auto;
+}
+
+.rv-quote__text {
+  margin: 0;
+  padding-left: var(--space-md);
+  border-left: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-primary);
+}
+
+.rv-quote__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.rv-quote__author {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.rv-quote__spacer {
+  flex: 1 1 auto;
+}
+
+.rv-copy-review-btn.is-bookmarked {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .rv-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .rv-rail {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    align-items: start;
+  }
+
+  .rv-rail__summary {
+    grid-row: span 2;
+  }
+
+  .rv-rail__meta {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .rv-rail {
+    display: flex;
+  }
+
+  .rv-rail__nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .rv-rail__nav-btn {
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-rail__nav-btn {
+    transition: none;
+  }
+}

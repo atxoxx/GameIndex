@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import AchievementsTab from "./AchievementsTab";
 import type { Game } from "../types/game";
 
@@ -106,6 +107,14 @@ const game = {
   gogGameId: "1207658930",
 } as Game;
 
+function renderTab(target: Game) {
+  return render(
+    <MemoryRouter>
+      <AchievementsTab game={target} />
+    </MemoryRouter>,
+  );
+}
+
 describe("AchievementsTab controller focus", () => {
   beforeEach(() => {
     registered.length = 0;
@@ -119,39 +128,30 @@ describe("AchievementsTab controller focus", () => {
 
   afterEach(cleanup);
 
-  it("registers the refresh control and activates it through the gamepad handler", async () => {
-    const { container } = render(<AchievementsTab game={game} />);
+  it("syncs the current source from the hero action", async () => {
+    renderTab(game);
 
-    const refresh = container.querySelector<HTMLButtonElement>(".ach-tab-refresh");
-    expect(refresh).not.toBeNull();
-    expect(refresh!.tabIndex).toBe(0);
+    const refresh = screen.getByRole("button", { name: "achievements.sync" });
+    act(() => refresh.click());
 
-    const entry = registered.find((e) => e.element === refresh);
-    expect(entry).toBeTruthy();
-
-    entry!.onActivate();
     await vi.waitFor(() =>
       expect(syncGameAchievements).toHaveBeenCalledWith("game-1", 620),
     );
   });
 
-  it("registers the source switcher and view-mode controls", () => {
-    const { container } = render(<AchievementsTab game={game} />);
+  it("registers the source switcher for controller navigation", () => {
+    const { container } = renderTab(game);
 
     const source = container.querySelector<HTMLButtonElement>(".ach-source-picker-btn");
-    const view = container.querySelector<HTMLButtonElement>(".ach-view-btn");
     expect(source).not.toBeNull();
-    expect(view).not.toBeNull();
     expect(source!.tabIndex).toBe(0);
-    expect(view!.tabIndex).toBe(0);
     expect(registered.some((e) => e.element === source)).toBe(true);
-    expect(registered.some((e) => e.element === view)).toBe(true);
   });
 
   it("sends the GOG product id, not the GameIndex id, when switching source", async () => {
     syncGogAchievements.mockResolvedValue([{ gameId: "game-1", data: POPULATED }]);
 
-    const { container } = render(<AchievementsTab game={game} />);
+    const { container } = renderTab(game);
 
     const gog = container.querySelector<HTMLButtonElement>('[data-source="gog"]');
     expect(gog).not.toBeNull();
@@ -174,7 +174,7 @@ describe("AchievementsTab controller focus", () => {
     } as Game;
     syncEpicAchievements.mockResolvedValue([{ gameId: game.id, data: POPULATED }]);
 
-    const { container } = render(<AchievementsTab game={epicGame} />);
+    const { container } = renderTab(epicGame);
 
     const epic = container.querySelector<HTMLButtonElement>('[data-source="epic"]');
     expect(epic).not.toBeNull();
@@ -191,7 +191,7 @@ describe("AchievementsTab controller focus", () => {
     getGameAchievements.mockReturnValue(null);
     linksHolder.links = { "game-1": MANUAL_LINK };
 
-    const { container } = render(<AchievementsTab game={game} />);
+    const { container } = renderTab(game);
 
     // Wait out the transient auto-load state so the manual-link empty state
     // (and its buttons) is the branch actually mounted.
@@ -217,7 +217,7 @@ describe("AchievementsTab controller focus", () => {
     expect(editorEntry!.onActivate).not.toBe(unlinkEntry!.onActivate);
   });
 
-  it("keeps a distinct focus instance for the populated toolbar editor button", async () => {
+  it("opens the manual editor from the populated hero", async () => {
     linksHolder.links = { "game-1": MANUAL_LINK };
     getGameAchievements.mockReturnValue({
       ...POPULATED,
@@ -225,18 +225,15 @@ describe("AchievementsTab controller focus", () => {
       lastSynced: null,
     });
 
-    render(<AchievementsTab game={game} />);
+    renderTab(game);
 
     const editor = (await screen.findByRole("button", {
       name: "achievements.editManualUnlocks",
     })) as HTMLButtonElement;
     expect(editor.tabIndex).toBe(0);
 
-    const entry = registered.find((e) => e.element === editor);
-    expect(entry).toBeTruthy();
-
     act(() => {
-      entry!.onActivate();
+      editor.click();
     });
     expect(await screen.findByText("achievements.manualEditor.title")).toBeTruthy();
   });

@@ -308,6 +308,7 @@ export function useWebLinksBrowser({
     isMyLinksManagerActive,
 
     customLinks,
+    parsedCustomLinks,
     selectPreviewUrl,
 
     appId,

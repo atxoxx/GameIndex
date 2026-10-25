@@ -2321,3 +2321,370 @@
   }
 }
 
+
+/* ── Achievements ────────────────────────────────────────────────────── */
+
+/* Hero header: a full-width Overview-style panel. */
+.game-page--immersive .ach-tab-hero,
+.game-page--immersive .ach-tab-header {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+}
+
+.game-page--immersive .ach-tab-hero:hover,
+.game-page--immersive .ach-tab-header:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+/* `.is-perfect` keeps its golden identity edge on the wash. */
+.game-page--immersive .ach-tab-hero.is-perfect {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.game-page--immersive .ach-tab-cover,
+.game-page--immersive .ach-tab-cover-placeholder {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+/* Rarity sidebar: same panel family as Overview's rail cards. */
+.game-page--immersive .ach-rarity-side {
+  background: var(--panel-tint);
+  border-color: transparent;
+  border-radius: var(--radius-2xl);
+}
+
+.game-page--immersive .ach-rarity-side-stats {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+/* Stat trio + segmented trays + toolbars: raised wells, no strokes. */
+.game-page--immersive .achievements-stat-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-source-picker,
+.game-page--immersive .achievements-filters,
+.game-page--immersive .achievements-toolbar {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-source-picker-btn.active,
+.game-page--immersive .achievements-filter-btn.active {
+  /* "Active segment on a wash" cue: slight text-tint + ring, not surface. */
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+/* Achievement cards (grid) and compact rows. */
+.game-page--immersive .achievement-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.game-page--immersive .achievement-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  box-shadow: none;
+}
+
+.game-page--immersive .achievement-card.locked {
+  background: var(--panel-tint);
+}
+
+.game-page--immersive .achievement-card-icon,
+.game-page--immersive .ach-compact-icon {
+  background: var(--panel-tint-sunken);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-compact-row {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.game-page--immersive .ach-compact-row:hover {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+/* Empty state rides a panel wash with a faint dashed rim. */
+.game-page--immersive .achievements-empty {
+  background: var(--panel-tint);
+  border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+/* ══ Tab workspace pass ═══════════════════════════════════════════════ */
+
+.ach-tab-hero {
+  background: var(--panel-tint);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  box-shadow: none;
+  padding: clamp(var(--space-lg), 2vw, var(--space-xl));
+}
+
+.ach-tab-hero:hover {
+  border-color: transparent;
+}
+
+.ach-tab-hero.is-perfect {
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 34%, transparent);
+}
+
+.ach-tab-cover {
+  background: var(--panel-tint-sunken);
+  border: 0;
+  box-shadow: none;
+}
+
+.ach-tab-cover-placeholder {
+  background: var(--panel-tint-sunken);
+}
+
+.ach-tab-sources {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.ach-tab-sources .ach-source-picker {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.ach-tab-date strong {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ach-tab-date {
+  gap: var(--space-2xs);
+}
+
+/* ── Next-unlock shelf ───────────────────────────────────────────────── */
+
+.ach-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.ach-shelf__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ach-shelf__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  flex: 0 0 auto;
+}
+
+.ach-shelf__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.ach-shelf__titles strong {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ach-shelf__titles span {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.ach-shelf__items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-sm);
+}
+
+.ach-shelf__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-lg);
+  background: var(--panel-tint-raised);
+  min-width: 0;
+}
+
+.ach-shelf__art {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--panel-tint-sunken);
+  color: var(--color-text-muted);
+}
+
+.ach-shelf__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ach-shelf__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-4xs);
+}
+
+.ach-shelf__name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-shelf__desc {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-shelf__rarity {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+/* ── Rarity panel ────────────────────────────────────────────────────── */
+
+.ach-tab-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ach-tab-body.has-rarity {
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: var(--space-xl);
+}
+
+.ach-rarity-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  position: sticky;
+  top: 64px;
+}
+
+.ach-rarity-panel:not(.is-open) {
+  position: static;
+}
+
+.ach-rarity-panel__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.ach-rarity-panel__toggle svg {
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.ach-rarity-panel__toggle svg.is-open {
+  transform: rotate(180deg);
+}
+
+.ach-rarity-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ach-rarity-panel .ach-rarity-side-stats {
+  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.ach-rarity-panel .achievements-stat-card {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
+}
+
+.ach-rarity-panel .achievements-rarity-bar-wrap {
+  width: 100%;
+  flex: none;
+  margin: 0;
+}
+
+/* Rarity pills in the shared toolbar. */
+.ach-rarity-filter-pill {
+  border-color: transparent;
+  background: var(--panel-tint-raised);
+}
+
+.ach-rarity-filter-pill:hover,
+.ach-rarity-filter-pill.active {
+  background: var(--panel-tint-sunken);
+}
+
+@media (max-width: 1280px) {
+  .ach-tab-body.has-rarity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ach-rarity-panel {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .ach-shelf__items {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ach-rarity-panel__toggle svg {
+    transition: none;
+  }
+}

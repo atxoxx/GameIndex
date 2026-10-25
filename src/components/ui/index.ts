@@ -7,6 +7,9 @@ export type { CardProps } from "./Card";
 export { Panel } from "./Panel";
 export type { PanelProps, PanelTone } from "./Panel";
 
+export { DetailDrawer } from "./DetailDrawer";
+export type { DetailDrawerProps } from "./DetailDrawer";
+
 export { StatBand } from "./StatBand";
 export type { StatBandItem, StatBandProps, StatTone } from "./StatBand";
 

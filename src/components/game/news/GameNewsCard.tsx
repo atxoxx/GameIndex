@@ -7,6 +7,8 @@ interface GameNewsCardProps {
   article: NewsArticle;
   saved: boolean;
   read: boolean;
+  /** Additional outlets carrying the same story (cluster). */
+  alsoCount?: number;
   onOpen: (article: NewsArticle) => void;
   onToggleSave: (article: NewsArticle) => void;
   onToggleRead: (article: NewsArticle) => void;
@@ -23,6 +25,7 @@ export default function GameNewsCard({
   article,
   saved,
   read,
+  alsoCount,
   onOpen,
   onToggleSave,
   onToggleRead,
@@ -51,6 +54,11 @@ export default function GameNewsCard({
           <span className="game-news-grid-card__placeholder" aria-hidden />
         )}
         <span className="game-news-grid-card__source">{article.sourceName}</span>
+        {alsoCount && alsoCount > 0 ? (
+          <span className="game-news-grid-card__also">
+            +{alsoCount} {t("game.news.alsoCovered")}
+          </span>
+        ) : null}
         <div className="game-news-grid-card__actions">
           <button
             type="button"

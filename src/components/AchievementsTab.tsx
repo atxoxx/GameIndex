@@ -1,78 +1,68 @@
-import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Trophy } from "lucide-react";
 import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useFocusable } from "../hooks/useFocusable";
-import { usePersistedState } from "../hooks/usePersistedState";
 import {
   type Game,
   type AchievementSource,
   type AchievementRarity,
   gameDisplayName,
-  getAchievementRarity,
-  RARITY_COLORS,
 } from "../types/game";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import { Button, ConfirmModal } from "./ui";
-import AchievementSourceBadge from "./achievements/AchievementSourceBadge";
+import { ConfirmModal } from "./ui";
+import { GameTabShell, useGameTabState } from "./game/tabs";
 import ManualLinkModal from "./achievements/ManualLinkModal";
 import ManualUnlockEditorModal from "./achievements/ManualUnlockEditorModal";
 import RetroLinkModal from "./achievements/RetroLinkModal";
 
 import {
   calculateGameGamerscore,
-  formatUnlockDate,
-  formatRelativeTime,
   groupAchievementsByDate,
 } from "./achievements/achievementUtils";
 import AchievementItemCard from "./achievements/AchievementItemCard";
 import AchievementItemRow from "./achievements/AchievementItemRow";
 import AchievementTimelineGroup from "./achievements/AchievementTimelineGroup";
+import AchievementTabHero from "./achievements/tab/AchievementTabHero";
+import AchievementTabToolbar from "./achievements/tab/AchievementTabToolbar";
+import AchievementAlmostDoneShelf from "./achievements/tab/AchievementAlmostDoneShelf";
+import AchievementRarityPanel from "./achievements/tab/AchievementRarityPanel";
+import {
+  computeRarityBreakdown,
+  countSecrets,
+  filterAchievementsForTab,
+  pickAlmostDone,
+  type AchievementFilter,
+  type AchievementSort,
+  type AchievementView,
+} from "./achievements/tab/achievementTabData";
 
-type SortKey = "default" | "rarity_rare_first" | "rarity_common_first" | "unlockDate" | "name";
-type FilterKey = "all" | "unlocked" | "locked" | "secret";
-type ViewMode = "grid" | "list" | "timeline";
+type SortKey = AchievementSort;
+type FilterKey = AchievementFilter;
+type ViewMode = AchievementView;
 
-const RARITY_TIERS: readonly AchievementRarity[] = [
-  "ultra_rare",
-  "rare",
-  "uncommon",
-  "common",
-];
+interface AchievementTabState {
+  view: ViewMode;
+  filter: FilterKey;
+  sort: SortKey;
+  rarity: "all" | AchievementRarity;
+}
 
-const TIER_ICONS: Record<AchievementRarity, string> = {
-  ultra_rare: "💎",
-  rare: "🌟",
-  uncommon: "✨",
-  common: "🔹",
+const ACHIEVEMENT_TAB_DEFAULTS: AchievementTabState = {
+  view: "grid",
+  filter: "all",
+  sort: "default",
+  rarity: "all",
 };
+
 
 /** `useFocusable` without the ARIA role hint, so native controls keep their own role. */
 function useFocusProps(onActivate: () => void) {
   const { ref, tabIndex, onClick } = useFocusable(onActivate);
   return { ref, tabIndex, onClick };
-}
-
-/** Focus registration for native controls (checkbox, select): A replays the
- *  element's own click/focus so its native behaviour is unchanged. */
-function useFocusableNative<T extends HTMLElement>() {
-  const elRef = useRef<T | null>(null);
-  const { ref, tabIndex } = useFocusable(() => {
-    const el = elRef.current;
-    if (!el) return;
-    if (el.tagName === "SELECT") el.focus();
-    else el.click();
-  });
-  const setRef = useCallback(
-    (el: T | null) => {
-      elRef.current = el;
-      ref(el);
-    },
-    [ref],
-  );
-  return { setRef, tabIndex };
 }
 
 export default function AchievementsTab({ game }: { game: Game }) {
@@ -95,10 +85,31 @@ export default function AchievementsTab({ game }: { game: Game }) {
   const { updateGame } = useGames();
   const { showToast } = useToast();
 
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [rarityFilter, setRarityFilter] = useState<"all" | AchievementRarity>("all");
-  const [sort, setSort] = useState<SortKey>("default");
-  const [viewMode, setViewMode] = usePersistedState<ViewMode>("gamelib.achievements_tab.view_mode_v1", "grid", ["grid", "list", "timeline"]);
+  const [tabState, setTabState] = useGameTabState<AchievementTabState>({
+    prefix: "ach",
+    defaults: ACHIEVEMENT_TAB_DEFAULTS,
+    allowed: {
+      view: ["grid", "list", "timeline"],
+      filter: ["all", "unlocked", "locked", "secret"],
+      sort: [
+        "default",
+        "rarity_rare_first",
+        "rarity_common_first",
+        "unlockDate",
+        "name",
+      ],
+      rarity: ["all", "common", "uncommon", "rare", "ultra_rare"],
+    },
+  });
+  const filter = tabState.filter;
+  const rarityFilter = tabState.rarity;
+  const sort = tabState.sort;
+  const viewMode = tabState.view;
+  const setFilter = (next: FilterKey) => setTabState({ filter: next });
+  const setRarityFilter = (next: "all" | AchievementRarity) =>
+    setTabState({ rarity: next });
+  const setSort = (next: SortKey) => setTabState({ sort: next });
+  const setViewMode = (next: ViewMode) => setTabState({ view: next });
   const [searchQuery, setSearchQuery] = useState("");
   const [showSecretAchievements, setShowSecretAchievements] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -168,49 +179,16 @@ export default function AchievementsTab({ game }: { game: Game }) {
   }, [getRetroSettings, game.platform]);
 
   // Filter & sort achievements
-  const displayAchievements = useMemo(() => {
-    let list = [...achievements];
-
-    // Text search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (a) =>
-          a.displayName.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q)
-      );
-    }
-
-    // Status filter
-    if (filter === "unlocked") list = list.filter((a) => a.achieved);
-    if (filter === "locked") list = list.filter((a) => !a.achieved);
-    if (filter === "secret") {
-      list = list.filter((a) => !a.achieved && a.description.toLowerCase().includes("hidden"));
-    }
-
-    // Rarity tier filter
-    if (rarityFilter !== "all") {
-      list = list.filter((a) => getAchievementRarity(a.percent) === rarityFilter);
-    }
-
-    // Sort
-    if (sort === "name") {
-      list.sort((a, b) => a.displayName.localeCompare(b.displayName));
-    } else if (sort === "rarity_rare_first") {
-      list.sort((a, b) => a.percent - b.percent); // rarest first
-    } else if (sort === "rarity_common_first") {
-      list.sort((a, b) => b.percent - a.percent); // most common first
-    } else if (sort === "unlockDate") {
-      list.sort((a, b) => {
-        if (a.achieved && !b.achieved) return -1;
-        if (!a.achieved && b.achieved) return 1;
-        return b.unlockTime - a.unlockTime;
-      });
-    }
-    // "default" keeps the backend's original sort
-
-    return list;
-  }, [achievements, filter, rarityFilter, sort, searchQuery]);
+  const displayAchievements = useMemo(
+    () =>
+      filterAchievementsForTab(achievements, {
+        filter,
+        rarityFilter,
+        searchQuery,
+        sort,
+      }),
+    [achievements, filter, rarityFilter, sort, searchQuery],
+  );
 
   // Chronological timeline groups for Journey view
   const timelineGroups = useMemo(() => {
@@ -231,33 +209,27 @@ export default function AchievementsTab({ game }: { game: Game }) {
   }, [achievements]);
 
   // Rarity breakdown
-  const rarityBreakdown = useMemo(() => {
-    const totalMap: Record<AchievementRarity, number> = {
-      common: 0,
-      uncommon: 0,
-      rare: 0,
-      ultra_rare: 0,
-    };
-    const unlockedMap: Record<AchievementRarity, number> = {
-      common: 0,
-      uncommon: 0,
-      rare: 0,
-      ultra_rare: 0,
-    };
-    for (const a of achievements) {
-      const tier = getAchievementRarity(a.percent);
-      totalMap[tier]++;
-      if (a.achieved) unlockedMap[tier]++;
-    }
-    return { total: totalMap, unlocked: unlockedMap };
-  }, [achievements]);
+  const rarityBreakdown = useMemo(
+    () => computeRarityBreakdown(achievements),
+    [achievements],
+  );
 
   // Count secret achievements
-  const secretCount = useMemo(() => {
-    return achievements.filter(
-      (a) => !a.achieved && a.description.toLowerCase().includes("hidden")
-    ).length;
-  }, [achievements]);
+  const secretCount = useMemo(() => countSecrets(achievements), [achievements]);
+
+  // The next-unlock shelf: finish line when ≤3 remain, easiest next otherwise.
+  // Secret achievements stay hidden unless the reader has revealed them.
+  const almostDone = useMemo(() => {
+    const visible = showSecretAchievements
+      ? achievements
+      : achievements.filter(
+          (achievement) =>
+            achievement.achieved ||
+            !achievement.description.toLowerCase().includes("hidden"),
+        );
+    return pickAlmostDone(visible);
+  }, [achievements, showSecretAchievements]);
+  const [rarityPanelOpen, setRarityPanelOpen] = useState(true);
 
   // Resolve Steam AppId
   async function resolveAppId(): Promise<number | null> {
@@ -497,12 +469,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
   }, [game.id, achievementData, manualLink, cacheChecked]);
 
   const emptySyncFocus = useFocusable(handleSync);
-  const refreshFocus = useFocusProps(handleRefresh);
-  const manualEditorFocus = useFocusProps(() => setShowManualEditor(true));
   const emptyManualEditorFocus = useFocusProps(() => setShowManualEditor(true));
   const unlinkFocus = useFocusProps(() => setConfirmUnlink(true));
-  const sortFocus = useFocusableNative<HTMLSelectElement>();
-  const revealFocus = useFocusableNative<HTMLInputElement>();
 
   // Empty states
   if (!achievementData) {
@@ -635,346 +603,107 @@ export default function AchievementsTab({ game }: { game: Game }) {
 
   // ─── Main per-game view ──────────────────────────────────────────
   return (
-    <div className="achievements-tab">
-      {/* ── Hero Header ───────────────────────────────────────────── */}
-      <div className={`ach-tab-hero ${isPerfect ? "is-perfect" : ""}`}>
-        {/* Cover Thumbnail */}
-        <div className="ach-tab-cover">
-          {game.coverArtUrl ? (
-            <img src={game.coverArtUrl} alt={gameDisplayName(game)} loading="lazy" />
-          ) : (
-            <div className="ach-tab-cover-placeholder">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="28" height="28">
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-            </div>
-          )}
-        </div>
-
-        {/* Animated Radial Progress Ring */}
-        <div className="ach-tab-ring">
-          <svg className="achievements-ring" viewBox="0 0 120 120">
-            <circle
-              className="achievements-ring-bg"
-              cx="60"
-              cy="60"
-              r="52"
-              stroke="var(--color-bg-tertiary)"
-              strokeWidth="9"
-              fill="transparent"
-            />
-            <circle
-              className="achievements-ring-fill"
-              cx="60"
-              cy="60"
-              r="52"
-              strokeWidth="9"
-              stroke={isPerfect ? "var(--color-warning)" : "var(--color-accent)"}
-              strokeDasharray={2 * Math.PI * 52}
-              strokeDashoffset={2 * Math.PI * 52 * (1 - pct / 100)}
-              strokeLinecap="round"
-              fill="transparent"
-              transform="rotate(-90 60 60)"
-            />
-          </svg>
-          <div className="achievements-ring-label">
-            <span className="achievements-ring-pct">{pct}%</span>
-            <span className="achievements-ring-sub">{unlocked}/{total}</span>
-          </div>
-        </div>
-
-        {/* Identity & Dates & Gamerscore */}
-        <div className="ach-tab-identity">
-          <div className="ach-tab-title-row">
-            <h3 className="ach-tab-name">{gameDisplayName(game)}</h3>
-            <AchievementSourceBadge source={source} />
-            {isPerfect && (
-              <span className="ach-tab-perfect-pill" title={t("achievements.perfectComplete")}>
-                🏆 100% {t("achievementsPage.filterPerfect")}
-              </span>
-            )}
-          </div>
-
-          {/* Gamerscore points row */}
-          <div className="ach-tab-points-row">
-            <span className="ach-tab-points-val">
-              {gamerscore.earned} <span className="ach-tab-points-max">/ {gamerscore.total} pts</span>
-            </span>
-            <span className="ach-tab-points-dot">•</span>
-            <span className="ach-tab-points-level">
-              {gamerscore.pct}% {t("achievementsPage.pointsEarned")}
-            </span>
-          </div>
-
-          <div className="ach-tab-dates">
-            <span className="ach-tab-date">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              <b>{t("achievements.firstUnlock")}</b>
-              <span>{firstUnlock ? formatUnlockDate(firstUnlock) : "—"}</span>
-            </span>
-            <span className="ach-tab-date">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <b>{t("achievements.lastUnlock")}</b>
-              <span>
-                {lastUnlock ? `${formatUnlockDate(lastUnlock)} (${formatRelativeTime(lastUnlock)})` : "—"}
-              </span>
-            </span>
-          </div>
-        </div>
-
-        {/* Actions toolbar */}
-        <div className="ach-tab-actions">
-          {source === "manual" && manualLink && (
-            <Button
-              ref={manualEditorFocus.ref}
-              tabIndex={manualEditorFocus.tabIndex}
-              variant="ghost"
-              size="sm"
-              onClick={manualEditorFocus.onClick}
+    <GameTabShell
+      eyebrow={t("achievements.eyebrow")}
+      title={t("game.tab.achievements")}
+      description={t("achievements.tabSummary", {
+        unlocked,
+        total,
+        pct,
+      })}
+      icon={<Trophy size={20} />}
+    >
+      <AchievementTabHero
+        game={game}
+        source={source}
+        pct={pct}
+        unlocked={unlocked}
+        total={total}
+        gamerscore={gamerscore}
+        firstUnlock={firstUnlock}
+        lastUnlock={lastUnlock}
+        isPerfect={isPerfect}
+        syncing={syncing || isSyncing}
+        onRefresh={() => void handleRefresh()}
+        onEditManual={
+          source === "manual" && manualLink
+            ? () => setShowManualEditor(true)
+            : undefined
+        }
+        sourcePicker={
+          availableSources.size > 1 ? (
+            <div
+              className="ach-source-picker"
+              role="radiogroup"
+              aria-label={t("achievements.sourceLabel")}
             >
-              {t("achievements.editManualUnlocks")}
-            </Button>
-          )}
-          <button
-            ref={refreshFocus.ref}
-            tabIndex={refreshFocus.tabIndex}
-            className="achievements-sync-btn achievements-sync-btn-sm ach-tab-refresh"
-            onClick={refreshFocus.onClick}
-            disabled={syncing || isSyncing}
-            title={t("achievements.syncFrom", {
-              source: t(`achievements.source.${source}`),
-            })}
-          >
-            {syncing || isSyncing ? (
-              <span className="achievements-spinner" />
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                <polyline points="23 4 23 10 17 10" />
-                <polyline points="1 20 1 14 7 14" />
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Multi-Source Switcher ─────────────────────────────────── */}
-      {availableSources.size > 1 && (
-        <div
-          className="ach-source-picker"
-          role="radiogroup"
-          aria-label={t("achievements.sourceLabel")}
-        >
-          {[...availableSources].map((src) => (
-            <SourcePickerButton
-              key={src}
-              source={src}
-              active={src === source}
-              label={t(`achievements.source.${src}`)}
-              disabled={syncing || isSyncing}
-              onSelect={() => switchSource(src)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ── Toolbar: Filters, Search, Sort, View Modes ───────────── */}
-      <div className="ach-tab-toolbar-wrap">
-        <div className="achievements-toolbar">
-          {/* Status Filters */}
-          <div className="achievements-filters">
-            {(["all", "unlocked", "locked", "secret"] as const).map((f) => {
-              if (f === "secret" && secretCount === 0) return null;
-              return (
-                <AchievementFilterButton
-                  key={f}
-                  active={filter === f}
-                  onSelect={() => setFilter(f)}
-                  label={
-                    f === "all"
-                      ? t("achievements.filter.all", { total })
-                      : f === "unlocked"
-                        ? t("achievements.filter.unlocked", { count: unlocked })
-                        : f === "locked"
-                          ? t("achievements.filter.locked", { count: total - unlocked })
-                          : `🔒 ${t("achievements.filterSecret", { count: secretCount })}`
-                  }
+              {[...availableSources].map((src) => (
+                <SourcePickerButton
+                  key={src}
+                  source={src}
+                  active={src === source}
+                  label={t(`achievements.source.${src}`)}
+                  disabled={syncing || isSyncing}
+                  onSelect={() => void switchSource(src)}
                 />
-              );
-            })}
-          </div>
-
-          {/* Rarity Tier Filter */}
-          <div className="ach-rarity-filter-pills">
-            <RarityFilterPill
-              active={rarityFilter === "all"}
-              onSelect={() => setRarityFilter("all")}
-              label={t("common.all")}
-            />
-            {RARITY_TIERS.map((tier) => {
-              const tierCount = rarityBreakdown.total[tier];
-              if (tierCount === 0) return null;
-              return (
-                <RarityFilterPill
-                  key={tier}
-                  active={rarityFilter === tier}
-                  onSelect={() => setRarityFilter(rarityFilter === tier ? "all" : tier)}
-                  label={
-                    <>
-                      {TIER_ICONS[tier]} {t(`achievementsPage.rarity.${tier}`)} ({rarityBreakdown.unlocked[tier]}/{tierCount})
-                    </>
-                  }
-                  color={RARITY_COLORS[tier]}
-                />
-              );
-            })}
-          </div>
-
-          {/* Search bar */}
-          <div className="achievements-search-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              className="achievements-search-input"
-              placeholder={t("achievements.searchAchievementsPlaceholder")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="ach-toolbar-end">
-          {/* Sort Dropdown */}
-          <div className="achievements-sort">
-            <label className="achievements-sort-label">{t("achievements.sort")}</label>
-            <div className="achievements-sort-control">
-              <select
-                ref={sortFocus.setRef}
-                tabIndex={sortFocus.tabIndex}
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="achievements-sort-select"
-              >
-                <option value="default">{t("achievements.sortDefault")}</option>
-                <option value="rarity_rare_first">{t("achievements.sortRarestFirst")}</option>
-                <option value="rarity_common_first">{t("achievements.sortCommonFirst")}</option>
-                <option value="unlockDate">{t("achievements.sortUnlockDate")}</option>
-                <option value="name">{t("achievements.sortName")}</option>
-              </select>
-              <svg
-                className="achievements-sort-chevron"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+              ))}
             </div>
-          </div>
+          ) : undefined
+        }
+      />
 
-          {/* Reveal Secret Achievements Toggle */}
-          {secretCount > 0 && (
-            <label className="ach-reveal-toggle-label">
-              <input
-                ref={revealFocus.setRef}
-                tabIndex={revealFocus.tabIndex}
-                type="checkbox"
-                checked={showSecretAchievements}
-                onChange={(e) => setShowSecretAchievements(e.target.checked)}
-              />
-              <span>{t("achievements.revealAllSecrets")}</span>
-            </label>
-          )}
+      <AchievementAlmostDoneShelf items={almostDone.items} mode={almostDone.mode} />
 
-          {/* View Mode Toggle: Grid, Compact List, Timeline */}
-          <div className="ach-view-mode-toggle" role="group" aria-label="View mode">
-            <ViewModeButton
-              active={viewMode === "grid"}
-              title={t("achievementsPage.viewGrid")}
-              onSelect={() => setViewMode("grid")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-            </ViewModeButton>
-            <ViewModeButton
-              active={viewMode === "list"}
-              title={t("achievementsPage.viewList")}
-              onSelect={() => setViewMode("list")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-            </ViewModeButton>
-            <ViewModeButton
-              active={viewMode === "timeline"}
-              title={t("achievementsPage.viewTimeline")}
-              onSelect={() => setViewMode("timeline")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            </ViewModeButton>
-          </div>
-          </div>
-        </div>
-      </div>
+      <AchievementTabToolbar
+        filter={filter}
+        onFilterChange={setFilter}
+        counts={{
+          all: total,
+          unlocked,
+          locked: total - unlocked,
+          secret: secretCount,
+        }}
+        rarityFilter={rarityFilter}
+        onRarityFilterChange={setRarityFilter}
+        breakdown={rarityBreakdown}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sort={sort}
+        onSortChange={setSort}
+        view={viewMode}
+        onViewChange={setViewMode}
+        showSecret={showSecretAchievements}
+        onShowSecretChange={setShowSecretAchievements}
+        rarityOpen={rarityPanelOpen}
+        onToggleRarity={() => setRarityPanelOpen((open) => !open)}
+      />
 
-      {/* ── Tab Body: Achievements view + Rarity Sidebar ──────────── */}
-      <div className="ach-tab-body">
+      <div className={`ach-tab-body${rarityPanelOpen ? " has-rarity" : ""}`}>
         <div className="ach-tab-main">
-          {/* Grid View */}
           {viewMode === "grid" && (
             <div className="achievements-grid">
-              {displayAchievements.map((a) => (
+              {displayAchievements.map((achievement) => (
                 <AchievementItemCard
-                  key={a.apiName}
-                  achievement={a}
+                  key={achievement.apiName}
+                  achievement={achievement}
                   globalRevealSecret={showSecretAchievements}
                 />
               ))}
             </div>
           )}
 
-          {/* Compact List View */}
           {viewMode === "list" && (
             <div className="ach-compact-list">
-              {displayAchievements.map((a) => (
+              {displayAchievements.map((achievement) => (
                 <AchievementItemRow
-                  key={a.apiName}
-                  achievement={a}
+                  key={achievement.apiName}
+                  achievement={achievement}
                   globalRevealSecret={showSecretAchievements}
                 />
               ))}
             </div>
           )}
 
-          {/* Timeline / Journey View */}
           {viewMode === "timeline" && (
             <div className="ach-journey-timeline-wrap">
               {timelineGroups.map((group) => (
@@ -1003,99 +732,23 @@ export default function AchievementsTab({ game }: { game: Game }) {
           )}
         </div>
 
-        {/* ── Rarity & Stats Sidebar ─────────────────────────────── */}
-        <aside className="ach-rarity-side">
-          <div className="ach-rarity-side-stats">
-            <div className="achievements-stat-card" title={`${t("achievements.unlocked")}: ${unlocked}`}>
-              <span className="achievements-stat-value">{unlocked}</span>
-              <span className="achievements-stat-label">{t("achievements.unlocked")}</span>
-            </div>
-            <div className="achievements-stat-card" title={`${t("achievements.locked")}: ${total - unlocked}`}>
-              <span className="achievements-stat-value achievements-stat-locked">{total - unlocked}</span>
-              <span className="achievements-stat-label">{t("achievements.locked")}</span>
-            </div>
-            <div className="achievements-stat-card" title={`${t("achievements.total")}: ${total}`}>
-              <span className="achievements-stat-value">{total}</span>
-              <span className="achievements-stat-label">{t("achievements.total")}</span>
-            </div>
-          </div>
-
-          <h4 className="ach-rarity-side-title">
-            {t("achievementsPage.rarityDistribution")}
-          </h4>
-
-          {/* Rarity distribution stacked bar */}
-          {total > 0 && (
-            <div className="achievements-rarity-bar-wrap">
-              <div className="achievements-rarity-bar">
-                {RARITY_TIERS.map((tier) => {
-                  const count = rarityBreakdown.total[tier];
-                  if (count === 0) return null;
-                  const pct = (count / total) * 100;
-                  return (
-                    <div
-                      key={tier}
-                      className="achievements-rarity-segment"
-                      data-tier={tier}
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: RARITY_COLORS[tier],
-                      }}
-                      title={`${t(`achievementsPage.rarity.${tier}`)}: ${count} (${Math.round(pct)}%)`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {RARITY_TIERS.map((tier) => {
-            const tierTotal = rarityBreakdown.total[tier];
-            if (tierTotal === 0) return null;
-            const tierUnlocked = rarityBreakdown.unlocked[tier];
-            const tierPct = Math.round((tierUnlocked / tierTotal) * 100);
-            return (
-              <div className="ach-rarity-row" key={tier}>
-                <div className="ach-rarity-row-head">
-                  <span className="ach-rarity-row-label" style={{ color: RARITY_COLORS[tier] }}>
-                    {TIER_ICONS[tier]} {t(`achievementsPage.rarity.${tier}`)}
-                  </span>
-                  <span className="ach-rarity-row-counts">
-                    {tierUnlocked}/{tierTotal} ({tierPct}%)
-                  </span>
-                </div>
-                <div className="ach-rarity-row-bar">
-                  <div
-                    className="ach-rarity-row-fill"
-                    style={{ width: `${tierPct}%`, background: RARITY_COLORS[tier] }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Remaining completion note */}
-          {total > unlocked && (
-            <div className="ach-sidebar-remaining-box">
-              <span className="ach-sidebar-remaining-title">
-                {t("achievements.remainingToPerfect")}
-              </span>
-              <span className="ach-sidebar-remaining-count">
-                {total - unlocked} {t("achievements.remainingAchievements")}
-              </span>
-            </div>
-          )}
-        </aside>
+        <AchievementRarityPanel
+          breakdown={rarityBreakdown}
+          total={total}
+          unlocked={unlocked}
+          open={rarityPanelOpen}
+          onToggle={() => setRarityPanelOpen((open) => !open)}
+        />
       </div>
 
-      {/* Last synced footer */}
       {achievementData.lastSynced && (
         <div className="achievements-last-synced">
-          {t("achievements.lastSynced", { date: new Date(achievementData.lastSynced).toLocaleString() })}
+          {t("achievements.lastSynced", {
+            date: new Date(achievementData.lastSynced).toLocaleString(),
+          })}
         </div>
       )}
 
-      {/* ── Modals ────────────────────────────────────────────────── */}
       {showManualLink && (
         <ManualLinkModal gameId={game.id} onClose={() => setShowManualLink(false)} />
       )}
@@ -1119,7 +772,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
         onConfirm={handleUnlink}
         onCancel={() => setConfirmUnlink(false)}
       />
-    </div>
+    </GameTabShell>
   );
 }
 
@@ -1235,81 +888,6 @@ function SourcePickerButton({
       disabled={disabled}
     >
       {label}
-    </button>
-  );
-}
-
-function AchievementFilterButton({
-  active,
-  label,
-  onSelect,
-}: {
-  active: boolean;
-  label: ReactNode;
-  onSelect: () => void;
-}) {
-  const focus = useFocusProps(onSelect);
-  return (
-    <button
-      ref={focus.ref}
-      tabIndex={focus.tabIndex}
-      className={`achievements-filter-btn ${active ? "active" : ""}`}
-      onClick={focus.onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-function RarityFilterPill({
-  active,
-  label,
-  color,
-  onSelect,
-}: {
-  active: boolean;
-  label: ReactNode;
-  color?: string;
-  onSelect: () => void;
-}) {
-  const focus = useFocusProps(onSelect);
-  return (
-    <button
-      ref={focus.ref}
-      tabIndex={focus.tabIndex}
-      type="button"
-      className={`ach-rarity-filter-pill ${active ? "active" : ""}`}
-      style={color ? { color, borderColor: active ? color : undefined } : undefined}
-      onClick={focus.onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-function ViewModeButton({
-  active,
-  title,
-  onSelect,
-  children,
-}: {
-  active: boolean;
-  title: string;
-  onSelect: () => void;
-  children: ReactNode;
-}) {
-  const focus = useFocusProps(onSelect);
-  return (
-    <button
-      ref={focus.ref}
-      tabIndex={focus.tabIndex}
-      type="button"
-      className={`ach-view-btn ${active ? "active" : ""}`}
-      onClick={focus.onClick}
-      title={title}
-      aria-pressed={active}
-    >
-      {children}
     </button>
   );
 }
