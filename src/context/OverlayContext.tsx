@@ -36,11 +36,10 @@ export type OverlayCorner =
   | "bottom-right";
 
 /** Presentation presets for the reduced (collapsed) ticker HUD. */
-export type OverlayTickerLayout =
-  | "strip"
-  | "single"
-  | "gauges"
-  | "minimal";
+export type OverlayTickerLayout = "strip" | "gauges";
+
+/** Spacing preset for the expanded panel. */
+export type OverlayDensity = "compact" | "comfortable";
 
 /** Background treatment shared by the ticker and the expanded panel. */
 export type OverlayBackground = "glass" | "solid" | "dim";
@@ -55,6 +54,10 @@ export interface OverlaySettings {
   panelWidgets: string[];
   /** Reduced-HUD presentation preset (see `OverlayTickerLayout`). */
   tickerLayout?: OverlayTickerLayout;
+  /** Expanded-panel spacing preset (see `OverlayDensity`). */
+  panelDensity?: OverlayDensity;
+  /** Last panel section opened, so the next open resumes there. */
+  lastPanelSection?: string;
   /** Background treatment: blurry glass, opaque solid, or dim translucent. */
   backgroundStyle?: OverlayBackground;
   /** Backdrop blur radius in px (glass only, CSS fallback). */
@@ -313,6 +316,8 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
     "settings",
   ],
   tickerLayout: "strip",
+  panelDensity: "comfortable",
+  lastPanelSection: "session",
   backgroundStyle: "glass",
   backgroundBlur: 14,
   backgroundOpacity: 0.72,
@@ -719,6 +724,14 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     const scale = Math.min(1.4, Math.max(0.9, settings.textScale ?? 1));
     root.style.fontSize = `${Math.round(scale * 100)}%`;
   }, [settings.highContrast, settings.textScale]);
+
+  // Density is spacing, not type: the stylesheet reads it for gaps, padding
+  // and chart heights while the text-scale control above stays independent.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.overlayDensity =
+      settings.panelDensity === "compact" ? "compact" : "comfortable";
+  }, [settings.panelDensity]);
 
   // Probe whether the platform offers a native window backdrop.
   useEffect(() => {

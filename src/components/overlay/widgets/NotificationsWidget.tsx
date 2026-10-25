@@ -1,67 +1,62 @@
 import { useMemo } from "react";
 import { Bell, Download, Trophy } from "lucide-react";
-import { useAchievements } from "../../../context/AchievementContext";
-import { useDownloads } from "../../../context/DownloadContext";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Badge, Card } from "../../ui";
-
-/** A notification-worthy event surfaced from an existing store. */
-export interface OverlayNotification {
-  id: string;
-  kind: "achievement" | "download";
-  name: string;
-}
-
-/**
- * Derives the overlay's notification feed from stores the reduced provider
- * tree already mounts: recent achievement unlocks and completed downloads.
- * No new persistence — this is a read-only projection.
- */
-export function useOverlayNotifications(): OverlayNotification[] {
-  const { recentUnlocks } = useAchievements();
-  const { completedDownloads } = useDownloads();
-
-  return useMemo(() => {
-    const items: OverlayNotification[] = [];
-    for (const record of recentUnlocks.slice(0, 6)) {
-      items.push({
-        id: `achievement:${record.gameId}:${record.achievement.apiName}`,
-        kind: "achievement",
-        name: record.achievement.displayName,
-      });
-    }
-    for (const download of completedDownloads.slice(0, 6)) {
-      items.push({ id: `download:${download.id}`, kind: "download", name: download.name });
-    }
-    return items;
-  }, [recentUnlocks, completedDownloads]);
-}
+import { useOverlayNotifications } from "../overlayNotifications";
+import type { OverlayWidgetProps } from "./types";
 
 /** Notification feed for the expanded overlay panel. */
-export default function NotificationsWidget() {
-  const notifications = useOverlayNotifications();
+export default function NotificationsWidget({ bare = false }: OverlayWidgetProps) {
+  const { items, unread, markAllSeen } = useOverlayNotifications();
   const { t } = useLanguage();
+
+  const unreadIds = useMemo(
+    () => new Set(unread.map((item) => item.id)),
+    [unread],
+  );
 
   return (
     <Card variant="glass" className="overlay-widget">
-      <div className="overlay-widget__head">
-        <span className="overlay-widget__icon" aria-hidden>
-          <Bell />
-        </span>
-        <h3 className="overlay-widget__title">
-          {t("overlay.widget.notifications")}
-        </h3>
-        {notifications.length > 0 && (
-          <Badge variant="warning">{notifications.length}</Badge>
-        )}
-      </div>
+      {!bare ? (
+        <div className="overlay-widget__head">
+          <span className="overlay-widget__icon" aria-hidden>
+            <Bell />
+          </span>
+          <h3 className="overlay-widget__title">
+            {t("overlay.widget.notifications")}
+          </h3>
+          {unread.length > 0 && (
+            <Badge variant="warning">{unread.length}</Badge>
+          )}
+        </div>
+      ) : (
+        unread.length > 0 && (
+          <div className="overlay-notifications__toolbar">
+            <span className="overlay-notifications__count">
+              {t("overlay.notifications.unread", { count: unread.length })}
+            </span>
+            <button
+              type="button"
+              className="overlay-notifications__mark"
+              onClick={markAllSeen}
+            >
+              {t("overlay.notifications.markAllRead")}
+            </button>
+          </div>
+        )
+      )}
 
-      {notifications.length === 0 ? (
+      {items.length === 0 ? (
         <p className="overlay-widget__empty">{t("overlay.notifications.empty")}</p>
       ) : (
         <ul className="overlay-list">
-          {notifications.slice(0, 4).map((item) => (
-            <li key={item.id} className="overlay-list__row">
+          {items.map((item) => (
+            <li
+              key={item.id}
+              className={`overlay-list__row${
+                unreadIds.has(item.id) ? " overlay-list__row--unread" : ""
+              }`}
+            >
               <span className="overlay-list__icon" aria-hidden>
                 {item.kind === "achievement" ? <Trophy /> : <Download />}
               </span>
@@ -70,6 +65,12 @@ export default function NotificationsWidget() {
                   ? t("overlay.notifications.unlocked", { name: item.name })
                   : t("overlay.notifications.downloadDone", { name: item.name })}
               </span>
+              {unreadIds.has(item.id) && (
+                <span
+                  className="overlay-notifications__dot"
+                  aria-label={t("overlay.notifications.new")}
+                />
+              )}
             </li>
           ))}
         </ul>

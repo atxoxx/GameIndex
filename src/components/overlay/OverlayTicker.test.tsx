@@ -16,8 +16,16 @@ vi.mock("../../context/OverlayContext", () => ({
 }));
 vi.mock("../../context/DownloadContext", () => ({ useDownloads: vi.fn() }));
 vi.mock("../../context/LanguageContext", () => ({ useLanguage: vi.fn() }));
-vi.mock("./widgets/NotificationsWidget", () => ({
-  useOverlayNotifications: () => [],
+const { notificationState } = vi.hoisted(() => ({
+  notificationState: { unreadCount: 0 },
+}));
+vi.mock("./overlayNotifications", () => ({
+  useOverlayNotifications: () => ({
+    items: [],
+    unread: [],
+    unreadCount: notificationState.unreadCount,
+    markAllSeen: vi.fn(),
+  }),
 }));
 vi.mock("./widgets/SessionWidget", () => ({
   useSessionElapsed: () => 0,
@@ -39,6 +47,7 @@ function overlayValue(expand = vi.fn()): OverlayContextValue {
 describe("OverlayTicker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    notificationState.unreadCount = 0;
     mockDownloads.mockReturnValue({ activeCount: 0 } as unknown as ReturnType<
       typeof useDownloads
     >);
@@ -144,6 +153,23 @@ describe("OverlayTicker", () => {
     );
   });
 
+  it("folds a retired single-row preset into the condensed strip", () => {
+    mockOverlay.mockReturnValue(
+      makeOverlayValue({
+        settings: {
+          ...baseOverlaySettings,
+          tickerLayout: "single" as never,
+        },
+      }),
+    );
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker")).toHaveAttribute(
+      "data-layout",
+      "strip",
+    );
+  });
+
   it("swaps the expand affordance for a click-through hint when click-through is on", () => {
     mockOverlay.mockReturnValue(
       makeOverlayValue({
@@ -201,5 +227,29 @@ describe("OverlayTicker", () => {
     expect(screen.getByTestId("overlay-ticker-cpuTemp")).toHaveTextContent("CPU");
     expect(screen.getByTestId("overlay-ticker-gpuTemp")).toHaveTextContent("GPU");
     expect(screen.getByTestId("overlay-ticker-ram")).toHaveTextContent("RAM");
+  });
+
+  it("shows the live unread notification count and hides it at zero", () => {
+    notificationState.unreadCount = 3;
+    mockOverlay.mockReturnValue(overlayValue());
+    const { unmount } = render(<OverlayTicker />);
+    expect(screen.getByTestId("overlay-ticker-notifications")).toHaveTextContent(
+      "3",
+    );
+    unmount();
+
+    notificationState.unreadCount = 0;
+    render(<OverlayTicker />);
+    expect(screen.queryByTestId("overlay-ticker-notifications")).toBeNull();
+  });
+
+  it("caps the notification badge at 9+", () => {
+    notificationState.unreadCount = 14;
+    mockOverlay.mockReturnValue(overlayValue());
+    render(<OverlayTicker />);
+
+    expect(screen.getByTestId("overlay-ticker-notifications")).toHaveTextContent(
+      "9+",
+    );
   });
 });

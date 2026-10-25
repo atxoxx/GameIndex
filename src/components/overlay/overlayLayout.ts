@@ -1,4 +1,7 @@
-import type { OverlayTickerLayout } from "../../context/OverlayContext";
+import type {
+  OverlayDensity,
+  OverlayTickerLayout,
+} from "../../context/OverlayContext";
 
 /**
  * Reduced-HUD presentation presets.
@@ -20,29 +23,42 @@ export const TICKER_LAYOUTS: OverlayTickerLayoutOption[] = [
     hintKey: "overlay.layout.stripHint",
   },
   {
-    id: "single",
-    labelKey: "overlay.layout.single",
-    hintKey: "overlay.layout.singleHint",
-  },
-  {
     id: "gauges",
     labelKey: "overlay.layout.gauges",
     hintKey: "overlay.layout.gaugesHint",
-  },
-  {
-    id: "minimal",
-    labelKey: "overlay.layout.minimal",
-    hintKey: "overlay.layout.minimalHint",
   },
 ];
 
 export const DEFAULT_TICKER_LAYOUT: OverlayTickerLayout = "strip";
 
-/** Coerce an unknown persisted value to a valid preset. */
+/**
+ * Coerce an unknown persisted value to a valid preset. Older builds shipped
+ * `single` and `minimal`; both collapse into the condensed strip, which now
+ * covers their use cases.
+ */
 export function normalizeTickerLayout(
   value: unknown,
 ): OverlayTickerLayout {
-  return TICKER_LAYOUTS.some((option) => option.id === value)
-    ? (value as OverlayTickerLayout)
-    : DEFAULT_TICKER_LAYOUT;
+  return value === "gauges" ? "gauges" : DEFAULT_TICKER_LAYOUT;
+}
+
+export const DENSITY_OPTIONS: {
+  id: OverlayDensity;
+  labelKey: string;
+  hintKey: string;
+}[] = [
+  {
+    id: "comfortable",
+    labelKey: "overlay.density.comfortable",
+    hintKey: "overlay.density.comfortableHint",
+  },
+  {
+    id: "compact",
+    labelKey: "overlay.density.compact",
+    hintKey: "overlay.density.compactHint",
+  },
+];
+
+export function normalizeDensity(value: unknown): OverlayDensity {
+  return value === "compact" ? "compact" : "comfortable";
 }

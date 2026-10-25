@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import OverlayPanel from "./OverlayPanel";
 import {
   useOverlay,
@@ -12,8 +12,24 @@ import { baseOverlaySettings, makeOverlayValue } from "./overlayTestValue";
 vi.mock("../../context/OverlayContext", () => ({ useOverlay: vi.fn() }));
 vi.mock("../../context/LanguageContext", () => ({ useLanguage: vi.fn() }));
 vi.mock("../../context/GameContext", () => ({ useOptionalGames: vi.fn() }));
+const { notificationState } = vi.hoisted(() => ({
+  notificationState: { unreadCount: 0, markAllSeen: vi.fn() },
+}));
+vi.mock("./overlayNotifications", () => ({
+  useOverlayNotifications: () => ({
+    items: [],
+    unread: [],
+    unreadCount: notificationState.unreadCount,
+    markAllSeen: notificationState.markAllSeen,
+  }),
+}));
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (p: string) => `asset://localhost/${encodeURIComponent(p)}`,
+  invoke: (...args: unknown[]) => invokeMock(...args),
+}));
+
+const { invokeMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Stub each widget so the panel's tab switching can be asserted without
@@ -38,6 +54,9 @@ vi.mock("./widgets/NotesWidget", () => ({
 }));
 vi.mock("./widgets/ScreenshotsWidget", () => ({
   default: () => <div data-testid="widget-captures" />,
+}));
+vi.mock("./widgets/RecordingWidget", () => ({
+  default: () => <div data-testid="widget-clips" />,
 }));
 vi.mock("./widgets/TimerWidget", () => ({
   default: () => <div data-testid="widget-timer" />,
@@ -71,6 +90,7 @@ const ALL_WIDGETS = [
   "notifications",
   "notes",
   "captures",
+  "recording",
   "timer",
   "settings",
 ];
@@ -78,6 +98,8 @@ const ALL_WIDGETS = [
 describe("OverlayPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    invokeMock.mockResolvedValue(undefined);
+    notificationState.unreadCount = 0;
     mockOptionalGames.mockReturnValue({
       games: [],
       runningGameIds: [],
@@ -113,18 +135,42 @@ describe("OverlayPanel", () => {
     expect(screen.queryByTestId("widget-session")).toBeNull();
   });
 
-  it("groups the activity widgets under a single tab", async () => {
+  it("splits the activity widgets into sub-tabs", async () => {
     mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
     render(<OverlayPanel />);
 
     fireEvent.click(screen.getByTestId("overlay-panel-tab-activity"));
 
     expect(await screen.findByTestId("widget-achievements")).toBeInTheDocument();
+    expect(screen.queryByTestId("widget-downloads")).toBeNull();
+    expect(screen.queryByTestId("widget-notifications")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("overlay-subtab-downloads"));
     expect(await screen.findByTestId("widget-downloads")).toBeInTheDocument();
-    expect(
-      await screen.findByTestId("widget-notifications"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("widget-achievements")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("overlay-subtab-notifications"));
+    expect(await screen.findByTestId("widget-notifications")).toBeInTheDocument();
+    expect(screen.queryByTestId("widget-downloads")).toBeNull();
     expect(screen.queryByTestId("widget-session")).toBeNull();
+  });
+
+  it("clears the unread badge when the notification feed is opened", async () => {
+    notificationState.unreadCount = 4;
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    expect(screen.getByTestId("overlay-rail-badge-activity")).toHaveTextContent(
+      "4",
+    );
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-activity"));
+    expect(notificationState.markAllSeen).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("overlay-subtab-notifications"));
+    await waitFor(() =>
+      expect(notificationState.markAllSeen).toHaveBeenCalledTimes(1),
+    );
   });
 
   it("switches to notes, captures, timer, and settings tabs", async () => {
@@ -224,6 +270,112 @@ describe("OverlayPanel", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("resumes the remembered section on open", async () => {
+    const val = overlayValue(ALL_WIDGETS);
+    val.settings = { ...val.settings, lastPanelSection: "performance" };
+    mockOverlay.mockReturnValue(val);
+    render(<OverlayPanel />);
+
+    expect(screen.getByTestId("overlay-panel-tab-performance")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await screen.findByTestId("widget-performance")).toBeInTheDocument();
+  });
+
+  it("remembers a newly selected section", () => {
+    const updateSettings = vi.fn().mockResolvedValue(undefined);
+    const val = overlayValue(ALL_WIDGETS);
+    val.updateSettings = updateSettings;
+    mockOverlay.mockReturnValue(val);
+    render(<OverlayPanel />);
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-notes"));
+
+    expect(updateSettings).toHaveBeenCalledWith({ lastPanelSection: "notes" });
+  });
+
+  it("moves through sections with the arrow keys", () => {
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    const rail = screen.getByTestId("overlay-rail");
+    fireEvent.keyDown(rail, { key: "ArrowDown" });
+
+    expect(screen.getByTestId("overlay-panel-tab-performance")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(screen.getByTestId("overlay-panel-tab-settings")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("reflects the density preset on the panel", () => {
+    const val = overlayValue(ALL_WIDGETS);
+    val.settings = { ...val.settings, panelDensity: "compact" };
+    mockOverlay.mockReturnValue(val);
+    render(<OverlayPanel />);
+
+    expect(screen.getByTestId("overlay-panel")).toHaveAttribute(
+      "data-density",
+      "compact",
+    );
+  });
+
+  it("switches captures sub-tabs even when the section was remembered", async () => {
+    const val = overlayValue(ALL_WIDGETS);
+    val.settings = { ...val.settings, lastPanelSection: "captures" };
+    mockOverlay.mockReturnValue(val);
+    render(<OverlayPanel />);
+
+    expect(await screen.findByTestId("widget-captures")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("overlay-subtab-clips"));
+
+    expect(await screen.findByTestId("widget-clips")).toBeInTheDocument();
+    expect(screen.queryByTestId("widget-captures")).toBeNull();
+  });
+
+  it("opens the full settings page from the panel header", async () => {
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-settings"));
+    fireEvent.click(await screen.findByTestId("overlay-open-full-settings"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("overlay_open_settings"),
+    );
+  });
+
+  it("keeps the panel usable when the settings deep link fails", async () => {
+    invokeMock.mockRejectedValueOnce(new Error("no runtime"));
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    fireEvent.click(screen.getByTestId("overlay-panel-tab-settings"));
+    const action = await screen.findByTestId("overlay-open-full-settings");
+    fireEvent.click(action);
+
+    await waitFor(() => expect(action).not.toBeDisabled());
+    expect(screen.getByTestId("overlay-panel")).toBeInTheDocument();
+  });
+
+  it("opens the hotkey cheatsheet and closes it with Escape", () => {
+    mockOverlay.mockReturnValue(overlayValue(ALL_WIDGETS));
+    render(<OverlayPanel />);
+
+    fireEvent.click(screen.getByTestId("overlay-panel-help"));
+    expect(screen.getByTestId("overlay-hotkeys")).toBeInTheDocument();
+    expect(screen.getByText("overlay.help.toggle")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("overlay-hotkeys")).toBeNull();
   });
 });
 

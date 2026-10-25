@@ -36,8 +36,8 @@ section of [`knowledge.md`](../knowledge.md). For Linux/Steam Deck specifics, se
 
 | Capability | What it does |
 |---|---|
-| **Ticker** | A small collapsed HUD (strip / single / gauges / minimal layouts) with live telemetry and capture chips. |
-| **Panel** | An expandable tabbed panel: session, performance, captures, notes, timer, activity and settings. |
+| **Ticker** | A small collapsed HUD (condensed strip or gauge cluster) with live telemetry and capture chips. |
+| **Panel** | An expandable panel with a labeled section rail, sub-tabs for captures/activity, and quick settings. |
 | **Global hotkeys** | Toggle the HUD, take a screenshot, start/stop recording and save a replay from inside the game. |
 | **Screenshots** | One-key captures with optional sound, flash and clipboard copy; recent-capture gallery. |
 | **Video & replay** | Manual recording and a rolling instant-replay buffer, with game audio and optional microphone. |
@@ -78,10 +78,14 @@ GameIndex keeps the previous binding and tells you; capture bindings are best-ef
 
 The ticker is the reduced, always-visible HUD. Its layout is chosen in **Settings → Overlay → Widgets**:
 
-- **Strip** - a two-row bar: telemetry on top, capture controls and session activity below.
-- **Single** - one dense row when horizontal space is tight.
-- **Gauges** - a ring cluster for FPS, CPU/GPU and RAM usage plus CPU/GPU temperatures, with a session clock.
-- **Minimal** - just the headline FPS, record/replay chips and activity badges.
+- **Strip** - one condensed row: live telemetry on the left, capture controls and
+  activity badges on the right, and the expand button at the end. It wraps when the
+  window gets narrow and the window grows to fit.
+- **Gauges** - a ring cluster for FPS, CPU/GPU and RAM usage plus CPU/GPU temperatures,
+  with a session clock and a compact control row.
+
+Older `single` and `minimal` layouts collapse into **Strip**; they no longer exist
+as separate presets.
 
 You choose which chips appear (FPS, CPU, GPU, temperatures, RAM, sparkline, session timer, mic,
 record, replay, screenshot). The FPS figure is colour-graded (`≥60` good, `≥30` fair, below that
@@ -90,26 +94,36 @@ low), and a sensor that reports nothing shows a dash rather than a fake number.
 **Ticker click-through** (off by default) makes the collapsed ticker ignore the mouse so your clicks
 reach the game. The expanded panel is always interactive, and the toggle hotkey is the way back in.
 
+The bell badge is an **unread** count: it starts empty on first use, increments when a new achievement
+or download completes, and clears once you open **Activity → Notifications**. The read marker is
+persisted, so the badge does not come back for old events.
+
 ---
 
 ## The panel
 
 The panel is the full HUD, opened from the ticker (or by pressing the toggle hotkey a second time).
-It groups widgets into tabs; hide any tab by removing its widgets in Settings:
+A labeled rail on the left lists every enabled section; the header shows the game, the live session
+clock, FPS and the capture controls. The panel reopens on the section you last used.
 
-| Tab | Contents |
+| Section | Contents |
 |---|---|
-| **Session** | Current game, session clock, playtime summary. |
+| **Session** | Current game, session clock, lifetime playtime and session controls. |
 | **Performance** | FPS, CPU/GPU/RAM KPIs and rolling area graphs, plus a frametime/gauge deep-dive. |
+| **Captures** | Sub-tabs: **Screenshots** (gallery) and **Clips** (recording/replay controls). |
 | **Guides** | The embedded Guides browser (always available, not toggleable). |
 | **Notes** | Your GameIndex game notes, editable from the HUD. |
-| **Captures** | Recent screenshots and the recording/replay controls. |
 | **Timer** | A simple play/stop timer. |
-| **Activity** | Achievements, active downloads and notifications. |
-| **Settings** | The same overlay settings as Settings → Overlay, for quick tweaks. |
+| **Activity** | Sub-tabs: **Achievements**, **Downloads** and **Notifications**. |
+| **Settings** | Curated quick settings; **Open full settings** jumps to Settings → Overlay. |
 
-Press `Escape` to collapse the panel back to the ticker. A quick-action row in the header offers
-Screenshot, Record, Timer, Settings and Collapse at a glance.
+Sections disappear when every widget inside them is disabled in **Settings → Overlay → Widgets**;
+Guides stays regardless. Multi-widget sections split into sub-tabs instead of one long scroll.
+
+Press `Escape` to collapse the panel back to the ticker. The `?` button in the header opens a
+**hotkey cheatsheet** with every bound shortcut, and `Esc` closes the sheet without collapsing the
+panel. **Open full settings** hides the HUD, focuses the main window and lands on the Overlay
+settings page; the HUD comes back on the toggle hotkey.
 
 ---
 
@@ -145,14 +159,16 @@ Press the screenshot hotkey (`F12` by default) any time the overlay is active. O
 - **Include overlay** - keep the HUD in the shot, or hide it for a clean frame.
 - **Delay** - a short pause before the shutter.
 
-The Captures tab in the panel lists recent screenshots newest-first, with view, copy-path, open-folder
-and delete actions.
+The **Captures → Screenshots** section lists recent screenshots newest-first, with view, copy-path, open-folder
+and delete actions. Clicking a shot opens a full-window preview with a **Back to captures** button,
+previous/next controls (arrow keys work too), a position counter and an actual-size zoom toggle;
+`Esc` closes the preview without collapsing the panel.
 
 ---
 
 ## Capture: video & replay
 
-The video recorder is platform-gated (see below) and lives in the panel's Captures tab and the ticker
+The video recorder is platform-gated (see below) and lives in **Captures → Clips** and the ticker
 capture controls.
 
 - **Record** starts a manual recording; press the record hotkey again (or Stop) to finish and save a clip.
@@ -181,7 +197,7 @@ By default both screenshots and clips land in a per-game folder:
 
 Names follow `Capture_<date>_<time>.(png|jpg)`, `Record_<date>.mp4` and `Replay_<date>.mp4`. Override
 the location with **Screenshot folder** / **Video folder** in settings, or open the folder straight
-from the Captures tab.
+from the Captures → Screenshots section.
 
 The Community page's **Captures** tab is a separate gallery that scans your Steam, system and custom
 screenshot folders and adds grouping, favourites, a lightbox and slideshow playback.
@@ -192,6 +208,8 @@ screenshot folders and adds grouping, favourites, a lightbox and slideshow playb
 
 - **Background style** - `glass`, `solid` or `dim`, with adjustable blur and opacity. On Windows the
   HUD can use native acrylic blur; other platforms use a CSS glass effect.
+- **Panel density** - `comfortable` (default) or `compact`. Density changes spacing and chart height
+  only; **Text size** stays a separate accessibility control.
 - **Adaptive theming** - when your app theme is *Adaptive*, the HUD samples the running game's artwork
   into its accents.
 - **Accessibility** - reduce effects (performance mode), high-contrast mode and text scaling.
@@ -236,7 +254,9 @@ without a portal leaves global hotkeys unavailable. On Linux, video requires the
 | Save replay hotkey | `Shift+F3` | |
 | Corner | bottom-right | Or drag the HUD. |
 | Opacity | 0.9 | |
-| Ticker layout | strip | strip / single / gauges / minimal. |
+| Ticker layout | strip | strip / gauges. Legacy `single`/`minimal` load as strip. |
+| Panel density | comfortable | comfortable / compact (spacing + chart height). |
+| Panel section | last used | Reopens on the section you last viewed. |
 | Background | glass | glass / solid / dim. |
 | Reduce effects | off | Performance mode. |
 | High contrast | off | |

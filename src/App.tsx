@@ -48,6 +48,7 @@ import { GamepadProvider } from "./hooks/GamepadProvider";
 import { useDiscordPresence } from "./hooks/useDiscordPresence";
 import { useTrayNavigation } from "./hooks/useTrayNavigation";
 import { useTrayStrings } from "./hooks/useTrayStrings";
+import AppNavigationBridge from "./components/AppNavigationBridge";
 import { LandingRedirect } from "./components/LandingRedirect";
 import AppContextMenu from "./components/AppContextMenu";
 import GamePopoutBridge from "./components/GamePopoutBridge";
@@ -134,7 +135,12 @@ function ShellBridges() {
   useDiscordPresence();
   useTrayNavigation();
   useTrayStrings();
-  return <GamePopoutBridge />;
+  return (
+    <>
+      <GamePopoutBridge />
+      <AppNavigationBridge />
+    </>
+  );
 }
 
 function AppShell() {

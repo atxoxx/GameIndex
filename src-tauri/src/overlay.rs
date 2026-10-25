@@ -57,9 +57,12 @@ const DEFAULT_TICKER_WIDTH: f64 = 480.0;
 const DEFAULT_TICKER_HEIGHT: f64 = 72.0;
 const DEFAULT_PANEL_WIDTH: f64 = 540.0;
 const DEFAULT_PANEL_HEIGHT: f64 = 620.0;
-/// Clamps so a bad persisted size can't produce an unusable window.
-const MIN_OVERLAY_WIDTH: f64 = 180.0;
-const MIN_OVERLAY_HEIGHT: f64 = 44.0;
+/// Clamps so a bad persisted size can't produce an unusable window. The
+/// expanded panel needs room for the labeled rail plus a readable column.
+const MIN_TICKER_WIDTH: f64 = 180.0;
+const MIN_TICKER_HEIGHT: f64 = 44.0;
+const MIN_PANEL_WIDTH: f64 = 460.0;
+const MIN_PANEL_HEIGHT: f64 = 400.0;
 const MAX_OVERLAY_DIM: f64 = 4000.0;
 /// Gap between the overlay edge and the monitor work-area edge.
 const OVERLAY_MARGIN: f64 = 16.0;
@@ -100,8 +103,12 @@ pub struct OverlaySettings {
     pub opacity: f64,
     pub ticker_widgets: Vec<String>,
     pub panel_widgets: Vec<String>,
-    /// Reduced-HUD presentation preset: `strip` | `single` | `gauges` | `minimal`.
+    /// Reduced-HUD presentation preset: `strip` | `gauges`.
     pub ticker_layout: String,
+    /// Expanded-panel spacing preset: `comfortable` | `compact`.
+    pub panel_density: String,
+    /// Last panel section the user opened, so the next open resumes there.
+    pub last_panel_section: String,
     /// Surface background: `glass` (blurred), `solid` (opaque) or `dim`.
     pub background_style: String,
     /// Backdrop blur radius in px (glass only).
@@ -259,6 +266,8 @@ impl Default for OverlaySettings {
             .map(|s| s.to_string())
             .collect(),
             ticker_layout: "strip".to_string(),
+            panel_density: "comfortable".to_string(),
+            last_panel_section: "session".to_string(),
             background_style: "glass".to_string(),
             background_blur: 14.0,
             background_opacity: 0.72,
@@ -483,6 +492,15 @@ fn should_ignore_cursor(settings: &OverlaySettings, collapsed: bool) -> bool {
     collapsed && settings.ticker_click_through
 }
 
+/// Minimum usable window size for the given presentation.
+fn min_overlay_size(collapsed: bool) -> (f64, f64) {
+    if collapsed {
+        (MIN_TICKER_WIDTH, MIN_TICKER_HEIGHT)
+    } else {
+        (MIN_PANEL_WIDTH, MIN_PANEL_HEIGHT)
+    }
+}
+
 /// Window size for the ticker (`collapsed`) vs the expanded panel, clamped to
 /// a usable range so a stale persisted value can't produce a broken window.
 fn overlay_size(settings: &OverlaySettings, collapsed: bool) -> (f64, f64) {
@@ -493,9 +511,10 @@ fn overlay_size(settings: &OverlaySettings, collapsed: bool) -> (f64, f64) {
         // still guards against an unusable persisted size.
         (settings.panel_width, settings.panel_height)
     };
+    let (min_w, min_h) = min_overlay_size(collapsed);
     (
-        w.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM),
-        h.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM),
+        w.clamp(min_w, MAX_OVERLAY_DIM),
+        h.clamp(min_h, MAX_OVERLAY_DIM),
     )
 }
 
@@ -1025,6 +1044,21 @@ pub fn overlay_hide(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Jump from the HUD to the full overlay settings page. The HUD is
+/// always-on-top, so hide it first, raise the main window, and let the app
+/// shell route itself through the `app:navigate` event.
+#[tauri::command]
+pub async fn overlay_open_settings(app: AppHandle) -> Result<(), String> {
+    overlay_hide(app.clone())?;
+    if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = main.unminimize();
+        let _ = main.show();
+        let _ = main.set_focus();
+        let _ = app.emit_to(MAIN_WINDOW_LABEL, "app:navigate", "/settings/overlay");
+    }
+    Ok(())
+}
+
 /// Toggle whether the overlay receives mouse input. The HUD is normally
 /// interactive while visible; this stays for completeness.
 #[tauri::command]
@@ -1184,6 +1218,14 @@ pub fn overlay_save_bounds(
             rt.settings.panel_width = ((size.width as f64) / scale).round();
             rt.settings.panel_height = ((size.height as f64) / scale).round();
         }
+        let (min_w, min_h) = min_overlay_size(collapsed);
+        if collapsed {
+            rt.settings.ticker_width = rt.settings.ticker_width.max(min_w);
+            rt.settings.ticker_height = rt.settings.ticker_height.max(min_h);
+        } else {
+            rt.settings.panel_width = rt.settings.panel_width.max(min_w);
+            rt.settings.panel_height = rt.settings.panel_height.max(min_h);
+        }
         rt.settings.clone()
     };
     persist_settings(&app, &settings)
@@ -1205,8 +1247,8 @@ pub fn overlay_fit_ticker(
         if !rt.collapsed || !rt.ticker_auto_fit {
             return Ok(());
         }
-        let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
-        let h = height.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM);
+        let w = width.clamp(MIN_TICKER_WIDTH, MAX_OVERLAY_DIM);
+        let h = height.clamp(MIN_TICKER_HEIGHT, MAX_OVERLAY_DIM);
         // Ignore sub-pixel churn so the ResizeObserver can't ping-pong. The
         // frontend adds a 2 px content kernel per measurement, so a 1 px
         // tolerance re-triggers a resize on every mixed-DPI layout pass
@@ -1277,8 +1319,9 @@ pub fn overlay_resize_to(
 ) -> Result<(), String> {
     let (settings, collapsed) = {
         let mut rt = lock(state.inner());
-        let w = width.clamp(MIN_OVERLAY_WIDTH, MAX_OVERLAY_DIM);
-        let h = height.clamp(MIN_OVERLAY_HEIGHT, MAX_OVERLAY_DIM);
+        let (min_w, min_h) = min_overlay_size(rt.collapsed);
+        let w = width.clamp(min_w, MAX_OVERLAY_DIM);
+        let h = height.clamp(min_h, MAX_OVERLAY_DIM);
         if rt.collapsed {
             rt.settings.ticker_width = w;
             rt.settings.ticker_height = h;

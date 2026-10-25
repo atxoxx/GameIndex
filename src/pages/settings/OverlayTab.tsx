@@ -34,7 +34,7 @@ import {
   type OverlaySettings,
 } from "../../context/OverlayContext";
 import { Button, Skeleton } from "../../components/ui";
-import { TICKER_LAYOUTS } from "../../components/overlay/overlayLayout";
+import { TICKER_LAYOUTS, DENSITY_OPTIONS, normalizeDensity, normalizeTickerLayout } from "../../components/overlay/overlayLayout";
 import {
   OverlayFieldChips,
   OverlayFieldSlider,
@@ -521,8 +521,29 @@ export default function OverlayTab() {
               label: t(option.labelKey),
               title: t(option.hintKey),
             }))}
-            value={settings.tickerLayout ?? "strip"}
+            value={normalizeTickerLayout(settings.tickerLayout)}
             onChange={(tickerLayout) => update({ tickerLayout })}
+          />
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "var(--space-lg)" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">
+              {t("settings.overlay.density")}
+            </label>
+          </div>
+          <p className="hw-card-help">{t("settings.overlay.densityDesc")}</p>
+          <OverlayFieldChips
+            className="settings-segmented hw-seg"
+            role="group"
+            ariaLabel={t("settings.overlay.aria.density")}
+            options={DENSITY_OPTIONS.map((option) => ({
+              id: option.id,
+              label: t(option.labelKey),
+              title: t(option.hintKey),
+            }))}
+            value={normalizeDensity(settings.panelDensity)}
+            onChange={(panelDensity) => update({ panelDensity })}
           />
         </div>
 

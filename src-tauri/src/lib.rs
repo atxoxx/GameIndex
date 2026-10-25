@@ -543,6 +543,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             // live telemetry bridge.
             overlay::overlay_show,
             overlay::overlay_hide,
+            overlay::overlay_open_settings,
             overlay::overlay_set_interactive,
             overlay::overlay_set_collapsed,
             overlay::overlay_save_bounds,

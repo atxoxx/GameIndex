@@ -2,35 +2,35 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Bell,
-  Download,
-  Maximize2,
   Camera,
-  Loader2,
-  Gauge,
-  Cpu,
-  Monitor,
-  Clock,
   Circle,
-  Square,
   Clapperboard,
-  Save,
+  Clock,
+  Cpu,
+  Download,
+  Gauge,
+  Loader2,
+  Maximize2,
+  MemoryStick,
   Mic,
+  Monitor,
+  MousePointerClick,
+  Save,
+  Square,
   Thermometer,
   ThermometerSun,
-  MemoryStick,
-  MousePointerClick,
 } from "lucide-react";
 import { useOverlay } from "../../context/OverlayContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { useOptionalGames } from "../../context/GameContext";
 import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { Badge } from "../ui";
 import OverlaySparkline from "./OverlaySparkline";
 import OverlayGauge from "./OverlayGauge";
 import { normalizeTickerLayout } from "./overlayLayout";
-import { useOverlayNotifications } from "./widgets/NotificationsWidget";
-import { formatClock, useSessionElapsed } from "./widgets/SessionWidget";
+import { useOverlayGame } from "./useOverlayGame";
+import { useOverlayNotifications } from "./overlayNotifications";
+import { formatClock, useSessionElapsed } from "./overlayTime";
 
 function formatPercent(value: number | undefined): string {
   return typeof value === "number" && Number.isFinite(value)
@@ -52,9 +52,13 @@ function knownTemp(value: number | undefined): number | undefined {
     : undefined;
 }
 
-/** Accent ramp shared by the metric pills and the gauge cluster. */
-function fpsIntent(fps: number | undefined): "good" | "fair" | "low" {
-  if (typeof fps !== "number" || !Number.isFinite(fps) || fps <= 0) return "low";
+/** Accent ramp shared by the metric chips and the gauge cluster. */
+function fpsIntent(
+  fps: number | undefined,
+): "good" | "fair" | "low" | "default" {
+  if (typeof fps !== "number" || !Number.isFinite(fps) || fps <= 0) {
+    return "default";
+  }
   return fps >= 60 ? "good" : fps >= 30 ? "fair" : "low";
 }
 
@@ -72,8 +76,7 @@ function useTickerAutoFit() {
 
     // A trailing debounce (not just a rAF coalesce): on mixed-DPI monitors a
     // each window resize fires another layout pass, and fitting immediately
-    // turned pass → resize → next pass into a continuous resize/fit ping
-    // (the backend's churn tolerance only catches exact-size duplicates).
+    // turned pass → resize → next pass into a continuous resize/fit ping.
     let frame = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const fit = () => {
@@ -107,13 +110,10 @@ function useTickerAutoFit() {
 }
 
 /**
- * The collapsed "reduced" HUD. Four presentation presets share one data
- * pipeline and the same capture controls:
- *   • strip   — two rows: live telemetry then capture controls (default)
- *   • single  — everything on one dense row
- *   • gauges  — circular CPU/GPU/RAM/FPS gauge cluster + controls row
- *   • minimal — just the headline FPS and the expand affordance
- * Every element is opt-in via `settings.tickerWidgets`, and the window grows
+ * The collapsed HUD. Two presets share one data pipeline:
+ *   • strip  — a single condensed row: metrics, capture controls, expand
+ *   • gauges — a ring cluster for the headline numbers plus a control row
+ * Every element is opt-in via `settings.tickerWidgets` and the window grows
  * to fit whatever is enabled.
  */
 export default function OverlayTicker() {
@@ -136,16 +136,14 @@ export default function OverlayTicker() {
     stopReplay,
     saveReplay,
   } = useOverlay();
-  const gameCtx = useOptionalGames();
-  const games = gameCtx?.games ?? [];
   const { activeCount } = useDownloads();
-  const notifications = useOverlayNotifications();
+  const { unreadCount } = useOverlayNotifications();
   const { t } = useLanguage();
+  const activeGame = useOverlayGame(session);
   const elapsed = useSessionElapsed(session?.startedAt ?? null);
   const fitRef = useTickerAutoFit();
 
   const layout = normalizeTickerLayout(settings.tickerLayout);
-  const activeGame = games.find((g) => g.id === session?.gameId);
 
   // Live REC timer, ticked locally so the chip updates between state pushes.
   const [recSeconds, setRecSeconds] = useState(0);
@@ -162,66 +160,69 @@ export default function OverlayTicker() {
 
   const show = (key: string) => {
     if (!settings.tickerWidgets.includes(key)) return false;
-    // Temperature chips/gauges are second-gated by the documented "Show
-    // CPU/GPU temperatures" master toggle — TickerLayout used to render them
-    // whenever the two widget chips were on, contradicting the toggle's
-    // semantics (the Performance widget honours it; so does the ticker now).
+    // Temperature chips are second-gated by the documented "Show CPU/GPU
+    // temperatures" master toggle.
     if (key === "cpuTemp" || key === "gpuTemp") return settings.showTemps;
     return true;
   };
 
   const fps = metrics?.fps;
-  const fpsClass = `overlay-fps--${fpsIntent(fps)}`;
+  const fpsClass = `overlay-ticker__chip--${fpsIntent(fps)}`;
 
   const fpsSeries = useMemo(
     () =>
       history
         .map((sample) => sample.fps)
-        .filter((value): value is number => typeof value === "number" && Number.isFinite(value)),
+        .filter(
+          (value): value is number =>
+            typeof value === "number" && Number.isFinite(value),
+        ),
     [history],
   );
 
   const micOn = settings.videoMicrophone && (isRecording || isReplayBuffering);
   const clickThrough = Boolean(settings.tickerClickThrough);
 
-  const handleSnap = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    void captureScreenshot(activeGame?.name);
+  const handleSnap = () => {
+    void captureScreenshot(activeGame?.name ?? session?.name);
   };
 
-  const pill = (
+  const chip = (
     key: string,
     icon: ReactNode,
-    text: string,
-    tag?: string,
+    tag: string | null,
+    value: string,
     title?: string,
   ) => (
     <span
       key={key}
-      className="overlay-ticker__pill"
+      className="overlay-ticker__chip"
       data-testid={`overlay-ticker-${key}`}
       title={title}
     >
-      {icon}
-      {tag && <span className="overlay-ticker__pill-tag">{tag}</span>}
-      <span>{text}</span>
+      <span className="overlay-ticker__chip-icon" aria-hidden>
+        {icon}
+      </span>
+      {tag && <span className="overlay-ticker__chip-tag">{tag}</span>}
+      {tag ? " " : null}
+      <span className="overlay-ticker__chip-value">{value}</span>
     </span>
   );
 
-  const fpsPill = show("fps") && (
+  const fpsChip = show("fps") && (
     <span
-      className={`overlay-ticker__pill overlay-ticker__fps ${fpsClass}`}
+      className={`overlay-ticker__chip overlay-ticker__chip--fps ${fpsClass}`}
       data-testid="overlay-ticker-fps"
     >
-      <Gauge size={12} />
-      <span>
-        {t("overlay.metric.fps")}{" "}
+      <Gauge size={12} aria-hidden />
+      <span className="overlay-ticker__chip-tag">{t("overlay.metric.fps")}</span>{" "}
+      <span className="overlay-ticker__chip-value">
         {typeof fps === "number" && Number.isFinite(fps) ? Math.round(fps) : "—"}
       </span>
     </span>
   );
 
-  const sparkPill = show("sparkline") && (
+  const spark = show("sparkline") && fpsSeries.length > 1 && (
     <span className="overlay-ticker__spark" data-testid="overlay-ticker-sparkline">
       <OverlaySparkline
         values={fpsSeries}
@@ -231,13 +232,15 @@ export default function OverlayTicker() {
     </span>
   );
 
-  const micPill = show("mic") && (
+  const micChip = show("mic") && (
     <span
-      className={`overlay-ticker__pill overlay-ticker__mic${micOn ? " is-on" : ""}`}
+      className={`overlay-ticker__chip overlay-ticker__chip--icon${
+        micOn ? " is-on" : ""
+      }`}
       data-testid="overlay-ticker-mic"
       title={micOn ? t("overlay.ticker.micOn") : t("overlay.ticker.micOff")}
     >
-      <Mic size={12} />
+      <Mic size={12} aria-hidden />
     </span>
   );
 
@@ -260,7 +263,7 @@ export default function OverlayTicker() {
           className="overlay-ticker__rec-chip overlay-ticker__rec-chip--replay"
           data-testid="overlay-ticker-replay-chip"
         >
-          <Clapperboard size={11} />
+          <Clapperboard size={11} aria-hidden />
           <span>{t("overlay.ticker.replayArmed")}</span>
         </span>
       )}
@@ -349,38 +352,42 @@ export default function OverlayTicker() {
         </Badge>
       )}
 
-      {notifications.length > 0 && (
-        <Badge variant="warning" className="overlay-ticker__badge">
+      {unreadCount > 0 && (
+        <Badge
+          variant="warning"
+          className="overlay-ticker__badge"
+          data-testid="overlay-ticker-notifications"
+        >
           <Bell aria-hidden size={11} />
-          {notifications.length}
+          {unreadCount > 9 ? "9+" : unreadCount}
         </Badge>
       )}
-
-      {clickThrough ? (
-        // The ticker ignores the mouse in click-through mode, so the expand
-        // button would be dead; show the toggle hotkey instead.
-        <span
-          className="overlay-ticker__clickthrough-hint"
-          data-testid="overlay-ticker-clickthrough"
-          title={t("overlay.settings.clickThroughDesc")}
-        >
-          <MousePointerClick aria-hidden size={12} />
-          <kbd>{settings.hotkey}</kbd>
-        </span>
-      ) : (
-        <button
-          type="button"
-          className="overlay-ticker__expand"
-          data-testid="overlay-ticker-expand"
-          data-tauri-drag-region="false"
-          onClick={expand}
-          aria-label={t("overlay.ticker.expand")}
-          title={t("overlay.ticker.expand")}
-        >
-          <Maximize2 aria-hidden size={13} />
-        </button>
-      )}
     </div>
+  );
+
+  const expandControl = clickThrough ? (
+    // The ticker ignores the mouse in click-through mode, so the expand button
+    // would be dead; show the toggle hotkey instead.
+    <span
+      className="overlay-ticker__clickthrough-hint"
+      data-testid="overlay-ticker-clickthrough"
+      title={t("overlay.settings.clickThroughDesc")}
+    >
+      <MousePointerClick aria-hidden size={12} />
+      <kbd>{settings.hotkey}</kbd>
+    </span>
+  ) : (
+    <button
+      type="button"
+      className="overlay-ticker__expand"
+      data-testid="overlay-ticker-expand"
+      data-tauri-drag-region="false"
+      onClick={expand}
+      aria-label={t("overlay.ticker.expand")}
+      title={t("overlay.ticker.expand")}
+    >
+      <Maximize2 aria-hidden size={14} />
+    </button>
   );
 
   const gaugeCluster = (
@@ -467,64 +474,69 @@ export default function OverlayTicker() {
       data-testid="overlay-ticker"
       data-layout={layout}
       data-corner={corner}
+      data-density={settings.panelDensity ?? "comfortable"}
       data-tauri-drag-region="deep"
       style={{ opacity: `var(--overlay-opacity, ${settings.opacity})` }}
     >
       {flashScreen && <div className="overlay-screen-flash" aria-hidden />}
 
-      {layout === "minimal" ? (
-        <div className="overlay-ticker__row overlay-ticker__row--minimal" data-tauri-drag-region="deep">
-          {fpsPill}
-          {recChips}
-          {activityBadges}
-        </div>
-      ) : layout === "gauges" ? (
+      {layout === "gauges" ? (
         <>
-          <div className="overlay-ticker__row overlay-ticker__row--gauges" data-tauri-drag-region="deep">
+          <div className="overlay-ticker__row overlay-ticker__row--gauges">
             {gaugeCluster}
-            {show("session") && pill("session", <Clock size={12} />, formatClock(elapsed))}
+            {show("session") && (
+              <span className="overlay-ticker__chip overlay-ticker__chip--session">
+                <Clock size={12} aria-hidden />
+                <span className="overlay-ticker__chip-value">
+                  {formatClock(elapsed)}
+                </span>
+              </span>
+            )}
           </div>
-          <div className="overlay-ticker__row overlay-ticker__row--actions" data-tauri-drag-region="false">
+          <div className="overlay-ticker__row overlay-ticker__row--gauges-actions">
             {recChips}
             {actionButtons}
             {activityBadges}
+            {expandControl}
           </div>
         </>
-      ) : layout === "single" ? (
-        <div className="overlay-ticker__row overlay-ticker__row--single" data-tauri-drag-region="deep">
-          {fpsPill}
-          {show("cpu") && pill("cpu", <Cpu size={12} />, formatPercent(metrics?.cpu), "CPU", t("overlay.metric.cpu"))}
-          {show("gpu") && pill("gpu", <Monitor size={12} />, formatPercent(metrics?.gpu), "GPU", t("overlay.metric.gpu"))}
-          {show("ram") && pill("ram", <MemoryStick size={12} />, formatPercent(metrics?.ram), "RAM", t("overlay.metric.ram"))}
-          {show("cpuTemp") && pill("cpuTemp", <Thermometer size={12} />, formatTemp(metrics?.cpuTemp), "CPU", t("overlay.metric.cpuTemp"))}
-          {show("gpuTemp") && pill("gpuTemp", <ThermometerSun size={12} />, formatTemp(metrics?.gpuTemp), "GPU", t("overlay.metric.gpuTemp"))}
-          {show("session") && pill("session", <Clock size={12} />, formatClock(elapsed))}
-          {sparkPill}
-          {micPill}
-          {recChips}
-          {actionButtons}
-          {activityBadges}
-        </div>
       ) : (
         <>
-          {/* Row 1 — live telemetry */}
-          <div className="overlay-ticker__row overlay-ticker__row--metrics" data-tauri-drag-region="deep">
-            {fpsPill}
-            {show("cpu") && pill("cpu", <Cpu size={12} />, formatPercent(metrics?.cpu), "CPU", t("overlay.metric.cpu"))}
-            {show("gpu") && pill("gpu", <Monitor size={12} />, formatPercent(metrics?.gpu), "GPU", t("overlay.metric.gpu"))}
-            {show("cpuTemp") && pill("cpuTemp", <Thermometer size={12} />, formatTemp(metrics?.cpuTemp), "CPU", t("overlay.metric.cpuTemp"))}
-            {show("gpuTemp") && pill("gpuTemp", <ThermometerSun size={12} />, formatTemp(metrics?.gpuTemp), "GPU", t("overlay.metric.gpuTemp"))}
-            {show("ram") && pill("ram", <MemoryStick size={12} />, formatPercent(metrics?.ram), "RAM", t("overlay.metric.ram"))}
-            {show("session") && pill("session", <Clock size={12} />, formatClock(elapsed))}
-            {sparkPill}
-            {micPill}
+          <div className="overlay-ticker__group overlay-ticker__group--metrics">
+            {fpsChip}
+            {spark}
+            {show("cpu") &&
+              chip("cpu", <Cpu size={12} />, "CPU", formatPercent(metrics?.cpu), t("overlay.metric.cpu"))}
+            {show("gpu") &&
+              chip("gpu", <Monitor size={12} />, "GPU", formatPercent(metrics?.gpu), t("overlay.metric.gpu"))}
+            {show("cpuTemp") &&
+              chip(
+                "cpuTemp",
+                <Thermometer size={12} />,
+                "CPU°",
+                formatTemp(metrics?.cpuTemp),
+                t("overlay.metric.cpuTemp"),
+              )}
+            {show("gpuTemp") &&
+              chip(
+                "gpuTemp",
+                <ThermometerSun size={12} />,
+                "GPU°",
+                formatTemp(metrics?.gpuTemp),
+                t("overlay.metric.gpuTemp"),
+              )}
+            {show("ram") &&
+              chip("ram", <MemoryStick size={12} />, "RAM", formatPercent(metrics?.ram), t("overlay.metric.ram"))}
+            {show("session") &&
+              chip("session", <Clock size={12} />, null, formatClock(elapsed), t("overlay.group.session"))}
+            {micChip}
           </div>
 
-          {/* Row 2 — capture controls + activity */}
-          <div className="overlay-ticker__row overlay-ticker__row--actions" data-tauri-drag-region="false">
+          <div className="overlay-ticker__group overlay-ticker__group--capture">
             {recChips}
-            {actionButtons}
             {activityBadges}
+            {actionButtons}
+            {expandControl}
           </div>
         </>
       )}

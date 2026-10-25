@@ -1164,3 +1164,20 @@
   border: 0;
   padding-left: 0;
 }
+
+/* Overlay settings toggles rendered by OverlayTab via the shared field
+   primitives. */
+.overlay-toggle-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.overlay-toggle-item input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}

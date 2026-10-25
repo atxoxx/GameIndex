@@ -102,6 +102,7 @@ export default tseslint.config(
       "src/styles/ui-styles/**/*.css",
       "src/styles/bigscreen.css",
       "src/styles/overlay.css",
+      "src/styles/overlay-widgets.css",
     ],
     rules: {
       "gameindex-css/no-hardcoded-length": "off",

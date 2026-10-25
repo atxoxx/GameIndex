@@ -20,6 +20,8 @@ export const baseOverlaySettings: OverlaySettings = {
   tickerWidgets: ["fps"],
   panelWidgets: ["session"],
   tickerLayout: "strip",
+  panelDensity: "comfortable",
+  lastPanelSection: "session",
   backgroundStyle: "glass",
   backgroundBlur: 14,
   backgroundOpacity: 0.72,

@@ -1,58 +1,36 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Accessibility,
-  Sliders,
-  RotateCcw,
-  Gauge,
-  Cpu,
-  Monitor,
-  Clock,
-  Keyboard,
-  Compass,
   Activity,
-  Layers,
-  Blend,
   Camera,
-  Video,
   Circle,
   Clapperboard,
+  Cpu,
+  Gauge,
+  Loader2,
   MemoryStick,
   Mic,
+  Monitor,
   Thermometer,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   useOverlay,
-  type OverlayCorner,
-  type OverlaySettings,
   TICKER_WIDGETS,
-  PANEL_WIDGETS,
-  DEFAULT_OVERLAY_SETTINGS,
+  type OverlaySettings,
 } from "../../../context/OverlayContext";
 import { useLanguage } from "../../../context/LanguageContext";
-import { Card, Button } from "../../ui";
-import { TICKER_LAYOUTS } from "../overlayLayout";
+import { Card } from "../../ui";
+import {
+  DENSITY_OPTIONS,
+  TICKER_LAYOUTS,
+  normalizeDensity,
+  normalizeTickerLayout,
+} from "../overlayLayout";
 import {
   OverlayFieldChips,
   OverlayFieldSlider,
   OverlayFieldToggle,
 } from "../settings/fields";
-
-/** Explicit i18n keys per background mode (kept static so audit:i18n sees them). */
-const BG_KEYS: Record<"glass" | "solid" | "dim", string> = {
-  glass: "overlay.settings.bgGlass",
-  solid: "overlay.settings.bgSolid",
-  dim: "overlay.settings.bgDim",
-};
-
-const CORNERS: { id: OverlayCorner; labelKey: string }[] = [
-  { id: "top-left", labelKey: "settings.overlay.corner.topLeft" },
-  { id: "top-right", labelKey: "settings.overlay.corner.topRight" },
-  { id: "bottom-left", labelKey: "settings.overlay.corner.bottomLeft" },
-  { id: "bottom-right", labelKey: "settings.overlay.corner.bottomRight" },
-];
-
-const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta", "OS"]);
 
 const TICKER_LABELS: Record<string, string> = {
   fps: "overlay.metric.fps",
@@ -63,10 +41,10 @@ const TICKER_LABELS: Record<string, string> = {
   ram: "overlay.metric.ram",
   sparkline: "overlay.ticker.sparkline",
   session: "overlay.widget.session",
-  mic: "overlay.ticker.mic",
-  record: "overlay.ticker.record",
-  replay: "overlay.ticker.replay",
-  screenshot: "overlay.action.screenshot",
+  mic: "overlay.chip.mic",
+  record: "overlay.chip.record",
+  replay: "overlay.chip.replay",
+  screenshot: "overlay.chip.screenshot",
 };
 
 function tickerIcon(key: string) {
@@ -93,9 +71,11 @@ function tickerIcon(key: string) {
     case "screenshot":
       return <Camera size={12} />;
     default:
-      return <Clock size={12} />;
+      return <Activity size={12} />;
   }
 }
+
+const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta", "OS"]);
 
 function acceleratorFromEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;
@@ -110,711 +90,379 @@ function acceleratorFromEvent(event: KeyboardEvent): string | null {
   return parts.join("+");
 }
 
+type HotkeyField = "toggle" | "screenshot" | "video" | "replay";
+
+const CAPTURE_FIELDS: Record<
+  Exclude<HotkeyField, "toggle">,
+  keyof OverlaySettings
+> = {
+  screenshot: "screenshotHotkey",
+  video: "videoHotkey",
+  replay: "replayHotkey",
+};
+
+/**
+ * Quick settings inside the panel: the handful of switches worth touching
+ * mid-game, split into layout, appearance, hotkeys and capture. The long tail
+ * (folders, devices, quality, per-panel widget visibility) stays on the full
+ * Settings → Overlay page, reachable with one button.
+ */
 export default function SettingsWidget() {
-  const { settings, updateSettings, audioDevices, nativeBlurSupported } = useOverlay();
+  const { settings, updateSettings, nativeBlurSupported } = useOverlay();
   const { t } = useLanguage();
-  const [recording, setRecording] = useState(false);
-  const [captureField, setCaptureField] = useState<
-    "screenshot" | "video" | "replay" | null
-  >(null);
+  const [recordingField, setRecordingField] = useState<HotkeyField | null>(null);
 
-  // Key combination capture for hotkey recording
+  const density = normalizeDensity(settings.panelDensity);
+  const layout = normalizeTickerLayout(settings.tickerLayout);
+  const background = settings.backgroundStyle ?? "glass";
+
   useEffect(() => {
-    if (!recording) return;
+    if (!recordingField) return;
     const onKeyDown = (event: KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
       if (event.key === "Escape") {
-        setRecording(false);
+        setRecordingField(null);
         return;
       }
       const accelerator = acceleratorFromEvent(event);
       if (!accelerator) return;
-      setRecording(false);
-      void invoke("overlay_set_hotkey", { accelerator })
-        .then(() => {
-          void updateSettings({ hotkey: accelerator });
-        })
-        .catch((err) => {
-          console.error("Failed to set hotkey:", err);
-        });
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [recording, updateSettings]);
-
-  // Capture-binding recording (screenshot / record / replay hotkeys).
-  useEffect(() => {
-    if (!captureField) return;
-    const FIELD_KEY = {
-      screenshot: "screenshotHotkey",
-      video: "videoHotkey",
-      replay: "replayHotkey",
-    } as const;
-    const onKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === "Escape") {
-        setCaptureField(null);
+      const field = recordingField;
+      setRecordingField(null);
+      if (field === "toggle") {
+        void invoke<OverlaySettings>("overlay_set_hotkey", { accelerator })
+          .then((next) => {
+            if (next) void updateSettings({ hotkey: next.hotkey ?? accelerator });
+          })
+          .catch(() => {
+            /* a conflicting binding keeps the previous one */
+          });
         return;
       }
-      const accelerator = acceleratorFromEvent(event);
-      if (!accelerator) return;
-      const field = captureField;
-      setCaptureField(null);
-      void updateSettings({
-        [FIELD_KEY[field]]: accelerator,
-      } as Partial<OverlaySettings>);
+      void updateSettings({ [CAPTURE_FIELDS[field]]: accelerator });
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [captureField, updateSettings]);
+  }, [recordingField, updateSettings]);
 
-  const handleCornerSelect = (corner: OverlayCorner) => {
-    void invoke("overlay_set_corner", { corner })
-      .then(() => {
-        void updateSettings({ corner, posX: null, posY: null });
-      })
-      .catch((err) => console.error("Corner update failed:", err));
-  };
-
-  const handleToggleWidget = (
-    listKey: "tickerWidgets" | "panelWidgets",
-    item: string,
-    active: boolean,
-  ) => {
-    const list = settings[listKey];
-    const next = active
-      ? [...new Set([...list, item])]
-      : list.filter((i) => i !== item);
-    void updateSettings({ [listKey]: next });
-  };
-
-  const handleResetDefaults = () => {
-    void updateSettings(DEFAULT_OVERLAY_SETTINGS);
-    void invoke("overlay_set_corner", { corner: DEFAULT_OVERLAY_SETTINGS.corner });
-    void invoke("overlay_set_hotkey", { accelerator: DEFAULT_OVERLAY_SETTINGS.hotkey });
-  };
-
-  // Restore the default footprint and re-anchor to the configured corner
-  // (which also clears any dragged position).
-  const handleResetSize = () => {
-    void updateSettings({
-      tickerWidth: DEFAULT_OVERLAY_SETTINGS.tickerWidth,
-      tickerHeight: DEFAULT_OVERLAY_SETTINGS.tickerHeight,
-      panelWidth: DEFAULT_OVERLAY_SETTINGS.panelWidth,
-      panelHeight: DEFAULT_OVERLAY_SETTINGS.panelHeight,
-      posX: null,
-      posY: null,
-    });
-    void invoke("overlay_set_corner", { corner: settings.corner });
+  const toggleTickerWidget = (key: string, on: boolean) => {
+    const next = on
+      ? [...settings.tickerWidgets, key]
+      : settings.tickerWidgets.filter((value) => value !== key);
+    void updateSettings({ tickerWidgets: next });
   };
 
   return (
-    <Card variant="glass" className="overlay-widget overlay-settings-widget">
-      <div className="overlay-widget__head">
-        <span className="overlay-widget__icon" aria-hidden>
-          <Sliders />
-        </span>
-        <h3 className="overlay-widget__title">{t("overlay.settings.title")}</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleResetDefaults}
-          title={t("overlay.settings.resetDefaults")}
-          className="overlay-reset-btn"
-        >
-          <RotateCcw size={12} />
-          <span>{t("overlay.settings.resetDefaults")}</span>
-        </Button>
-      </div>
+    <Card
+      variant="glass"
+      className="overlay-widget overlay-quick"
+      data-testid="overlay-settings-widget"
+    >
+      <section className="overlay-quick__group">
+        <h4 className="overlay-quick__group-title">{t("overlay.settings.layout")}</h4>
 
-      <div className="overlay-settings-list">
-        {/* Section 1: Appearance & Position */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Compass size={13} />
-            <span>{t("overlay.settings.opacity")} & {t("overlay.settings.corner")}</span>
-          </div>
-
-          <OverlayFieldSlider
-            className="overlay-setting-row"
-            infoClassName="overlay-setting-row__info"
-            labelClassName="overlay-setting-row__label"
-            valueClassName="overlay-setting-row__val"
-            inputClassName="overlay-slider"
-            label={t("overlay.settings.opacity")}
-            display={`${Math.round(settings.opacity * 100)}%`}
-            value={settings.opacity}
-            min={0.3}
-            max={1.0}
-            step={0.05}
-            onChange={(value) => void updateSettings({ opacity: value })}
+        <div className="overlay-quick__row">
+          <span className="overlay-quick__label">
+            {t("overlay.settings.density")}
+          </span>
+          <OverlayFieldChips
+            options={DENSITY_OPTIONS.map((option) => ({
+              id: option.id,
+              label: t(option.labelKey),
+              title: t(option.hintKey),
+            }))}
+            value={density}
+            onChange={(next) => void updateSettings({ panelDensity: next })}
+            className="overlay-quick__chips"
+            chipClassName="overlay-quick__chip"
+            activeClassName="is-active"
           />
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.corner")}
-            </span>
-            <OverlayFieldChips
-              className="overlay-corner-grid"
-              chipClassName="overlay-corner-cell"
-              options={CORNERS.map((c) => ({
-                id: c.id,
-                content: (
-                  <>
-                    <div className={`corner-dot corner-dot--${c.id}`} />
-                    <span>{t(c.labelKey)}</span>
-                  </>
-                ),
-              }))}
-              value={settings.corner}
-              onChange={(corner) => handleCornerSelect(corner as OverlayCorner)}
-            />
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.layout")}
-            </span>
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              labelWrap
-              options={TICKER_LAYOUTS.map((option) => ({
-                id: option.id,
-                label: t(option.labelKey),
-                title: t(option.hintKey),
-              }))}
-              value={settings.tickerLayout ?? "strip"}
-              onChange={(layout) => void updateSettings({ tickerLayout: layout })}
-            />
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleResetSize}
-          >
-            <RotateCcw size={12} />
-            <span>{t("overlay.settings.resetSize")}</span>
-          </Button>
         </div>
 
-        {/* Section: Background treatment */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Blend size={13} />
-            <span>{t("overlay.settings.background")}</span>
-          </div>
+        <div className="overlay-quick__row">
+          <span className="overlay-quick__label">
+            {t("overlay.settings.tickerStyle")}
+          </span>
+          <OverlayFieldChips
+            options={TICKER_LAYOUTS.map((option) => ({
+              id: option.id,
+              label: t(option.labelKey),
+              title: t(option.hintKey),
+            }))}
+            value={layout}
+            onChange={(next) => void updateSettings({ tickerLayout: next })}
+            className="overlay-quick__chips"
+            chipClassName="overlay-quick__chip"
+            activeClassName="is-active"
+          />
+        </div>
 
-          <div className="overlay-setting-block">
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              labelWrap
-              options={(["glass", "solid", "dim"] as const).map((mode) => ({
-                id: mode,
-                label: t(BG_KEYS[mode]),
-              }))}
-              value={settings.backgroundStyle ?? "glass"}
-              onChange={(style) => void updateSettings({ backgroundStyle: style })}
-            />
-          </div>
+        <div className="overlay-quick__widgets" role="group" aria-label={t("overlay.settings.tickerWidgets")}>
+          <span className="overlay-quick__sublabel">
+            {t("overlay.settings.tickerWidgets")}
+          </span>
+          {TICKER_WIDGETS.map((key) => {
+            const on = settings.tickerWidgets.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`overlay-quick__chip overlay-quick__chip--icon${
+                  on ? " is-active" : ""
+                }`}
+                aria-pressed={on}
+                onClick={() => toggleTickerWidget(key, !on)}
+                title={t(TICKER_LABELS[key] ?? key)}
+              >
+                {tickerIcon(key)}
+                <span>{t(TICKER_LABELS[key] ?? key)}</span>
+              </button>
+            );
+          })}
+        </div>
 
-          {(settings.backgroundStyle ?? "glass") === "glass" &&
-            nativeBlurSupported && (
-              <OverlayFieldToggle
-                className="overlay-toggle-item"
-                label={t("overlay.settings.nativeBlur")}
-                checked={settings.nativeBlur ?? true}
-                onChange={(on) => void updateSettings({ nativeBlur: on })}
-              />
-            )}
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={
+            <>
+              <span>{t("overlay.settings.clickThrough")}</span>
+              <small>{t("overlay.settings.clickThroughDesc")}</small>
+            </>
+          }
+          checked={Boolean(settings.tickerClickThrough)}
+          onChange={(on) => void updateSettings({ tickerClickThrough: on })}
+        />
+      </section>
 
-          {(settings.backgroundStyle ?? "glass") === "glass" &&
-            !(
-              nativeBlurSupported &&
-              (settings.nativeBlur ?? true) &&
-              !settings.reduceEffects
-            ) && (
-              <OverlayFieldSlider
-                className="overlay-setting-row"
-                infoClassName="overlay-setting-row__info"
-                labelClassName="overlay-setting-row__label"
-                valueClassName="overlay-setting-row__val"
-                inputClassName="overlay-slider"
-                label={t("overlay.settings.bgBlur")}
-                display={`${Math.round(settings.backgroundBlur ?? 14)}px`}
-                value={settings.backgroundBlur ?? 14}
-                min={0}
-                max={30}
-                step={1}
-                onChange={(value) => void updateSettings({ backgroundBlur: value })}
-              />
-            )}
+      <section className="overlay-quick__group">
+        <h4 className="overlay-quick__group-title">
+          {t("overlay.settings.appearance")}
+        </h4>
 
+        <div className="overlay-quick__row">
+          <span className="overlay-quick__label">
+            {t("overlay.settings.background")}
+          </span>
+          <OverlayFieldChips
+            options={[
+              { id: "glass", label: t("overlay.settings.bgGlass") },
+              { id: "solid", label: t("overlay.settings.bgSolid") },
+              { id: "dim", label: t("overlay.settings.bgDim") },
+            ]}
+            value={background}
+            onChange={(next) => void updateSettings({ backgroundStyle: next })}
+            className="overlay-quick__chips"
+            chipClassName="overlay-quick__chip"
+            activeClassName="is-active"
+          />
+        </div>
+
+        <OverlayFieldSlider
+          label={t("overlay.settings.bgOpacity")}
+          value={settings.backgroundOpacity ?? 0.72}
+          min={0.2}
+          max={1}
+          step={0.02}
+          display={`${Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%`}
+          onChange={(value) => void updateSettings({ backgroundOpacity: value })}
+          className="overlay-quick__slider"
+          infoClassName="overlay-quick__slider-head"
+          labelClassName="overlay-quick__label"
+          valueClassName="overlay-quick__value"
+          inputClassName="overlay-quick__range"
+          ariaLabel={t("overlay.settings.bgOpacity")}
+        />
+
+        {background === "glass" && (
           <OverlayFieldSlider
-            className="overlay-setting-row"
-            infoClassName="overlay-setting-row__info"
-            labelClassName="overlay-setting-row__label"
-            valueClassName="overlay-setting-row__val"
-            inputClassName="overlay-slider"
-            label={t("overlay.settings.bgOpacity")}
-            display={`${Math.round((settings.backgroundOpacity ?? 0.72) * 100)}%`}
-            value={settings.backgroundOpacity ?? 0.72}
-            min={0.2}
-            max={1}
-            step={0.02}
-            onChange={(value) => void updateSettings({ backgroundOpacity: value })}
-          />
-
-          <OverlayFieldToggle
-            className="overlay-toggle-item"
-            label={t("overlay.settings.reduceEffects")}
-            checked={settings.reduceEffects ?? false}
-            onChange={(on) => void updateSettings({ reduceEffects: on })}
-          />
-
-          <OverlayFieldToggle
-            className="overlay-toggle-item"
-            label={t("overlay.settings.clickThrough")}
-            checked={settings.tickerClickThrough ?? false}
-            onChange={(on) => void updateSettings({ tickerClickThrough: on })}
-          />
-
-          <OverlayFieldSlider
-            className="overlay-setting-row"
-            infoClassName="overlay-setting-row__info"
-            labelClassName="overlay-setting-row__label"
-            valueClassName="overlay-setting-row__val"
-            inputClassName="overlay-slider"
-            label={t("overlay.settings.tickerAutoDim")}
-            display={
-              settings.tickerAutoDimSeconds
-                ? `${settings.tickerAutoDimSeconds}s`
-                : t("common.off")
-            }
-            value={settings.tickerAutoDimSeconds ?? 0}
+            label={t("overlay.settings.bgBlur")}
+            value={settings.backgroundBlur ?? 14}
             min={0}
-            max={120}
-            step={5}
-            onChange={(value) => void updateSettings({ tickerAutoDimSeconds: value })}
+            max={40}
+            step={1}
+            display={`${Math.round(settings.backgroundBlur ?? 14)}px`}
+            onChange={(value) => void updateSettings({ backgroundBlur: value })}
+            className="overlay-quick__slider"
+            infoClassName="overlay-quick__slider-head"
+            labelClassName="overlay-quick__label"
+            valueClassName="overlay-quick__value"
+            inputClassName="overlay-quick__range"
+            ariaLabel={t("overlay.settings.bgBlur")}
           />
+        )}
 
-          <OverlayFieldSlider
-            className="overlay-setting-row"
-            infoClassName="overlay-setting-row__info"
-            labelClassName="overlay-setting-row__label"
-            valueClassName="overlay-setting-row__val"
-            inputClassName="overlay-slider"
-            label={t("overlay.settings.tickerAutoHide")}
-            display={
-              settings.tickerAutoHideSeconds
-                ? `${settings.tickerAutoHideSeconds}s`
-                : t("common.off")
-            }
-            value={settings.tickerAutoHideSeconds ?? 0}
-            min={0}
-            max={120}
-            step={5}
-            onChange={(value) => void updateSettings({ tickerAutoHideSeconds: value })}
-          />
-        </div>
-
-        {/* Section: Accessibility */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Accessibility size={13} />
-            <span>{t("overlay.settings.accessibility")}</span>
-          </div>
-
+        {nativeBlurSupported && background === "glass" && (
           <OverlayFieldToggle
-            className="overlay-toggle-item"
-            label={t("overlay.settings.highContrast")}
-            checked={settings.highContrast ?? false}
-            onChange={(on) => void updateSettings({ highContrast: on })}
+            className="overlay-quick__toggle"
+            labelClassName="overlay-quick__toggle-label"
+            label={t("overlay.settings.nativeBlur")}
+            checked={Boolean(settings.nativeBlur)}
+            onChange={(on) => void updateSettings({ nativeBlur: on })}
           />
+        )}
 
-          <OverlayFieldSlider
-            className="overlay-setting-row"
-            infoClassName="overlay-setting-row__info"
-            labelClassName="overlay-setting-row__label"
-            valueClassName="overlay-setting-row__val"
-            inputClassName="overlay-slider"
-            label={t("overlay.settings.textScale")}
-            display={`${Math.round((settings.textScale ?? 1) * 100)}%`}
-            value={settings.textScale ?? 1}
-            min={0.9}
-            max={1.4}
-            step={0.05}
-            onChange={(value) => void updateSettings({ textScale: value })}
-          />
-        </div>
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.reduceEffects")}
+          checked={Boolean(settings.reduceEffects)}
+          onChange={(on) => void updateSettings({ reduceEffects: on })}
+        />
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.highContrast")}
+          checked={Boolean(settings.highContrast)}
+          onChange={(on) => void updateSettings({ highContrast: on })}
+        />
 
-        {/* Section 2: Shortcuts & Telemetry */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Activity size={13} />
-            <span>{t("overlay.settings.hotkey")} & {t("overlay.settings.telemetry")}</span>
-          </div>
+        <OverlayFieldSlider
+          label={t("overlay.settings.textScale")}
+          value={settings.textScale ?? 1}
+          min={0.9}
+          max={1.4}
+          step={0.05}
+          display={`${Math.round((settings.textScale ?? 1) * 100)}%`}
+          onChange={(value) => void updateSettings({ textScale: value })}
+          className="overlay-quick__slider"
+          infoClassName="overlay-quick__slider-head"
+          labelClassName="overlay-quick__label"
+          valueClassName="overlay-quick__value"
+          inputClassName="overlay-quick__range"
+          ariaLabel={t("overlay.settings.textScale")}
+        />
+      </section>
 
-          <div className="overlay-setting-row overlay-setting-row--hotkey">
-            <div className="overlay-setting-row__info">
-              <span className="overlay-setting-row__label">
-                <Keyboard size={14} className="mr-1 inline-block" />
-                {t("overlay.settings.hotkey")}
-              </span>
-              <span className="overlay-hotkey-badge">{settings.hotkey}</span>
-            </div>
-            <Button
-              variant={recording ? "primary" : "secondary"}
-              size="sm"
-              onClick={() => setRecording(!recording)}
-              className="overlay-hotkey-record-btn"
-            >
-              {recording
+      <section className="overlay-quick__group">
+        <h4 className="overlay-quick__group-title">{t("overlay.settings.hotkeys")}</h4>
+
+        {(
+          [
+            ["toggle", "overlay.settings.hotkey", settings.hotkey],
+            ["screenshot", "overlay.settings.screenshotHotkey", settings.screenshotHotkey],
+            ["video", "overlay.settings.videoHotkey", settings.videoHotkey],
+            ["replay", "overlay.settings.replayHotkey", settings.replayHotkey],
+          ] as const
+        ).map(([field, labelKey, accelerator]) => (
+          <div className="overlay-quick__hotkey" key={field}>
+            <span className="overlay-quick__label">{t(labelKey)}</span>
+            <kbd className="overlay-quick__kbd">
+              {recordingField === field
                 ? t("overlay.settings.hotkeyRecording")
-                : t("overlay.settings.hotkeyRecord")}
-            </Button>
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.telemetry")}
-            </span>
-            <div className="overlay-toggles-duo">
-              <OverlayFieldToggle
-                className="overlay-toggle-item"
-                label={t("overlay.settings.showTemps")}
-                checked={settings.showTemps}
-                onChange={(on) => void updateSettings({ showTemps: on })}
-              />
-              <OverlayFieldToggle
-                className="overlay-toggle-item"
-                label={t("overlay.settings.showGraphs")}
-                checked={settings.showGraphs}
-                onChange={(on) => void updateSettings({ showGraphs: on })}
-              />
-              <OverlayFieldToggle
-                className="overlay-toggle-item"
-                label={t("overlay.settings.detectCurrentGame")}
-                checked={settings.detectCurrentGame ?? true}
-                onChange={(on) => void updateSettings({ detectCurrentGame: on })}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Capture (screenshots + video) */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Camera size={13} />
-            <span>{t("overlay.settings.capture")}</span>
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.screenshotFormat")}
-            </span>
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              options={["png", "jpg"].map((fmt) => ({
-                id: fmt,
-                content: fmt.toUpperCase(),
-              }))}
-              value={settings.screenshotFormat}
-              onChange={(format) => void updateSettings({ screenshotFormat: format })}
-            />
-          </div>
-
-          <div className="overlay-setting-row overlay-setting-row--hotkey">
-            <div className="overlay-setting-row__info">
-              <span className="overlay-setting-row__label">
-                {t("overlay.settings.screenshotHotkey")}
-              </span>
-              <span className="overlay-hotkey-badge">
-                {settings.screenshotHotkey}
-              </span>
-            </div>
-            <Button
-              variant={captureField === "screenshot" ? "primary" : "secondary"}
-              size="sm"
+                : accelerator || "—"}
+            </kbd>
+            <button
+              type="button"
+              className={`overlay-quick__record${
+                recordingField === field ? " is-recording" : ""
+              }`}
               onClick={() =>
-                setCaptureField((f) => (f === "screenshot" ? null : "screenshot"))
+                setRecordingField((current) => (current === field ? null : field))
               }
+              aria-label={t("overlay.settings.hotkeyRecord")}
             >
-              {captureField === "screenshot"
-                ? t("overlay.settings.hotkeyRecording")
-                : t("overlay.settings.hotkeyRecord")}
-            </Button>
+              {recordingField === field ? <Loader2 size={12} className="overlay-spin" /> : null}
+              {t("overlay.settings.hotkeyRecord")}
+            </button>
           </div>
+        ))}
+      </section>
 
-          <div className="overlay-toggles-duo">
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.screenshotSound")}
-              checked={settings.screenshotSound}
-              onChange={(on) => void updateSettings({ screenshotSound: on })}
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.screenshotFlash")}
-              checked={settings.screenshotFlash}
-              onChange={(on) => void updateSettings({ screenshotFlash: on })}
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.screenshotClipboard")}
-              checked={settings.screenshotCopyToClipboard}
-              onChange={(on) =>
-                void updateSettings({ screenshotCopyToClipboard: on })
-              }
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.screenshotIncludeOverlay")}
-              checked={settings.screenshotIncludeOverlay}
-              onChange={(on) =>
-                void updateSettings({ screenshotIncludeOverlay: on })
-              }
-            />
-          </div>
+      <section className="overlay-quick__group">
+        <h4 className="overlay-quick__group-title">{t("overlay.settings.capture")}</h4>
 
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              <Video size={12} className="mr-1 inline-block" />
-              {t("overlay.settings.video")}
-            </span>
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.screenshotSound")}
+          checked={Boolean(settings.screenshotSound)}
+          onChange={(on) => void updateSettings({ screenshotSound: on })}
+        />
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.screenshotFlash")}
+          checked={Boolean(settings.screenshotFlash)}
+          onChange={(on) => void updateSettings({ screenshotFlash: on })}
+        />
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.screenshotClipboard")}
+          checked={Boolean(settings.screenshotCopyToClipboard)}
+          onChange={(on) => void updateSettings({ screenshotCopyToClipboard: on })}
+        />
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.videoEnable")}
+          checked={Boolean(settings.videoEnabled)}
+          onChange={(on) => void updateSettings({ videoEnabled: on })}
+        />
 
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.videoEnable")}
-              checked={settings.videoEnabled}
-              onChange={(on) => void updateSettings({ videoEnabled: on })}
-            />
+        <OverlayFieldSlider
+          label={t("overlay.settings.replayBuffer")}
+          value={settings.replayBufferSeconds}
+          min={5}
+          max={600}
+          step={5}
+          display={`${settings.replayBufferSeconds}s`}
+          onChange={(value) => void updateSettings({ replayBufferSeconds: value })}
+          className="overlay-quick__slider"
+          infoClassName="overlay-quick__slider-head"
+          labelClassName="overlay-quick__label"
+          valueClassName="overlay-quick__value"
+          inputClassName="overlay-quick__range"
+          ariaLabel={t("overlay.settings.replayBuffer")}
+        />
 
-            <OverlayFieldChips
-              className="overlay-corner-grid"
-              chipClassName="overlay-corner-cell"
-              labelWrap
-              style={{ marginTop: "var(--space-xs)" }}
-              options={[30, 60, 120].map((fps) => ({
-                id: fps,
-                label: `${fps} FPS`,
-              }))}
-              value={settings.videoFps}
-              onChange={(fps) => void updateSettings({ videoFps: fps })}
-            />
+        <OverlayFieldSlider
+          label={t("overlay.settings.videoCountdown")}
+          value={settings.videoCountdownMs}
+          min={0}
+          max={10_000}
+          step={500}
+          display={`${(settings.videoCountdownMs / 1000).toFixed(1)}s`}
+          onChange={(value) => void updateSettings({ videoCountdownMs: value })}
+          className="overlay-quick__slider"
+          infoClassName="overlay-quick__slider-head"
+          labelClassName="overlay-quick__label"
+          valueClassName="overlay-quick__value"
+          inputClassName="overlay-quick__range"
+          ariaLabel={t("overlay.settings.videoCountdown")}
+        />
+      </section>
 
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              style={{ marginTop: "var(--space-xs)" }}
-              options={[
-                { kbps: 6000, key: "overlay.settings.qualityLow" },
-                { kbps: 12000, key: "overlay.settings.qualityMedium" },
-                { kbps: 24000, key: "overlay.settings.qualityHigh" },
-              ].map((opt) => ({
-                id: opt.kbps,
-                content: t(opt.key),
-              }))}
-              value={settings.videoBitrateKbps}
-              onChange={(kbps) => void updateSettings({ videoBitrateKbps: kbps })}
-            />
-
-            <OverlayFieldSlider
-              className="overlay-setting-row"
-              infoClassName="overlay-setting-row__info"
-              labelClassName="overlay-setting-row__label"
-              valueClassName="overlay-setting-row__val"
-              inputClassName="overlay-slider"
-              label={t("overlay.settings.videoCountdown")}
-              display={
-                settings.videoCountdownMs
-                  ? `${(settings.videoCountdownMs / 1000).toFixed(1)}s`
-                  : t("common.off")
-              }
-              value={settings.videoCountdownMs}
-              min={0}
-              max={10000}
-              step={500}
-              onChange={(value) => void updateSettings({ videoCountdownMs: value })}
-            />
-          </div>
-
-          <div className="overlay-setting-row overlay-setting-row--hotkey">
-            <div className="overlay-setting-row__info">
-              <span className="overlay-setting-row__label">
-                {t("overlay.settings.videoHotkey")}
-              </span>
-              <span className="overlay-hotkey-badge">{settings.videoHotkey}</span>
-            </div>
-            <Button
-              variant={captureField === "video" ? "primary" : "secondary"}
-              size="sm"
-              onClick={() =>
-                setCaptureField((f) => (f === "video" ? null : "video"))
-              }
-            >
-              {captureField === "video"
-                ? t("overlay.settings.hotkeyRecording")
-                : t("overlay.settings.hotkeyRecord")}
-            </Button>
-          </div>
-
-          <div className="overlay-setting-row overlay-setting-row--hotkey">
-            <div className="overlay-setting-row__info">
-              <span className="overlay-setting-row__label">
-                {t("overlay.settings.replayHotkey")}
-              </span>
-              <span className="overlay-hotkey-badge">
-                {settings.replayHotkey}
-              </span>
-            </div>
-            <Button
-              variant={captureField === "replay" ? "primary" : "secondary"}
-              size="sm"
-              onClick={() =>
-                setCaptureField((f) => (f === "replay" ? null : "replay"))
-              }
-            >
-              {captureField === "replay"
-                ? t("overlay.settings.hotkeyRecording")
-                : t("overlay.settings.hotkeyRecord")}
-            </Button>
-          </div>
-
-          <div className="overlay-toggles-duo">
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.videoGameAudio")}
-              checked={settings.videoGameAudio}
-              onChange={(on) => void updateSettings({ videoGameAudio: on })}
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.videoMicrophone")}
-              checked={settings.videoMicrophone}
-              onChange={(on) => void updateSettings({ videoMicrophone: on })}
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.videoShowCursor")}
-              checked={settings.videoShowCursor}
-              onChange={(on) => void updateSettings({ videoShowCursor: on })}
-            />
-            <OverlayFieldToggle
-              className="overlay-toggle-item"
-              label={t("overlay.settings.videoHideOverlay")}
-              checked={settings.videoHideOverlay}
-              onChange={(on) => void updateSettings({ videoHideOverlay: on })}
-            />
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.audioDevice")}
-            </span>
-            <select
-              className="overlay-device-select"
-              value={settings.videoAudioDevice ?? ""}
-              onChange={(e) =>
-                void updateSettings({ videoAudioDevice: e.target.value || null })
-              }
-              aria-label={t("overlay.settings.audioDevice")}
-            >
-              <option value="">{t("overlay.settings.deviceDefault")}</option>
-              {audioDevices.output.map((device) => (
-                <option key={device.id} value={device.id}>
-                  {device.name}
-                  {device.isDefault ? " ★" : ""}
-                </option>
-              ))}
-            </select>
-
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.micDevice")}
-            </span>
-            <select
-              className="overlay-device-select"
-              value={settings.videoMicDevice ?? ""}
-              onChange={(e) =>
-                void updateSettings({ videoMicDevice: e.target.value || null })
-              }
-              aria-label={t("overlay.settings.micDevice")}
-            >
-              <option value="">{t("overlay.settings.deviceDefault")}</option>
-              {audioDevices.input.map((device) => (
-                <option key={device.id} value={device.id}>
-                  {device.name}
-                  {device.isDefault ? " ★" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Section 4: Visible Widgets */}
-        <div className="overlay-settings-section">
-          <div className="overlay-settings-section__title">
-            <Layers size={13} />
-            <span>{t("overlay.settings.widgets")}</span>
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.tickerWidgets")}
-            </span>
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              options={TICKER_WIDGETS.map((key) => ({
-                id: key,
-                title: t(TICKER_LABELS[key] ?? key),
-                content: (
-                  <>
-                    {tickerIcon(key)}
-                    <span>{t(TICKER_LABELS[key] ?? key)}</span>
-                  </>
-                ),
-              }))}
-              isActive={(key) => settings.tickerWidgets.includes(key)}
-              onChange={(key) =>
-                handleToggleWidget(
-                  "tickerWidgets",
-                  key,
-                  !settings.tickerWidgets.includes(key),
-                )
-              }
-            />
-          </div>
-
-          <div className="overlay-setting-block">
-            <span className="overlay-setting-block__label">
-              {t("overlay.settings.panelWidgets")}
-            </span>
-            <OverlayFieldChips
-              className="overlay-chips-list"
-              chipClassName="overlay-chip"
-              options={PANEL_WIDGETS.map((key) => ({
-                id: key,
-                label: key.charAt(0).toUpperCase() + key.slice(1),
-              }))}
-              labelWrap
-              isActive={(key) => settings.panelWidgets.includes(key)}
-              onChange={(key) =>
-                handleToggleWidget(
-                  "panelWidgets",
-                  key,
-                  !settings.panelWidgets.includes(key),
-                )
-              }
-            />
-          </div>
-        </div>
-      </div>
+      <section className="overlay-quick__group">
+        <h4 className="overlay-quick__group-title">
+          {t("overlay.settings.telemetry")}
+        </h4>
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.detectCurrentGame")}
+          checked={Boolean(settings.detectCurrentGame)}
+          onChange={(on) => void updateSettings({ detectCurrentGame: on })}
+        />
+        <p className="overlay-quick__note">
+          {t("overlay.settings.detectCurrentGameDesc")}
+        </p>
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.showTemps")}
+          checked={Boolean(settings.showTemps)}
+          onChange={(on) => void updateSettings({ showTemps: on })}
+        />
+        <OverlayFieldToggle
+          className="overlay-quick__toggle"
+          labelClassName="overlay-quick__toggle-label"
+          label={t("overlay.settings.showGraphs")}
+          checked={Boolean(settings.showGraphs)}
+          onChange={(on) => void updateSettings({ showGraphs: on })}
+        />
+      </section>
     </Card>
   );
 }

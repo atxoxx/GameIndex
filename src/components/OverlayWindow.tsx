@@ -19,8 +19,10 @@ import { OverlayAdaptiveTheme } from "./OverlayAdaptiveTheme";
 import "../styles/theme.css";
 import "../styles/themes.css";
 import "../styles/ui.css";
+import "../styles/kpi-tile.css";
 import "../styles/ui-styles/index.css";
 import "../styles/overlay.css";
+import "../styles/overlay-widgets.css";
 
 /**
  * OverlayWindow — entry mounted by the `overlay` webview.
