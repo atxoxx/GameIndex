@@ -1950,6 +1950,8 @@
   align-items: center;
   gap: var(--space-2xs);
   flex-wrap: wrap;
+  min-width: 0;
+  row-gap: var(--space-3xs);
 }
 
 .dlm .dl-cache-badge {
@@ -1961,6 +1963,17 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.dlm .dl-cache-badge-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

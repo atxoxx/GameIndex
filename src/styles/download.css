@@ -1741,6 +1741,8 @@
   align-items: center;
   gap: var(--space-xs);
   flex-wrap: wrap;
+  min-width: 0;
+  row-gap: var(--space-3xs);
 }
 
 .dl-option-heading {
@@ -1763,6 +1765,18 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dl-cache-badge-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dl-cache-badge--checking {

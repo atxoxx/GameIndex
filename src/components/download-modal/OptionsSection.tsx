@@ -37,6 +37,15 @@ export function OptionsSection({
   // — only direct links, which are a single file, hide the option.
   const showChooseFiles = !isDirect;
 
+  const cacheLabel =
+    cacheStatus === "checking"
+      ? t("downloadModal.cacheChecking")
+      : cacheStatus === "cached"
+        ? t("downloadModal.cacheCached")
+        : cacheStatus === "uncached"
+          ? t("downloadModal.cacheUncached")
+          : t("downloadModal.cacheError");
+
   return (
     <div className="dl-options-cards">
       {/* Auto-Extract Option */}
@@ -74,16 +83,13 @@ export function OptionsSection({
             <div className="dl-option-title-row">
               <span className="dl-option-heading">{t("downloadModal.useDebrid")}</span>
               {cacheStatus !== "idle" && (
-                <span className={`dl-cache-badge dl-cache-badge--${cacheStatus}`}>
+                <span
+                  className={`dl-cache-badge dl-cache-badge--${cacheStatus}`}
+                  title={cacheLabel}
+                >
                   {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
                   {cacheStatus === "cached" && "⚡ "}
-                  {cacheStatus === "checking"
-                    ? t("downloadModal.cacheChecking")
-                    : cacheStatus === "cached"
-                      ? t("downloadModal.cacheCached")
-                      : cacheStatus === "uncached"
-                        ? t("downloadModal.cacheUncached")
-                        : t("downloadModal.cacheError")}
+                  <span className="dl-cache-badge-text">{cacheLabel}</span>
                 </span>
               )}
             </div>
