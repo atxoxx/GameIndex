@@ -1,0 +1,392 @@
+/* ============================================================
+   Big Screen — Home
+   ============================================================
+   One hero + shelves. The preset block at the bottom reshapes the
+   composition without duplicating markup.
+   ============================================================ */
+
+.bs-home {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bs-bg);
+}
+
+.bs-home-scroll {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: var(--bs-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+}
+
+.bs-home-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ── Hero ──────────────────────────────────────────────────── */
+
+.bs-home-hero {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: clamp(20rem, 56vh, 34rem);
+  display: flex;
+  align-items: flex-end;
+  padding: var(--bs-gutter);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.bs-home-hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-position: center 22%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.bs-home-hero-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 96%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 82%, transparent) 34%,
+      color-mix(in srgb, var(--bs-bg) 30%, transparent) 68%,
+      color-mix(in srgb, var(--bs-bg) 55%, transparent) 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 0%,
+      color-mix(in srgb, var(--bs-bg) 20%, transparent) 32%,
+      transparent 62%
+    );
+}
+
+.bs-home-hero[data-empty="true"] .bs-home-hero-art {
+  background-image: radial-gradient(
+    120% 120% at 15% 15%,
+    var(--bs-accent-soft),
+    transparent 62%
+  );
+}
+
+.bs-home-hero-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-3);
+  width: min(46rem, 62%);
+  padding-bottom: var(--bs-space-5);
+}
+
+.bs-home-eyebrow {
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-accent);
+}
+
+.bs-home-logo {
+  max-width: min(34rem, 100%);
+  max-height: clamp(4rem, 9vh, 7.5rem);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 0.5rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 65%, transparent));
+}
+
+.bs-home-title {
+  margin: 0;
+  font-size: var(--bs-title-lg);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.bs-home-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-2);
+}
+
+.bs-home-description {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-md);
+  line-height: 1.55;
+}
+
+.bs-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-3);
+  margin-top: var(--bs-space-1);
+}
+
+.bs-home-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-6);
+  margin: var(--bs-space-2) 0 0;
+}
+
+.bs-home-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.bs-home-fact dt {
+  font-size: var(--bs-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bs-home-fact dd {
+  margin: 0;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  color: var(--bs-text);
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+
+.bs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.35rem;
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+  font: inherit;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  transition:
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease),
+    transform var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bs-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.bs-btn:hover {
+  background: var(--bs-surface-3);
+}
+
+.bs-btn--primary {
+  background: var(--bs-accent);
+  border-color: var(--bs-accent);
+  color: var(--bs-accent-contrast);
+}
+
+.bs-btn--primary:hover {
+  background: color-mix(in srgb, var(--bs-accent) 86%, var(--bs-text));
+}
+
+.bs-btn--ghost {
+  background: color-mix(in srgb, var(--bs-bg) 45%, transparent);
+  border-color: var(--bs-border-strong);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bs-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ── Shelves ───────────────────────────────────────────────── */
+
+.bs-home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  padding: 0 var(--bs-gutter);
+}
+
+/* ── Xbox: dashboard band ──────────────────────────────────── */
+
+.bs-shell[data-preset="xbox"] .bs-home-hero {
+  min-height: clamp(14rem, 38vh, 24rem);
+  align-items: flex-end;
+}
+
+.bs-shell[data-preset="xbox"] .bs-home-hero-copy {
+  width: min(42rem, 58%);
+}
+
+/* ── PlayStation: cinematic, centred ───────────────────────── */
+
+.bs-shell[data-preset="playstation"] .bs-home-hero {
+  min-height: clamp(20rem, 58vh, 38rem);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-hero-veil {
+  background:
+    radial-gradient(
+      120% 90% at 50% 32%,
+      transparent 0%,
+      color-mix(in srgb, var(--bs-bg) 42%, transparent) 58%,
+      var(--bs-bg) 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 2%,
+      color-mix(in srgb, var(--bs-bg) 30%, transparent) 38%,
+      transparent 70%
+    );
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-hero-copy {
+  align-items: center;
+  width: min(56rem, 86%);
+  padding-bottom: 0;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-logo {
+  max-height: clamp(5rem, 12vh, 9rem);
+  object-position: center;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-description {
+  max-width: 46rem;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-actions {
+  justify-content: center;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-facts {
+  justify-content: center;
+  gap: var(--bs-space-5);
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-fact {
+  align-items: center;
+}
+
+.bs-shell[data-preset="playstation"] .bs-home-rows {
+  margin-top: calc(var(--bs-space-7) * -1);
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Steam: compact banner over dense shelves ──────────────── */
+
+.bs-shell[data-preset="steam"] .bs-home-hero {
+  min-height: clamp(12rem, 30vh, 18rem);
+  padding-bottom: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="steam"] .bs-home-hero-copy {
+  width: min(40rem, 70%);
+  padding-bottom: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="steam"] .bs-home-logo {
+  max-height: 3.6rem;
+}
+
+.bs-shell[data-preset="steam"] .bs-home-description {
+  display: none;
+}
+
+.bs-shell[data-preset="steam"] .bs-home-facts {
+  display: none;
+}
+
+.bs-shell[data-preset="steam"] .bs-home-rows {
+  gap: var(--bs-space-4);
+}
+
+/* ── Switch: flat grid of tiles ────────────────────────────── */
+
+.bs-shell[data-preset="switch"] .bs-home-hero {
+  min-height: clamp(9rem, 20vh, 13rem);
+  padding-bottom: 0;
+}
+
+.bs-shell[data-preset="switch"] .bs-home-hero-art {
+  opacity: 0.5;
+}
+
+.bs-shell[data-preset="switch"] .bs-home-hero-veil {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bs-bg) 92%, transparent) 0%,
+    color-mix(in srgb, var(--bs-bg) 55%, transparent) 62%,
+    color-mix(in srgb, var(--bs-bg) 82%, transparent) 100%
+  );
+}
+
+.bs-shell[data-preset="switch"] .bs-home-hero-copy {
+  width: min(38rem, 76%);
+  padding-bottom: var(--bs-space-4);
+}
+
+.bs-shell[data-preset="switch"] .bs-home-description,
+.bs-shell[data-preset="switch"] .bs-home-facts {
+  display: none;
+}
+
+/* Rails become square tile grids on Switch. */
+.bs-shell[data-preset="switch"] .bs-home-rows .bigscreen-rail-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--bs-card-min), 1fr));
+  gap: var(--bs-card-gap);
+  overflow: visible;
+}
+
+.bs-shell[data-preset="switch"] .bs-home-rows .bigscreen-rail-item {
+  width: auto;
+}
+
+.bs-shell[data-preset="switch"] .bs-home-rows .bigscreen-rail-fade {
+  display: none;
+}
+
+/* ── Classic: spotlight with facts card ────────────────────── */
+
+.bs-shell[data-preset="classic"] .bs-home-hero {
+  min-height: clamp(20rem, 48vh, 30rem);
+}
+
+@media (max-width: 900px) {
+  .bs-home-hero-copy {
+    width: 100%;
+  }
+
+  .bs-home-hero {
+    min-height: 18rem;
+  }
+
+  .bs-home-facts {
+    gap: var(--bs-space-4);
+  }
+}

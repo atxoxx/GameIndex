@@ -66,7 +66,7 @@ export const REPEAT_INTERVAL_MS = 90;
 
 /** Containers whose in-track candidates win horizontal navigation. */
 export const HORIZONTAL_TRACK_SELECTOR =
-  ".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, .bigscreen-v3-sections, [data-rail-id]";
+  ".bigscreen-rail-track, .bigscreen-cards, .bs-nav-track[data-orientation=\"horizontal\"], [data-rail-id]";
 
 /**
  * Tracks that cycle at their edges. Content rails (`[data-rail-id]`)
@@ -107,6 +107,37 @@ export const BACK_PRIORITY_SHELL = -100;
 export const SCROLL_MARGIN_TOP = 120;
 /** Vertical scroll-parent inset below the focused element (px). */
 export const SCROLL_MARGIN_BOTTOM = 48;
+
+/**
+ * Live scroll margins.
+ *
+ * The shell publishes its chrome height as `--bs-safe-top` /
+ * `--bs-safe-bottom` (see `styles/bigscreen/tokens.css`), so a preset
+ * with a taller nav, a side rail or a squeezed Deck layout still keeps
+ * the focused card clear of the chrome. The constants above are the
+ * fallback for tests and desktop mode, where the tokens are absent.
+ */
+export function scrollMargins(): { top: number; bottom: number } {
+  if (
+    typeof document === "undefined" ||
+    typeof getComputedStyle !== "function"
+  ) {
+    return { top: SCROLL_MARGIN_TOP, bottom: SCROLL_MARGIN_BOTTOM };
+  }
+  const style = getComputedStyle(document.documentElement);
+  const rootPx = parseFloat(style.fontSize) || 16;
+  const read = (name: string, fallback: number) => {
+    const raw = style.getPropertyValue(name).trim();
+    if (!raw) return fallback;
+    const value = parseFloat(raw);
+    if (!Number.isFinite(value)) return fallback;
+    return raw.endsWith("rem") ? value * rootPx : value;
+  };
+  return {
+    top: read("--bs-safe-top", SCROLL_MARGIN_TOP),
+    bottom: read("--bs-safe-bottom", SCROLL_MARGIN_BOTTOM),
+  };
+}
 
 // ── Spatial-index tuning ────────────────────────────────────────
 // The picker reads each candidate's rect exactly once per
@@ -424,8 +455,8 @@ export function scrollElementIntoViewControlled(
   if (scrollParent) {
     const elRect = el.getBoundingClientRect();
     const parentRect = scrollParent.getBoundingClientRect();
-    const topMargin = SCROLL_MARGIN_TOP; // Account for 92px header + buffer
-    const bottomMargin = SCROLL_MARGIN_BOTTOM;
+    const topMargin = scrollMargins().top;
+    const bottomMargin = scrollMargins().bottom;
 
     if (elRect.top < parentRect.top + topMargin) {
       const diff = parentRect.top + topMargin - elRect.top;

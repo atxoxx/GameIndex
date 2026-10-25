@@ -1,0 +1,198 @@
+/* ============================================================
+   Big Screen — Library
+   ============================================================
+   Fixed header (title + filter chips) above a scroll-owning grid.
+   Column width, gap and card shape come from the preset tokens, so
+   the same markup reads as posters, landscape tiles or squares.
+   ============================================================ */
+
+.bigscreen-library-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.bigscreen-library-header-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-4) var(--bs-gutter) var(--bs-space-3);
+  border-bottom: 1px solid var(--bs-border-soft);
+  background: color-mix(in srgb, var(--bs-bg) 70%, transparent);
+}
+
+.bigscreen-library-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bs-space-3);
+  min-width: 0;
+}
+
+.bigscreen-library-title {
+  margin: 0;
+  font-size: var(--bs-title-md);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.bigscreen-library-count {
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-library-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-3);
+  min-width: 0;
+}
+
+.bigscreen-library-tools__label {
+  flex: 0 0 auto;
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-library-chips-row {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.bigscreen-library-chips-row::-webkit-scrollbar {
+  height: 0;
+}
+
+.bigscreen-filter-chip {
+  flex: 0 0 auto;
+}
+
+.bigscreen-filter-chip--search {
+  gap: 0.45rem;
+  padding: 0.2rem 0.75rem;
+  cursor: text;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-filter-chip--search svg {
+  color: var(--bs-text-faint);
+  flex: 0 0 auto;
+}
+
+.bigscreen-filter-chip--search input {
+  width: 9.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--bs-text);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  outline: none;
+}
+
+.bigscreen-filter-chip--search input::placeholder {
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-filter-chip--search.search-active {
+  border-color: var(--bs-accent);
+  background: var(--bs-surface-2);
+}
+
+.bigscreen-library-grid-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--bs-space-4) var(--bs-gutter) var(--bs-space-6);
+  scroll-behavior: smooth;
+}
+
+.bigscreen-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--bs-card-min), 1fr));
+  column-gap: var(--bs-card-gap);
+  row-gap: var(--bs-card-gap);
+  align-content: start;
+}
+
+.bigscreen-library-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 18rem;
+  padding: var(--bs-space-6);
+  text-align: center;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-library-empty-state h3 {
+  margin: 0;
+  font-size: var(--bs-title-sm);
+  color: var(--bs-text);
+}
+
+.bigscreen-library-empty-state p {
+  margin: 0;
+  font-size: var(--bs-text-sm);
+  color: var(--bs-text-faint);
+}
+
+/* ── Preset adjustments ────────────────────────────────────── */
+
+/* Steam: denser grid, quieter header (the rail already names the page). */
+.bs-shell[data-preset="steam"] .bigscreen-library-header-section {
+  padding-top: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-library-title {
+  font-size: var(--bs-title-sm);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-library-tools__label {
+  display: none;
+}
+
+/* PlayStation: airier grid with a wider left gutter. */
+.bs-shell[data-preset="playstation"] .bigscreen-library-grid-container {
+  padding-top: var(--bs-space-5);
+}
+
+/* Switch: tiles hug the top of the screen. */
+.bs-shell[data-preset="switch"] .bigscreen-library-grid-container {
+  padding-top: var(--bs-space-3);
+}
+
+/* ── Mods / emulators re-use this chrome ───────────────────── */
+
+.bigscreen-tile-glyph {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-accent-soft);
+  color: var(--bs-accent);
+}
+
+@media (max-width: 900px) {
+  .bigscreen-library-title-row {
+    flex-wrap: wrap;
+    gap: var(--bs-space-2);
+  }
+
+  .bigscreen-library-tools__label {
+    display: none;
+  }
+}

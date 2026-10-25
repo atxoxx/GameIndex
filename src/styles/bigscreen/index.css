@@ -1,0 +1,20 @@
+/* ============================================================
+   Big Screen — stylesheet barrel
+   ============================================================
+   Imported lazily when Big Screen Mode turns on (see
+   BigScreenContext), so the desktop bundle never pays for it.
+   Order matters: tokens → shell → presets → pages.
+   ============================================================ */
+
+@import "./tokens.css";
+@import "./shell.css";
+@import "./presets.css";
+@import "./pages/shared.css";
+@import "./pages/home.css";
+@import "./pages/library.css";
+@import "./pages/game.css";
+@import "./pages/store.css";
+@import "./pages/discover.css";
+@import "./pages/friends.css";
+@import "./pages/system.css";
+@import "./pages/misc.css";

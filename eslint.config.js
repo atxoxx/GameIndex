@@ -96,11 +96,11 @@ export default tseslint.config(
     },
   },
   {
-    // Intentional alternate skins (ui-styles) and the out-of-scope Big Picture /
-    // overlay stylesheets keep their deliberate geometry literals.
+    // Intentional alternate skins (ui-styles) and the TV shell / overlay
+    // stylesheets keep their deliberate geometry literals.
     files: [
       "src/styles/ui-styles/**/*.css",
-      "src/styles/bigscreen.css",
+      "src/styles/bigscreen/**/*.css",
       "src/styles/overlay.css",
       "src/styles/overlay-widgets.css",
     ],

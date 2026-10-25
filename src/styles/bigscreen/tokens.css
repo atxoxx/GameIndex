@@ -1,0 +1,198 @@
+/* ============================================================
+   Big Screen — design tokens
+   ============================================================
+   Everything the TV shell draws resolves through these tokens.
+   Colours follow the active app theme (accent included); geometry
+   follows the layout preset. Page stylesheets must not invent values:
+   if a size or colour is missing, add a token here first.
+
+   Tokens live on :root and are re-pointed per preset on
+   `html[data-bs-preset]` so portaled overlays (which live outside
+   .bs-shell) resolve the same geometry as the shell.
+   ============================================================ */
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --bs-bg: var(--color-bg-primary);
+  --bs-bg-deep: var(--scrim-dark-soft);
+  --bs-bg-raised: var(--color-bg-secondary);
+  --bs-text: var(--color-text-primary);
+  --bs-text-dim: color-mix(in srgb, var(--bs-text) 62%, transparent);
+  --bs-text-faint: color-mix(in srgb, var(--bs-text) 42%, transparent);
+  --bs-surface-1: color-mix(in srgb, var(--bs-text) 5%, transparent);
+  --bs-surface-2: color-mix(in srgb, var(--bs-text) 9%, transparent);
+  --bs-surface-3: color-mix(in srgb, var(--bs-text) 15%, transparent);
+  --bs-surface-solid: color-mix(in srgb, var(--bs-bg) 92%, var(--bs-text) 8%);
+  --bs-border: color-mix(in srgb, var(--bs-text) 12%, transparent);
+  --bs-border-soft: color-mix(in srgb, var(--bs-text) 7%, transparent);
+  --bs-border-strong: color-mix(in srgb, var(--bs-text) 24%, transparent);
+
+  /* ── Accent (always the theme's) ──────────────────────────── */
+  --bs-accent: var(--color-accent);
+  --bs-accent-contrast: var(--color-accent-contrast);
+  --bs-accent-glow: var(--color-accent-glow);
+  --bs-accent-soft: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  --bs-accent-line: color-mix(in srgb, var(--color-accent) 55%, transparent);
+
+  /* ── Status ───────────────────────────────────────────────── */
+  --bs-success: var(--color-success);
+  --bs-warning: var(--color-warning);
+  --bs-danger: var(--color-danger);
+  --bs-info: var(--color-info);
+
+  /* ── Typography ───────────────────────────────────────────── */
+  --bs-font: var(--font-family-sans);
+  --bs-text-xs: 0.72rem;
+  --bs-text-sm: 0.82rem;
+  --bs-text-md: 0.94rem;
+  --bs-text-lg: 1.08rem;
+  --bs-title-sm: clamp(1.35rem, 1.6vw, 1.7rem);
+  --bs-title-md: clamp(1.8rem, 2.4vw, 2.6rem);
+  --bs-title-lg: clamp(2.6rem, 4.2vw, 4.2rem);
+  --bs-tracking-wide: 0.14em;
+  --bs-weight-medium: 500;
+  --bs-weight-bold: 700;
+
+  /* ── Geometry ─────────────────────────────────────────────── */
+  --bs-radius-xs: 0.35rem;
+  --bs-radius-sm: 0.5rem;
+  --bs-radius-md: 0.7rem;
+  --bs-radius-lg: 1rem;
+  --bs-radius-card: 0.7rem;
+  --bs-radius-pill: 999px;
+
+  --bs-space-1: 0.28rem;
+  --bs-space-2: 0.45rem;
+  --bs-space-3: 0.7rem;
+  --bs-space-4: 1rem;
+  --bs-space-5: 1.4rem;
+  --bs-space-6: 2rem;
+  --bs-space-7: 2.8rem;
+  --bs-gutter: clamp(1.4rem, 2.6vw, 3.2rem);
+
+  --bs-topbar-h: 4.1rem;
+  --bs-nav-h: 4.4rem;
+  --bs-footer-h: 3rem;
+  --bs-rail-w: 15.5rem;
+
+  --bs-card-aspect: 16 / 9;
+  --bs-card-min: 16rem;
+  --bs-card-gap: 1rem;
+  --bs-card-radius: var(--bs-radius-card);
+  --bs-card-pad: 0;
+
+  --bs-safe-top: calc(var(--bs-topbar-h) + var(--bs-nav-h) + 0.5rem);
+  --bs-safe-bottom: calc(var(--bs-footer-h) + 0.5rem);
+
+  /* ── Focus ────────────────────────────────────────────────── */
+  --bs-focus-ring: 0 0 0 0.16rem var(--bs-bg), 0 0 0 0.32rem var(--bs-accent);
+  --bs-focus-glow: 0 0.35rem 1.6rem var(--bs-accent-glow);
+
+  /* ── Motion ───────────────────────────────────────────────── */
+  --bs-dur-fast: var(--duration-fast, 120ms);
+  --bs-dur: var(--duration-normal, 220ms);
+  --bs-dur-slow: 420ms;
+  --bs-ease: var(--ease-standard, cubic-bezier(0.2, 0.7, 0.2, 1));
+  --bs-ease-enter: var(--ease-enter, cubic-bezier(0.16, 1, 0.3, 1));
+  --bs-enter-y: 0.8rem;
+
+  /* ── Elevation ────────────────────────────────────────────── */
+  --bs-shadow-panel: 0 1.5rem 3.5rem color-mix(in srgb, var(--bs-bg-deep) 70%, transparent);
+  --bs-shadow-card: 0 0.6rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 45%, transparent);
+}
+
+/* Light theme keeps the shell cinematic: surfaces re-point to the
+   theme's dark scrim so a 10ft screen never blinds, while the accent
+   still tracks the light theme. */
+[data-theme="light"] {
+  --bs-bg: var(--scrim-dark-soft);
+  --bs-bg-raised: color-mix(in srgb, var(--scrim-dark) 88%, var(--color-bg-secondary) 12%);
+  --bs-text: var(--scrim-text);
+  --bs-border: var(--scrim-border);
+  --bs-surface-solid: color-mix(in srgb, var(--scrim-dark) 92%, var(--scrim-text) 8%);
+}
+
+/* ── Preset geometry ──────────────────────────────────────────
+   Only geometry, density and motion differ per preset. Colour is
+   never preset-scoped: the app theme owns it everywhere. */
+
+:where([data-bs-preset="xbox"], [data-preset="xbox"]) {
+  --bs-topbar-h: 4rem;
+  --bs-nav-h: 4.9rem;
+  --bs-card-aspect: 16 / 9;
+  --bs-card-min: 15.5rem;
+  --bs-card-gap: 1rem;
+  --bs-card-radius: 0.7rem;
+  --bs-title-lg: clamp(2.8rem, 4.6vw, 4.6rem);
+  --bs-enter-y: 1rem;
+}
+
+:where([data-bs-preset="steam"], [data-preset="steam"]) {
+  --bs-topbar-h: 3.4rem;
+  --bs-nav-h: 0rem;
+  --bs-rail-w: 15rem;
+  --bs-card-aspect: 2 / 3;
+  --bs-card-min: 10.5rem;
+  --bs-card-gap: 0.7rem;
+  --bs-card-radius: 0.35rem;
+  --bs-title-lg: clamp(1.7rem, 2.2vw, 2.3rem);
+  --bs-enter-y: 0.35rem;
+}
+
+:where([data-bs-preset="playstation"], [data-preset="playstation"]) {
+  --bs-topbar-h: 3.6rem;
+  --bs-nav-h: 3.9rem;
+  --bs-card-aspect: 16 / 9;
+  --bs-card-min: 20rem;
+  --bs-card-gap: 1.3rem;
+  --bs-card-radius: 1.1rem;
+  --bs-title-lg: clamp(3rem, 5vw, 5rem);
+  --bs-enter-y: 1.2rem;
+}
+
+:where([data-bs-preset="switch"], [data-preset="switch"]) {
+  --bs-topbar-h: 3.6rem;
+  --bs-nav-h: 5.1rem;
+  --bs-card-aspect: 1 / 1;
+  --bs-card-min: 12rem;
+  --bs-card-gap: 1.1rem;
+  --bs-card-radius: 1rem;
+  --bs-title-lg: clamp(2rem, 2.8vw, 2.8rem);
+  --bs-enter-y: 0.5rem;
+}
+
+:where([data-bs-preset="classic"], [data-preset="classic"]) {
+  --bs-topbar-h: 4.1rem;
+  --bs-nav-h: 4.4rem;
+  --bs-card-aspect: 2 / 3;
+  --bs-card-min: 11.5rem;
+  --bs-card-gap: 1rem;
+  --bs-card-radius: 0.8rem;
+  --bs-title-lg: clamp(2.6rem, 4.2vw, 4.2rem);
+}
+
+/* Handheld / Steam Deck: shrink the whole rem ladder. */
+@media (max-width: 1280px), (max-height: 800px) {
+  :root {
+    --bs-topbar-h: 3.6rem;
+    --bs-nav-h: 4rem;
+    --bs-footer-h: 2.7rem;
+    --bs-rail-w: 12.5rem;
+  }
+}
+
+@media (min-width: 1921px) and (max-width: 2560px) {
+  :root {
+    --bs-topbar-h: 4.6rem;
+    --bs-nav-h: 5rem;
+    --bs-footer-h: 3.3rem;
+  }
+}
+
+@media (min-width: 2561px) {
+  :root {
+    --bs-topbar-h: 5rem;
+    --bs-nav-h: 5.6rem;
+    --bs-footer-h: 3.6rem;
+  }
+}

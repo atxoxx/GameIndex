@@ -1,0 +1,1469 @@
+/* ============================================================
+   Big Screen — Game Hub
+   ============================================================
+   Shared by the library game hub and the store detail page: a
+   cinematic hero band, the tab spine and one scroll region per
+   tab. Nothing here scrolls the shell — the page is a flex column
+   and each tab panel owns its own overflow.
+
+   The preset block at the end reshapes the hero (alignment, scrim,
+   density) without any markup change.
+   ============================================================ */
+
+/* ── Page frame ────────────────────────────────────────────── */
+
+.bigscreen-gamepage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bs-bg);
+  color: var(--bs-text);
+}
+
+/* ── Hero ──────────────────────────────────────────────────── */
+
+/* A header band, not a landing page: the tab bar below it is the
+   navigation spine, so the art must not swallow the fold. */
+.bigscreen-gamepage-hero {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: clamp(13rem, 30vh, 20rem);
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 140% at 10% 4%, var(--bs-surface-2), transparent 62%),
+    var(--bs-bg);
+  border-bottom: 1px solid var(--bs-border-soft);
+}
+
+.bigscreen-gamepage-hero-content {
+  /* A flex item, so z-index applies without `position: relative` —
+     which keeps the back chip's containing block on the hero. */
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--bs-space-5);
+  min-width: 0;
+  padding: calc(var(--bs-space-7) + var(--bs-space-4)) var(--bs-gutter)
+    var(--bs-space-5);
+}
+
+/* ── Hero art layers ───────────────────────────────────────── */
+
+.bigscreen-gamepage-hero-bg-video,
+.bigscreen-gamepage-hero-bg-animated,
+.bigscreen-gamepage-hero-bg-cycle,
+.bigscreen-gamepage-hero-bg-static {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bigscreen-gamepage-hero-bg-video video,
+.bigscreen-gamepage-hero-bg-cycle img,
+.bigscreen-gamepage-hero-bg-animated img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Cycling screenshots: two slides mounted at all times so the
+   incoming frame is decoded before the opacity flip. */
+.bigscreen-gamepage-hero-bg-cycle {
+  background: var(--bs-bg);
+}
+
+.bigscreen-gamepage-hero-bg-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--bs-dur-slow) var(--bs-ease);
+}
+
+.bigscreen-gamepage-hero-bg-slide--visible {
+  opacity: 1;
+}
+
+.bigscreen-gamepage-hero-bg-slide--fading {
+  opacity: 0;
+}
+
+.bigscreen-gamepage-hero-bg-slide img {
+  transform: scale(1.04);
+  animation: bs-game-ken-burns 18s var(--bs-ease) infinite alternate;
+}
+
+/* Opposite drift origins so a cross-fade between two stills never looks
+   like the same frame fading against itself. */
+.bigscreen-gamepage-hero-bg-slide--even img {
+  transform-origin: 40% 50%;
+}
+
+.bigscreen-gamepage-hero-bg-slide--odd img {
+  transform-origin: 62% 50%;
+}
+
+/* One still has nothing to cross-fade, so its drift is slower and
+   one-way: a slideshow that never advances reads as broken. */
+.bigscreen-gamepage-hero-bg-cycle[data-slides="1"]
+  .bigscreen-gamepage-hero-bg-slide
+  img {
+  animation-duration: 28s;
+}
+
+.bigscreen-gamepage-hero-bg-cycle[data-paused="true"]
+  .bigscreen-gamepage-hero-bg-slide
+  img {
+  animation-play-state: paused;
+}
+
+@keyframes bs-game-ken-burns {
+  from {
+    transform: scale(1.03) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.09) translate3d(1%, -0.6%, 0);
+  }
+}
+
+/* Animated hero (SteamGridDB APNG / WebP): the static poster paints
+   first, the animation fades in once its first frame has decoded. */
+.bigscreen-gamepage-hero-bg-animated-poster,
+.bigscreen-gamepage-hero-bg-animated-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.04);
+}
+
+.bigscreen-gamepage-hero-bg-animated-img {
+  opacity: 0;
+  transition: opacity var(--bs-dur-slow) var(--bs-ease);
+}
+
+.bigscreen-gamepage-hero-bg-animated-img.is-loaded {
+  opacity: 1;
+}
+
+.bigscreen-gamepage-hero-bg-static {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+}
+
+/* ── Hero scrims ───────────────────────────────────────────── */
+
+.bigscreen-gamepage-hero-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 94%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 58%, transparent) 42%,
+      color-mix(in srgb, var(--bs-bg) 16%, transparent) 68%,
+      transparent 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 0%,
+      color-mix(in srgb, var(--bs-bg) 78%, transparent) 24%,
+      color-mix(in srgb, var(--bs-bg) 18%, transparent) 72%,
+      color-mix(in srgb, var(--bs-bg) 46%, transparent) 100%
+    );
+}
+
+/* Accent wash over the art; `screen` keeps it a glow, never a block. */
+.bigscreen-gamepage-hero-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  background:
+    radial-gradient(
+      ellipse 90% 70% at 12% 96%,
+      var(--bs-accent-soft),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 92% 40%,
+      color-mix(in srgb, var(--bs-info) 10%, transparent),
+      transparent 66%
+    );
+}
+
+.bigscreen-gamepage-hero-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  height: 0.125rem;
+  pointer-events: none;
+  opacity: 0.45;
+  background: linear-gradient(
+    90deg,
+    transparent 6%,
+    var(--bs-accent-line) 50%,
+    transparent 94%
+  );
+}
+
+/* ── Hero content ──────────────────────────────────────────── */
+
+.bigscreen-gamepage-hero-back {
+  position: absolute;
+  top: var(--bs-space-4);
+  left: var(--bs-gutter);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  min-height: 2.6rem;
+  padding: var(--bs-space-1) var(--bs-space-4) var(--bs-space-1) var(--bs-space-3);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg) 62%, transparent);
+  color: var(--bs-text-dim);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    color var(--bs-dur-fast) var(--bs-ease),
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease),
+    transform var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bigscreen-gamepage-hero-back svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+}
+
+.bigscreen-gamepage-hero-back:hover,
+.bigscreen-gamepage-hero-back[data-focused="true"] {
+  color: var(--bs-text);
+  background: var(--bs-surface-2);
+  border-color: var(--bs-border-strong);
+  transform: translateX(-0.15rem);
+}
+
+.bigscreen-gamepage-hero-back[data-focused="true"] {
+  box-shadow: var(--bs-focus-glow);
+}
+
+.bigscreen-gamepage-hero-main {
+  display: flex;
+  flex: 1 1 30rem;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  min-width: 0;
+  max-width: 62rem;
+}
+
+.bigscreen-gamepage-hero-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-2);
+  min-width: 0;
+}
+
+.bigscreen-gamepage-hero-logo {
+  display: block;
+  max-width: min(26rem, 100%);
+  max-height: clamp(3.2rem, 8vh, 5.6rem);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(
+    0 0.5rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 70%, transparent)
+  );
+}
+
+.bigscreen-gamepage-hero-title {
+  margin: 0;
+  font-size: var(--bs-title-lg);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  color: var(--bs-text);
+  text-shadow: 0 0.4rem 1.6rem
+    color-mix(in srgb, var(--bs-bg-deep) 80%, transparent);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.bigscreen-gamepage-hero-subtitle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-2);
+}
+
+.bigscreen-gamepage-hero-subtitle {
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-medium);
+  letter-spacing: 0.01em;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-gamepage-hero-subtitle-dot {
+  width: 0.25rem;
+  height: 0.25rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--bs-text-faint);
+}
+
+/* Identity + live state only; the numbers live in the facts card. */
+.bigscreen-gamepage-meta-strip,
+.bigscreen-gamepage-meta-strip-inline {
+  margin-top: var(--bs-space-1);
+}
+
+/* Pill sizes and the muted tone are page-level bricks: the shared
+   sheet only carries the base pill and the status tones. */
+.bigscreen-gamepage .bigscreen-pill--sm {
+  padding: var(--bs-space-1) var(--bs-space-3);
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage .bigscreen-pill--md {
+  padding: var(--bs-space-1) var(--bs-space-3);
+  font-size: var(--bs-text-sm);
+}
+
+.bigscreen-gamepage .bigscreen-pill--muted {
+  color: var(--bs-text-dim);
+  background: var(--bs-surface-1);
+  border-color: var(--bs-border-soft);
+}
+
+.bigscreen-gamepage .bigscreen-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.bigscreen-gamepage .bigscreen-pill-label {
+  white-space: nowrap;
+}
+
+/* Numbers a player checks before pressing Play, kept out of the pill
+   strip so neither row has to compete for width. */
+.bigscreen-gamepage-hero-facts {
+  flex: 0 1 auto;
+  align-self: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(5.5rem, auto));
+  gap: var(--bs-space-3) var(--bs-space-5);
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-lg);
+  background: color-mix(in srgb, var(--bs-bg) 52%, transparent);
+  box-shadow: var(--bs-shadow-card);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+.bigscreen-gamepage-hero-facts .bigscreen-fact__value {
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  font-variant-numeric: tabular-nums;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bigscreen-gamepage-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-2);
+  margin-top: var(--bs-space-2);
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn {
+  min-height: 2.75rem;
+  padding: var(--bs-space-2) var(--bs-space-4);
+  font-size: var(--bs-text-sm);
+}
+
+/* The one big call in the row — whichever action currently owns it
+   (Play, Install, Force Close) is styled by the marker, not the tone. */
+.bigscreen-gamepage-hero-actions
+  .bigscreen-details-btn[data-primary-action="true"] {
+  min-width: 9rem;
+  padding: var(--bs-space-3) var(--bs-space-6);
+  font-size: var(--bs-text-lg);
+  box-shadow: var(--bs-shadow-card);
+}
+
+.bigscreen-gamepage-hero-actions
+  .bigscreen-details-btn[data-primary-action="true"]
+  svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn[data-focused="true"] {
+  box-shadow: var(--bs-focus-glow);
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-gamepage-hero-btn--trailer {
+  background: var(--bs-accent-soft);
+  border-color: var(--bs-accent-line);
+  color: var(--bs-text);
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-gamepage-hero-btn--trailer:hover,
+.bigscreen-gamepage-hero-actions
+  .bigscreen-gamepage-hero-btn--trailer[data-focused="true"] {
+  background: color-mix(in srgb, var(--bs-accent) 28%, transparent);
+  border-color: var(--bs-accent);
+}
+
+.bigscreen-gamepage-hero-btn-spinner {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 0.16rem solid
+    color-mix(in srgb, var(--bs-accent-contrast) 35%, transparent);
+  border-top-color: var(--bs-accent-contrast);
+  animation: bs-game-spin 700ms linear infinite;
+}
+
+@keyframes bs-game-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Tab spine ─────────────────────────────────────────────── */
+
+.bigscreen-gamepage > .bigscreen-tab-bar {
+  flex: 0 0 auto;
+  z-index: 3;
+  gap: var(--bs-space-2);
+  padding: var(--bs-space-1) var(--bs-gutter);
+  background: color-mix(in srgb, var(--bs-bg) 88%, transparent);
+  border-bottom: 1px solid var(--bs-border-soft);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--bs-space-1);
+  scroll-behavior: smooth;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--bs-space-2);
+  min-height: 2.5rem;
+  padding: var(--bs-space-2) var(--bs-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--bs-radius-sm);
+  background: transparent;
+  color: var(--bs-text-dim);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--bs-dur-fast) var(--bs-ease),
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab:hover {
+  color: var(--bs-text);
+  background: var(--bs-surface-1);
+}
+
+/* Seven labels are the page's only navigation: never truncate them. */
+.bigscreen-gamepage .bigscreen-tab-bar-tab-label {
+  display: inline-block;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab-icon {
+  display: inline-flex;
+  opacity: 0.75;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab-icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab-count {
+  padding: calc(var(--bs-space-1) * 0.25) var(--bs-space-2);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-3);
+  color: var(--bs-text);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shared bumper brick is a fixed icon box; this strip carries a
+   label next to the chevron, so it sizes to its content. */
+.bigscreen-gamepage .bigscreen-tab-bar-bumper {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--bs-space-1) * 0.6);
+  width: auto;
+  height: auto;
+  min-height: 1.7rem;
+  padding: calc(var(--bs-space-1) * 0.6) var(--bs-space-2);
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-bumper svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--bs-space-2);
+  min-width: 6rem;
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-status strong {
+  color: var(--bs-text);
+  font-weight: var(--bs-weight-bold);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-status span {
+  color: var(--bs-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active {
+  color: var(--bs-text);
+  background: var(--bs-accent-soft);
+  border-color: var(--bs-accent-line);
+  font-weight: var(--bs-weight-bold);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0.1rem;
+  height: 0.15rem;
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-accent);
+  box-shadow: 0 0 0.7rem var(--bs-accent-glow);
+}
+
+.bigscreen-gamepage .bigscreen-tab-bar-tab.active .bigscreen-tab-bar-tab-icon {
+  opacity: 1;
+  color: var(--bs-accent);
+}
+
+/* ── Per-tab scroll region ─────────────────────────────────── */
+
+/* The page never scrolls; this box is only the positioning context
+   for the panels, each of which owns its own overflow. */
+.bigscreen-gamepage-tab-scroll-region {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bigscreen-gamepage .bigscreen-tab-panel {
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.bigscreen-gamepage .bigscreen-tab-panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ── Tab bodies ────────────────────────────────────────────── */
+
+.bigscreen-gamepage-overview,
+.bigscreen-gamepage-media,
+.bigscreen-gamepage-specs,
+.bigscreen-gamepage-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  max-width: 108rem;
+  min-width: 0;
+}
+
+.bigscreen-gamepage-block {
+  width: 100%;
+  min-width: 0;
+}
+
+.bigscreen-gamepage-2col {
+  gap: var(--bs-space-4);
+}
+
+/* ── Overview ──────────────────────────────────────────────── */
+
+.bigscreen-gamepage-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  gap: var(--bs-space-5);
+  align-items: start;
+}
+
+.bigscreen-gamepage-overview-prose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-4);
+  min-width: 0;
+}
+
+.bigscreen-gamepage-stats {
+  margin-top: var(--bs-space-1);
+}
+
+.bigscreen-gamepage-rail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bs-space-3);
+}
+
+.bigscreen-rail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-1);
+  min-width: 0;
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-surface-1);
+}
+
+.bigscreen-rail-stat__label {
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-stat__value {
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  line-height: 1.2;
+  color: var(--bs-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-stat__value--row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+}
+
+.bigscreen-rail-stat__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+/* An odd count leaves a dangling half-cell; the last stat takes the row. */
+.bigscreen-rail-stat:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+/* ── Overview metadata rail ────────────────────────────────── */
+
+.bigscreen-gamepage-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  min-width: 0;
+}
+
+.bigscreen-rail-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-4);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-surface-1);
+}
+
+.bigscreen-rail-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+}
+
+.bigscreen-rail-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-rail-card__title svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--bs-accent);
+}
+
+.bigscreen-rail-card__badge {
+  padding: calc(var(--bs-space-1) * 0.5) var(--bs-space-3);
+  border: 1px solid var(--bs-accent-line);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-accent-soft);
+  color: var(--bs-text);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Achievement progress */
+.bigscreen-rail-ach__bar {
+  height: 0.45rem;
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-3);
+  overflow: hidden;
+}
+
+.bigscreen-rail-ach__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--bs-accent),
+    color-mix(in srgb, var(--bs-accent) 62%, var(--bs-text))
+  );
+  box-shadow: 0 0 0.7rem var(--bs-accent-glow);
+  transition: width var(--bs-dur-slow) var(--bs-ease);
+}
+
+.bigscreen-rail-ach__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+  font-size: var(--bs-text-xs);
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-rail-ach__pct {
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  color: var(--bs-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-rail-ach__count {
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-rail-ach__recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-2);
+  padding-top: var(--bs-space-3);
+  border-top: 1px solid var(--bs-border-soft);
+}
+
+.bigscreen-rail-ach__recent-label {
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-rail-ach__recent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  min-width: 0;
+}
+
+.bigscreen-rail-ach__icon {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-radius: var(--bs-radius-xs);
+  object-fit: cover;
+  background: var(--bs-surface-2);
+}
+
+.bigscreen-rail-ach__icon--fallback {
+  border: 1px solid var(--bs-border-soft);
+}
+
+.bigscreen-rail-ach__recent-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-medium);
+  color: var(--bs-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-ach__recent-date {
+  flex: 0 0 auto;
+  font-size: var(--bs-text-xs);
+  color: var(--bs-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-rail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2);
+}
+
+.bigscreen-rail-chip {
+  padding: var(--bs-space-1) var(--bs-space-3);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-2);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-medium);
+}
+
+.bigscreen-rail-rows {
+  padding-top: var(--bs-space-1);
+  padding-bottom: var(--bs-space-1);
+}
+
+.bigscreen-rail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-2) 0;
+  border-bottom: 1px solid var(--bs-border-soft);
+}
+
+.bigscreen-rail-row:last-child {
+  border-bottom: 0;
+}
+
+.bigscreen-rail-row__label {
+  flex: 0 0 auto;
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-rail-row__value {
+  min-width: 0;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-medium);
+  color: var(--bs-text);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Shared desktop cards, re-pointed at the TV token set ──────
+   The tab bodies reuse AboutSection / SpecsCard / RatingsKpiCard /
+   TimeToBeatCard / LanguagesSection as-is. Re-pointing their
+   surface here keeps a media strip and a stats card the same
+   material instead of two design systems on one screen. */
+
+.bigscreen-gamepage .game-section {
+  padding: var(--bs-space-4) var(--bs-space-5);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-surface-1);
+  box-shadow: none;
+  animation: none;
+  scroll-margin-top: 0;
+}
+
+.bigscreen-gamepage .game-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  margin: 0 0 var(--bs-space-3);
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--bs-text);
+}
+
+.bigscreen-gamepage .game-section-title svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--bs-accent);
+}
+
+/* The rail is the dense column: same surface, tighter type. */
+.bigscreen-gamepage-rail .game-section {
+  padding: var(--bs-space-4);
+  background: var(--bs-surface-1);
+}
+
+.bigscreen-gamepage-rail .game-section-title {
+  margin: 0 0 var(--bs-space-3);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-gamepage-rail .kpi-tile {
+  padding: var(--bs-space-2) var(--bs-space-3);
+  border-radius: var(--bs-radius-sm);
+}
+
+.bigscreen-gamepage-rail .kpi-tile__label,
+.bigscreen-gamepage-rail .kpi-tile__subtext {
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage-rail .ratings-kpi-grid {
+  gap: var(--bs-space-2);
+  margin-bottom: var(--bs-space-3);
+}
+
+.bigscreen-gamepage-rail .ratings-kpi-tile .kpi-tile__value {
+  font-size: var(--bs-title-sm);
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown {
+  padding-top: var(--bs-space-3);
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__title,
+.bigscreen-gamepage-rail .ratings-breakdown__note,
+.bigscreen-gamepage-rail .ratings-card__cta {
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage-rail .ttb-tiles {
+  gap: var(--bs-space-2);
+}
+
+.bigscreen-gamepage-rail .ttb-summary__meta {
+  font-size: var(--bs-text-xs);
+}
+
+.bigscreen-gamepage-rail .ttb-progress__track {
+  height: 0.4rem;
+}
+
+.bigscreen-gamepage-rail .languages-table-wrap {
+  border-radius: var(--bs-radius-sm);
+}
+
+.bigscreen-gamepage-rail .languages-table {
+  font-size: var(--bs-text-sm);
+}
+
+.bigscreen-gamepage-rail .languages-table th {
+  font-size: var(--bs-text-xs);
+}
+
+/* ── Media ─────────────────────────────────────────────────── */
+
+.bigscreen-gamepage-media {
+  gap: var(--bs-space-4);
+}
+
+/* The wrapper is the rail, the carousel inside is the scroller: the
+   card has to be able to shrink to the rail's width. */
+.bigscreen-gamepage .bigscreen-rail-scroller > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bigscreen-gamepage .bigscreen-rail-scroller .screenshot-item,
+.bigscreen-gamepage .bigscreen-rail-scroller .video-selector-btn {
+  width: clamp(13rem, 21vw, 22rem);
+  height: auto;
+  aspect-ratio: var(--bs-card-aspect);
+  border-radius: var(--bs-card-radius);
+}
+
+.bigscreen-gamepage .bigscreen-rail-scroller .screenshot-item {
+  border-color: var(--bs-border-soft);
+}
+
+/* Focus parity with every other card in the shell. */
+.bigscreen-gamepage .bigscreen-rail-scroller .screenshot-item[data-focused="true"],
+.bigscreen-gamepage
+  .bigscreen-rail-scroller
+  .video-selector-btn[data-focused="true"] {
+  border-color: var(--bs-accent);
+  box-shadow: var(--bs-focus-glow);
+  transform: translateY(-0.2rem) scale(1.02);
+}
+
+.bigscreen-gamepage
+  .bigscreen-rail-scroller
+  .screenshot-item[data-focused="true"]
+  .screenshot-img {
+  transform: scale(1.06);
+}
+
+.bigscreen-gamepage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 18rem;
+  padding: var(--bs-space-6) var(--bs-space-4);
+  text-align: center;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-gamepage-empty > svg {
+  opacity: 0.35;
+  color: var(--bs-text);
+}
+
+.bigscreen-gamepage-empty h3 {
+  margin: 0;
+  font-size: var(--bs-title-sm);
+  font-weight: 800;
+  color: var(--bs-text);
+}
+
+.bigscreen-gamepage-empty p {
+  margin: 0 0 var(--bs-space-2);
+  max-width: 30rem;
+  font-size: var(--bs-text-sm);
+  line-height: 1.5;
+  color: var(--bs-text-dim);
+}
+
+/* ── Specs / More ──────────────────────────────────────────── */
+
+.bigscreen-gamepage-specs,
+.bigscreen-gamepage-more {
+  gap: var(--bs-space-4);
+}
+
+/* ── Not found ─────────────────────────────────────────────── */
+
+.bigscreen-gamepage-back-btn {
+  padding: var(--bs-space-2) var(--bs-space-5);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  transition:
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bigscreen-gamepage-back-btn:hover,
+.bigscreen-gamepage-back-btn[data-focused="true"] {
+  background: var(--bs-surface-3);
+  border-color: var(--bs-border-strong);
+}
+
+.bigscreen-gamepage-back-btn[data-focused="true"] {
+  box-shadow: var(--bs-focus-glow);
+}
+
+/* ── Store detail: loading / error / empty ─────────────────── */
+
+.store-tab-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 18rem;
+  padding: var(--bs-space-6) var(--bs-gutter);
+  text-align: center;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-md);
+}
+
+.store-tab-loading strong {
+  font-size: var(--bs-title-sm);
+  font-weight: 800;
+  color: var(--bs-text);
+}
+
+.store-tab-loading span {
+  max-width: 34rem;
+}
+
+.store-spinner {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 0.2rem solid var(--bs-border);
+  border-top-color: var(--bs-accent);
+  animation: bs-game-spin 0.9s linear infinite;
+}
+
+/* ── Inline bricks ─────────────────────────────────────────── */
+
+.bigscreen-steam-players {
+  display: inline;
+  font: inherit;
+  color: inherit;
+}
+
+/* ── Presets ───────────────────────────────────────────────── */
+
+/* Xbox — copy hugs the left edge, art bleeds off to the right. */
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero {
+  min-height: clamp(14rem, 32vh, 21rem);
+}
+
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-main {
+  max-width: 58%;
+}
+
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-mask {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 97%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 74%, transparent) 38%,
+      color-mix(in srgb, var(--bs-bg) 12%, transparent) 66%,
+      transparent 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 0%,
+      color-mix(in srgb, var(--bs-bg) 55%, transparent) 34%,
+      transparent 74%
+    );
+}
+
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-bg-video video,
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-bg-cycle img,
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-bg-animated img {
+  object-position: 74% center;
+}
+
+.bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-bg-static {
+  background-position: 74% center;
+}
+
+/* PlayStation — centred logo and meta, radial cinematic scrim. */
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero {
+  min-height: clamp(17rem, 40vh, 27rem);
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-content {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--bs-space-4);
+  text-align: center;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-main {
+  flex: 0 0 auto;
+  align-items: center;
+  width: 100%;
+  max-width: 56rem;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-info {
+  align-items: center;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-logo {
+  max-width: min(30rem, 100%);
+  max-height: clamp(4rem, 10vh, 7rem);
+  object-position: center;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-subtitle-row,
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-meta-strip,
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-meta-strip-inline,
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-actions {
+  justify-content: center;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-facts {
+  align-self: center;
+  justify-content: center;
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-hero-mask {
+  background:
+    radial-gradient(
+      ellipse 110% 80% at 50% 42%,
+      transparent 0%,
+      color-mix(in srgb, var(--bs-bg) 45%, transparent) 62%,
+      var(--bs-bg) 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 2%,
+      color-mix(in srgb, var(--bs-bg) 35%, transparent) 34%,
+      transparent 68%
+    );
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-overview-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(21rem, 26rem);
+  gap: var(--bs-space-6);
+}
+
+.bs-shell[data-preset="playstation"] .bigscreen-gamepage-2col {
+  gap: var(--bs-space-6);
+}
+
+/* PlayStation runs a wider card rhythm: the media strip follows it. */
+.bs-shell[data-preset="playstation"]
+  .bigscreen-gamepage
+  .bigscreen-rail-scroller
+  .screenshot-item,
+.bs-shell[data-preset="playstation"]
+  .bigscreen-gamepage
+  .bigscreen-rail-scroller
+  .video-selector-btn {
+  width: clamp(16rem, 26vw, 26rem);
+}
+
+/* Steam — compact hero over denser blocks. */
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero {
+  min-height: clamp(9rem, 21vh, 13rem);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-content {
+  gap: var(--bs-space-4);
+  padding-top: calc(var(--bs-space-7) + var(--bs-space-2));
+  padding-bottom: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-logo {
+  max-width: min(18rem, 100%);
+  max-height: clamp(2.4rem, 5.5vh, 3.6rem);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-title {
+  font-size: var(--bs-title-md);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-subtitle {
+  font-size: var(--bs-text-sm);
+}
+
+/* Compact chrome: the back chip collapses to its glyph so it cannot
+   crowd the shorter band. Both pages label the button for a11y. */
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-back,
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-back {
+  top: var(--bs-space-2);
+  width: 2.3rem;
+  min-height: 2.3rem;
+  justify-content: center;
+  padding: var(--bs-space-1);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-back span,
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-back span {
+  display: none;
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-hero-facts {
+  display: none;
+}
+
+.bs-shell[data-preset="steam"]
+  .bigscreen-gamepage-hero-actions
+  .bigscreen-details-btn[data-primary-action="true"] {
+  padding: var(--bs-space-2) var(--bs-space-5);
+  font-size: var(--bs-text-md);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage .bigscreen-tab-panel {
+  padding-top: var(--bs-space-4);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-overview,
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-media,
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-specs,
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-more,
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-overview-layout,
+.bs-shell[data-preset="steam"] .bigscreen-gamepage-overview-prose {
+  gap: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-gamepage .game-section {
+  padding: var(--bs-space-3) var(--bs-space-4);
+}
+
+/* Switch — short band, flat surfaces. */
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero {
+  min-height: clamp(9rem, 20vh, 12rem);
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-content {
+  padding-top: calc(var(--bs-space-6) + var(--bs-space-4));
+  padding-bottom: var(--bs-space-3);
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-logo {
+  max-height: clamp(2.4rem, 5vh, 3.2rem);
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-title {
+  font-size: var(--bs-title-md);
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-facts {
+  display: none;
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-tint {
+  display: none;
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage-hero-mask {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 94%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 64%, transparent) 58%,
+      color-mix(in srgb, var(--bs-bg) 28%, transparent) 100%
+    ),
+    linear-gradient(0deg, var(--bs-bg) 0%, transparent 62%);
+}
+
+.bs-shell[data-preset="switch"] .bigscreen-gamepage .game-section,
+.bs-shell[data-preset="switch"] .bigscreen-rail-card,
+.bs-shell[data-preset="switch"] .bigscreen-rail-stat {
+  background: var(--bs-surface-solid);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+
+/* Drop the facts card before it starts squeezing the identity
+   column; the numbers are all repeated in the Overview rail. */
+@media (max-width: 1400px) {
+  .bigscreen-gamepage-hero-facts {
+    display: none;
+  }
+
+  .bs-shell[data-preset="xbox"] .bigscreen-gamepage-hero-main {
+    max-width: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .bigscreen-gamepage-overview-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .bigscreen-gamepage-hero {
+    min-height: 12rem;
+  }
+
+  .bigscreen-gamepage-hero-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--bs-space-3);
+    padding-top: calc(var(--bs-space-7) + var(--bs-space-3));
+  }
+
+  .bigscreen-gamepage-hero-main {
+    flex: 0 0 auto;
+    max-width: none;
+  }
+
+  .bigscreen-gamepage-hero-back {
+    min-height: 2.3rem;
+  }
+}
+
+/* ── Reduced motion ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .bigscreen-gamepage-hero-bg-slide,
+  .bigscreen-gamepage-hero-bg-slide img,
+  .bigscreen-gamepage-hero-bg-animated-img,
+  .bigscreen-rail-ach__fill {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .bigscreen-gamepage-hero-bg-slide img {
+    transform: none !important;
+  }
+}

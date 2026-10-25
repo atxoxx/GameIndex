@@ -119,9 +119,10 @@ describe("nearestInDirection — content-rail wrap", () => {
 });
 
 describe("nearestInDirection — header strip rail lock", () => {
-  it("keeps horizontal focus inside the v3 section strip", () => {
+  it("keeps horizontal focus inside the shell section strip", () => {
     const nav = document.createElement("nav");
-    nav.className = "bigscreen-v3-sections";
+    nav.className = "bs-nav-track";
+    nav.dataset.orientation = "horizontal";
     document.body.appendChild(nav);
 
     const s0 = makeButton(nav, 100, 20, 200, 60);
@@ -134,9 +135,10 @@ describe("nearestInDirection — header strip rail lock", () => {
     expect(nearestInDirection(s0, candidatesFor([s0, s1, pageCard]), 0)).toBe(s1);
   });
 
-  it("does not wrap the header strip at its right edge", () => {
+  it("does not wrap the nav strip at its right edge", () => {
     const nav = document.createElement("nav");
-    nav.className = "bigscreen-v3-sections";
+    nav.className = "bs-nav-track";
+    nav.dataset.orientation = "horizontal";
     document.body.appendChild(nav);
 
     const s0 = makeButton(nav, 100, 20, 200, 60);
@@ -183,9 +185,10 @@ describe("nearestInDirection — grid row wrap", () => {
 });
 
 describe("scrollElementIntoViewControlled — header track", () => {
-  it("scrolls the v3 section strip toward the focused section", () => {
+  it("scrolls the shell section strip toward the focused section", () => {
     const nav = document.createElement("nav");
-    nav.className = "bigscreen-v3-sections";
+    nav.className = "bs-nav-track";
+    nav.dataset.orientation = "horizontal";
     document.body.appendChild(nav);
     const section = document.createElement("button");
     nav.appendChild(section);
@@ -209,8 +212,10 @@ describe("scrollElementIntoViewControlled — header track", () => {
 });
 
 describe("HORIZONTAL_TRACK_SELECTOR", () => {
-  it("includes the v3 header strip alongside the content rails", () => {
-    expect(HORIZONTAL_TRACK_SELECTOR).toContain(".bigscreen-v3-sections");
+  it("includes the shell nav strip alongside the content rails", () => {
+    expect(HORIZONTAL_TRACK_SELECTOR).toContain(
+      '.bs-nav-track[data-orientation="horizontal"]',
+    );
     expect(HORIZONTAL_TRACK_SELECTOR).toContain("[data-rail-id]");
   });
 });

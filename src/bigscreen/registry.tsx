@@ -1,21 +1,26 @@
-// Big Screen v3 — section/route registry + ShellSwitch.
+// Big Screen section + route registry.
 //
-// The console shell's navigation is driven by two ordered lists:
-//   • PRIMARY_SECTIONS — the 8 top-level sections in the header strip.
-//   • SYSTEM_SECTIONS  — the 7 entries behind the System hub entry.
+// The TV shell navigates six top-level sections. Everything else hangs
+// off them:
 //
-// Every big-screen route is declared once in BIGSCREEN_ROUTE_PAIRS as a
-// { desktop, bigscreen? } element-factory pair. App.tsx maps over that
-// table inside <ShellSwitch>, which renders the bigscreen factory when
-// Big Screen is active and falls back to the desktop factory otherwise —
-// so a route whose `bigscreen` is still undefined (owned by a later
-// lane) keeps working through the desktop page's internal swap.
+//   Home      /home, /activity (alias)
+//   Library   /library, /library/:gameId
+//   Store     /store, /store/:gameSlug, /wishlist
+//   Discover  /discover → /deals, /news, /community
+//   Friends   /friends
+//   System    /settings (tile hub) → downloads, storage, saves,
+//             achievements, mods, emulators, docs
 //
-// Route paths must stay identical to the pre-registry table: this file
-// only moves the wiring, it never adds or removes routes.
+// Every big-screen route is declared once in BIGSCREEN_ROUTE_PAIRS as
+// a { desktop, bigscreen? } pair. App.tsx maps over that table inside
+// <ShellSwitch>, which renders the bigscreen variant when Big Screen
+// Mode is active and the desktop factory otherwise. Route paths must
+// stay identical to the desktop table: this file wires variants, it
+// never changes the desktop route surface.
 
 import type { ReactNode } from "react";
 import { lazy } from "react";
+import { Navigate } from "react-router-dom";
 import { useBigScreen } from "../context/BigScreenContext";
 import { ensureDocsLoaded, getActiveLocale } from "../i18n";
 
@@ -58,6 +63,9 @@ const ReelsPage = lazy(() => import("../pages/ReelsPage"));
 // vite.config.ts manualChunks, but still lazy so desktop never pays
 // for their code until Big Screen Mode is active.
 const BigScreenHome = lazy(() => import("../components/bigscreen/BigScreenHome"));
+const BigScreenDiscover = lazy(
+  () => import("../components/bigscreen/BigScreenDiscover"),
+);
 const BigScreenNews = lazy(() => import("../components/bigscreen/BigScreenNews"));
 const BigScreenDeals = lazy(() => import("../components/bigscreen/BigScreenDeals"));
 const BigScreenStore = lazy(() => import("../components/store/BigScreenStore"));
@@ -88,24 +96,13 @@ const BigScreenLibrary = lazy(
 const BigScreenGamePage = lazy(
   () => import("../components/game/BigScreenGamePage"),
 );
-// Controller-safe chrome for routes without a dedicated variant yet:
-// back header + focusable scroll region around the desktop render.
+// Controller-safe chrome for routes without a dedicated variant yet.
 const BigScreenDesktopFallback = lazy(
   () => import("../components/bigscreen/BigScreenDesktopFallback"),
 );
 
-// ── Section model ─────────────────────────────────────────────────
+// ── Icons ────────────────────────────────────────────────────────
 
-export interface BigScreenSection {
-  /** Route the section navigates to. */
-  path: string;
-  /** i18n key for the section label (reuses the desktop nav.* keys). */
-  labelKey: string;
-  /** Inline stroke icon (24×24 grid, currentColor). */
-  icon: ReactNode;
-}
-
-/** Minimal inline-SVG wrapper shared by every section/utility icon. */
 function Icon({ children }: { children: ReactNode }) {
   return (
     <svg
@@ -126,6 +123,7 @@ const ICONS = {
   home: <Icon><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></Icon>,
   library: <Icon><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M8 21h8" /><path d="M12 18v3" /></Icon>,
   store: <Icon><path d="M4 8h16l-1 12H5L4 8Z" /><path d="m7 8 2-5h6l2 5" /><path d="M9 12h6" /></Icon>,
+  discover: <Icon><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" /></Icon>,
   wishlist: <Icon><path d="M20.8 8.8c0 5.4-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z" /></Icon>,
   deals: <Icon><path d="M20 12a2 2 0 0 0 0-4h-1a2 2 0 0 1-2-2V5a2 2 0 0 0-4 0 2 2 0 0 1-4 0 2 2 0 0 0-4 0v1a2 2 0 0 1-2 2 2 2 0 0 0 0 4 2 2 0 0 1 2 2v1a2 2 0 0 0 4 0 2 2 0 0 1 4 0 2 2 0 0 0 4 0v-1a2 2 0 0 1 2-2Z" /><path d="m9 15 6-6" /><path d="M9 9h.01M15 15h.01" /></Icon>,
   news: <Icon><path d="M5 4h14a2 2 0 0 1 2 2v14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" /><path d="M7 8h10M7 12h10M7 16h6" /></Icon>,
@@ -139,105 +137,203 @@ const ICONS = {
   emulators: <Icon><rect x="3" y="6" width="18" height="12" rx="3" /><path d="M8 12h4M10 10v4M16 11h.01M18 13h.01" /></Icon>,
   docs: <Icon><path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M14 3v4h4M8 11h8M8 15h8" /></Icon>,
   settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4h-.1a1.7 1.7 0 0 0-1.6 1Z" /></Icon>,
+  activity: <Icon><path d="M3 12h4l3-8 4 16 3-8h4" /></Icon>,
 } as const;
 
-// ── Section lists ────────────────────────────────────────────────
+// ── Section model ────────────────────────────────────────────────
 
-/** Top-level strip, ordered by expected frequency of use. */
+export type SectionId =
+  | "home"
+  | "library"
+  | "store"
+  | "discover"
+  | "friends"
+  | "system";
+
+export interface BigScreenSection {
+  id: SectionId;
+  /** Route the section navigates to. */
+  path: string;
+  /** i18n key for the section label (reuses the desktop nav.* keys). */
+  labelKey: string;
+  /** Inline stroke icon (24×24 grid, currentColor). */
+  icon: ReactNode;
+  /** Paths that belong to this section, longest-prefix wins. */
+  matches: readonly string[];
+}
+
+/** The six top-level sections, ordered by expected frequency of use. */
 export const PRIMARY_SECTIONS: BigScreenSection[] = [
-  { path: "/home", labelKey: "nav.home", icon: ICONS.home },
-  { path: "/library", labelKey: "nav.library", icon: ICONS.library },
-  { path: "/store", labelKey: "nav.store", icon: ICONS.store },
-  { path: "/wishlist", labelKey: "nav.wishlist", icon: ICONS.wishlist },
-  { path: "/deals", labelKey: "nav.deals", icon: ICONS.deals },
-  { path: "/news", labelKey: "nav.news", icon: ICONS.news },
-  { path: "/friends", labelKey: "nav.friends", icon: ICONS.friends },
-  { path: "/community", labelKey: "nav.stats", icon: ICONS.community },
+  {
+    id: "home",
+    path: "/home",
+    labelKey: "nav.home",
+    icon: ICONS.home,
+    matches: ["/home", "/activity"],
+  },
+  {
+    id: "library",
+    path: "/library",
+    labelKey: "nav.library",
+    icon: ICONS.library,
+    matches: ["/library"],
+  },
+  {
+    id: "store",
+    path: "/store",
+    labelKey: "nav.store",
+    icon: ICONS.store,
+    matches: ["/store", "/wishlist"],
+  },
+  {
+    id: "discover",
+    path: "/discover",
+    labelKey: "bigscreen.discover.title",
+    icon: ICONS.discover,
+    matches: ["/discover", "/deals", "/news", "/community"],
+  },
+  {
+    id: "friends",
+    path: "/friends",
+    labelKey: "nav.friends",
+    icon: ICONS.friends,
+    matches: ["/friends"],
+  },
+  {
+    id: "system",
+    path: "/settings",
+    labelKey: "bigscreen.shell.system",
+    icon: ICONS.settings,
+    matches: [
+      "/settings",
+      "/downloads",
+      "/storage",
+      "/saves",
+      "/achievements",
+      "/mods",
+      "/emulators",
+      "/docs",
+      "/reels",
+    ],
+  },
 ];
 
-/** Entries behind the System hub entry (the "system submenu"). */
+export const SECTION_BY_ID = new Map(
+  PRIMARY_SECTIONS.map((section) => [section.id, section]),
+);
+
+/** Entries behind the System hub (its tile grid, in display order). */
 export const SYSTEM_SECTIONS: BigScreenSection[] = [
-  { path: "/downloads", labelKey: "nav.downloads", icon: ICONS.downloads },
-  { path: "/storage", labelKey: "nav.storage", icon: ICONS.storage },
-  { path: "/saves", labelKey: "nav.saves", icon: ICONS.saves },
-  { path: "/achievements", labelKey: "nav.achievements", icon: ICONS.achievements },
-  { path: "/mods", labelKey: "nav.mods", icon: ICONS.mods },
-  { path: "/emulators", labelKey: "nav.emulators", icon: ICONS.emulators },
-  { path: "/settings", labelKey: "nav.settings", icon: ICONS.settings },
-  { path: "/docs", labelKey: "nav.docs", icon: ICONS.docs },
+  { id: "system", path: "/downloads", labelKey: "nav.downloads", icon: ICONS.downloads, matches: ["/downloads"] },
+  { id: "system", path: "/storage", labelKey: "nav.storage", icon: ICONS.storage, matches: ["/storage"] },
+  { id: "system", path: "/saves", labelKey: "nav.saves", icon: ICONS.saves, matches: ["/saves"] },
+  { id: "system", path: "/achievements", labelKey: "nav.achievements", icon: ICONS.achievements, matches: ["/achievements"] },
+  { id: "system", path: "/mods", labelKey: "nav.mods", icon: ICONS.mods, matches: ["/mods"] },
+  { id: "system", path: "/emulators", labelKey: "nav.emulators", icon: ICONS.emulators, matches: ["/emulators"] },
+  { id: "system", path: "/docs", labelKey: "nav.docs", icon: ICONS.docs, matches: ["/docs"] },
+  { id: "system", path: "/settings", labelKey: "bigscreen.system.preferences", icon: ICONS.settings, matches: ["/settings"] },
 ];
 
-/** Every navigable section, primary first. */
+/** Every navigable entry, primary first. */
 export const SECTIONS: BigScreenSection[] = [
   ...PRIMARY_SECTIONS,
   ...SYSTEM_SECTIONS,
 ];
 
-/** The System hub entry rendered as the strip's 9th slot. */
-export const SYSTEM_ENTRY: BigScreenSection = {
-  path: "/settings",
-  labelKey: "bigscreen.shell.system",
-  icon: ICONS.settings,
-};
-
-/**
- * Resolve a pathname to the active primary section path. Matches on
- * segment boundaries (`/store` and `/store/:slug` light up /store,
- * but `/storage` does NOT match /store). Falls back to `/home`.
- */
-export function getActiveTabPath(pathname: string): string {
-  return (
-    PRIMARY_SECTIONS.find(
-      (section) =>
-        pathname === section.path || pathname.startsWith(section.path + "/"),
-    )?.path ?? "/home"
-  );
+/** Discover's three areas, in tab order. */
+export interface DiscoverArea {
+  path: string;
+  labelKey: string;
+  blurbKey: string;
+  icon: ReactNode;
 }
 
-/**
- * Resolve a Big Screen pathname to the route Back should return to.
- * The shell owns the Back resolver: pages no longer each hardcode
- * their own fallback target (which previously let B fall through to a
- * synthetic Escape and exit Big Screen mode entirely).
- *
- * Matches on path segments, mirroring `getActiveTabPath`:
- *   • `/library/<id>`  → `/library`
- *   • `/store/<slug>`  → `/store`
- *   • `/settings/<tab>` → `/settings` (the System hub sub-route)
- *   • `/mods`, `/emulators`, `/docs` → `/settings` (the System hub)
- *   • `/activity`      → `/home`
- *   • everything else  → `null` (a top-level section: Back exits)
- *
- * Returns `null` when no parent exists, which the shell treats as
- * "this is a top-level screen — offer to leave Big Screen Mode".
- */
-export function bigScreenParentOf(pathname: string): string | null {
-  // Tolerate a trailing slash without changing segment counting.
+export const DISCOVER_AREAS: DiscoverArea[] = [
+  { path: "/deals", labelKey: "nav.deals", blurbKey: "bigscreen.discover.dealsBlurb", icon: ICONS.deals },
+  { path: "/news", labelKey: "nav.news", blurbKey: "bigscreen.discover.newsBlurb", icon: ICONS.news },
+  { path: "/community", labelKey: "bigscreen.discover.community", blurbKey: "bigscreen.discover.communityBlurb", icon: ICONS.community },
+];
+
+function normalize(pathname: string): string {
   const path =
     pathname.length > 1 && pathname.endsWith("/")
       ? pathname.slice(0, -1)
       : pathname;
+  return path || "/";
+}
+
+function within(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * Resolve a pathname to its section. Matches on segment boundaries so
+ * `/storage` (System) never lights `/store`, and `/library/:id` keeps
+ * the library section active.
+ */
+export function sectionForPath(pathname: string): SectionId {
+  const path = normalize(pathname);
+  // Longest matching prefix wins (e.g. `/mods/discover` is still System).
+  let best: { id: SectionId; length: number } | null = null;
+  for (const section of PRIMARY_SECTIONS) {
+    for (const base of section.matches) {
+      if (within(path, base) && (!best || base.length > best.length)) {
+        best = { id: section.id, length: base.length };
+      }
+    }
+  }
+  return best?.id ?? "home";
+}
+
+/** Path of the section that owns `pathname` (used for nav highlight). */
+export function getActiveTabPath(pathname: string): string {
+  const section = SECTION_BY_ID.get(sectionForPath(pathname));
+  return section?.path ?? "/home";
+}
+
+/** The section record owning `pathname`. */
+export function activeSection(pathname: string): BigScreenSection {
+  return SECTION_BY_ID.get(sectionForPath(pathname)) ?? PRIMARY_SECTIONS[0];
+}
+
+/**
+ * Resolve a Big Screen pathname to the route Back should return to.
+ *
+ *   • `/library/<id>`   → `/library`
+ *   • `/store/<slug>`   → `/store`
+ *   • `/settings/<tab>` → `/settings`
+ *   • `/mods/discover`  → `/mods`
+ *   • `/deals`, `/news`, `/community` → `/discover` (the hub)
+ *   • `/mods`, `/emulators`, `/docs`, `/saves`, `/downloads`,
+ *     `/storage`, `/achievements` → `/settings` (the System hub)
+ *   • `/emulators/<id>` → `/emulators`
+ *   • everything else   → `null` (top-level: Back offers the exit)
+ */
+export function bigScreenParentOf(pathname: string): string | null {
+  const path = normalize(pathname);
   const segments = path.split("/").filter(Boolean);
 
   if (segments.length === 2) {
     if (segments[0] === "library") return "/library";
     if (segments[0] === "store") return "/store";
-    // `/mods/discover` walks up to the Mods manager.
     if (segments[0] === "mods") return "/mods";
-    // `settings/:tab` is a System-hub sub-route (the registry maps it to
-    // BigScreenSystem), so it walks up to the hub like mods/emulators/docs.
     if (segments[0] === "settings") return "/settings";
+    if (segments[0] === "emulators") return "/emulators";
   }
 
   if (segments.length === 1) {
     const [segment] = segments;
-    // saves is rendered through the hub's System chrome, so Back walks
-    // up to the hub like mods/emulators/docs do.
+    if (segment === "deals" || segment === "news" || segment === "community") {
+      return "/discover";
+    }
     if (
       segment === "mods" ||
       segment === "emulators" ||
       segment === "docs" ||
-      segment === "saves"
+      segment === "saves" ||
+      segment === "downloads" ||
+      segment === "storage" ||
+      segment === "achievements"
     ) {
       return "/settings";
     }
@@ -259,8 +355,7 @@ interface ShellSwitchProps {
 /**
  * Route-level switcher: renders the bigscreen variant when Big Screen
  * Mode is active, otherwise the desktop page. Routes without a
- * `bigscreen` variant fall through to the desktop page, which still
- * performs its own internal bigscreen swap until a later lane wires it.
+ * `bigscreen` variant fall through to the desktop page.
  */
 export function ShellSwitch({ desktop, bigscreen }: ShellSwitchProps) {
   const { isBigScreen } = useBigScreen();
@@ -280,14 +375,16 @@ export interface RoutePair {
 
 /**
  * Single source of truth for the route table. Kept in the same order
- * as the historical App.tsx table. Routes with a `bigscreen` variant
- * are wired here; the rest fall back to the desktop page.
+ * as the historical App.tsx table, with the Discover hub added.
  */
 export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "home", desktop: () => <HomePage />, bigscreen: () => <BigScreenHome /> },
   { path: "library", desktop: () => <LibraryPage />, bigscreen: () => <BigScreenLibrary /> },
   { path: "library/:gameId", desktop: () => <GamePage />, bigscreen: () => <BigScreenGamePage /> },
   { path: "wishlist", desktop: () => <WishlistPage />, bigscreen: () => <BigScreenStore /> },
+  // Discover hub: the desktop app keeps Deals/News/Community as their
+  // own pages, so the canonical desktop target is Deals.
+  { path: "discover", desktop: () => <Navigate to="/deals" replace />, bigscreen: () => <BigScreenDiscover /> },
   { path: "news", desktop: () => <NewsPage />, bigscreen: () => <BigScreenNews /> },
   { path: "deals", desktop: () => <DealsPage />, bigscreen: () => <BigScreenDeals /> },
   { path: "activity", desktop: () => <ActivityPage />, bigscreen: () => <BigScreenHome /> },

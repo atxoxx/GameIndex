@@ -1,0 +1,302 @@
+/* ============================================================
+   Big Screen — layout presets
+   ============================================================
+   Each preset changes the navigation paradigm, the home
+   composition, the card geometry and the motion/art budget.
+   Colour is never preset-scoped: the app theme owns it.
+
+   Selectors are scoped to `.bs-shell[data-preset=…]`; geometry
+   tokens for portaled overlays live in tokens.css.
+   ============================================================ */
+
+/* ============================================================
+   Xbox — tile navigation, dashboard home
+   ============================================================ */
+
+.bs-shell[data-preset="xbox"] .bs-nav-item {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.1rem;
+  min-width: 8rem;
+  min-height: 3.5rem;
+  padding: 0.4rem 0.85rem;
+  background: var(--bs-surface-1);
+  border-color: var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+}
+
+.bs-shell[data-preset="xbox"] .bs-nav-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--bs-accent);
+}
+
+.bs-shell[data-preset="xbox"] .bs-nav-label {
+  max-width: 12rem;
+  opacity: 1;
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-medium);
+  letter-spacing: 0.01em;
+}
+
+.bs-shell[data-preset="xbox"] .bs-nav-item[data-active] {
+  background: var(--bs-surface-3);
+  border-color: var(--bs-accent-line);
+}
+
+.bs-shell[data-preset="xbox"] .bs-nav-item[data-active]::after {
+  display: none;
+}
+
+.bs-shell[data-preset="xbox"] .bs-topbar {
+  border-bottom-color: transparent;
+}
+
+/* ============================================================
+   Steam — persistent left rail, shelf-first home
+   ============================================================ */
+
+.bs-shell[data-preset="steam"] .bs-nav {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 0.9rem 0.65rem;
+  border-right: 1px solid var(--bs-border-soft);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--bs-bg) 84%, var(--bs-text) 3%);
+  overflow-y: auto;
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-track {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  width: 100%;
+  overflow: visible;
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 2.55rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--bs-radius-sm);
+  font-size: var(--bs-text-sm);
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-item[data-active] {
+  background: var(--bs-surface-2);
+  border-color: transparent;
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-item[data-active]::after {
+  left: -0.65rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  right: auto;
+  width: 0.16rem;
+  height: auto;
+  border-radius: 0 0.1rem 0.1rem 0;
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-item[data-active] .bs-nav-icon {
+  color: var(--bs-accent);
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-label {
+  max-width: none;
+  opacity: 1;
+}
+
+.bs-shell[data-preset="steam"] .bs-topbar {
+  padding-left: var(--bs-gutter);
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-dashboard-backdrop-container {
+  opacity: 0.42;
+}
+
+/* ============================================================
+   PlayStation — centred typographic hub, cinematic home
+   ============================================================ */
+
+.bs-shell[data-preset="playstation"] .bs-nav {
+  justify-content: center;
+  background: transparent;
+  border-bottom: 0;
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-track {
+  width: auto;
+  justify-content: center;
+  gap: clamp(1rem, 2.4vw, 2.6rem);
+  overflow: visible;
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-item {
+  gap: 0;
+  padding: 0.35rem 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-medium);
+  letter-spacing: 0.02em;
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-item:hover {
+  background: none;
+  color: var(--bs-text-dim);
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-icon {
+  display: none;
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-label {
+  max-width: none;
+  opacity: 1;
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-item[data-active] {
+  background: none;
+  border: 0;
+  color: var(--bs-text);
+}
+
+.bs-shell[data-preset="playstation"] .bs-nav-item[data-active]::after {
+  left: 50%;
+  right: auto;
+  bottom: -0.45rem;
+  width: 1.2rem;
+  transform: translateX(-50%);
+}
+
+.bs-shell[data-preset="playstation"] .bs-topbar {
+  background: transparent;
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ============================================================
+   Switch — square icon tiles, flat grid home
+   ============================================================ */
+
+.bs-shell[data-preset="switch"] .bs-nav {
+  align-items: flex-start;
+  padding-top: 0.45rem;
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-track {
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding-bottom: 0.2rem;
+  overflow: visible;
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-item {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  width: 3.6rem;
+  min-width: 3.6rem;
+  min-height: 3.1rem;
+  padding: 0;
+  border-radius: var(--bs-radius-md);
+  background: var(--bs-surface-1);
+  border-color: var(--bs-border-soft);
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-item[data-active] {
+  background: var(--bs-accent-soft);
+  border-color: var(--bs-accent-line);
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-item[data-active]::after {
+  display: none;
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-label {
+  position: absolute;
+  top: calc(100% + 0.18rem);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 6rem;
+  opacity: 1;
+  font-size: 0.7rem;
+  font-weight: var(--bs-weight-medium);
+  color: var(--bs-text-dim);
+  pointer-events: none;
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-item[data-active] .bs-nav-label {
+  color: var(--bs-text);
+}
+
+/* Flat budget: no ambient art, no page rise. */
+.bs-shell[data-preset="switch"] .bigscreen-dashboard-backdrop-container,
+.bs-shell[data-preset="switch"] .bs-home-ambient {
+  display: none;
+}
+
+.bs-shell[data-preset="switch"] .bs-frame.bigscreen-page-enter {
+  animation-duration: var(--bs-dur);
+}
+
+/* ============================================================
+   Classic — inline strip, spotlight home
+   ============================================================ */
+
+.bs-shell[data-preset="classic"] .bs-nav {
+  gap: 0.25rem;
+}
+
+.bs-shell[data-preset="classic"] .bs-nav-label {
+  max-width: none;
+  opacity: 1;
+}
+
+/* ============================================================
+   Shared preset hooks
+   ============================================================ */
+
+/* Cinematic presets keep ambient art vivid; subtle ones dim it. */
+.bs-shell[data-preset="steam"] .bs-home-ambient,
+.bs-shell[data-preset="classic"] .bs-home-ambient {
+  opacity: 0.55;
+}
+
+/* Preset-driven card geometry. Every card/grid surface reads these,
+   so a preset swap reshapes the library without touching a
+   component. */
+.bs-shell .bigscreen-game-card,
+.bs-shell .bs-card {
+  aspect-ratio: var(--bs-card-aspect);
+}
+
+@media (max-width: 900px) {
+  .bs-shell[data-preset="steam"] {
+    --bs-rail-w: 4.6rem;
+  }
+
+  .bs-shell[data-preset="steam"] .bs-nav-label {
+    display: none;
+  }
+
+  .bs-shell[data-preset="steam"] .bs-nav-item {
+    justify-content: center;
+  }
+
+  .bs-shell[data-preset="xbox"] .bs-nav-item {
+    min-width: 6rem;
+  }
+}

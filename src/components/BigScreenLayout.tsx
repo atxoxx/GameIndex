@@ -1,45 +1,46 @@
-// BigScreenLayout — v3 console shell.
+// Big Screen shell.
 //
-// Three-zone chrome: fixed top strip (BigScreenHeader), full-height
-// content area (`<Outlet/>`), and a fixed bottom bar that is a
-// non-focusable glyph+label button legend (A SELECT · B BACK · LB/RB
-// SECTIONS · Y POINTER) plus brand and clock.
+// Zones: top chrome (BigScreenTopBar), the section navigation
+// (BigScreenNav), the content frame (`<Outlet/>`) and the controller
+// legend. The layout preset decides where the nav sits and how the
+// chrome is drawn; this file owns behaviour, not looks.
 //
-// Keeps the historical `.bigscreen-v2` root class so existing page
-// component CSS keeps resolving; the `.bigscreen-v3` class layers the
-// new shell styles on top.
-//
-// Gamepad model:
-//   • The `/` shortcut and the header search button open the search
-//     overlay; navigation closes it again.
-//   • The virtual cursor overlay is kept; the FocusRing component
-//     (deleted) is replaced by a global CSS focus ring in
-//     bigscreen.css.
-//   • The shell owns Back: one back handler at `BACK_PRIORITY_SHELL`
-//     resolves the current route to its parent section (see
-//     `bigScreenParentOf`). A page-level handler (default priority
-//     `CYCLER_PRIORITY_PAGE`) still wins the B race while mounted.
-//     When there is no parent, Back offers the exit confirmation
-//     instead of silently dropping out of Big Screen Mode.
+// Gamepad model (unchanged contracts):
+//   • The shell owns Back: one handler at BACK_PRIORITY_SHELL resolves
+//     the current route to its parent (bigScreenParentOf), or offers
+//     the exit confirmation on a top-level screen. A page-level handler
+//     still wins the B race while mounted.
+//   • Arrow keys drive the same spatial-navigation engine as the
+//     D-pad, including hold-to-repeat. Overlays keep their arrows
+//     unless they opt in with `data-arrow-nav` (the Guide does).
+//   • `/` opens search, `G` opens the Guide, Menu/Start toggles it.
+//   • Route changes restore the element the user was on last time they
+//     visited that route (focusMemory), falling back to the first
+//     registered focusable in the content frame.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import BigScreenHeader from "./BigScreenHeader";
+import BigScreenTopBar from "./bigscreen/shell/BigScreenTopBar";
+import BigScreenNav from "./bigscreen/shell/BigScreenNav";
+import BigScreenFooter from "./bigscreen/shell/BigScreenFooter";
+import BigScreenGuide from "./bigscreen/shell/BigScreenGuide";
+import BigScreenQuickSettings from "./bigscreen/shell/BigScreenQuickSettings";
 import VirtualCursor from "./ui/VirtualCursor";
 import BigScreenSearchOverlay from "./bigscreen/BigScreenSearchOverlay";
 import { ConfirmModal } from "./ui";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useLanguage } from "../context/LanguageContext";
 import {
+  activeOverlayRoot,
   isBigScreenOverlayOpen,
   useBigScreen,
 } from "../context/BigScreenContext";
+import { useBigScreenPrefs } from "../context/BigScreenPrefsContext";
 import {
   BACK_PRIORITY_SHELL,
   isNavigable,
 } from "../hooks/gamepad/gamepadUtils";
 import { bigScreenParentOf } from "../bigscreen/registry";
-import { useBumperScope } from "./bigscreen/bigscreenLegend";
 import {
   recallFocus,
   rememberFocus,
@@ -62,81 +63,22 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return !!target.closest("input, textarea, select, [contenteditable]");
 }
 
-/**
- * Live clock + brand for the bottom bar, plus the controller legend.
- *
- * The legend describes the ACTIVE screen, not the shell in general:
- *   • B reads Back when a parent route exists, Exit on a top-level
- *     screen — it mirrors `bigScreenParentOf`, which is exactly the
- *     decision the shell's own back handler makes.
- *   • LB/RB reads Sections or Tabs from the mounted page's declaration
- *     (see bigscreenLegend.ts), so a tabbed screen can't inherit the
- *     strip's wording.
- * This bar is the single affordance telling a couch user what the
- * buttons do, so a stale word here is a real bug, not a nit.
- */
-function BottomBar() {
-  const { t, language } = useLanguage();
-  const { pathname } = useLocation();
-  const bumperScope = useBumperScope();
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    const update = () => {
-      setTime(new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(new Date()));
-    };
-    update();
-    const timer = window.setInterval(update, 30_000);
-    return () => window.clearInterval(timer);
-  }, [language]);
-
-  const hasParent = bigScreenParentOf(pathname) !== null;
-
-  return (
-    <div className="bigscreen-v3-bottom-bar" aria-hidden="true">
-      <span className="bigscreen-v3-bottom-brand">GAMEINDEX</span>
-      <div className="bigscreen-v3-bottom-legend">
-        <span className="bigscreen-v3-bottom-tip">
-          <b>A</b>
-          {t("bigscreen.shell.selectHint")}
-        </span>
-        <span className="bigscreen-v3-bottom-tip">
-          <b>B</b>
-          {t(hasParent ? "bigscreen.shell.backHint" : "bigscreen.shell.exitHint")}
-        </span>
-        <span className="bigscreen-v3-bottom-tip">
-          <b>LB</b>
-          <b>RB</b>
-          {t(
-            bumperScope === "tabs"
-              ? "bigscreen.shell.tabsHint"
-              : "bigscreen.shell.sectionsHint",
-          )}
-        </span>
-        <span className="bigscreen-v3-bottom-tip">
-          <b>Y</b>
-          {t("bigscreen.shell.pointerHint")}
-        </span>
-      </div>
-      <span className="bigscreen-v3-bottom-clock">{time}</span>
-    </div>
-  );
-}
-
 export default function BigScreenLayout() {
   const gamepad = useGamepad();
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const {
-    exitConfirmOpen,
-    requestExit,
-    cancelExit,
-    setBigScreen,
-  } = useBigScreen();
+  const { prefs } = useBigScreenPrefs();
+  const { exitConfirmOpen, requestExit, cancelExit, setBigScreen } =
+    useBigScreen();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [navEngaged, setNavEngaged] = useState(false);
+  const [navReveal, setNavReveal] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const revealTimer = useRef<number | null>(null);
 
   // The focusin listener below is registered once; it reads the live
   // pathname from a ref so rapid navigation can't attribute a focus
@@ -144,26 +86,33 @@ export default function BigScreenLayout() {
   const pathnameRef = useRef(location.pathname);
   pathnameRef.current = location.pathname;
 
-  // Shell-owned Back resolver. Pages no longer need to register a
-  // handler just to bounce out of a nested route: with none mounted
-  // (or none at page priority), B walks up one level via the route
-  // table, or offers the exit confirmation on a top-level screen.
-  // A page's own handler (default priority 0) still outranks this (-100).
+  const revealNav = useCallback(() => {
+    setNavReveal(true);
+    if (revealTimer.current !== null) window.clearTimeout(revealTimer.current);
+    revealTimer.current = window.setTimeout(() => {
+      revealTimer.current = null;
+      setNavReveal(false);
+    }, 2600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (revealTimer.current !== null) window.clearTimeout(revealTimer.current);
+    };
+  }, []);
+
+  // Shell-owned Back resolver: parent route → navigate up, otherwise
+  // offer the exit confirmation (never drop out silently).
   useEffect(() => {
     return gamepad.registerBackHandler(() => {
       const parent = bigScreenParentOf(location.pathname);
       if (parent) navigate(parent);
       else requestExit();
     }, BACK_PRIORITY_SHELL);
-  }, [
-    gamepad.registerBackHandler,
-    location.pathname,
-    navigate,
-    requestExit,
-  ]);
+  }, [gamepad.registerBackHandler, location.pathname, navigate, requestExit]);
 
   // Remember which element the controller (or keyboard) is on for the
-  // current route, so returning later restores it. See focusMemory.ts.
+  // current route, so returning later restores it.
   useEffect(() => {
     const onFocusIn = (event: FocusEvent) => {
       rememberFocus(pathnameRef.current, event.target as Element);
@@ -173,8 +122,8 @@ export default function BigScreenLayout() {
   }, []);
 
   // Arrow keys drive the same spatial-navigation engine as the
-  // gamepad, including hold-to-repeat (native key auto-repeat) and
-  // controlled scrolling. Overlays and text fields keep the arrows.
+  // gamepad, including hold-to-repeat. Overlays keep their arrows
+  // unless they opt in via `data-arrow-nav`.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.metaKey || event.ctrlKey) {
@@ -183,7 +132,8 @@ export default function BigScreenLayout() {
       const direction = ARROW_DIRECTIONS[event.key];
       if (!direction) return;
       if (isEditableTarget(event.target)) return;
-      if (isBigScreenOverlayOpen()) return;
+      const overlay = activeOverlayRoot();
+      if (overlay && !overlay.hasAttribute("data-arrow-nav")) return;
       event.preventDefault();
       gamepad.navigate(direction, event.repeat);
     };
@@ -192,49 +142,62 @@ export default function BigScreenLayout() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [gamepad.navigate]);
 
-  // Replay the shell's content-in animation on every route change so
-  // page switches read as a fast console transition rather than a cut.
-  // The base frame rule already carries the same animation, so we
-  // clear it inline for one frame to force a genuine restart.
+  // Replay the content-in animation on every route change so page
+  // switches read as a console transition rather than a cut.
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
     frame.classList.add("bigscreen-page-enter");
     frame.style.animation = "none";
-    // Force a reflow so clearing the override restarts the animation.
     void frame.offsetWidth;
     frame.style.animation = "";
   }, [location.pathname]);
 
-  // "/" opens the search overlay (unless typing or already open).
+  // "/" opens search, "G" opens the Guide (unless typing or already
+  // covered by another overlay).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "/" || searchOpen) return;
+      if (event.altKey || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, [contenteditable]")) return;
-      event.preventDefault();
-      setSearchOpen(true);
+      if (target?.matches("input, textarea, select, [contenteditable]")) return;
+      if (event.key === "/" && !searchOpen) {
+        if (isBigScreenOverlayOpen()) return;
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if ((event.key === "g" || event.key === "G") && !isBigScreenOverlayOpen()) {
+        event.preventDefault();
+        setGuideOpen(true);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [searchOpen]);
 
-  // Navigating away closes the overlay.
+  // Menu/Start toggles the Guide (the engine emits this window event).
+  useEffect(() => {
+    const onStart = () => {
+      setGuideOpen((open) => !open);
+      setQuickOpen(false);
+    };
+    window.addEventListener("bigscreen:start", onStart);
+    return () => window.removeEventListener("bigscreen:start", onStart);
+  }, []);
+
+  // Navigating away closes transient overlays and re-arms the nav for
+  // auto-hide layouts.
   useEffect(() => {
     setSearchOpen(false);
-  }, [location.pathname]);
+    setGuideOpen(false);
+    setQuickOpen(false);
+    revealNav();
+  }, [location.pathname, revealNav]);
 
-  // Move focus into the content area after every route change (and on
-  // initial mount) so the controller never snaps back to the header
-  // strip when a page unmounts. A page may place its own focus first
-  // in a child effect (the game hub focuses its primary action); we
-  // respect that by skipping when the active element is already inside
-  // the content frame. Overlays (search, modals, lightbox) keep focus.
-  //
-  // Before falling back to "first focusable", we try to restore the
-  // element the user was on the last time they were on this route
-  // (focusMemory), which makes back-navigation land on the same card.
+  // Route-entry focus: restore the remembered element, else focus the
+  // first registered focusable inside the content frame (never a raw
+  // querySelector, which could land on an unregistered element and
+  // leave the engine desynced).
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       if (isBigScreenOverlayOpen()) return;
@@ -244,8 +207,6 @@ export default function BigScreenLayout() {
 
       const remembered = recallFocus(location.pathname);
       if (remembered) {
-        // Game cards are restored through a shell event so virtualized
-        // grids and rails can scroll the card into view themselves.
         if (remembered.startsWith("game:")) {
           window.dispatchEvent(
             new CustomEvent("bigscreen:focus-game", {
@@ -263,18 +224,13 @@ export default function BigScreenLayout() {
         }
       }
 
-      // Last resort: pick the first registered focusable the engine
-      // actually knows about. A raw `querySelector('[tabindex="0"]')`
-      // can land on an element `registerAction` never saw, leaving
-      // `focusedRef` unsynced and D-pad navigation dead — `focusFirst`
-      // can't, because it only ever picks registered elements.
       gamepad.focusFirst(main);
     });
     return () => cancelAnimationFrame(raf);
   }, [location.pathname]);
 
-  // Mirror the mode flag onto <html> so rem-based Big Screen scaling
-  // (bigscreen.css `[data-bigscreen="true"] { font-size }`) resolves.
+  // Mirror the mode flags onto <html> so rem-based scaling and
+  // portal-level tokens resolve outside the shell subtree.
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-bigscreen", "true");
@@ -282,23 +238,51 @@ export default function BigScreenLayout() {
   }, []);
 
   return (
-    <div className="bigscreen-v2 bigscreen-v3" data-bigscreen="true">
-      <BigScreenHeader onOpenSearch={() => setSearchOpen(true)} />
+    <div
+      className="bs-shell"
+      data-bigscreen="true"
+      data-preset={prefs.preset}
+      data-nav={prefs.preset === "steam" ? "side" : "top"}
+      data-nav-mode={prefs.navVisibility}
+      data-nav-engaged={navEngaged ? "true" : undefined}
+      data-nav-reveal={navReveal ? "true" : undefined}
+    >
+      <BigScreenTopBar
+        onOpenSearch={() => setSearchOpen(true)}
+        onOpenGuide={() => {
+          setQuickOpen(false);
+          setGuideOpen(true);
+        }}
+        onRequestExit={requestExit}
+      />
 
-      <main
-        ref={mainRef}
-        className="bigscreen-v3-main"
-        aria-label="Big Screen content"
-      >
-        <div ref={frameRef} className="bigscreen-v3-content-frame">
+      <BigScreenNav onEngagedChange={setNavEngaged} />
+
+      <main ref={mainRef} className="bs-main" aria-label="Big Screen content">
+        <div ref={frameRef} className="bs-frame bigscreen-page-enter">
           <Outlet />
         </div>
       </main>
 
-      <BottomBar />
+      <BigScreenFooter />
 
       <VirtualCursor gamepad={gamepad} />
-      <BigScreenSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      <BigScreenSearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
+
+      <BigScreenGuide
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onOpenQuickSettings={() => setQuickOpen(true)}
+      />
+
+      <BigScreenQuickSettings
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+      />
 
       <ConfirmModal
         open={exitConfirmOpen}

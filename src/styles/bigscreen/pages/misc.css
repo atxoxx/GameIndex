@@ -1,0 +1,556 @@
+/* ============================================================
+   Big Screen — misc page chrome
+   ============================================================
+   Surfaces shared by the System hub's satellite pages (mods,
+   emulators, docs, desktop fallback) and the console modal: rows,
+   badges, dialog chrome, the dropped-in docs guide and the empty
+   state strip. Everything here is Big Screen-only; desktop pages
+   keep their own stylesheets.
+   ============================================================ */
+
+/* ── Drill-down pages ──────────────────────────────────────── */
+
+/* Breathing room between a back header and the scroll body below it;
+   the header must never compress when that body scrolls. */
+.bigscreen-library-dashboard > .bigscreen-back-header {
+  flex: 0 0 auto;
+  margin-bottom: var(--bs-space-4);
+}
+
+/* Black belt for the drill-down body: shared.css sizes it 100% high,
+   which overflows by the header's height in a column flex parent. */
+.bigscreen-library-dashboard > .bigscreen-dashboard-scrollable-content {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+/* Desktop-fallback pages pad their own scroll field (shared.css). */
+
+/* ── Console dialog (BigScreenModal) ───────────────────────── */
+
+.bigscreen-overlay-drawer-panel--modal {
+  border-radius: var(--bs-radius-lg);
+  animation: bs-dialog-in var(--bs-dur) var(--bs-ease-enter) both;
+}
+
+@keyframes bs-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--bs-enter-y)) scale(0.985);
+  }
+}
+
+.bigscreen-overlay-drawer-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid transparent;
+  border-radius: var(--bs-radius-sm);
+  background: var(--bs-surface-1);
+  color: var(--bs-text-dim);
+  cursor: pointer;
+  transition:
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    color var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bigscreen-overlay-drawer-close:hover,
+.bigscreen-overlay-drawer-close[data-focused="true"] {
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+}
+
+.bigscreen-overlay-drawer-close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.bigscreen-modal-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bs-space-2);
+}
+
+.bigscreen-modal-stat-full {
+  grid-column: 1 / -1;
+}
+
+.bigscreen-modal-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-1);
+  padding: var(--bs-space-2) var(--bs-space-3);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-sm);
+  background: var(--bs-surface-1);
+}
+
+.bigscreen-modal-stat-label {
+  font-size: var(--bs-text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-modal-stat-value {
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.bigscreen-details-btn--compact {
+  min-height: 2.1rem;
+  padding: var(--bs-space-1) var(--bs-space-4);
+  font-size: var(--bs-text-sm);
+}
+
+/* ── Option rows (mod list, ROM list) ──────────────────────── */
+
+.bigscreen-option-row {
+  justify-content: space-between;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border-radius: var(--bs-radius-md);
+}
+
+.bigscreen-option-row[data-focused="true"] {
+  transform: translateX(2px);
+}
+
+.bigscreen-option-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--bs-space-1);
+  min-width: 0;
+}
+
+.bigscreen-option-row-title {
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-option-row-sub {
+  font-size: var(--bs-text-xs);
+  color: var(--bs-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-option-row-trail {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--bs-space-3);
+}
+
+.bigscreen-option-badge {
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-surface-2);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  white-space: nowrap;
+}
+
+.bigscreen-option-badge--accent {
+  background: var(--bs-accent-soft);
+  color: var(--bs-accent);
+}
+
+.bigscreen-option-badge--on {
+  background: color-mix(in srgb, var(--bs-success) 18%, transparent);
+  color: var(--bs-success);
+}
+
+.bigscreen-option-badge--off {
+  background: var(--bs-surface-2);
+  color: var(--bs-text-faint);
+}
+
+.bigscreen-option-size {
+  min-width: 2.8rem;
+  text-align: right;
+  font-size: var(--bs-text-xs);
+  color: var(--bs-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Readable measure for the drill-down list pages. */
+.bigscreen-dashboard-scrollable-content > .system-settings-list {
+  max-width: 64rem;
+  margin-bottom: var(--bs-space-4);
+}
+
+.bigscreen-dashboard-scrollable-content > .bigscreen-overlay-options-list {
+  max-width: 64rem;
+}
+
+/* ── Empty / loading strip (mods, emulators, friends tabs) ─── */
+
+.system-view-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-2);
+  min-height: 9rem;
+  padding: var(--bs-space-5);
+  border: 1px dashed var(--bs-border);
+  border-radius: var(--bs-radius-md);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  text-align: center;
+}
+
+.system-view-empty p {
+  margin: 0;
+}
+
+/* ── Emulator tiles ────────────────────────────────────────── */
+
+/* The tile is a <button> in this page, so reset the UA button box. */
+.bigscreen-game-card--button {
+  padding: 0;
+  color: var(--bs-text);
+  font: inherit;
+  text-align: left;
+}
+
+.bigscreen-game-card-cover-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: var(--bs-space-4);
+  background: var(--bs-surface-2);
+}
+
+.bigscreen-tile-glyph {
+  font-size: clamp(2rem, 2.2vw, 2.8rem);
+  line-height: 1;
+}
+
+/* ── System menu rows ──────────────────────────────────────── */
+
+.bigscreen-system-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-1);
+}
+
+.bigscreen-system-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-1) var(--bs-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--bs-radius-md);
+  background: transparent;
+  color: var(--bs-text-dim);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+
+.bigscreen-system-menu-item:hover,
+.bigscreen-system-menu-item[data-focused="true"] {
+  background: var(--bs-surface-1);
+  color: var(--bs-text);
+}
+
+.bigscreen-system-menu-item.active {
+  background: var(--bs-accent-soft);
+  border-color: var(--bs-accent-line);
+  color: var(--bs-text);
+  font-weight: var(--bs-weight-bold);
+}
+
+.bigscreen-system-menu-item .menu-item-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--bs-radius-sm);
+  background: var(--bs-surface-1);
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-system-menu-item.active .menu-item-icon,
+.bigscreen-system-menu-item[data-focused="true"] .menu-item-icon {
+  background: var(--bs-accent-soft);
+  color: var(--bs-accent);
+}
+
+.bigscreen-system-menu-item svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Docs guide ────────────────────────────────────────────── */
+
+.bigscreen-docs-content .bigscreen-docs-section[data-focused="true"] {
+  background: var(--bs-surface-1);
+}
+
+.bigscreen-docs-section h2 {
+  margin: 0 0 var(--bs-space-3);
+  font-size: var(--bs-title-sm);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.bigscreen-docs-content .docs-paragraph {
+  margin: 0 0 var(--bs-space-3);
+  font-size: var(--bs-text-md);
+  line-height: 1.65;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-docs-content .docs-subhead {
+  margin: var(--bs-space-4) 0 var(--bs-space-2);
+  font-size: var(--bs-text-lg);
+  font-weight: var(--bs-weight-bold);
+  color: var(--bs-text);
+}
+
+.bigscreen-docs-content .docs-subhead--h3 {
+  margin: var(--bs-space-3) 0 var(--bs-space-1);
+  font-size: var(--bs-text-md);
+}
+
+.bigscreen-docs-content .docs-bullets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-2);
+  margin: 0 0 var(--bs-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.bigscreen-docs-content .docs-bullets--nested {
+  margin: var(--bs-space-2) 0 0;
+}
+
+.bigscreen-docs-content .doc-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bs-space-3);
+}
+
+.bigscreen-docs-content .doc-bullet-marker {
+  flex: 0 0 auto;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-top: var(--bs-space-2);
+  border-radius: 50%;
+  background: var(--bs-accent);
+}
+
+.bigscreen-docs-content .doc-bullet-content {
+  min-width: 0;
+  font-size: var(--bs-text-md);
+  line-height: 1.6;
+  color: var(--bs-text-dim);
+}
+
+.bigscreen-docs-content .docs-callout {
+  --docs-callout-tone: var(--bs-info);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bs-space-3);
+  margin: 0 0 var(--bs-space-3);
+  padding: var(--bs-space-3) var(--bs-space-4);
+  border: 1px solid color-mix(in srgb, var(--docs-callout-tone) 28%, transparent);
+  border-radius: var(--bs-radius-sm);
+  background: color-mix(in srgb, var(--docs-callout-tone) 10%, transparent);
+}
+
+.bigscreen-docs-content .docs-callout--tip {
+  --docs-callout-tone: var(--bs-success);
+}
+
+.bigscreen-docs-content .docs-callout--warning {
+  --docs-callout-tone: var(--bs-warning);
+}
+
+.bigscreen-docs-content .docs-callout--pro {
+  --docs-callout-tone: var(--bs-accent);
+}
+
+.bigscreen-docs-content .docs-callout__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  color: var(--docs-callout-tone);
+  background: color-mix(in srgb, var(--docs-callout-tone) 16%, transparent);
+}
+
+.bigscreen-docs-content .docs-callout__icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.bigscreen-docs-content .docs-callout__text {
+  min-width: 0;
+  font-size: var(--bs-text-sm);
+  line-height: 1.6;
+  color: var(--bs-text);
+}
+
+.bigscreen-docs-content .doc-link {
+  color: var(--bs-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bigscreen-docs-content .doc-code {
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+.bigscreen-docs-content .doc-kbd {
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+  font-family: inherit;
+  font-size: 0.85em;
+  font-weight: var(--bs-weight-bold);
+}
+
+.bigscreen-docs-content .doc-code-block {
+  position: relative;
+  margin: 0 0 var(--bs-space-3);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-sm);
+  background: var(--bs-surface-1);
+  overflow: hidden;
+}
+
+.bigscreen-docs-content .doc-code-block pre {
+  margin: 0;
+  padding: var(--bs-space-4);
+  overflow-x: auto;
+}
+
+.bigscreen-docs-content .doc-code-block pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--bs-text-sm);
+  line-height: 1.55;
+}
+
+.bigscreen-docs-content .doc-code-copy {
+  position: absolute;
+  top: var(--bs-space-2);
+  right: var(--bs-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-1);
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-2);
+  color: var(--bs-text-dim);
+  font: inherit;
+  font-size: var(--bs-text-xs);
+  cursor: pointer;
+}
+
+.bigscreen-docs-content .doc-code-copy:hover {
+  color: var(--bs-text);
+}
+
+.bigscreen-docs-content .doc-code-copy svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.bigscreen-docs-content .doc-table-wrapper {
+  margin: 0 0 var(--bs-space-3);
+  overflow-x: auto;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-sm);
+}
+
+.bigscreen-docs-content .doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--bs-text-sm);
+}
+
+.bigscreen-docs-content .doc-table th,
+.bigscreen-docs-content .doc-table td {
+  padding: var(--bs-space-2) var(--bs-space-3);
+  border-bottom: 1px solid var(--bs-border-soft);
+  text-align: left;
+}
+
+.bigscreen-docs-content .doc-table th {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bigscreen-docs-content .docs-step-header {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-3);
+  margin: var(--bs-space-3) 0 var(--bs-space-2);
+}
+
+.bigscreen-docs-content .docs-step-badge {
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-accent-soft);
+  color: var(--bs-accent);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  white-space: nowrap;
+}
+
+.bigscreen-docs-content .docs-step-title {
+  margin: 0;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+}
+
+/* ── Reduced motion ────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .bigscreen-overlay-drawer-panel--modal {
+    animation: none !important;
+  }
+}

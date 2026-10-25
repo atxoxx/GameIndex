@@ -1,0 +1,192 @@
+/* ============================================================
+   Big Screen — Store
+   ============================================================
+   One hero (BigScreenSpotlight) over four rails, plus the wishlist
+   grid that shares the same route. The page body scrolls once
+   (the shell's shared `.bigscreen-dashboard-scrollable-content`),
+   the rails scroll themselves horizontally, and nothing else
+   claims an overflow.
+   ============================================================ */
+
+/* ── Panel wrappers ────────────────────────────────────────── */
+
+.bigscreen-store-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  min-width: 0;
+}
+
+.store-trending-panel,
+.store-wishlist-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  min-width: 0;
+}
+
+.store-rails-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  min-width: 0;
+}
+
+/* ── Storefront loading ────────────────────────────────────── */
+
+.store-tab-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 22rem;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+}
+
+.store-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 0.2rem solid var(--bs-border);
+  border-top-color: var(--bs-accent);
+  border-radius: 50%;
+  animation: bs-spin 0.9s linear infinite;
+}
+
+/* ── Wishlist ──────────────────────────────────────────────── */
+
+.store-wishlist-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bs-space-3);
+  padding-bottom: var(--bs-space-3);
+  border-bottom: 1px solid var(--bs-border-soft);
+}
+
+.store-wishlist-title {
+  margin: 0;
+  font-size: var(--bs-title-md);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.store-wishlist-count {
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.store-wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--bs-card-min), 1fr));
+  gap: var(--bs-card-gap);
+  align-content: start;
+}
+
+.wishlist-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 20rem;
+  padding: var(--bs-space-6);
+  text-align: center;
+  color: var(--bs-text-faint);
+}
+
+.wishlist-empty-state > svg {
+  color: var(--bs-accent);
+  opacity: 0.35;
+}
+
+.wishlist-empty-state h3 {
+  margin: 0;
+  color: var(--bs-text);
+  font-size: var(--bs-title-sm);
+  font-weight: var(--bs-weight-bold);
+}
+
+.wishlist-empty-state p {
+  margin: 0;
+  max-width: 34rem;
+  font-size: var(--bs-text-sm);
+  line-height: 1.5;
+}
+
+/* ── Store card rating chip ────────────────────────────────── */
+
+.bigscreen-store-card-rating {
+  position: absolute;
+  top: var(--bs-space-2);
+  right: var(--bs-space-2);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bs-space-1);
+  padding: var(--bs-space-1) var(--bs-space-2);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg-deep) 76%, transparent);
+  color: var(--bs-text);
+  font-size: var(--bs-text-xs);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.bigscreen-store-card-rating svg {
+  width: 0.6rem;
+  height: 0.6rem;
+  color: var(--bs-accent);
+}
+
+/* Store rail titles are long ("Top Critic Scores"); one line keeps every
+   poster in a rail the same shape. */
+.bigscreen-store-game-card .bigscreen-game-card-name {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+/* The wishlist is a static grid, not a rail: every title stays legible
+   without waiting for hover/focus on a poster. */
+.store-wishlist-card .bigscreen-game-card-body {
+  opacity: 1;
+}
+
+.bigscreen-store-game-card:hover .bigscreen-store-card-rating,
+.bigscreen-store-game-card[data-focused="true"] .bigscreen-store-card-rating {
+  border-color: var(--bs-border-strong);
+  background: color-mix(in srgb, var(--bs-bg-deep) 88%, transparent);
+}
+
+/* ── Store spotlight ───────────────────────────────────────── */
+
+/* The dashboard's ambient art already fills the screen behind the hero,
+   so the store spotlight keeps its own facts card but drops the top
+   padding the shell gives the shared panel. */
+.bigscreen-store-dashboard .bigscreen-spotlight {
+  padding-top: 0;
+}
+
+.bs-shell[data-preset="steam"] .bigscreen-store-dashboard .bigscreen-spotlight {
+  min-height: 12rem;
+  padding-bottom: var(--bs-space-3);
+}
+
+@media (max-width: 900px) {
+  .store-wishlist-head {
+    flex-wrap: wrap;
+    gap: var(--bs-space-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-tab-loading .store-spinner {
+    animation: none;
+  }
+}

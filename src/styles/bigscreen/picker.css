@@ -1,0 +1,168 @@
+/* ============================================================
+   Big Screen — layout preset picker
+   ============================================================
+   Shipped with the PresetPicker component so the same control works
+   inside Big Screen (Quick settings) and in desktop Settings, where
+   the Big Screen stylesheet is not loaded. Uses theme tokens only.
+   ============================================================ */
+
+.bs-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.7rem;
+}
+
+.bs-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-radius: var(--radius-lg, 10px);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.bs-preset:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+}
+
+.bs-preset[data-selected] {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.bs-preset-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-md, 8px);
+  background: color-mix(in srgb, var(--color-bg-primary) 82%, var(--color-text-primary) 6%);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.bs-preset-thumb-nav {
+  display: flex;
+  gap: 0.18rem;
+  padding: 0.28rem 0.3rem;
+}
+
+.bs-preset-thumb-nav i {
+  width: 0.55rem;
+  height: 0.22rem;
+  border-radius: 0.1rem;
+  background: color-mix(in srgb, var(--color-text-primary) 28%, transparent);
+}
+
+.bs-preset[data-nav="rail"] .bs-preset-thumb-nav {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 22%;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.bs-preset[data-nav="rail"] .bs-preset-thumb-nav i {
+  width: 70%;
+  height: 0.2rem;
+}
+
+.bs-preset[data-nav="hub"] .bs-preset-thumb-nav {
+  justify-content: center;
+}
+
+.bs-preset[data-nav="hub"] .bs-preset-thumb-nav i {
+  width: 0.4rem;
+  height: 0.16rem;
+}
+
+.bs-preset[data-nav="icons"] .bs-preset-thumb-nav i {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 0.1rem;
+}
+
+.bs-preset-thumb-body {
+  position: absolute;
+  inset: 1.05rem 0.35rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bs-preset[data-nav="rail"] .bs-preset-thumb-body {
+  left: 25%;
+}
+
+.bs-preset-thumb-hero {
+  flex: 1;
+  border-radius: 0.2rem;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-accent) 55%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent)
+  );
+}
+
+.bs-preset-thumb-cards {
+  display: flex;
+  gap: 0.2rem;
+  height: 34%;
+}
+
+.bs-preset-thumb-cards i {
+  flex: 1;
+  border-radius: 0.16rem;
+  background: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
+}
+
+.bs-preset[data-home="shelves"] .bs-preset-thumb-hero {
+  flex: 0 0 22%;
+}
+
+.bs-preset[data-home="shelves"] .bs-preset-thumb-cards {
+  height: 72%;
+}
+
+.bs-preset[data-home="grid"] .bs-preset-thumb-hero {
+  display: none;
+}
+
+.bs-preset[data-home="grid"] .bs-preset-thumb-cards {
+  height: 100%;
+}
+
+.bs-preset[data-home="cinematic"] .bs-preset-thumb-cards {
+  height: 26%;
+}
+
+.bs-preset-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bs-preset-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.bs-preset-blurb {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text-primary) 62%, transparent);
+}
+
+.bs-preset[data-selected] .bs-preset-blurb {
+  color: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+}
