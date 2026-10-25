@@ -56,7 +56,7 @@ export function RatingsCommunityTab({
   const userSentiment = sentimentKey(userScore, 10);
 
   return (
-    <>
+    <div className="rt-community">
       {hasPlayers && (
         <RatingsSection
           title={t("ratings.playersSource")}
@@ -137,7 +137,7 @@ export function RatingsCommunityTab({
           <RatingsHltbSection stats={hltb} />
         </RatingsSection>
       )}
-    </>
+    </div>
   );
 }
 

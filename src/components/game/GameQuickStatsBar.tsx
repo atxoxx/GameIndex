@@ -10,8 +10,10 @@ import {
 import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
-import { StatBand, type StatBandItem } from "../ui/StatBand";
-import { IconClock, IconHardDrive, IconStar, IconShield, IconCalendar, IconTag } from "./icons";
+import type { StatBandItem } from "../ui/StatBand";
+import { IconClock, IconHardDrive, IconShield, IconCalendar, IconTag } from "./icons";
+import QuickReceptionCard from "./QuickReceptionCard";
+import QuickStatCard from "./QuickStatCard";
 
 interface GameQuickStatsBarProps {
   game: Game;
@@ -56,12 +58,6 @@ function formatRelativeTime(
   return t("game.quickStats.yearsAgo", { n: years });
 }
 
-function scoreTone(score: number): StatBandItem["tone"] {
-  if (score >= 75) return "success";
-  if (score >= 50) return "warning";
-  return "danger";
-}
-
 /** "50.5 GiB" / "0.02 EUR" → a figure plus its caption-sized unit. */
 function splitFigure(text: string): { value: string; unit?: string } {
   const space = text.lastIndexOf(" ");
@@ -72,10 +68,9 @@ function splitFigure(text: string): { value: string; unit?: string } {
 /**
  * GameQuickStatsBar — the game overview's quick metrics.
  *
- * Rendered through the shared `StatBand` primitive: figures sit directly on
- * the page with no per-metric tile, so the summary reads as a masthead for
- * the overview rather than a row of widgets. Every metric keeps its own
- * tooltip so the "set cost" affordance still explains itself.
+ * The reception headline leads a centred row of cards; each remaining
+ * metric becomes a matching card so the row can centre itself and wrap
+ * cleanly instead of stretching edge to edge.
  */
 export default function GameQuickStatsBar({
   game,
@@ -136,30 +131,6 @@ export default function GameQuickStatsBar({
   const items = useMemo<StatBandItem[]>(() => {
     const next: StatBandItem[] = [];
     const sizeFigure = formattedSize ? splitFigure(formattedSize) : null;
-
-    if (ratingScore != null || steamPositivePercent != null) {
-      const tone = scoreTone(ratingScore ?? steamPositivePercent ?? 0);
-      next.push({
-        id: "reception",
-        label: t("game.quickStats.reception"),
-        icon: <IconStar size={14} />,
-        tone,
-        value:
-          ratingScore != null
-            ? Math.round(ratingScore)
-            : `${steamPositivePercent}%`,
-        detail:
-          ratingScore != null && steamPositivePercent != null
-            ? `${steamPositivePercent}% ${t("review.positive")}`
-            : ratingScore == null
-              ? t("review.positive")
-              : undefined,
-        hint:
-          ratingScore != null
-            ? `Rating: ${Math.round(ratingScore)}/100`
-            : undefined,
-      });
-    }
 
     if (storyHours != null || completionistHours != null) {
       next.push({
@@ -243,8 +214,6 @@ export default function GameQuickStatsBar({
 
     return next;
   }, [
-    ratingScore,
-    steamPositivePercent,
     storyHours,
     completionistHours,
     storyProgressPercent,
@@ -261,13 +230,40 @@ export default function GameQuickStatsBar({
     t,
   ]);
 
-  if (items.length === 0) return null;
+  const ratingLabel =
+    ratingScore == null
+      ? null
+      : game.igdbRating != null
+        ? t("ratings.igdb")
+        : t("ratings.critics");
+  const ratingMeta =
+    ratingScore == null
+      ? null
+      : game.igdbRating != null
+        ? t("ratings.igdbCommunity")
+        : t("ratings.critics");
+  const hasReception = ratingScore != null || steamPositivePercent != null;
+
+  if (items.length === 0 && !hasReception) return null;
 
   return (
-    <StatBand
-      items={items}
-      ariaLabel={t("game.quickStats.aria")}
-      className="game-quick-stats"
-    />
+    <div
+      className="game-quick-stats-row"
+      role="group"
+      aria-label={t("game.quickStats.aria")}
+    >
+      {hasReception && (
+        <QuickReceptionCard
+          rating={ratingScore}
+          ratingLabel={ratingLabel}
+          ratingMeta={ratingMeta}
+          steam={steamReviews ?? null}
+        />
+      )}
+
+      {items.map((item) => (
+        <QuickStatCard key={item.id} item={item} />
+      ))}
+    </div>
   );
 }
