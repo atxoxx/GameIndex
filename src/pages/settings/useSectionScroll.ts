@@ -30,20 +30,36 @@ export function useSectionScroll(sectionIds: readonly string[]) {
 
   useEffect(() => {
     if (!target || !sectionIds.includes(target)) return;
-    const el = document.getElementById(target);
-    if (!el) return;
 
     const reduced = prefersReducedMotion();
-    if (!reduced) el.classList.add(FLASH_CLASS);
+    const startedAt = performance.now();
+    let frame = 0;
+    let cancelled = false;
 
-    // Defer a frame so the tab content has mounted and laid out.
-    const raf = requestAnimationFrame(() => {
-      el.scrollIntoView({
-        behavior: reduced ? "auto" : "smooth",
-        block: "start",
-      });
-    });
-    return () => cancelAnimationFrame(raf);
+    // Tabs are lazy chunks, so on a deep-link the section element can appear
+    // a few frames after the page mounts. Poll for it briefly instead of
+    // giving up on the first paint, then scroll + flash once it exists.
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = document.getElementById(target);
+      if (el) {
+        if (!reduced) el.classList.add(FLASH_CLASS);
+        el.scrollIntoView({
+          behavior: reduced ? "auto" : "smooth",
+          block: "start",
+        });
+        return;
+      }
+      if (performance.now() - startedAt < 2000) {
+        frame = requestAnimationFrame(tryScroll);
+      }
+    };
+
+    frame = requestAnimationFrame(tryScroll);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
     // Re-run whenever the target section changes (including first mount).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);

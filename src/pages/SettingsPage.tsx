@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { PageHeader } from "../components/ui";
@@ -11,22 +11,40 @@ import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
 import { useSectionScroll } from "./settings/useSectionScroll";
 import SettingsTopNav from "./settings/SettingsTopNav";
 import GeneralTab from "./settings/GeneralTab";
-import AppearanceTab from "./settings/AppearanceTab";
-import InterfaceTab from "./settings/InterfaceTab";
-import HardwareTab from "./settings/HardwareTab";
-import IntegrationsTab from "./settings/IntegrationsTab";
-import DiscordTab from "./settings/DiscordTab";
-import DownloadsTab from "./settings/DownloadsTab";
-import PluginsTab from "./settings/PluginsTab";
-import LauncherTab from "./settings/LauncherTab";
-import PrivacyTab from "./settings/PrivacyTab";
-import BackupTab from "./settings/BackupTab";
-import SavesTab from "./settings/SavesTab";
-import DiagnosticsTab from "./settings/DiagnosticsTab";
-import OverlayTab from "./settings/OverlayTab";
-import CompatibilityTab from "./settings/CompatibilityTab";
 import { IntegrationsIcon, SettingsGearIcon } from "./settings/settingsIcons";
 import type { SettingsTab } from "./settings/types";
+import { Skeleton } from "../components/ui/Skeleton";
+
+// Every non-default tab is its own chunk: the settings surface is the
+// largest page in the app (Compatibility alone is 144 KB of Linux tooling,
+// Layout Studio previews another 170 KB) and only one tab is ever on
+// screen. Opening Settings now parses just the catalog + the active tab,
+// and each other tab loads on first click.
+const AppearanceTab = lazy(() => import("./settings/AppearanceTab"));
+const InterfaceTab = lazy(() => import("./settings/InterfaceTab"));
+const HardwareTab = lazy(() => import("./settings/HardwareTab"));
+const IntegrationsTab = lazy(() => import("./settings/IntegrationsTab"));
+const DiscordTab = lazy(() => import("./settings/DiscordTab"));
+const DownloadsTab = lazy(() => import("./settings/DownloadsTab"));
+const PluginsTab = lazy(() => import("./settings/PluginsTab"));
+const LauncherTab = lazy(() => import("./settings/LauncherTab"));
+const PrivacyTab = lazy(() => import("./settings/PrivacyTab"));
+const BackupTab = lazy(() => import("./settings/BackupTab"));
+const SavesTab = lazy(() => import("./settings/SavesTab"));
+const DiagnosticsTab = lazy(() => import("./settings/DiagnosticsTab"));
+const OverlayTab = lazy(() => import("./settings/OverlayTab"));
+const CompatibilityTab = lazy(() => import("./settings/CompatibilityTab"));
+
+/** Shimmer shown for the few frames a tab chunk is being parsed. */
+function TabFallback() {
+  return (
+    <div className="settings-tab-fallback" aria-busy="true" role="status">
+      <Skeleton width="220px" height="1.6em" />
+      <Skeleton shape="rect" width="100%" height="96px" />
+      <Skeleton shape="rect" width="100%" height="160px" />
+    </div>
+  );
+}
 
 /**
  * SettingsPage — the routed settings shell. Each tab lives at its own
@@ -120,26 +138,28 @@ export default function SettingsPage() {
           }
         />
 
-        {activeTab === "general" && <GeneralTab />}
-        {activeTab === "appearance" && <AppearanceTab />}
-        {activeTab === "interface" && <InterfaceTab />}
-        {activeTab === "hardware" && <HardwareTab />}
-        {activeTab === "integrations" && (
-          <IntegrationsTab
-            integrations={integrations}
-            sectionIds={meta.sections.map((s) => s.id)}
-          />
-        )}
-        {activeTab === "discord" && <DiscordTab />}
-        {activeTab === "downloads" && <DownloadsTab />}
-        {activeTab === "plugins" && <PluginsTab />}
-        {activeTab === "launcher" && <LauncherTab />}
-        {activeTab === "privacy" && <PrivacyTab />}
-        {activeTab === "backup" && <BackupTab />}
-        {activeTab === "saves" && <SavesTab />}
-        {activeTab === "diagnostics" && <DiagnosticsTab />}
-        {activeTab === "overlay" && <OverlayTab />}
-        {activeTab === "compatibility" && showFullLinuxUi && <CompatibilityTab />}
+        <Suspense fallback={<TabFallback />}>
+          {activeTab === "general" && <GeneralTab />}
+          {activeTab === "appearance" && <AppearanceTab />}
+          {activeTab === "interface" && <InterfaceTab />}
+          {activeTab === "hardware" && <HardwareTab />}
+          {activeTab === "integrations" && (
+            <IntegrationsTab
+              integrations={integrations}
+              sectionIds={meta.sections.map((s) => s.id)}
+            />
+          )}
+          {activeTab === "discord" && <DiscordTab />}
+          {activeTab === "downloads" && <DownloadsTab />}
+          {activeTab === "plugins" && <PluginsTab />}
+          {activeTab === "launcher" && <LauncherTab />}
+          {activeTab === "privacy" && <PrivacyTab />}
+          {activeTab === "backup" && <BackupTab />}
+          {activeTab === "saves" && <SavesTab />}
+          {activeTab === "diagnostics" && <DiagnosticsTab />}
+          {activeTab === "overlay" && <OverlayTab />}
+          {activeTab === "compatibility" && showFullLinuxUi && <CompatibilityTab />}
+        </Suspense>
       </main>
     </div>
   );

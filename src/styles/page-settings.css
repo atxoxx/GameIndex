@@ -1181,3 +1181,12 @@
   accent-color: var(--color-accent);
   cursor: pointer;
 }
+
+/* Placeholder while a lazily loaded settings tab chunk is parsed. Keeps the
+   page header in place so switching tabs never collapses the layout. */
+.settings-tab-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-top: var(--space-sm);
+}
