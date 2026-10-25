@@ -318,12 +318,19 @@
   max-width: 14rem;
 }
 
-/* Compact: the classic strip collapses inactive labels until the nav
-   is engaged. Icon/tile paradigms keep their labels — an icon-only
-   tile row is guesswork for a first-time couch user. */
-.bs-shell[data-preset="classic"][data-nav-mode="compact"]:not([data-nav-engaged]) .bs-nav-item:not([data-active]) .bs-nav-label {
+/* Compact: inactive labels collapse until the nav is engaged, so the
+   bar stays quiet at rest and expands when focus enters it. The
+   PlayStation hub is text-only — hiding its labels would erase the
+   nav — so it keeps them. */
+.bs-shell:not([data-preset="playstation"])[data-nav-mode="compact"]:not([data-nav-engaged]) .bs-nav-item:not([data-active]) .bs-nav-label {
   max-width: 0;
   opacity: 0;
+}
+
+/* Hovering an item peeks its label back without expanding the bar. */
+.bs-shell:not([data-preset="playstation"])[data-nav-mode="compact"] .bs-nav-item:hover .bs-nav-label {
+  max-width: 14rem;
+  opacity: 1;
 }
 
 /* Auto-hide: the whole bar fades until focus enters it or fresh

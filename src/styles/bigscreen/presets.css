@@ -45,6 +45,22 @@
   border-color: var(--bs-accent-line);
 }
 
+/* Compact turns inactive tiles into an icon dock; the active tile keeps
+   its label so the bar always says where you are. */
+.bs-shell[data-preset="xbox"][data-nav-mode="compact"]:not([data-nav-engaged]) .bs-nav-item:not([data-active]) {
+  min-width: 3.6rem;
+  align-items: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.bs-shell[data-preset="xbox"] .bs-nav-item {
+  transition:
+    min-width var(--bs-dur) var(--bs-ease),
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease);
+}
+
 .bs-shell[data-preset="xbox"] .bs-nav-item[data-active]::after {
   display: none;
 }
@@ -275,10 +291,9 @@
   opacity: 0.55;
 }
 
-/* Preset-driven card geometry. Every card/grid surface reads these,
-   so a preset swap reshapes the library without touching a
-   component. */
-.bs-shell .bigscreen-game-card,
+/* Card geometry is applied by `.bigscreen-game-card` itself (shared.css
+   reads `--bs-card-aspect`), so content tiles such as news or friend
+   cards can opt out with their own `aspect-ratio: auto`. */
 .bs-shell .bs-card {
   aspect-ratio: var(--bs-card-aspect);
 }
