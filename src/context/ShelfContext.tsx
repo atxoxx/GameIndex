@@ -48,6 +48,21 @@ function readShelfEnabled(): boolean {
 /** Prefix marking a starter shelf whose `name` is an i18n key. */
 const STARTER_NAME_PREFIX = "shelves.starter.";
 
+/**
+ * Backoff between `shelves_list` attempts on mount (ms). The shelves pool can
+ * still be warming up during the first frames, and a single failed read used
+ * to be indistinguishable from "the user has no shelves".
+ */
+const LIST_ATTEMPT_DELAYS_MS = [0, 250, 900];
+
+/** Result of one hydration pass (shipped to every effect run that awaits it). */
+interface ShelfHydration {
+  shelves: Shelf[];
+  completions: [string, number][];
+  /** False when the backend never answered, so nothing was seeded/cleaned. */
+  listLoaded: boolean;
+}
+
 /** Draft accepted by `createShelf` — the DAO fills in id/timestamps. */
 export type ShelfDraft = Partial<Omit<Shelf, "rules">> & {
   name: string;
@@ -180,6 +195,141 @@ async function saveShelf(shelf: Shelf): Promise<Shelf> {
   return invoke<Shelf>("shelves_save", { shelf });
 }
 
+/** True when a Tauri runtime is present (false for plain `npm run dev`). */
+function hasTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * Read every stored shelf, retrying briefly while the backend warms up.
+ * Returns `null` when the backend never answered - callers must not treat
+ * that as an empty library, or a transient failure would seed/overwrite it.
+ */
+async function readShelves(): Promise<Shelf[] | null> {
+  const delays = hasTauriRuntime() ? LIST_ATTEMPT_DELAYS_MS : [0];
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      return await invoke<Shelf[]>("shelves_list");
+    } catch {
+      /* retry */
+    }
+  }
+  return null;
+}
+
+/**
+ * Run the one-time seed/migration exactly once per app launch.
+ *
+ * Rows whose name already exists are skipped, so a partially failed pass is
+ * safe to retry: the seed flag is only written once every row landed.
+ */
+async function seedShelves(loaded: Shelf[]): Promise<Shelf[]> {
+  try {
+    if (localStorage.getItem(SHELVES_SEEDED_KEY)) return loaded;
+  } catch {
+    // Storage unavailable - there is nothing to migrate from and no way to
+    // remember that we ran, so leave the stored shelves untouched.
+    return loaded;
+  }
+
+  const presets = loadFilterPresets();
+  const seeds =
+    presets.length > 0
+      ? presets.map(shelfFromPreset)
+      : loaded.length === 0
+        ? starterShelves(Date.now())
+        : [];
+
+  const existingNames = new Set(loaded.map((shelf) => shelf.name));
+  const saved: Shelf[] = [];
+  let failed = 0;
+  for (const shelf of seeds) {
+    if (existingNames.has(shelf.name)) continue;
+    try {
+      saved.push(await saveShelf(shelf));
+      existingNames.add(shelf.name);
+    } catch {
+      failed += 1;
+    }
+  }
+
+  if (failed === 0) {
+    try {
+      localStorage.setItem(SHELVES_SEEDED_KEY, "1");
+      if (presets.length > 0) localStorage.removeItem(FILTER_PRESETS_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+  return [...loaded, ...saved];
+}
+
+/**
+ * One-time heal: early builds could seed the starter set twice, leaving
+ * duplicate `shelves.starter.*` rows. Keep the first of each and delete the
+ * rest. The flag is only written when every delete succeeded, so a failure
+ * gets another go on the next launch instead of stranding the duplicates.
+ */
+async function dedupeStarterShelves(loaded: Shelf[]): Promise<Shelf[]> {
+  try {
+    if (localStorage.getItem(SHELVES_DEDUPE_KEY)) return loaded;
+  } catch {
+    return loaded;
+  }
+
+  const seen = new Set<string>();
+  const kept: Shelf[] = [];
+  let failed = 0;
+  for (const shelf of loaded) {
+    if (shelf.name.startsWith(STARTER_NAME_PREFIX)) {
+      if (seen.has(shelf.name)) {
+        try {
+          await invoke("shelves_delete", { id: shelf.id });
+        } catch {
+          failed += 1;
+          kept.push(shelf);
+        }
+        continue;
+      }
+      seen.add(shelf.name);
+    }
+    kept.push(shelf);
+  }
+
+  if (failed === 0) {
+    try {
+      localStorage.setItem(SHELVES_DEDUPE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }
+  return kept;
+}
+
+/**
+ * Load the shelf list, seed/migrate on first run, then load completion
+ * timestamps. Never rejects: every step degrades to "keep what we have".
+ */
+async function hydrateShelves(): Promise<ShelfHydration> {
+  const stored = await readShelves();
+  let shelves = stored ?? [];
+
+  if (stored !== null) {
+    shelves = await seedShelves(shelves);
+    shelves = await dedupeStarterShelves(shelves);
+  }
+
+  let completions: [string, number][] = [];
+  try {
+    completions = await invoke<[string, number][]>("shelves_completions");
+  } catch {
+    /* completion dates are optional - date rules simply won't match */
+  }
+
+  return { shelves, completions, listLoaded: stored !== null };
+}
+
 export function ShelfProvider({ children }: { children: ReactNode }) {
   const { games } = useGames();
   const [shelves, setShelves] = useState<Shelf[]>([]);
@@ -187,99 +337,48 @@ export function ShelfProvider({ children }: { children: ReactNode }) {
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   const [enabled, setEnabledState] = useState<boolean>(readShelfEnabled);
   const [completions, setCompletions] = useState<Map<string, number>>(new Map());
-  // Ensures seeding runs at most once per mounted provider, even under React
-  // StrictMode's double-invoked effects (which otherwise seeds the starter
-  // set twice before the localStorage flag is written).
-  const seededRef = useRef(false);
+  // Hydration is started by the first effect run and shared by every later run
+  // of this provider instance. React StrictMode mounts, tears down and remounts
+  // in development: without the shared promise the teardown discarded the
+  // in-flight result and the remount skipped it, leaving `loading` stuck at
+  // `true` and the shelf list permanently empty.
+  const hydrationRef = useRef<Promise<ShelfHydration> | null>(null);
 
   // Hydrate shelves + completion timestamps, seeding/migrating on first run.
   useEffect(() => {
-    if (seededRef.current) return;
-    seededRef.current = true;
-    let cancelled = false;
-    (async () => {
-      let loaded: Shelf[] = [];
-      try {
-        loaded = await invoke<Shelf[]>("shelves_list");
-      } catch {
-        // Invoke unavailable (plain `npm run dev`) — run in-memory only.
-      }
+    let disposed = false;
+    const hydration = (hydrationRef.current ??= hydrateShelves());
 
-      try {
-        if (!localStorage.getItem(SHELVES_SEEDED_KEY)) {
-          const migrated: Shelf[] = loadFilterPresets().map(shelfFromPreset);
-          for (const shelf of migrated) {
-            try {
-              loaded.push(await saveShelf(shelf));
-            } catch {
-              /* one bad preset shouldn't block the rest */
-            }
-          }
-          // A fresh install (nothing migrated) gets the starter set.
-          if (migrated.length === 0 && loaded.length === 0) {
-            for (const shelf of starterShelves(Date.now())) {
-              try {
-                loaded.push(await saveShelf(shelf));
-              } catch {
-                /* ignore */
-              }
-            }
-          }
-          localStorage.setItem(SHELVES_SEEDED_KEY, "1");
-          localStorage.removeItem(FILTER_PRESETS_STORAGE_KEY);
-        }
+    void hydration.then((result) => {
+      if (disposed) return;
+      // Keep anything created while hydration was in flight, but never drop a
+      // stored shelf: the read is the source of truth for what's on disk.
+      setShelves((prev) => {
+        const loadedIds = new Set(result.shelves.map((shelf) => shelf.id));
+        return [...result.shelves, ...prev.filter((shelf) => !loadedIds.has(shelf.id))];
+      });
+      setCompletions(new Map(result.completions));
+      setLoading(false);
 
-        // One-time heal: early builds could seed the starter set twice,
-        // leaving duplicate "shelves.starter.*" rows. Keep the first of each
-        // and delete the rest.
-        if (!localStorage.getItem(SHELVES_DEDUPE_KEY)) {
-          const seen = new Set<string>();
-          const kept: Shelf[] = [];
-          for (const shelf of loaded) {
-            if (shelf.name.startsWith(STARTER_NAME_PREFIX)) {
-              if (seen.has(shelf.name)) {
-                try {
-                  await invoke("shelves_delete", { id: shelf.id });
-                } catch {
-                  /* keep the row in memory if the delete fails */
-                }
-                continue;
-              }
-              seen.add(shelf.name);
-            }
-            kept.push(shelf);
-          }
-          loaded = kept;
-          localStorage.setItem(SHELVES_DEDUPE_KEY, "1");
+      if (!result.listLoaded) return;
+
+      // Restore the last-applied shelf, dropping a stale reference so the
+      // sidebar doesn't keep a dead selection alive between launches.
+      try {
+        const persisted = localStorage.getItem(ACTIVE_SHELF_KEY);
+        if (!persisted) return;
+        if (result.shelves.some((shelf) => shelf.id === persisted)) {
+          setActiveShelfId(persisted);
+        } else {
+          localStorage.removeItem(ACTIVE_SHELF_KEY);
         }
       } catch {
-        // localStorage unavailable — skip seeding.
+        /* localStorage unavailable — start with no active shelf */
       }
+    });
 
-      let completionRows: [string, number][] = [];
-      try {
-        completionRows = await invoke<[string, number][]>("shelves_completions");
-      } catch {
-        /* ignore */
-      }
-
-      if (!cancelled) {
-        setShelves(loaded);
-        setCompletions(new Map(completionRows));
-        setLoading(false);
-        // Restore the last-applied shelf if it still exists after hydration.
-        try {
-          const persisted = localStorage.getItem(ACTIVE_SHELF_KEY);
-          if (persisted && loaded.some((s) => s.id === persisted)) {
-            setActiveShelfId(persisted);
-          }
-        } catch {
-          /* localStorage unavailable — start with no active shelf */
-        }
-      }
-    })();
     return () => {
-      cancelled = true;
+      disposed = true;
     };
   }, []);
 
