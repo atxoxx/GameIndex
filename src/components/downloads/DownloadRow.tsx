@@ -136,7 +136,7 @@ export const DownloadRow = React.memo(
       isCompleted || (download.kind === "debrid" && isActiveStatus(status));
     const errorMessage = getStatusError(status);
     const activity = getActivityMessage(download, t);
-    const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
+    const displayName = getDownloadDisplayName(download, t);
 
     const isStalledActivity =
       !isDirect &&

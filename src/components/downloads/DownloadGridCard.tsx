@@ -77,7 +77,7 @@ export const DownloadGridCard = React.memo(
     const isSeeding = status.kind === "seeding";
     const errorMessage = getStatusError(status);
     const activity = getActivityMessage(download, t);
-    const displayName = getDownloadDisplayName(download, t, matchedGame?.name);
+    const displayName = getDownloadDisplayName(download, t);
 
     const handleLaunch = async () => {
       if (!matchedGame) return;

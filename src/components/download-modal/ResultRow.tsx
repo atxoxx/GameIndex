@@ -91,7 +91,7 @@ export function ResultRow({
 
   // Plugins may supply a cleaner display name; `title` stays the source of
   // truth for copy actions, downloaded-state checks and library matching.
-  const displayTitle = match.matchTitle?.trim() || match.title;
+  const displayTitle = match.title?.trim() || match.matchTitle?.trim() || "";
 
   // The plugin-provided version wins over the title heuristic (the same
   // precedence parseReleaseMetadata applies, surfaced as one fact).

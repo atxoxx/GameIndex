@@ -116,7 +116,7 @@ export function useDownloadMenuItems(
         id: "copy-name",
         label: t("gameMenu.copyName"),
         icon: <Copy size={15} />,
-        onSelect: () => copy(getDownloadDisplayName(download, t, matchedGame?.name)),
+        onSelect: () => copy(getDownloadDisplayName(download, t)),
       },
       sourceLink
         ? {
