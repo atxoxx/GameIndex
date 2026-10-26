@@ -1860,6 +1860,47 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
   // NOTE: Friends are added manually or approved mutually via invitations.
   // We intentionally do NOT auto-add remote friends we haven't accepted.
 
+  // Update the sender's own friend record from their profile payload (the
+  // `friends` list on a raw outbox only describes the sender's friends, never
+  // the sender themselves). Respect the core/full scope so a privacy-reduced
+  // payload can't wipe cached data the sender chose not to share.
+  if (remote.profile && remote.profile.syncId) {
+    const remoteIsCore =
+      (remote as { scope?: string }).scope === "core" ||
+      ((remote as { scope?: string }).scope == null && (remote as { v?: number }).v === 2);
+    const rf = mergedFriendsMap.get(remote.profile.syncId);
+    if (rf) {
+      const rp = remote.profile as unknown as Record<string, unknown>;
+      const remoteFavoriteGameRaw =
+        (rp.favoriteGameName as string | undefined) ?? (rp.favoriteGame as string | undefined);
+      const remoteFavoriteGame =
+        remoteFavoriteGameRaw ?? (remoteIsCore ? rf.favoriteGame : undefined);
+      const remoteBio = (rp.bio as string | undefined) ?? (remoteIsCore ? rf.bio : undefined);
+      const remoteRegion = (rp.region as string | undefined) ?? (remoteIsCore ? rf.region : undefined);
+      const remoteLibStats =
+        (rp.libStats as Friend["libStats"] | undefined) ?? (remoteIsCore ? rf.libStats : undefined);
+      const remoteGames = rf.games;
+      const remoteCurrentlyPlaying =
+        rp.currentlyPlaying === undefined
+          ? rf.currentlyPlaying
+          : (rp.currentlyPlaying as string | undefined) || undefined;
+      const remoteLastActive = (rp.lastActive as number | undefined) || rf.lastActive;
+      mergedFriendsMap.set(remote.profile.syncId, {
+        ...rf,
+        name: (rp.name as string | undefined) || rf.name,
+        avatar: (rp.avatar as string | undefined) || rf.avatar,
+        status: (rp.status as string | undefined) || rf.status,
+        favoriteGame: remoteFavoriteGame || undefined,
+        currentlyPlaying: remoteCurrentlyPlaying,
+        bio: remoteBio || undefined,
+        region: remoteRegion || undefined,
+        libStats: remoteLibStats,
+        games: remoteGames,
+        lastActive: remoteLastActive,
+      });
+    }
+  }
+
   const mergedFriends = Array.from(mergedFriendsMap.values());
   const mergedSessions = mergeSessions(local.sessions || [], remote.sessions || []);
   const mergedRecommendations = mergeRecommendations(local.recommendations || [], remote.recommendations || []);

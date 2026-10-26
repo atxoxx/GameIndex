@@ -441,13 +441,15 @@ export function useFriendsData(): UseFriendsDataResult {
         if (remoteOutbox) {
           // Merge sessions
           if (remoteOutbox.sessions && remoteOutbox.sessions.length > 0) {
-            const prevLength = mergedSessions.length;
             const prevIds = new Set(mergedSessions.map((s) => s.id));
+            const beforeJson = JSON.stringify(mergedSessions);
             mergedSessions = mergeSessions(mergedSessions, remoteOutbox.sessions);
+            const afterJson = JSON.stringify(mergedSessions);
+            const sessionChanged = beforeJson !== afterJson;
             const addedSessions = remoteOutbox.sessions.filter((s) => !prevIds.has(s.id)).length;
             newCommunityItems += addedSessions;
             if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
-            if (mergedSessions.length !== prevLength) {
+            if (sessionChanged) {
               changesMade = true;
               pulledSessions += remoteOutbox.sessions.length;
             }
@@ -455,13 +457,15 @@ export function useFriendsData(): UseFriendsDataResult {
 
           // Merge recommendations
           if (remoteOutbox.recommendations && remoteOutbox.recommendations.length > 0) {
-            const prevLength = mergedRecs.length;
             const prevIds = new Set(mergedRecs.map((r) => r.id));
+            const beforeJson = JSON.stringify(mergedRecs);
             mergedRecs = mergeRecommendations(mergedRecs, remoteOutbox.recommendations);
+            const afterJson = JSON.stringify(mergedRecs);
+            const recChanged = beforeJson !== afterJson;
             const addedRecs = remoteOutbox.recommendations.filter((r) => !prevIds.has(r.id)).length;
             newCommunityItems += addedRecs;
             if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
-            if (mergedRecs.length !== prevLength) {
+            if (recChanged) {
               changesMade = true;
               pulledRecs += remoteOutbox.recommendations.length;
             }
@@ -469,13 +473,15 @@ export function useFriendsData(): UseFriendsDataResult {
 
           // Merge wishlist game suggestions
           if (remoteOutbox.suggestions && remoteOutbox.suggestions.length > 0) {
-            const prevLength = mergedSuggestions.length;
             const prevIds = new Set(mergedSuggestions.map((s) => s.id));
+            const beforeJson = JSON.stringify(mergedSuggestions);
             mergedSuggestions = mergeSuggestions(mergedSuggestions, remoteOutbox.suggestions);
+            const afterJson = JSON.stringify(mergedSuggestions);
+            const suggestionChanged = beforeJson !== afterJson;
             const addedSuggestions = remoteOutbox.suggestions.filter((s) => !prevIds.has(s.id)).length;
             newCommunityItems += addedSuggestions;
             if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
-            if (mergedSuggestions.length !== prevLength) {
+            if (suggestionChanged) {
               changesMade = true;
             }
           }
@@ -484,8 +490,10 @@ export function useFriendsData(): UseFriendsDataResult {
           if (remoteOutbox.dms && remoteOutbox.dms.length > 0) {
             const knownMessages = new Map<string, Set<string>>();
             mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
-            const prevDmCount = mergedDms.length;
+            const beforeJson = JSON.stringify(mergedDms);
             mergedDms = mergeDms(mergedDms, remoteOutbox.dms, currProfile.name);
+            const afterJson = JSON.stringify(mergedDms);
+            const dmChanged = beforeJson !== afterJson;
             // Count messages that are genuinely new AND not authored by us → badge.
             let newIncoming = 0;
             remoteOutbox.dms.forEach((rt) => {
@@ -500,7 +508,7 @@ export function useFriendsData(): UseFriendsDataResult {
               }
             });
             if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
-            if (mergedDms.length !== prevDmCount || newIncoming > 0) changesMade = true;
+            if (dmChanged || newIncoming > 0) changesMade = true;
           }
 
           // Sync friend profile information and live statistics (playtime, achievements, status)
@@ -520,8 +528,9 @@ export function useFriendsData(): UseFriendsDataResult {
               remoteProfile.currentlyPlaying === undefined
                 ? friend.currentlyPlaying
                 : remoteProfile.currentlyPlaying || undefined;
+            const remoteFavoriteGameRaw = (remoteProfile as any).favoriteGameName ?? remoteProfile.favoriteGame;
             const remoteFavoriteGame =
-              remoteProfile.favoriteGame ?? (remoteIsCore ? friend.favoriteGame : undefined);
+              remoteFavoriteGameRaw ?? (remoteIsCore ? friend.favoriteGame : undefined);
             const remoteBio = remoteProfile.bio ?? (remoteIsCore ? friend.bio : undefined);
             const remoteRegion = remoteProfile.region ?? (remoteIsCore ? friend.region : undefined);
             const remoteLibStats =
@@ -538,7 +547,8 @@ export function useFriendsData(): UseFriendsDataResult {
               (friend.bio || "") !== (remoteBio || "") ||
               (friend.region || "") !== (remoteRegion || "") ||
               friend.lastActive !== remoteLastActive ||
-              JSON.stringify(friend.libStats) !== JSON.stringify(remoteLibStats);
+              JSON.stringify(friend.libStats) !== JSON.stringify(remoteLibStats) ||
+              JSON.stringify(friend.games) !== JSON.stringify(remoteGames);
 
             if (hasDiff) {
               friendsUpdated = true;
