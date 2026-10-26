@@ -519,19 +519,24 @@ export function buildTimelineBundle(opts: {
     return { max: Math.round(max), min: Math.round(min) };
   };
 
+  // A metric the hardware never reported comes back as a flat zero curve.
+  // Dropping it keeps a fake line off the 0 axis and hides its legend chip.
+  const withSignal = (data: number[], color: string, label: string): LineSeries[] =>
+    data.some((v) => v > 0) ? [{ data, color, label }] : [];
+
   return {
     labels,
     estimated: !realSeries,
     cpuGpu: [
-      { data: cpu, color: TIMELINE_COLORS.cpu, label: i18n.cpuUsage },
-      { data: gpu, color: TIMELINE_COLORS.gpu, label: i18n.gpuUsage },
+      ...withSignal(cpu, TIMELINE_COLORS.cpu, i18n.cpuUsage),
+      ...withSignal(gpu, TIMELINE_COLORS.gpu, i18n.gpuUsage),
     ],
     temps: [
-      { data: cpuTemp, color: TIMELINE_COLORS.cpuTemp, label: i18n.cpuTemp },
-      { data: gpuTemp, color: TIMELINE_COLORS.gpuTemp, label: i18n.gpuTemp },
+      ...withSignal(cpuTemp, TIMELINE_COLORS.cpuTemp, i18n.cpuTemp),
+      ...withSignal(gpuTemp, TIMELINE_COLORS.gpuTemp, i18n.gpuTemp),
     ],
-    ram: [{ data: ram, color: TIMELINE_COLORS.ram, label: i18n.ramUsage }],
-    fps: [{ data: fps, color: TIMELINE_COLORS.fps, label: i18n.fps }],
+    ram: withSignal(ram, TIMELINE_COLORS.ram, i18n.ramUsage),
+    fps: withSignal(fps, TIMELINE_COLORS.fps, i18n.fps),
     raw,
     sparklines: {
       cpu: toSpark(cpu),

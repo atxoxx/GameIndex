@@ -16,6 +16,8 @@ export interface ActivitySparklineProps {
   smooth?: boolean;
   /** Show trend pill badge */
   showTrend?: boolean;
+  /** Message shown instead of the plot when the series never leaves zero. */
+  emptyLabel?: string;
 }
 
 function buildSmoothPath(pts: { x: number; y: number }[]): string {
@@ -50,6 +52,7 @@ export function ActivitySparkline({
   inverted,
   smooth = true,
   showTrend = true,
+  emptyLabel,
 }: Readonly<ActivitySparklineProps>) {
   const { t } = useLanguage();
   const gradientId = `activity-sparkline-fill-${useId().replace(/:/g, "")}`;
@@ -87,15 +90,23 @@ export function ActivitySparkline({
     return diffPct;
   }, [showTrend, data]);
 
-  const activeValue = hoverIdx !== null
-    ? (unit === "GB" ? Number(data[hoverIdx].y.toFixed(1)) : Math.round(data[hoverIdx].y))
+  const hoveredPoint = hoverIdx !== null ? data?.[hoverIdx] : undefined;
+  const activeValue = hoveredPoint
+    ? (unit === "GB" ? Number(hoveredPoint.y.toFixed(1)) : Math.round(hoveredPoint.y))
     : value;
+
+  // An all-zero series means the sensor never reported (e.g. no GPU
+  // temperature probe), so the empty label replaces the flat fake curve.
+  const hasSignal = useMemo(
+    () => (data ?? []).some((p) => Number.isFinite(p.y) && p.y !== 0),
+    [data]
+  );
 
   const renderValueGroup = () => (
     <div className="activity-sparkline__value-group">
       <div className="activity-sparkline__value-item">
         <span className="activity-sparkline__value-item-label">
-          {hoverIdx !== null ? "CURRENT" : t("activitySpark.avg")}
+          {hoverPoint ? "CURRENT" : t("activitySpark.avg")}
         </span>
         <span
           className={`activity-sparkline__value activity-sparkline__value--${status}`}
@@ -126,22 +137,23 @@ export function ActivitySparkline({
     </div>
   );
 
-  if (!data || data.length < 2) {
-    return (
-      <div className="activity-sparkline">
-        {label && <span className="activity-sparkline__label">{label}</span>}
-        {renderValueGroup()}
-      </div>
-    );
-  }
-
   const width = 240;
   const height = 46;
   const padding = 4;
-  const yValues = data.map((d) => d.y);
-  const minVal = Math.min(...yValues);
-  const maxVal = Math.max(...yValues);
+
+  const yValues = (data ?? []).map((d) => d.y);
+  const minVal = yValues.length > 0 ? Math.min(...yValues) : 0;
+  const maxVal = yValues.length > 0 ? Math.max(...yValues) : 0;
   const dataRange = maxVal - minVal || 1;
+
+  const thresholdY = useMemo(() => {
+    if (!thresholds || yValues.length === 0) return null;
+    const tVal = thresholds.warn;
+    if (tVal < minVal || tVal > maxVal) return null;
+    return height - padding - ((tVal - minVal) / dataRange) * (height - padding * 2);
+  }, [thresholds, minVal, maxVal, height, padding, dataRange]);
+
+  const hasChart = !!data && data.length >= 2;
 
   const toXY = (d: { x: number; y: number }, i: number) => {
     const x = (i / (data.length - 1)) * width;
@@ -150,20 +162,16 @@ export function ActivitySparkline({
     return { x, y };
   };
 
-  const points = data.map(toXY);
+  const points = hasChart ? data.map(toXY) : [];
 
-  const linePath = smooth
-    ? buildSmoothPath(points)
-    : points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-
-  const thresholdY = useMemo(() => {
-    if (!thresholds) return null;
-    const tVal = thresholds.warn;
-    if (tVal < minVal || tVal > maxVal) return null;
-    return height - padding - ((tVal - minVal) / dataRange) * (height - padding * 2);
-  }, [thresholds, minVal, maxVal, height, padding, dataRange]);
+  const linePath = !points.length
+    ? ""
+    : smooth
+      ? buildSmoothPath(points)
+      : points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
 
   const hoverHandle = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!hasChart) return;
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
@@ -175,11 +183,34 @@ export function ActivitySparkline({
 
   const hoverPoint = hoverIdx !== null ? points[hoverIdx] : null;
 
+  // Every hook above this line runs on every render: switching the time range
+  // can turn a chart into an empty tile and back, and a conditional hook would
+  // change the hook count between renders.
+  if (emptyLabel && !hasSignal) {
+    return (
+      <div className="activity-sparkline activity-sparkline--empty">
+        {label && <span className="activity-sparkline__label">{label}</span>}
+        <div className="activity-sparkline__chart">
+          <span className="activity-sparkline__empty">{emptyLabel}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasChart) {
+    return (
+      <div className="activity-sparkline">
+        {label && <span className="activity-sparkline__label">{label}</span>}
+        {renderValueGroup()}
+      </div>
+    );
+  }
+
   return (
     <div className="activity-sparkline">
       <div className="activity-sparkline__header">
         {label && <span className="activity-sparkline__label">{label}</span>}
-        {hoverIdx !== null ? (
+        {hoverPoint ? (
           <span
             className="activity-sparkline__trend-pill activity-sparkline__hover-badge"
             style={{ color, borderColor: color }}

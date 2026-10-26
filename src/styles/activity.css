@@ -1588,12 +1588,104 @@
 }
 
 /* ══ Sparkline Enhancements ══ */
+/* Base shell — a header pill, the plot, then the avg/max/min readouts. The
+   component was written against these hooks; keep them complete so the KPI
+   cards never fall back to unstyled inline text. */
+.activity-sparkline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.activity-sparkline__label {
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.activity-sparkline__chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.activity-sparkline__chart svg {
+  width: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.activity-sparkline__value-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.activity-sparkline__value-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.activity-sparkline__value-item-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.activity-sparkline__value {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.activity-sparkline__value--max,
+.activity-sparkline__value--min {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.activity-sparkline--empty .activity-sparkline__chart {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+}
+
+.activity-sparkline__empty {
+  padding: 0 var(--space-xs);
+  text-align: center;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
 .activity-sparkline__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-xs);
   margin-bottom: var(--space-3xs);
+  min-width: 0;
 }
 
 .activity-sparkline__trend-pill {
@@ -1617,6 +1709,12 @@
 .activity-sparkline__trend-pill.is-stable {
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
+}
+
+.activity-sparkline__hover-badge {
+  border-width: 1px;
+  border-style: solid;
+  background: transparent;
 }
 
 /* ══ Day of Week Average Line & Tooltip ══ */

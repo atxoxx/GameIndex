@@ -152,6 +152,7 @@ export function PerformanceTimeline({
                 value={bundle.raw.avgCpuUsage}
                 max={bundle.readouts.cpu.max}
                 min={bundle.readouts.cpu.min}
+                empty={bundle.raw.avgCpuUsage <= 0 ? t("activityPerf.noUsageData") : undefined}
               />
               <StatCard
                 label={t("activityPerf.gpuUsage")}
@@ -163,11 +164,13 @@ export function PerformanceTimeline({
                 value={bundle.raw.avgGpuUsage}
                 max={bundle.readouts.gpu.max}
                 min={bundle.readouts.gpu.min}
+                empty={bundle.raw.avgGpuUsage <= 0 ? t("activityPerf.noUsageData") : undefined}
               />
               <StatCard
                 label={t("activityPerf.cpuTemp")}
                 unit={tempUnitLabel(tempUnit)}
                 color={TIMELINE_COLORS.cpuTemp}
+                sparklineColor={TIMELINE_COLORS.cpuTemp}
                 icon={<Icons.Thermometer size={12} />}
                 data={bundle.sparklines.cpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
                 value={toDisplayTemp(bundle.raw.avgCpuTemp, tempUnit)}
@@ -177,11 +180,13 @@ export function PerformanceTimeline({
                   warn: tempThreshold(75, tempUnit),
                   danger: tempThreshold(85, tempUnit),
                 }}
+                empty={bundle.raw.avgCpuTemp <= 0 ? t("activityPerf.noTempData") : undefined}
               />
               <StatCard
                 label={t("activityPerf.gpuTemp")}
                 unit={tempUnitLabel(tempUnit)}
                 color={TIMELINE_COLORS.gpuTemp}
+                sparklineColor={TIMELINE_COLORS.gpuTemp}
                 icon={<Icons.Flame size={12} />}
                 data={bundle.sparklines.gpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
                 value={toDisplayTemp(bundle.raw.avgGpuTemp, tempUnit)}
@@ -191,127 +196,140 @@ export function PerformanceTimeline({
                   warn: tempThreshold(75, tempUnit),
                   danger: tempThreshold(85, tempUnit),
                 }}
+                empty={bundle.raw.avgGpuTemp <= 0 ? t("activityPerf.noTempData") : undefined}
               />
               <StatCard
                 label={t("activityPerf.ramUsage")}
                 unit="%"
                 color={TIMELINE_COLORS.ram}
+                sparklineColor={TIMELINE_COLORS.ram}
                 icon={<Icons.MemoryStick size={12} />}
                 data={bundle.sparklines.ram}
                 value={bundle.raw.avgRamUsage}
                 max={bundle.readouts.ram.max}
                 min={bundle.readouts.ram.min}
+                empty={bundle.raw.avgRamUsage <= 0 ? t("activityPerf.noRamData") : undefined}
               />
               <StatCard
                 label={t("activityPerf.avgFps")}
                 unit=""
                 color={TIMELINE_COLORS.fps}
+                sparklineColor={TIMELINE_COLORS.fps}
                 icon={<Icons.Gauge size={12} />}
                 data={bundle.sparklines.fps}
                 value={bundle.raw.avgFps}
                 max={bundle.readouts.fps.max}
                 min={bundle.readouts.fps.min}
+                empty={bundle.raw.avgFps <= 0 ? t("activityPerf.noFpsData") : undefined}
               />
             </div>
 
-            {/* Trend charts */}
+            {/* Trend charts — only render the panels that have captured data */}
             <div className="performance-timeline__charts">
-              <div className="performance-timeline__chart-card">
-                <div className="performance-timeline__chart-title">
-                  <Icons.Cpu size={12} />
-                  {t("activityPerf.chartCpuGpuUsage")}
+              {bundle.cpuGpu.length > 0 && (
+                <div className="performance-timeline__chart-card">
+                  <div className="performance-timeline__chart-title">
+                    <Icons.Cpu size={12} />
+                    {t("activityPerf.chartCpuGpuUsage")}
+                  </div>
+                  <LineChart
+                    series={bundle.cpuGpu}
+                    labels={bundle.labels}
+                    formatValue={(v) => `${Math.round(v)}%`}
+                    height={200}
+                    minY={0}
+                    maxY={100}
+                    smooth
+                    thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
+                  />
                 </div>
-                <LineChart
-                  series={bundle.cpuGpu}
-                  labels={bundle.labels}
-                  formatValue={(v) => `${Math.round(v)}%`}
-                  height={200}
-                  minY={0}
-                  maxY={100}
-                  smooth
-                  thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
-                />
-              </div>
+              )}
 
-              <div className="performance-timeline__chart-card">
-                <div className="performance-timeline__chart-title">
-                  <Icons.Thermometer size={12} />
-                  {t("activityPerf.temperatures")}
+              {bundle.temps.length > 0 && (
+                <div className="performance-timeline__chart-card">
+                  <div className="performance-timeline__chart-title">
+                    <Icons.Thermometer size={12} />
+                    {t("activityPerf.temperatures")}
+                  </div>
+                  <LineChart
+                    series={bundle.temps.map((s) => ({
+                      ...s,
+                      data: toDisplayTemps(s.data, tempUnit),
+                    }))}
+                    labels={bundle.labels}
+                    formatValue={(v) => formatTemp(v, tempUnit)}
+                    height={200}
+                    minY={tempMinY(tempUnit)}
+                    maxY={tempMaxY(tempUnit)}
+                    smooth
+                    bands={[
+                      {
+                        from: tempThreshold(85, tempUnit),
+                        to: tempMaxY(tempUnit),
+                        color: "var(--color-danger)",
+                        opacity: 0.1,
+                      },
+                    ]}
+                    thresholds={[
+                      { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
+                      { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
+                    ]}
+                  />
                 </div>
-                <LineChart
-                  series={bundle.temps.map((s) => ({
-                    ...s,
-                    data: toDisplayTemps(s.data, tempUnit),
-                  }))}
-                  labels={bundle.labels}
-                  formatValue={(v) => formatTemp(v, tempUnit)}
-                  height={200}
-                  minY={tempMinY(tempUnit)}
-                  maxY={tempMaxY(tempUnit)}
-                  smooth
-                  bands={[
-                    {
-                      from: tempThreshold(85, tempUnit),
-                      to: tempMaxY(tempUnit),
-                      color: "var(--color-danger)",
-                      opacity: 0.1,
-                    },
-                  ]}
-                  thresholds={[
-                    { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
-                    { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
-                  ]}
-                />
-              </div>
+              )}
 
-              <div className="performance-timeline__chart-card">
-                <div className="performance-timeline__chart-title">
-                  <Icons.MemoryStick size={12} />
-                  {t("activityPerf.ramUsage")}
-                </div>
-                <LineChart
-                  series={bundle.ram}
-                  labels={bundle.labels}
-                  formatValue={(v) => `${Math.round(v)}%`}
-                  formatTooltipValue={(v) => {
-                    const totalRam = totalRamGb || 16;
-                    if (v > 100) {
-                      const gb = (totalRam * v) / 100;
-                      return (
-                        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, gap: 2 }}>
-                          <span>{`${Math.round(v)}%`}</span>
-                          <span style={{ fontSize: "0.78em", opacity: 0.7, fontWeight: 500, whiteSpace: "nowrap" }}>
-                            {`${gb.toFixed(1)} GB`}
+              {bundle.ram.length > 0 && (
+                <div className="performance-timeline__chart-card">
+                  <div className="performance-timeline__chart-title">
+                    <Icons.MemoryStick size={12} />
+                    {t("activityPerf.ramUsage")}
+                  </div>
+                  <LineChart
+                    series={bundle.ram}
+                    labels={bundle.labels}
+                    formatValue={(v) => `${Math.round(v)}%`}
+                    formatTooltipValue={(v) => {
+                      const totalRam = totalRamGb || 16;
+                      if (v > 100) {
+                        const gb = (totalRam * v) / 100;
+                        return (
+                          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1, gap: 2 }}>
+                            <span>{`${Math.round(v)}%`}</span>
+                            <span style={{ fontSize: "0.78em", opacity: 0.7, fontWeight: 500, whiteSpace: "nowrap" }}>
+                              {`${gb.toFixed(1)} GB`}
+                            </span>
                           </span>
-                        </span>
-                      );
-                    }
-                    return `${Math.round(v)}%`;
-                  }}
-                  height={200}
-                  minY={0}
-                  maxY={100}
-                  smooth
-                  thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
-                />
-              </div>
-
-              <div className="performance-timeline__chart-card">
-                <div className="performance-timeline__chart-title">
-                  <Icons.Gauge size={12} />
-                  {t("activityPerf.fps")}
+                        );
+                      }
+                      return `${Math.round(v)}%`;
+                    }}
+                    height={200}
+                    minY={0}
+                    maxY={100}
+                    smooth
+                    thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
+                  />
                 </div>
-                <LineChart
-                  series={bundle.fps}
-                  labels={bundle.labels}
-                  formatValue={(v) => `${Math.round(v)} FPS`}
-                  height={200}
-                  minY={0}
-                  niceMax
-                  smooth
-                  thresholds={[{ value: 60, label: t("activityPerf.threshold60fps"), color: "var(--color-success)" }]}
-                />
-              </div>
+              )}
+
+              {bundle.fps.length > 0 && (
+                <div className="performance-timeline__chart-card">
+                  <div className="performance-timeline__chart-title">
+                    <Icons.Gauge size={12} />
+                    {t("activityPerf.fps")}
+                  </div>
+                  <LineChart
+                    series={bundle.fps}
+                    labels={bundle.labels}
+                    formatValue={(v) => `${Math.round(v)} FPS`}
+                    height={200}
+                    minY={0}
+                    niceMax
+                    smooth
+                    thresholds={[{ value: 60, label: t("activityPerf.threshold60fps"), color: "var(--color-success)" }]}
+                  />
+                </div>
+              )}
             </div>
           </>
         )}
@@ -331,6 +349,7 @@ function StatCard({
   max,
   min,
   thresholds,
+  empty,
 }: {
   label: string;
   unit: string;
@@ -342,6 +361,7 @@ function StatCard({
   max: number;
   min: number;
   thresholds?: { warn: number; danger: number };
+  empty?: string;
 }) {
   return (
     <div className="performance-stat-cards__card">
@@ -362,6 +382,7 @@ function StatCard({
           min={min}
           thresholds={thresholds}
           color={sparklineColor}
+          emptyLabel={empty}
         />
       </div>
     </div>

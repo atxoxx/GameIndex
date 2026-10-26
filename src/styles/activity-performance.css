@@ -334,6 +334,9 @@
 
 .performance-stat-cards__sparkline {
   margin-top: var(--space-3xs);
+  flex: 1;
+  display: flex;
+  min-width: 0;
 }
 
 .performance-timeline__charts {
@@ -676,6 +679,10 @@
 
 .performance-stat-cards__card .activity-sparkline {
   background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2xs) var(--space-sm) var(--space-xs);
+  flex: 1;
 }
 
 /* ── Timeline panel — live / estimated badge ────────────────────────── */
