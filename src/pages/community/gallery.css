@@ -196,6 +196,20 @@
   gap: var(--space-sm);
 }
 
+.gallery-wall__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+
+.gallery-wall__count {
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Media tiles ────────────────────────────────────────────────────────── */
 
 .gallery-thumb {

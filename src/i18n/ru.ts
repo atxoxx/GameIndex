@@ -10139,4 +10139,6 @@ export const ru: TranslationDict = {
   "overlay.recording.preview": "Просмотр клипа",
   "overlay.recording.previewClose": "Закрыть просмотр",
   "overlay.recording.previewFailed": "Этот клип не удалось воспроизвести.",
+  "profile.showingCount": "Показано {shown} из {total}",
+  "profile.loadMore": "Показать ещё",
 };

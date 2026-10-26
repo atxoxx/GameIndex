@@ -10138,4 +10138,6 @@ export const fr: TranslationDict = {
   "overlay.recording.preview": "Aperçu du clip",
   "overlay.recording.previewClose": "Fermer l’aperçu",
   "overlay.recording.previewFailed": "Ce clip n’a pas pu être lu ici.",
+  "profile.showingCount": "{shown} sur {total} affichées",
+  "profile.loadMore": "Charger plus",
 };

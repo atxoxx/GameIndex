@@ -52,6 +52,7 @@ function LightboxMedia({ media }: { media: MediaFile }) {
       src={src}
       alt=""
       className="gallery-lightbox__image"
+      decoding="async"
       onError={handleError}
     />
   );
@@ -93,7 +94,7 @@ function CarouselThumb({
             }}
           />
         ) : (
-          <img src={src} alt="" loading="lazy" onError={handleError} />
+          <img src={src} alt="" loading="lazy" decoding="async" onError={handleError} />
         )
       ) : (
         <span className="gallery-lightbox__thumb-fallback">▶</span>
@@ -169,6 +170,10 @@ export function CaptureLightbox({
   if (!current) return null;
 
   const isFavorite = favorites.has(current.media.path);
+  // A filmstrip of hundreds of thumbnails would mount hundreds of media
+  // elements; keep a window around the active capture instead.
+  const stripStart = Math.max(0, index - 8);
+  const stripEnd = Math.min(total, index + 9);
 
   return createPortal(
     <div className="gallery-lightbox" onClick={onClose} role="dialog" aria-modal="true">
@@ -267,14 +272,17 @@ export function CaptureLightbox({
       {total > 1 && (
         <div className="gallery-lightbox__strip" onClick={(event) => event.stopPropagation()}>
           <div className="gallery-lightbox__track" ref={trackRef}>
-            {items.map((item, itemIndex) => (
-              <CarouselThumb
-                key={item.media.path}
-                media={item.media}
-                active={itemIndex === index}
-                onClick={() => onIndexChange(itemIndex)}
-              />
-            ))}
+            {items.slice(stripStart, stripEnd).map((item, offset) => {
+              const itemIndex = stripStart + offset;
+              return (
+                <CarouselThumb
+                  key={item.media.path}
+                  media={item.media}
+                  active={itemIndex === index}
+                  onClick={() => onIndexChange(itemIndex)}
+                />
+              );
+            })}
           </div>
         </div>
       )}

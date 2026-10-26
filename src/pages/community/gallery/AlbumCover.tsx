@@ -42,7 +42,7 @@ function CaptureCover({ media, isCustom }: { media: MediaFile; isCustom: boolean
       }}
     />
   ) : (
-    <img src={src} alt="" loading="lazy" onError={handleError} />
+    <img src={src} alt="" loading="lazy" decoding="async" onError={handleError} />
   );
 }
 
@@ -58,7 +58,7 @@ export function AlbumCover({ game, cachedCoverUrl, media, isCustom }: AlbumCover
   const artwork = thumbVariantUrl(safeArtworkUrl(game?.coverArtUrl ?? cachedCoverUrl));
 
   if (artwork && !artFailed) {
-    return <img src={artwork} alt="" loading="lazy" onError={() => setArtFailed(true)} />;
+    return <img src={artwork} alt="" loading="lazy" decoding="async" onError={() => setArtFailed(true)} />;
   }
 
   const image = media.find((file) => !isVideoPath(file.path));

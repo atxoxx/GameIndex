@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useGallery } from "../gallery/useGallery";
-import { MediaThumb } from "../gallery/MediaThumb";
+import { MediaWall } from "../gallery/MediaWall";
 import { CaptureLightbox } from "../gallery/CaptureLightbox";
 import { AddFolderModal } from "../gallery/AddFolderModal";
 import { AlbumCover } from "../gallery/AlbumCover";
@@ -232,19 +232,15 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
             )}
           </div>
 
-          <div className="profile-gallery__grid">
-            {selected.media.map((media) => (
-              <MediaThumb
-                key={media.path}
-                media={media}
-                label={selected.group.gameName}
-                onOpen={() => openMedia(media.path)}
-                isFavorite={gallery.favorites.has(media.path)}
-                onToggleFavorite={gallery.toggleFavorite}
-                onDelete={setPendingDelete}
-              />
-            ))}
-          </div>
+          <MediaWall
+            key={selected.group.key}
+            media={selected.media}
+            albumLabel={selected.group.gameName}
+            favorites={gallery.favorites}
+            onOpen={openMedia}
+            onToggleFavorite={gallery.toggleFavorite}
+            onDelete={setPendingDelete}
+          />
         </section>
       )}
 

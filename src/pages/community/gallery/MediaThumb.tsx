@@ -63,7 +63,7 @@ export function MediaThumb({
             }}
           />
         ) : (
-          <img src={src} alt="" loading="lazy" onError={handleError} />
+          <img src={src} alt="" loading="lazy" decoding="async" onError={handleError} />
         )
       ) : (
         <span className="gallery-thumb__fallback">

@@ -10138,4 +10138,6 @@ export const zhCN: TranslationDict = {
   "overlay.recording.preview": "片段预览",
   "overlay.recording.previewClose": "关闭预览",
   "overlay.recording.previewFailed": "此片段无法在此播放。",
+  "profile.showingCount": "已显示 {shown}/{total}",
+  "profile.loadMore": "加载更多",
 };

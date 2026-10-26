@@ -10137,4 +10137,6 @@ export const en: TranslationDict = {
   "overlay.recording.preview": "Clip preview",
   "overlay.recording.previewClose": "Close preview",
   "overlay.recording.previewFailed": "This clip could not be played here.",
+  "profile.showingCount": "{shown} of {total} shown",
+  "profile.loadMore": "Load more",
 };
