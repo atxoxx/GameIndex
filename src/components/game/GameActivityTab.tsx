@@ -36,7 +36,6 @@ import { ConfirmModal, Button, type StatBandItem } from "../ui";
 import { ActivityActions } from "../activity/ActivityActions";
 import { ActivityRecapDrawer } from "../activity/ActivityRecapDrawer";
 import { ActivityScopeBar } from "../activity/ActivityScopeBar";
-import { ActivitySessionDrawer } from "../activity/ActivitySessionDrawer";
 import { ActivitySessionList } from "../activity/ActivitySessionList";
 import { ManualSessionModal } from "../activity/ManualSessionModal";
 import {
@@ -159,7 +158,6 @@ export function GameActivityTab({ game }: { game: Game }) {
 
   const [manualOpen, setManualOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<GameSession | null>(null);
-  const [inspectedId, setInspectedId] = useState<string | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
 
   const allSessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
@@ -408,11 +406,6 @@ export function GameActivityTab({ game }: { game: Game }) {
     );
   }, [game, range, rangeLabel, sessions, showToast, t]);
 
-  const inspectedSession = useMemo(
-    () => (inspectedId ? allSessions.find((session) => session.id === inspectedId) ?? null : null),
-    [allSessions, inspectedId],
-  );
-
   const body = () => {
     if (allSessions.length === 0) {
       return (
@@ -458,7 +451,6 @@ export function GameActivityTab({ game }: { game: Game }) {
           games={[game]}
           filters={filters}
           onFiltersChange={updateFilters}
-          onInspect={(session) => setInspectedId(session.id)}
           onDelete={(session) => setPendingDelete(session)}
           onLaunchGame={launchGame}
           variant="game"
@@ -570,15 +562,6 @@ export function GameActivityTab({ game }: { game: Game }) {
         games={[game]}
       />
 
-      <ActivitySessionDrawer
-        session={inspectedSession}
-        game={game}
-        tempUnit={tempUnit}
-        onClose={() => setInspectedId(null)}
-        onDelete={(session) => setPendingDelete(session)}
-        onLaunchGame={launchGame}
-      />
-
       <ActivityRecapDrawer
         open={recapOpen}
         onClose={() => setRecapOpen(false)}
@@ -597,7 +580,6 @@ export function GameActivityTab({ game }: { game: Game }) {
         onConfirm={() => {
           if (pendingDelete) {
             deleteSession(pendingDelete.id);
-            if (inspectedId === pendingDelete.id) setInspectedId(null);
           }
           setPendingDelete(null);
         }}

@@ -721,3 +721,95 @@
   }
 }
 
+
+/* ── Hardware context + performance switch ─────────────────────────── */
+
+.act-gpu-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint);
+}
+
+.act-gpu-context-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.act-gpu-context-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--space-2xl);
+  height: var(--space-2xl);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.act-gpu-context-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.act-gpu-context-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.act-gpu-context-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.act-gpu-context-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--panel-tint-raised);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.act-gpu-context-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-left: auto;
+}
+
+.activity-performance__switch {
+  align-self: flex-start;
+  margin-bottom: var(--space-2xs);
+}
+
+@media (max-width: 760px) {
+  .act-gpu-context-banner {
+    align-items: flex-start;
+  }
+
+  .act-gpu-context-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+}

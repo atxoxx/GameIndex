@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -40,6 +40,7 @@ import { Button } from "../ui";
 import { Popover } from "../ui/Popover";
 import { GameThumbnail } from "./GameThumbnail";
 import { ActivitySessionFilterMenu } from "./ActivitySessionFilterMenu";
+import { ActivitySessionInlineDetail } from "./ActivitySessionInlineDetail";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionListProps {
@@ -47,7 +48,6 @@ export interface ActivitySessionListProps {
   games: Game[];
   filters: ActivitySessionFilters;
   onFiltersChange: (patch: Partial<ActivitySessionFilters>) => void;
-  onInspect: (session: GameSession) => void;
   onDelete: (session: GameSession) => void;
   onRequestLink?: (gameId: string, name: string) => void;
   onRequestAdd?: (gameId: string, name: string) => void;
@@ -82,7 +82,6 @@ export function ActivitySessionList({
   games,
   filters,
   onFiltersChange,
-  onInspect,
   onDelete,
   onRequestLink,
   onRequestAdd,
@@ -104,6 +103,7 @@ export function ActivitySessionList({
   const { getAllNotes } = useSessionNotes();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [visibleLimit, setVisibleLimit] = useState(60);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -133,6 +133,12 @@ export function ActivitySessionList({
   useEffect(() => {
     setVisibleLimit(60);
   }, [sorted]);
+
+  useEffect(() => {
+    if (!expandedId) return;
+    if (filtered.some((session) => session.id === expandedId)) return;
+    setExpandedId(null);
+  }, [expandedId, filtered]);
 
   useEffect(() => {
     const ids = new Set(filtered.map((session) => session.id));
@@ -192,25 +198,43 @@ export function ActivitySessionList({
   }, [filters.sort, visible]);
 
   const rows = (items: GameSession[]) =>
-    items.map((session) => (
-      <ActivitySessionRow
-        key={session.id}
-        session={session}
-        game={gameById.get(session.gameId)}
-        note={notes[session.id]}
-        tempUnit={tempUnit}
-        variant={variant}
-        selectable={selectable}
-        selected={selected.has(session.id)}
-        onToggle={() => toggle(session.id)}
-        onInspect={() => onInspect(session)}
-        onDelete={() => onDelete(session)}
-        onLaunchGame={onLaunchGame}
-        onOpenGame={onOpenGame}
-        onRequestLink={onRequestLink}
-        onRequestAdd={onRequestAdd}
-      />
-    ));
+    items.map((session) => {
+      const game = gameById.get(session.gameId);
+      const expanded = expandedId === session.id;
+      return (
+        <Fragment key={session.id}>
+          <ActivitySessionRow
+            session={session}
+            game={game}
+            note={notes[session.id]}
+            tempUnit={tempUnit}
+            variant={variant}
+            selectable={selectable}
+            selected={selected.has(session.id)}
+            expanded={expanded}
+            onToggle={() => toggle(session.id)}
+            onToggleExpand={() => setExpandedId(expanded ? null : session.id)}
+            onDelete={() => onDelete(session)}
+            onLaunchGame={onLaunchGame}
+            onOpenGame={onOpenGame}
+            onRequestLink={onRequestLink}
+            onRequestAdd={onRequestAdd}
+          />
+          {expanded && (
+            <ActivitySessionInlineDetail
+              session={session}
+              game={game}
+              tempUnit={tempUnit}
+              onDelete={() => onDelete(session)}
+              onLaunchGame={onLaunchGame}
+              onOpenGame={onOpenGame}
+              onRequestLink={onRequestLink}
+              onRequestAdd={onRequestAdd}
+            />
+          )}
+        </Fragment>
+      );
+    });
 
   return (
     <div className="activity-session-panel">
@@ -503,8 +527,9 @@ interface ActivitySessionRowProps {
   variant: "library" | "game";
   selectable: boolean;
   selected: boolean;
+  expanded: boolean;
   onToggle: () => void;
-  onInspect: () => void;
+  onToggleExpand: () => void;
   onDelete: () => void;
   onLaunchGame?: (game: Game) => void;
   onOpenGame?: (gameId: string) => void;
@@ -520,8 +545,9 @@ function ActivitySessionRow({
   variant,
   selectable,
   selected,
+  expanded,
   onToggle,
-  onInspect,
+  onToggleExpand,
   onDelete,
   onLaunchGame,
   onOpenGame,
@@ -566,8 +592,9 @@ function ActivitySessionRow({
       <button
         type="button"
         className="activity-session-row__body"
+        aria-expanded={expanded}
         aria-label={`${title}, ${dateLabel} ${timeLabel}, ${formatPlayTime(session.durationMin)}`}
-        onClick={onInspect}
+        onClick={onToggleExpand}
       >
         <span className="activity-session-row__thumb">
           {variant === "game" ? (
@@ -617,7 +644,11 @@ function ActivitySessionRow({
         <span className="activity-session-row__duration">
           {formatPlayTime(session.durationMin)}
         </span>
-        <ChevronRight size={15} className="activity-session-row__chevron" aria-hidden="true" />
+        <ChevronRight
+          size={15}
+          className={`activity-session-row__chevron${expanded ? " is-open" : ""}`}
+          aria-hidden="true"
+        />
       </button>
 
       <Popover
@@ -647,7 +678,7 @@ function ActivitySessionRow({
               className="ui-popover__item"
               onClick={() => {
                 close();
-                onInspect();
+                onToggleExpand();
               }}
             >
               <span className="ui-popover__item-icon">

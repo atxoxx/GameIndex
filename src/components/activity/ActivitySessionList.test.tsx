@@ -18,6 +18,9 @@ vi.mock("../../context/LanguageContext", () => ({
 vi.mock("../../context/SessionNotesContext", () => ({
   useSessionNotes: () => ({
     getAllNotes: () => ({}),
+    getNote: () => ({ note: "", tags: [] }),
+    setNote: () => {},
+    setTags: () => {},
   }),
 }));
 
@@ -55,7 +58,6 @@ function renderList(
       games={[game()]}
       filters={filters}
       onFiltersChange={() => {}}
-      onInspect={() => {}}
       onDelete={() => {}}
       emptyTitle="No sessions yet"
       emptyHint="Launch a game to start."
@@ -93,6 +95,17 @@ describe("ActivitySessionList", () => {
     fireEvent.click(screen.getByLabelText("activityWs.sessions.selectSession"));
     expect(screen.getByText("activitySessions.selectedCount")).toBeTruthy();
     expect(screen.getByText("activitySessions.deleteSelected")).toBeTruthy();
+  });
+
+  it("opens the session body inline instead of a side sheet", () => {
+    renderList([session("a")], {
+      onDelete: () => {},
+      onLaunchGame: () => {},
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Elden Ring/ }));
+    expect(screen.getByRole("region", { name: /activityWs\.drawer\.eyebrow/ })).toBeTruthy();
+    expect(screen.getByText("sessionNotes.title")).toBeTruthy();
+    expect(screen.getByText("game.play")).toBeTruthy();
   });
 
   it("uses the compact row layout when requested", () => {

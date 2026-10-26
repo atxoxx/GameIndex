@@ -94,7 +94,6 @@ export function ActivitySessionsTab({
           games={games}
           filters={filters}
           onFiltersChange={onFiltersChange}
-          onInspect={onInspect}
           onDelete={onDelete}
           onRequestLink={onRequestLink}
           onRequestAdd={onRequestAdd}

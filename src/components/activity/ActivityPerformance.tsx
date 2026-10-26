@@ -21,8 +21,10 @@ import { PerformanceOverview } from "./performance/PerformanceOverview";
 import { PerformanceComparison, type ComparisonMetric } from "./performance/PerformanceComparison";
 import { PerformanceBoard } from "./performance/PerformanceBoard";
 import { PerformanceTimeline } from "./performance/PerformanceTimeline";
+import { ActivityViewSwitch } from "./ActivityViewSwitch";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { Button } from "../ui";
+import "../../styles/activity-workspace.css";
 import "../../styles/activity-performance.css";
 
 export interface ActivityPerformanceProps {
@@ -128,71 +130,74 @@ export function ActivityPerformance({
       {selectedGpu && (
         <div className="act-gpu-context-banner">
           <div className="act-gpu-context-info">
-            <Icons.Cpu size={14} className="act-gpu-context-icon" />
-            <span className="act-gpu-context-text">
-                  <strong>{selectedGpu.name}</strong>
-                  <span className="act-gpu-context-vendor">({selectedGpu.vendor})</span>
-                  <span className="act-gpu-context-spec">{selectedGpu.vramMb} MB VRAM</span>
-                  {totalRamGb > 0 && (
-                    <span className="act-gpu-context-spec">{totalRamGb} GB System RAM</span>
-                  )}
-                </span>
+            <span className="act-gpu-context-icon" aria-hidden="true">
+              <Icons.Cpu size={16} />
+            </span>
+            <div className="act-gpu-context-copy">
+              <span className="act-gpu-context-name">{selectedGpu.name}</span>
+              <div className="act-gpu-context-meta">
+                <span className="act-gpu-context-chip">{selectedGpu.vendor}</span>
+                {selectedGpu.vramMb > 0 && (
+                  <span className="act-gpu-context-chip">
+                    {selectedGpu.vramMb} MB VRAM
+                  </span>
+                )}
+                {totalRamGb > 0 && (
+                  <span className="act-gpu-context-chip">{totalRamGb} GB RAM</span>
+                )}
+              </div>
+            </div>
           </div>
           <div className="act-gpu-context-actions">
             {sessionsWithTelemetry.length >= 2 && (
-              <Button variant="secondary" size="sm"
+              <Button
+                variant="secondary"
+                size="sm"
                 type="button"
-                
+                leftIcon={<Icons.ArrowRightLeft size={12} />}
                 onClick={() => setCompareModalOpen(true)}
-              > <Icons.ArrowRightLeft size={12} /> {t("activityCompare.compareBtn")} </Button>
+              >
+                {t("activityCompare.compareBtn")}
+              </Button>
             )}
           </div>
         </div>
       )}
 
-      <nav className="actv-subtabs" role="tablist" aria-label={t("activity.tab.performance")}>
-        {(
-          [
-            { id: "overview" as const, label: t("activityPerf.performanceInsights"), Icon: Icons.Gauge },
-            ...(isGameMode
-              ? []
-              : [
-                  {
-                    id: "compare" as const,
-                    label: t("activityPerf.gameComparisons"),
-                    Icon: Icons.ArrowRightLeft,
-                    count: gameAverages.length,
-                  },
-                  {
-                    id: "board" as const,
-                    label: t("activityPerf.detailedBoard"),
-                    Icon: Icons.Trophy,
-                  },
-                ]),
-            {
-              id: "timeline" as const,
-              label: t("activityPerf.sessionTimeline"),
-              Icon: Icons.TrendingUp,
-              count: filteredSessions.length,
-            },
-          ] as const
-        ).map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            role="tab"
-            aria-selected={section === entry.id}
-            className={`actv-subtab${section === entry.id ? " is-active" : ""}`}
-            onClick={() => setPerfSection(entry.id)}
-          >
-            <entry.Icon size={13} />
-            <span>{entry.label}</span>
-            {"count" in entry && entry.count !== undefined && entry.count > 0 && (
-              <span className="actv-tab-count">{entry.count}</span>
-            )}
-          </button>
-        ))}
-      </nav>
+      <ActivityViewSwitch<PerfSection>
+        ariaLabel={t("activity.tab.performance")}
+        value={section}
+        onChange={setPerfSection}
+        className="activity-performance__switch"
+        items={[
+          {
+            id: "overview",
+            label: t("activityPerf.performanceInsights"),
+            icon: Icons.Gauge,
+          },
+          ...(isGameMode
+            ? []
+            : [
+                {
+                  id: "compare" as const,
+                  label: t("activityPerf.gameComparisons"),
+                  icon: Icons.ArrowRightLeft,
+                  count: gameAverages.length,
+                },
+                {
+                  id: "board" as const,
+                  label: t("activityPerf.detailedBoard"),
+                  icon: Icons.Trophy,
+                },
+              ]),
+          {
+            id: "timeline" as const,
+            label: t("activityPerf.sessionTimeline"),
+            icon: Icons.TrendingUp,
+            count: filteredSessions.length,
+          },
+        ]}
+      />
 
       {section === "overview" && (
         <>

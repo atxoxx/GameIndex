@@ -4,6 +4,8 @@ export interface ActivityViewItem<T extends string = string> {
   id: T;
   label: string;
   icon?: ComponentType<{ size?: number }>;
+  /** Optional count rendered as a quiet badge after the label. */
+  count?: number;
 }
 
 export interface ActivityViewSwitchProps<T extends string = string> {
@@ -42,6 +44,9 @@ export function ActivityViewSwitch<T extends string = string>({
           >
             {Icon && <Icon size={14} />}
             <span>{item.label}</span>
+            {item.count !== undefined && item.count > 0 && (
+              <span className="activity-views__count">{item.count}</span>
+            )}
           </button>
         );
       })}
