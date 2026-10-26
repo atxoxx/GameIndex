@@ -81,6 +81,21 @@ export default function FriendsSyncModal({
     return unsubscribe;
   }, [isOpen]);
 
+  // Escape to close + body scroll lock, matching the rest of the app's modals.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const activeOption = SCOPE_OPTIONS.find((opt) => opt.value === scope) ?? SCOPE_OPTIONS[1];
@@ -102,10 +117,16 @@ export default function FriendsSyncModal({
   };
 
   return createPortal(
-    <div className="friends-modal-backdrop" onClick={onClose}>
-      <div className="friends-modal-box friends-sync-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="friends-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="friends-modal-box friends-sync-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="friends-sync-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="friends-modal-header">
-          <h2 className="friends-modal-title">
+          <h2 className="friends-modal-title" id="friends-sync-modal-title">
             <P2pSyncIcon /> {t("friendsPage.p2pSyncDiagnostics")}
           </h2>
           <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
