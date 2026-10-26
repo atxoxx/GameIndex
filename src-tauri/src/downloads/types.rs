@@ -118,6 +118,11 @@ pub struct Download {
     /// for non-debrid downloads or before the upload resolves.
     #[serde(default)]
     pub debrid_cached: Option<bool>,
+    /// Provider-side transfer id for debrid downloads (AllDebrid magnet id).
+    /// Used to guard probe cleanup so a failed probe never deletes a live
+    /// download. `None` for non-debrid downloads.
+    #[serde(default)]
+    pub debrid_transfer_id: Option<String>,
     /// Torrent file selection (indices into the metadata file list).
     /// `None` = all files.
     #[serde(default)]
@@ -206,6 +211,7 @@ impl Download {
             referer: None,
             had_real_downloads: Some(false),
             debrid_cached: None,
+            debrid_transfer_id: None,
             only_files: None,
             should_seed: Some(false),
             queue_position: None,

@@ -2064,15 +2064,99 @@ pub async fn test_debrid_key(
     }
 }
 
+/// Persist an AllDebrid probe-magnet id that could not be cleaned up, so a
+/// later `debrid_cleanup_probes` pass can remove it from the account.
+fn record_alldebrid_probe_id(app: &tauri::AppHandle, id: &str) {
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let key = "alldebrid_probe_ids";
+    let mut ids: Vec<String> = crate::db::kv::get(&db, key)
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_str(&v).ok())
+        .unwrap_or_default();
+    if !ids.iter().any(|x| x == id) {
+        ids.push(id.to_string());
+    }
+    let _ = crate::db::kv::set(&db, key, &serde_json::to_string(&ids).unwrap_or_default());
+}
+
+/// Remove AllDebrid probe magnets that leaked into the account (because their
+/// cleanup delete failed). Only ids that GameIndex itself recorded as failed
+/// probes are touched, so a user's own magnets are never deleted. In-use
+/// transfer ids (active GameIndex debrid downloads) are skipped as a guard.
+#[tauri::command]
+pub async fn debrid_cleanup_probes(
+    app: tauri::AppHandle,
+    provider: String,
+    apikey: String,
+) -> Result<u64, String> {
+    let p = provider.trim().to_ascii_lowercase();
+    if p != "alldebrid" {
+        return Ok(0);
+    }
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    let key = "alldebrid_probe_ids";
+    let ids: Vec<String> = crate::db::kv::get(&db, key)
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_str(&v).ok())
+        .unwrap_or_default();
+
+    // Guard: never delete an id that backs a live GameIndex debrid download.
+    let in_use: std::collections::HashSet<String> =
+        if let Some(mgr) = manager_handle() {
+            let guard = mgr.read().await;
+            guard
+                .downloads_map()
+                .values()
+                .filter(|d| d.kind == DownloadKind::Debrid)
+                .filter_map(|d| d.debrid_transfer_id.clone())
+                .collect()
+        } else {
+            std::collections::HashSet::new()
+        };
+
+    let mut deleted: u64 = 0;
+    let mut remaining: Vec<String> = Vec::new();
+    for id in ids {
+        if in_use.contains(&id) {
+            remaining.push(id);
+            continue;
+        }
+        match debrid::AllDebridClient::delete_magnet(&apikey, &id).await {
+            Ok(()) => {
+                deleted += 1;
+            }
+            Err(e) => {
+                let lower = e.to_lowercase();
+                // Already gone — drop from tracking.
+                if lower.contains("invalid") {
+                    // no-op: treat as cleaned
+                } else {
+                    remaining.push(id.clone());
+                    eprintln!("[alldebrid] cleanup could not delete probe magnet {}: {}", id, e);
+                }
+            }
+        }
+    }
+    let _ = crate::db::kv::set(&db, key, &serde_json::to_string(&remaining).unwrap_or_default());
+    Ok(deleted)
+}
+
 #[tauri::command]
 pub async fn debrid_check_cache(
+    app: tauri::AppHandle,
     provider: String,
     apikey: String,
     magnet: String,
 ) -> Result<debrid::DebridCacheResult, String> {
     let p = provider.trim().to_ascii_lowercase();
     if p == "alldebrid" {
-        debrid::AllDebridClient::check_cache(&apikey, &magnet).await
+        let res = debrid::AllDebridClient::check_cache(&apikey, &magnet).await?;
+        if let Some(id) = &res.probe_id {
+            record_alldebrid_probe_id(&app, id);
+        }
+        Ok(res)
     } else if p == "torbox" {
         debrid::TorBoxClient::check_cache(&apikey, &magnet).await
     } else {
@@ -2088,13 +2172,18 @@ pub async fn debrid_check_cache(
 /// TorBox's listing is hash-addressed and never touches the account.
 #[tauri::command]
 pub async fn debrid_list_files(
+    app: tauri::AppHandle,
     provider: String,
     apikey: String,
     magnet: String,
 ) -> Result<debrid::DebridFileListResult, String> {
     let p = provider.trim().to_ascii_lowercase();
     if p == "alldebrid" {
-        debrid::AllDebridClient::list_magnet_files(&apikey, &magnet).await
+        let res = debrid::AllDebridClient::list_magnet_files(&apikey, &magnet).await?;
+        if let Some(id) = &res.probe_id {
+            record_alldebrid_probe_id(&app, id);
+        }
+        Ok(res)
     } else if p == "torbox" {
         debrid::TorBoxClient::list_magnet_files(&apikey, &magnet).await
     } else {

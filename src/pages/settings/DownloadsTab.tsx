@@ -48,6 +48,7 @@ export default function DownloadsTab() {
   const { t } = useLanguage();
 
   const [testingDebrid, setTestingDebrid] = useState(false);
+  const [cleaningProbes, setCleaningProbes] = useState(false);
 
   const updateSettings = (partial: Partial<typeof downloadSettings>) => {
     void setDownloadSettings({ ...downloadSettings, ...partial });
@@ -78,6 +79,22 @@ export default function DownloadsTab() {
       showToast(t("settings.connectionFailed", { error: e }), "error");
     } finally {
       setTestingDebrid(false);
+    }
+  };
+
+  const handleCleanupProbes = async () => {
+    if (!debridApiKey || debridProvider !== "alldebrid") return;
+    setCleaningProbes(true);
+    try {
+      const count = await invoke<number>("debrid_cleanup_probes", {
+        provider: debridProvider,
+        apikey: debridApiKey,
+      });
+      showToast(t("settings.debrid.cleanupProbesDone", { count }), "success");
+    } catch (e) {
+      showToast(t("settings.connectionFailed", { error: e }), "error");
+    } finally {
+      setCleaningProbes(false);
     }
   };
 
@@ -565,8 +582,23 @@ export default function DownloadsTab() {
                 </div>
               </div>
 
-              <p className="settings-helper-text settings-helper-text--debrid">
-                {t("settingsPage.debridUsage")}
+              {debridProvider === "alldebrid" && (
+                 <div className="settings-limit-row settings-limit-row--stack">
+                   <Button
+                     variant="secondary"
+                     size="sm"
+                     onClick={handleCleanupProbes}
+                     disabled={cleaningProbes || !debridApiKey}
+                   >
+                     {cleaningProbes
+                       ? t("settings.debrid.testing")
+                       : t("settings.debrid.cleanupProbes")}
+                   </Button>
+                 </div>
+               )}
+
+               <p className="settings-helper-text settings-helper-text--debrid">
+                 {t("settingsPage.debridUsage")}
               </p>
             </>
           )}

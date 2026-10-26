@@ -354,6 +354,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             downloads::test_debrid_key,
             downloads::debrid_check_cache,
             downloads::debrid_list_files,
+            downloads::debrid_cleanup_probes,
             downloads::torrent_list_files,
             downloads::direct_download_start,
             downloads::debrid_download_start,

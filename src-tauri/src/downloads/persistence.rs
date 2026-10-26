@@ -155,6 +155,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
                 None => Some(was_completed),
             },
             debrid_cached: None,
+            debrid_transfer_id: None,
             only_files: None,
             should_seed: Some(false),
             queue_position: None,

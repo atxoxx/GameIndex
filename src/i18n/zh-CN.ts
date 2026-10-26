@@ -4887,6 +4887,8 @@ export const zhCN: TranslationDict = {
   "settings.debrid.testConnection": "测试连接",
   "settings.debrid.testing": "测试中...",
   "settings.debrid.torBox": "TorBox",
+  "settings.debrid.cleanupProbes": "清理泄漏的探针磁力",
+  "settings.debrid.cleanupProbesDone": "已移除 {count} 个泄漏的探针磁力。",
   "settings.desc": "自定义 GameIndex 的外观，选择游戏时监控的 GPU，并连接外部商店集成。",
   "settings.general.desc": "语言和应用更新偏好设置。",
   "settings.downloads.desc": "下载保存位置、速度限制以及可信来源。",

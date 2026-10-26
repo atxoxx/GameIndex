@@ -4887,6 +4887,8 @@ export const es: TranslationDict = {
   "settings.debrid.testConnection": "Probar conexión",
   "settings.debrid.testing": "Probando...",
   "settings.debrid.torBox": "TorBox",
+  "settings.debrid.cleanupProbes": "Limpiar imanes de sonda con fugas",
+  "settings.debrid.cleanupProbesDone": "Se eliminaron {count} imán(es) de sonda con fugas.",
   "settings.desc": "Personaliza la apariencia de GameIndex, elige qué GPU monitorizar durante el juego y conecta integraciones de tiendas externas.",
   "settings.general.desc": "Preferencias de idioma y actualización de la aplicación.",
   "settings.downloads.desc": "Dónde se guardan las descargas, los límites de velocidad y las fuentes de confianza.",

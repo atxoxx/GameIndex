@@ -4882,6 +4882,8 @@ export const fr: TranslationDict = {
   "settings.debrid.testConnection": "Tester la connexion",
   "settings.debrid.testing": "Test en cours...",
   "settings.debrid.torBox": "TorBox",
+  "settings.debrid.cleanupProbes": "Nettoyer les aimants sondes qui fuient",
+  "settings.debrid.cleanupProbesDone": "{count} aimant(s) sonde fuient supprimé(s).",
   "settings.desc": "Personnalisez l'apparence de GameIndex, choisissez le GPU à surveiller pendant le jeu et connectez des intégrations de boutiques externes.",
   "settings.general.desc": "Langue et préférences de mise à jour de l'application.",
   "settings.downloads.desc": "Où les téléchargements sont enregistrés, les limites de vitesse et les sources de confiance.",

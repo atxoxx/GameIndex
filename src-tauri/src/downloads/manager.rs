@@ -2155,6 +2155,7 @@ async fn run_debrid_flow(
         let mut guard = manager.write().await;
         if let Some(d) = guard.downloads_mut().get_mut(&id) {
             d.debrid_cached = Some(cached);
+            d.debrid_transfer_id = Some(transfer_id.clone());
         }
         guard.mark_dirty();
         guard.emit_progress_force();

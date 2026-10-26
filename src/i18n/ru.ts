@@ -4887,6 +4887,8 @@ export const ru: TranslationDict = {
   "settings.debrid.testConnection": "Проверить подключение",
   "settings.debrid.testing": "Тестирование...",
   "settings.debrid.torBox": "TorBox",
+  "settings.debrid.cleanupProbes": "Очистить утекшие probe-магниты",
+  "settings.debrid.cleanupProbesDone": "Удалено утекших probe-магнитов: {count}.",
   "settings.desc": "Настройте внешний вид GameIndex, выберите GPU для мониторинга во время игры и подключите внешние магазины.",
   "settings.general.desc": "Настройки языка и обновлений приложения.",
   "settings.downloads.desc": "Куда сохраняются загрузки, ограничения скорости и доверенные источники.",

@@ -4893,6 +4893,8 @@ export const en: TranslationDict = {
   "settings.debrid.testConnection": "Test Connection",
   "settings.debrid.testing": "Testing...",
   "settings.debrid.torBox": "TorBox",
+  "settings.debrid.cleanupProbes": "Clean up leaked probe magnets",
+  "settings.debrid.cleanupProbesDone": "Removed {count} leaked probe magnet(s).",
   "settings.desc": "Customize GameIndex's appearance, choose which GPU to monitor during gameplay, and connect external store integrations.",
   "settings.general.desc": "Language and application update preferences.",
   "settings.downloads.desc": "Where downloads are saved, speed limits, and which sources are trusted.",

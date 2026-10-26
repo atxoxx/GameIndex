@@ -92,6 +92,12 @@ pub struct DebridUploadResult {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebridCacheResult {
     pub cached: bool,
+    /// AllDebrid only: id of the temporary probe magnet that could NOT be
+    /// cleaned up from the account (delete failed). `None` when cleanup
+    /// succeeded or for providers that never touch the account (TorBox).
+    /// Tracked in the `kv` store so a later cleanup pass can remove it.
+    #[serde(default)]
+    pub probe_id: Option<String>,
 }
 
 /// A single file entry in a debrid file listing. Links are omitted —
@@ -111,6 +117,11 @@ pub struct DebridFileListResult {
     pub name: Option<String>,
     /// Magnet-level total size reported by the provider.
     pub total_size: u64,
+    /// AllDebrid only: id of the temporary probe magnet that could NOT be
+    /// cleaned up from the account (delete failed). `None` when cleanup
+    /// succeeded or for providers that never touch the account (TorBox).
+    #[serde(default)]
+    pub probe_id: Option<String>,
 }
 
 // ─── AllDebrid Client ────────────────────────────────────────────────────────
@@ -428,10 +439,15 @@ impl AllDebridClient {
     /// exhaust the user's active account torrent slots.
     pub async fn check_cache(apikey: &str, magnet: &str) -> Result<DebridCacheResult, String> {
         let upload = Self::upload_magnet(apikey, magnet).await?;
+        let id = upload.id.clone();
+        let cached = upload.cached;
         // Always clean up the temporary probe magnet from the account.
-        let _ = Self::delete_magnet(apikey, &upload.id).await;
+        // Retry on transient errors (rate limits / network blips) so probe
+        // magnets do not accumulate in the user's AllDebrid account.
+        let cleaned = Self::delete_magnet_with_retry(apikey, &id).await;
         Ok(DebridCacheResult {
-            cached: upload.cached,
+            cached,
+            probe_id: if cleaned { None } else { Some(id) },
         })
     }
 
@@ -520,7 +536,7 @@ impl AllDebridClient {
         }
 
         // Always free the account slot, even on failure or timeout.
-        let _ = Self::delete_magnet(apikey, &id).await;
+        let cleaned = Self::delete_magnet_with_retry(apikey, &id).await;
 
         if files.is_empty() {
             return Err(
@@ -534,6 +550,7 @@ impl AllDebridClient {
             files,
             name,
             total_size,
+            probe_id: if cleaned { None } else { Some(id) },
         })
     }
 
@@ -552,11 +569,41 @@ impl AllDebridClient {
         let body: AllDebridResponse<serde_json::Value> = resp
             .json()
             .await
-            .map_err(|e| format!("Failed to parse delete response: {}", e))?;
+            .map_err(|e| format!("HTTP {} — failed to parse delete response: {}", status, e))?;
         if !status.is_success() || body.status != "success" {
-            return Err(ad_err(body));
+            return Err(format!("HTTP {} — {}", status, ad_err(body)));
         }
         Ok(())
+    }
+
+    /// Best-effort cleanup of a temporary probe magnet. Retries on transient
+    /// failures (rate limits / network blips) and returns `true` when the
+    /// magnet was successfully removed from the account.
+    pub async fn delete_magnet_with_retry(apikey: &str, id: &str) -> bool {
+        for attempt in 0..3u32 {
+            match Self::delete_magnet(apikey, id).await {
+                Ok(()) => return true,
+                Err(e) => {
+                    let lower = e.to_lowercase();
+                    let transient = lower.contains("429")
+                        || lower.contains("503")
+                        || lower.contains("too many")
+                        || lower.contains("parse")
+                        || lower.contains("request failed")
+                        || lower.contains("timed out");
+                    if transient && attempt < 2 {
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            400 * (attempt as u64 + 1) * 2,
+                        ))
+                        .await;
+                        continue;
+                    }
+                    eprintln!("[alldebrid] failed to delete probe magnet {}: {}", id, e);
+                    return false;
+                }
+            }
+        }
+        false
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
@@ -1119,7 +1166,7 @@ impl TorBoxClient {
             _ => false,
         };
 
-        Ok(DebridCacheResult { cached })
+        Ok(DebridCacheResult { cached, probe_id: None })
     }
 
     /// List a magnet's files without starting a download.
@@ -1199,6 +1246,7 @@ impl TorBoxClient {
             files,
             name: data.name,
             total_size: data.size,
+            probe_id: None,
         })
     }
 
