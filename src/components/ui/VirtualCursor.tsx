@@ -8,7 +8,7 @@
 //     where the "click" lands even at a glance.
 //   • Gentle breathing pulse when idle (opacity 0.7 → 0.85 → 0.7)
 //     so the cursor is locatable without being noisy.
-//   • Idle fade: opacity drops to 0.45 after 2.5 s of inactiv ity so
+//   • Idle fade: opacity drops to 0.45 after 2.5 s of inactivity so
 //     the cursor doesn't visually compete with on-screen content
 //     while the user is reading.
 //   • Drag indicator: an outer ring fills to 60 % opacity while RT/LT
@@ -20,14 +20,15 @@
 //
 // Reduced motion: the breathing pulse is suppressed when the user
 // has prefers-reduced-motion enabled.
+//
+// State source: this is the only full-rate consumer of the virtual
+// mouse, so it reads the external store (`useVirtualMouseState`)
+// instead of the `GamepadState` context — position churn re-renders
+// exactly one small component instead of every Big Screen subtree.
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { GamepadState } from "../../hooks/useGamepad";
-
-interface VirtualCursorProps {
-  gamepad: GamepadState;
-}
+import { useVirtualMouseState } from "../../hooks/useGamepad";
 
 const IDLE_FADE_MS = 2500;
 const MIN_OPACITY = 0.45;
@@ -53,10 +54,11 @@ const CLICKABLE_SELECTOR =
  * class="virtual-cursor">` element, the motion feels continuous even
  * though the poll only updates state.
  */
-export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
+export default function VirtualCursor() {
   const cursorRef = useRef<HTMLDivElement | null>(null);
-  const virtualMouseRef = useRef(gamepad.virtualMouse);
-  virtualMouseRef.current = gamepad.virtualMouse;
+  const virtualMouse = useVirtualMouseState();
+  const virtualMouseRef = useRef(virtualMouse);
+  virtualMouseRef.current = virtualMouse;
   const lastRenderRef = useRef<{ x: number; y: number; ts: number }>({
     x: -1,
     y: -1,
@@ -76,7 +78,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
     // An idle Big Screen session should not run an rAF loop just to keep an
     // invisible pointer in sync; `virtualMouse.visible` flips back on and
     // re-runs this effect the moment the pad shows the cursor.
-    if (!gamepad.virtualMouse.visible) {
+    if (!virtualMouse.visible) {
       const el = cursorRef.current;
       if (el) {
         el.style.display = "none";
@@ -200,7 +202,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [gamepad.virtualMouse.visible]);
+  }, [virtualMouse.visible]);
 
   if (typeof document === "undefined") return null;
 

@@ -26,7 +26,13 @@
 //     virtualMouse, toggleVirtualMouse, recenterVirtualMouse,
 //     registerTabCycler, registerBackHandler }`.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   nearestInDirection,
   scrollElementIntoViewControlled,
@@ -88,6 +94,58 @@ export interface VirtualMouseState {
    * `leftDown`/`rightDown` only cover press-and-hold drags.
    */
   lastClickMs: number;
+}
+
+// ── Virtual-mouse external store ─────────────────────────────────
+// The full-rate cursor state must NOT ride the React context: a stick
+// wiggle publishes up to 60 Hz, and a context update re-renders every
+// `useGamepad()` consumer in Big Screen (~20 subtrees — rails, grids,
+// the shell) for a pointer only one element draws. So the full state is
+// published to this module-level store, whose only subscriber is
+// `VirtualCursor` (via `useVirtualMouseState()`); the GamepadState
+// context keeps a coarse snapshot that changes only on the `visible`
+// flip (the one field external consumers render off).
+
+const VIRTUAL_MOUSE_IDLE: VirtualMouseState = {
+  visible: false,
+  x: typeof window !== "undefined" ? window.innerWidth / 2 : 0,
+  y: typeof window !== "undefined" ? window.innerHeight / 2 : 0,
+  leftDown: false,
+  rightDown: false,
+  moving: false,
+  lastInputMs: 0,
+  lastClickMs: 0,
+};
+
+let virtualMouseSnapshot: VirtualMouseState = { ...VIRTUAL_MOUSE_IDLE };
+const virtualMouseListeners = new Set<() => void>();
+
+function subscribeVirtualMouse(listener: () => void): () => void {
+  virtualMouseListeners.add(listener);
+  return () => {
+    virtualMouseListeners.delete(listener);
+  };
+}
+
+function getVirtualMouseSnapshot(): VirtualMouseState {
+  return virtualMouseSnapshot;
+}
+
+function publishVirtualMouseToStore(next: VirtualMouseState): void {
+  virtualMouseSnapshot = next;
+  for (const listener of virtualMouseListeners) listener();
+}
+
+/**
+ * Full-rate virtual cursor state. Changes at up to 60 Hz while the dot
+ * is being steered — only render off this in cursor-drawing widgets.
+ */
+export function useVirtualMouseState(): VirtualMouseState {
+  return useSyncExternalStore(
+    subscribeVirtualMouse,
+    getVirtualMouseSnapshot,
+    getVirtualMouseSnapshot,
+  );
 }
 
 export interface GamepadState {
@@ -324,6 +382,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     };
     virtualMouseRef.current = next;
     lastPublishedVMRef.current = next;
+    publishVirtualMouseToStore(next);
     setVirtualMouse(next);
   }, []);
 
@@ -338,6 +397,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     };
     virtualMouseRef.current = next;
     lastPublishedVMRef.current = next;
+    publishVirtualMouseToStore(next);
     setVirtualMouse(next);
   }, []);
 
@@ -553,7 +613,13 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         prev.lastClickMs !== cur.lastClickMs
       ) {
         lastPublishedVMRef.current = { ...cur };
-        setVirtualMouse({ ...cur });
+        // Full rate → the external store (VirtualCursor only).
+        publishVirtualMouseToStore(lastPublishedVMRef.current);
+        // Context (≈20 consumers) re-renders only for the one field it
+        // renders off. Position churn stays out of the provider tree.
+        if (prev.visible !== cur.visible) {
+          setVirtualMouse({ ...cur });
+        }
       }
     }
 

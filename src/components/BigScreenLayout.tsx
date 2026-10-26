@@ -266,7 +266,7 @@ export default function BigScreenLayout() {
 
       <BigScreenFooter />
 
-      <VirtualCursor gamepad={gamepad} />
+      <VirtualCursor />
 
       <BigScreenSearchOverlay
         open={searchOpen}
