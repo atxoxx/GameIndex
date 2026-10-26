@@ -921,8 +921,13 @@ fn present(app: &AppHandle, collapsed: bool) -> Result<(), String> {
     };
 
     let window = ensure_window(app)?;
+    // Re-assert topmost on every show: some games (and a few GPU drivers) reset
+    // the Z order when they enter fullscreen, which would otherwise bury the HUD
+    // even though it was created always-on-top.
+    let _ = window.set_always_on_top(true);
     apply_geometry(&window, app, &settings, collapsed)?;
     window.show().map_err(|e| format!("failed to show overlay: {e}"))?;
+    let _ = window.set_always_on_top(true);
     commit_layer_surface(&window, app);
     // Deliberately no `set_focus()`: yanking focus from a running game can drop
     // its input. The HUD is always-on-top; clicking the ticker focuses and
@@ -991,6 +996,9 @@ fn spawn_monitor_follow(app: &AppHandle) {
             if !window.is_visible().unwrap_or(false) {
                 return;
             }
+            // Keep the HUD above fullscreen games that may have re-claimed the
+            // topmost slot since the last check.
+            let _ = window.set_always_on_top(true);
             let (manual_pos, collapsed, gen) = {
                 let rt = lock(&state);
                 (
@@ -2048,10 +2056,17 @@ fn spawn_live_refresh(app: &AppHandle) {
         if handle.try_state::<OverlayState>().is_none() {
             return;
         }
-        let visible = handle
+        let mut visible = handle
             .get_webview_window(OVERLAY_WINDOW_LABEL)
             .and_then(|w| w.is_visible().ok())
             .unwrap_or(false);
+        if !visible {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            visible = handle
+                .get_webview_window(OVERLAY_WINDOW_LABEL)
+                .and_then(|w| w.is_visible().ok())
+                .unwrap_or(false);
+        }
         if !visible {
             return;
         }

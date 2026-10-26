@@ -381,9 +381,24 @@ where
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let interval = interval.max(Duration::from_millis(100));
     let join = std::thread::spawn(move || {
-        live_collect_loop(
-            config, stop_rx, game_pid, gpu_id, gpu_name, interval, &on_sample,
-        );
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            live_collect_loop(
+                config, stop_rx, game_pid, gpu_id, gpu_name, interval, &on_sample,
+            );
+        }));
+        if let Err(e) = result {
+            let msg = if let Some(s) = e.downcast_ref::<String>() {
+                s.clone()
+            } else if let Some(s) = e.downcast_ref::<&str>() {
+                s.to_string()
+            } else {
+                "unknown panic".to_string()
+            };
+            eprintln!(
+                "[metrics] PANIC in live telemetry sampler (target PID={}): {}",
+                game_pid, msg
+            );
+        }
     });
     LiveMetricsHandle {
         stop_tx,
@@ -391,12 +406,7 @@ where
     }
 }
 
-#[cfg(windows)]
-#[link(name = "user32")]
-extern "system" {
-    fn GetForegroundWindow() -> *mut std::ffi::c_void;
-    fn GetWindowThreadProcessId(hwnd: *mut std::ffi::c_void, process_id: *mut u32) -> u32;
-}
+// (foreground-window detection intentionally disabled; see `game_is_foreground`)
 
 /// Whether the foreground window belongs to the game we are sampling (or our
 /// own process). The live overlay sampler skips its expensive WMI / LHM / MAHM
@@ -409,18 +419,13 @@ extern "system" {
 /// pid counts as foreground because the expanded panel lives in this process
 /// and still wants live values.
 #[cfg(windows)]
-fn game_is_foreground(game_pid: u32) -> bool {
-    // SAFETY: both calls take/return plain window handles and a pointer to a
-    // stack `u32`; no ownership is transferred.
-    unsafe {
-        let fg = GetForegroundWindow();
-        if fg.is_null() {
-            return true;
-        }
-        let mut fg_pid: u32 = 0;
-        GetWindowThreadProcessId(fg, &mut fg_pid);
-        fg_pid == game_pid || fg_pid == std::process::id()
-    }
+fn game_is_foreground(_game_pid: u32) -> bool {
+    // Foreground detection proved unreliable across the variety of game process
+    // layouts (multi-process launchers, renderers, anti-cheat hosts): a wrong
+    // `false` froze the live sampler for the rest of the session, which is far
+    // worse than the CPU saved by skipping ticks while alt-tabbed. Keep
+    // collecting unconditionally; the sampler stops when the game exits anyway.
+    true
 }
 
 /// Non-Windows stub: Linux keeps collecting (its sources are cheap file reads),
