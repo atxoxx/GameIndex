@@ -84,11 +84,13 @@ export default function RecordingWidget() {
       return;
     }
     const endAt = Date.now() + countdownTotal;
+    // 250 ms is well below one displayed-countdown digit — a 100 ms tick
+    // just quadrupled the re-renders of this widget during pre-roll.
     const id = window.setInterval(() => {
       const left = Math.max(0, endAt - Date.now());
       setCountdownLeft(left);
       if (left === 0) window.clearInterval(id);
-    }, 100);
+    }, 250);
     return () => window.clearInterval(id);
   }, [countdownTotal]);
 

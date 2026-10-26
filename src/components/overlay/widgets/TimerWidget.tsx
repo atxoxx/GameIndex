@@ -81,8 +81,16 @@ export default function TimerWidget() {
     const start = performance.now() - elapsedMs;
     startRef.current = start;
 
+    // The readout only shows tenths of a second — re-rendering once per
+    // displayed tick (≤10 Hz) instead of once per animation frame.
+    let lastTenth = Math.floor(elapsedMs / 100);
     const tick = () => {
-      setElapsedMs(performance.now() - startRef.current);
+      const now = performance.now() - startRef.current;
+      const tenth = Math.floor(now / 100);
+      if (tenth !== lastTenth) {
+        lastTenth = tenth;
+        setElapsedMs(now);
+      }
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
