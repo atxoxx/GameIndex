@@ -10130,4 +10130,12 @@ export const de: TranslationDict = {
   "profile.habits.hourTotal": "Um {hour}:00 · {time}",
   "profile.habits.hint": "Zelle für den genauen Zeitpunkt überfahren · Pfeiltasten bewegen den Fokus.",
   "profile.habits.hintTouch": "Seitlich wischen, um alle Stunden zu sehen.",
+  "profile.deleteCapture": "Aufnahme löschen",
+  "profile.deleteCaptureTitle": "Diese Aufnahme löschen?",
+  "profile.deleteCaptureBody": "„{name}“ endgültig löschen? Das kann nicht rückgängig gemacht werden.",
+  "profile.deleteCaptureDone": "Aufnahme gelöscht",
+  "profile.deleteCaptureFailed": "Die Aufnahme konnte nicht gelöscht werden",
+  "overlay.recording.preview": "Clip-Vorschau",
+  "overlay.recording.previewClose": "Vorschau schließen",
+  "overlay.recording.previewFailed": "Dieser Clip konnte hier nicht abgespielt werden.",
 };

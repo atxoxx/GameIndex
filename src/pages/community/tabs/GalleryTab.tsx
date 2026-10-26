@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Camera,
   FolderOpen,
-  Gamepad2,
   RefreshCw,
   Search,
   Star,
@@ -15,9 +14,10 @@ import { useGallery } from "../gallery/useGallery";
 import { MediaThumb } from "../gallery/MediaThumb";
 import { CaptureLightbox } from "../gallery/CaptureLightbox";
 import { AddFolderModal } from "../gallery/AddFolderModal";
-import { formatCaptureDate, SOURCE_IDS, sourceLabel } from "../gallery/mediaUtils";
-import { Button } from "../../../components/ui";
-import type { Game, TimeframePreset } from "../statsTypes";
+import { AlbumCover } from "../gallery/AlbumCover";
+import { fileName, formatCaptureDate, SOURCE_IDS, sourceLabel } from "../gallery/mediaUtils";
+import { Button, ConfirmModal } from "../../../components/ui";
+import type { Game, MediaFile, TimeframePreset } from "../statsTypes";
 
 interface GalleryTabProps {
   games: Game[];
@@ -36,6 +36,19 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
   const { t } = useLanguage();
   const gallery = useGallery(games, range, onCountChange);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<MediaFile | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    const deleted = await gallery.deleteMedia(pendingDelete);
+    setDeleting(false);
+    if (deleted) {
+      setPendingDelete(null);
+      setLightboxIndex(null);
+    }
+  };
 
   const pathIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -188,13 +201,12 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
 
             <div className="profile-album__identity">
               <span className="profile-album__cover">
-                {selected.group.coverArtUrl ? (
-                  <img src={selected.group.coverArtUrl} alt="" loading="lazy" />
-                ) : selected.isCustom ? (
-                  <FolderOpen size={20} aria-hidden="true" />
-                ) : (
-                  <Gamepad2 size={20} aria-hidden="true" />
-                )}
+                <AlbumCover
+                  game={selected.game}
+                  cachedCoverUrl={selected.group.coverArtUrl}
+                  media={selected.media}
+                  isCustom={selected.isCustom}
+                />
               </span>
               <div>
                 <h2>{selected.group.gameName}</h2>
@@ -229,6 +241,7 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
                 onOpen={() => openMedia(media.path)}
                 isFavorite={gallery.favorites.has(media.path)}
                 onToggleFavorite={gallery.toggleFavorite}
+                onDelete={setPendingDelete}
               />
             ))}
           </div>
@@ -260,13 +273,12 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
                 }}
               >
                 <span className="profile-album-card__cover">
-                  {album.group.coverArtUrl ? (
-                    <img src={album.group.coverArtUrl} alt="" loading="lazy" />
-                  ) : album.isCustom ? (
-                    <FolderOpen size={24} aria-hidden="true" />
-                  ) : (
-                    <Gamepad2 size={24} aria-hidden="true" />
-                  )}
+                  <AlbumCover
+                    game={album.game}
+                    cachedCoverUrl={album.group.coverArtUrl}
+                    media={album.media}
+                    isCustom={album.isCustom}
+                  />
                   <span className="profile-album-card__count">
                     {album.media.length}
                   </span>
@@ -302,8 +314,21 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
           onClose={() => setLightboxIndex(null)}
           favorites={gallery.favorites}
           onToggleFavorite={gallery.toggleFavorite}
+          onDelete={setPendingDelete}
         />
       )}
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("profile.deleteCaptureTitle")}
+        message={t("profile.deleteCaptureBody", {
+          name: pendingDelete ? fileName(pendingDelete.path) : "",
+        })}
+        confirmLabel={t("common.delete")}
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

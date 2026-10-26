@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, FolderOpen, Pause, Play, Star, X } from "lucide-react";
+import { AlertTriangle, FolderOpen, Pause, Play, Star, Trash2, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
@@ -20,6 +20,8 @@ interface CaptureLightboxProps {
   onClose: () => void;
   favorites: Set<string>;
   onToggleFavorite: (path: string) => void;
+  /** Opens the upstream confirmation; the parent removes the item on success. */
+  onDelete?: (media: MediaFile) => void;
 }
 
 function LightboxMedia({ media }: { media: MediaFile }) {
@@ -78,7 +80,18 @@ function CarouselThumb({
     >
       {!failed ? (
         isVideo ? (
-          <video src={src} muted preload="metadata" onError={handleError} />
+          <video
+            src={src}
+            muted
+            preload="metadata"
+            onError={handleError}
+            onLoadedMetadata={(event) => {
+              // Nudge off the first frame so the thumbnail isn't black.
+              if (event.currentTarget.currentTime === 0) {
+                event.currentTarget.currentTime = 0.1;
+              }
+            }}
+          />
         ) : (
           <img src={src} alt="" loading="lazy" onError={handleError} />
         )
@@ -102,6 +115,7 @@ export function CaptureLightbox({
   onClose,
   favorites,
   onToggleFavorite,
+  onDelete,
 }: CaptureLightboxProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -197,6 +211,18 @@ export function CaptureLightbox({
           >
             <Star size={16} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
           </button>
+
+          {onDelete && (
+            <button
+              type="button"
+              className="gallery-lightbox__tool is-danger"
+              onClick={() => onDelete(current.media)}
+              title={t("profile.deleteCapture")}
+              aria-label={t("profile.deleteCapture")}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+          )}
 
           <button
             type="button"

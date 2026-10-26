@@ -405,7 +405,7 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
 
                         let screenshots_dir = p.join("screenshots");
                         if !screenshots_dir.exists() || !screenshots_dir.is_dir() {
-                            let loose = collect_media_files(&p, false, false);
+                            let loose = collect_media_files(&p, true, false);
                             if loose.is_empty() {
                                 continue;
                             }
@@ -418,7 +418,7 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
                             continue;
                         }
 
-                        let images = collect_media_files(&screenshots_dir, false, false);
+                        let images = collect_media_files(&screenshots_dir, true, false);
                         if images.is_empty() {
                             continue;
                         }
@@ -439,6 +439,28 @@ pub async fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
     })
     .await
     .unwrap_or_default()
+}
+
+/// Permanently delete a capture file (image or clip) from disk.
+///
+/// Used by the Profile → Gallery delete action. Paths come from the capture
+/// scanners, so the extension allowlist keeps the command from being a general
+/// file-deletion primitive.
+#[tauri::command]
+pub fn delete_media_file(path: String) -> Result<(), String> {
+    let file = Path::new(&path);
+    if !file.is_file() {
+        return Err("Capture file not found".to_string());
+    }
+    let extension = file
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default();
+    if !is_capture_extension(extension, true) {
+        return Err("Not a capture file".to_string());
+    }
+
+    std::fs::remove_file(file).map_err(|err| format!("Failed to delete capture: {err}"))
 }
 
 /// Persist a base64-encoded image — normally a PNG data URL produced by

@@ -10130,4 +10130,12 @@ export const zhCN: TranslationDict = {
   "profile.habits.hourTotal": "约 {hour}:00 · {time}",
   "profile.habits.hint": "悬停单元格查看具体时段 · 可用方向键浏览。",
   "profile.habits.hintTouch": "左右滑动可浏览全部时段。",
+  "profile.deleteCapture": "删除截图",
+  "profile.deleteCaptureTitle": "删除此截图？",
+  "profile.deleteCaptureBody": "永久删除“{name}”？此操作无法撤销。",
+  "profile.deleteCaptureDone": "截图已删除",
+  "profile.deleteCaptureFailed": "无法删除截图",
+  "overlay.recording.preview": "片段预览",
+  "overlay.recording.previewClose": "关闭预览",
+  "overlay.recording.previewFailed": "此片段无法在此播放。",
 };

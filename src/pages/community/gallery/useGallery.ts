@@ -14,6 +14,8 @@ import {
 } from "../statsStorage";
 import { rangeCutoffMs } from "../statsCalculations";
 import { isVideoPath } from "./mediaUtils";
+import { normalizeName } from "../../../hooks/useLibraryIndex";
+import { gameDisplayName } from "../../../types/game";
 import type { Game, CustomFolder, MediaFile, ScreenshotGroup, TimeframePreset } from "../statsTypes";
 
 export type MediaKindFilter = "all" | "images" | "videos";
@@ -38,6 +40,8 @@ export interface GalleryAlbum {
   /** Newest capture in the album (unix seconds). */
   latest: number;
   isCustom: boolean;
+  /** Library game matched by Steam appId or normalized name, when known. */
+  game?: Game;
 }
 
 function sanitize(value: string): string {
@@ -261,6 +265,50 @@ export function useGallery(
     [selectedAlbumKey, showToast, t]
   );
 
+  const deleteMedia = useCallback(
+    async (media: MediaFile): Promise<boolean> => {
+      try {
+        await invoke("delete_media_file", { path: media.path });
+      } catch (error) {
+        console.error("[Gallery] Delete failed:", error);
+        showToast(t("profile.deleteCaptureFailed"), "error");
+        return false;
+      }
+
+      setGroups((previous) => {
+        const next = previous
+          .map((group) => ({
+            ...group,
+            screenshots: group.screenshots.filter((file) => file.path !== media.path),
+          }))
+          .filter((group) => group.screenshots.length > 0);
+        saveScreenshotCache(next);
+        return next;
+      });
+      setCustomFolders((previous) => {
+        const next = previous
+          .map((folder) => ({
+            ...folder,
+            media: folder.media.filter((file) => file.path !== media.path),
+          }))
+          .filter((folder) => folder.media.length > 0);
+        saveCustomFolders(next);
+        return next;
+      });
+      setFavorites((previous) => {
+        if (!previous.has(media.path)) return previous;
+        const next = new Set(previous);
+        next.delete(media.path);
+        saveFavorites(next);
+        return next;
+      });
+
+      showToast(t("profile.deleteCaptureDone"), "success");
+      return true;
+    },
+    [showToast, t]
+  );
+
   const customGroups = useMemo<ScreenshotGroup[]>(
     () =>
       customFolders.map((folder) => ({
@@ -293,6 +341,23 @@ export function useGallery(
   const cutoff = rangeCutoffMs(range);
   const query = search.trim().toLowerCase();
 
+  const libraryByAppId = useMemo(() => {
+    const map = new Map<number, Game>();
+    for (const game of games) {
+      if (game.steamAppId) map.set(game.steamAppId, game);
+    }
+    return map;
+  }, [games]);
+
+  const libraryByName = useMemo(() => {
+    const map = new Map<string, Game>();
+    for (const game of games) {
+      map.set(normalizeName(gameDisplayName(game)), game);
+      map.set(normalizeName(game.name), game);
+    }
+    return map;
+  }, [games]);
+
   const albums = useMemo<GalleryAlbum[]>(() => {
     const list = allGroups
       .filter((group) => {
@@ -309,13 +374,30 @@ export function useGallery(
           return true;
         });
         const latest = media.reduce((max, file) => Math.max(max, file.modifiedAt), 0);
-        return { group, media, latest, isCustom: Boolean(group.customFolderId) };
+        // Custom folders are user-named, so only auto-detected groups are
+        // matched to the library by name.
+        const game = group.customFolderId
+          ? undefined
+          : group.appId !== undefined
+            ? libraryByAppId.get(group.appId)
+            : libraryByName.get(normalizeName(group.gameName));
+        return { group, media, latest, isCustom: Boolean(group.customFolderId), game };
       })
       .filter((album) => album.media.length > 0);
 
     list.sort((a, b) => b.latest - a.latest || a.group.gameName.localeCompare(b.group.gameName));
     return list;
-  }, [allGroups, sourceFilter, query, favoritesOnly, favorites, mediaKind, cutoff]);
+  }, [
+    allGroups,
+    sourceFilter,
+    query,
+    favoritesOnly,
+    favorites,
+    mediaKind,
+    cutoff,
+    libraryByAppId,
+    libraryByName,
+  ]);
 
   const selectedAlbum = useMemo(
     () => albums.find((album) => album.group.key === selectedAlbumKey) ?? null,
@@ -363,6 +445,7 @@ export function useGallery(
     closeAddFolder: () => setIsAddFolderOpen(false),
     addFolder,
     removeFolder,
+    deleteMedia,
     detect,
     search,
     setSearch,

@@ -10130,4 +10130,12 @@ export const fr: TranslationDict = {
   "profile.habits.hourTotal": "Vers {hour}:00 · {time}",
   "profile.habits.hint": "Survolez une case pour l’horaire exact · les flèches déplacent le focus.",
   "profile.habits.hintTouch": "Balayez horizontal pour parcourir les heures.",
+  "profile.deleteCapture": "Supprimer la capture",
+  "profile.deleteCaptureTitle": "Supprimer cette capture ?",
+  "profile.deleteCaptureBody": "Supprimer définitivement « {name} » ? Cette action est irréversible.",
+  "profile.deleteCaptureDone": "Capture supprimée",
+  "profile.deleteCaptureFailed": "Impossible de supprimer la capture",
+  "overlay.recording.preview": "Aperçu du clip",
+  "overlay.recording.previewClose": "Fermer l’aperçu",
+  "overlay.recording.previewFailed": "Ce clip n’a pas pu être lu ici.",
 };

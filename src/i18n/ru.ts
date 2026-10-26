@@ -10131,4 +10131,12 @@ export const ru: TranslationDict = {
   "profile.habits.hourTotal": "Около {hour}:00 · {time}",
   "profile.habits.hint": "Наведите на ячейку, чтобы увидеть точный слот · стрелки перемещают фокус.",
   "profile.habits.hintTouch": "Проведите в сторону, чтобы увидеть все часы.",
+  "profile.deleteCapture": "Удалить снимок",
+  "profile.deleteCaptureTitle": "Удалить этот снимок?",
+  "profile.deleteCaptureBody": "Удалить «{name}» безвозвратно? Отменить это нельзя.",
+  "profile.deleteCaptureDone": "Снимок удалён",
+  "profile.deleteCaptureFailed": "Не удалось удалить снимок",
+  "overlay.recording.preview": "Просмотр клипа",
+  "overlay.recording.previewClose": "Закрыть просмотр",
+  "overlay.recording.previewFailed": "Этот клип не удалось воспроизвести.",
 };

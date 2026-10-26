@@ -1,4 +1,4 @@
-import { Camera, Star } from "lucide-react";
+import { Camera, Star, Trash2 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { fileName, isVideoPath } from "./mediaUtils";
 import { useMediaFallbackSrc } from "./useMediaFallbackSrc";
@@ -11,6 +11,8 @@ interface MediaThumbProps {
   onOpen: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: (path: string) => void;
+  /** Permanent delete, offered on hover with a confirmation upstream. */
+  onDelete?: (media: MediaFile) => void;
   /** Draw the game name over the bottom of the tile. */
   gameName?: string;
 }
@@ -25,6 +27,7 @@ export function MediaThumb({
   onOpen,
   isFavorite = false,
   onToggleFavorite,
+  onDelete,
   gameName,
 }: MediaThumbProps) {
   const { t } = useLanguage();
@@ -47,7 +50,18 @@ export function MediaThumb({
     >
       {!failed ? (
         isVideo ? (
-          <video src={src} muted preload="metadata" onError={handleError} />
+          <video
+            src={src}
+            muted
+            preload="metadata"
+            onError={handleError}
+            onLoadedMetadata={(event) => {
+              // Nudge off the first frame so the tile isn't black.
+              if (event.currentTarget.currentTime === 0) {
+                event.currentTarget.currentTime = 0.1;
+              }
+            }}
+          />
         ) : (
           <img src={src} alt="" loading="lazy" onError={handleError} />
         )
@@ -78,6 +92,20 @@ export function MediaThumb({
           title={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
         >
           <Star size={13} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+        </button>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          className="gallery-thumb__delete"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(media);
+          }}
+          aria-label={t("profile.deleteCapture")}
+          title={t("profile.deleteCapture")}
+        >
+          <Trash2 size={13} aria-hidden="true" />
         </button>
       )}
     </div>

@@ -15,6 +15,7 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { useVisibleInterval } from "../../../hooks/useVisibleInterval";
 import { useIncrementalList } from "../useIncrementalList";
 import { Card, Button } from "../../ui";
+import { OverlayClipPreview } from "./OverlayClipPreview";
 
 function formatDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -53,6 +54,7 @@ export default function RecordingWidget() {
 
   const [busy, setBusy] = useState(false);
   const [confirmDeletePath, setConfirmDeletePath] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(recordingState.durationMs);
 
   // Tick a local timer while recording so the badge shows a live duration even
@@ -128,6 +130,9 @@ export default function RecordingWidget() {
   const handleDelete = async (path: string) => {
     if (confirmDeletePath === path) {
       setConfirmDeletePath(null);
+      if (previewIndex !== null && visibleClips[previewIndex] === path) {
+        setPreviewIndex(null);
+      }
       await deleteClip(path);
     } else {
       setConfirmDeletePath(path);
@@ -136,6 +141,13 @@ export default function RecordingWidget() {
       }, 3000);
     }
   };
+
+  useEffect(() => {
+    if (previewIndex === null) return;
+    if (previewIndex >= visibleClips.length) {
+      setPreviewIndex(visibleClips.length > 0 ? visibleClips.length - 1 : null);
+    }
+  }, [previewIndex, visibleClips.length]);
 
   const statusTone = useMemo(() => {
     if (countdownTotal > 0 || countdownLeft > 0) return "countdown";
@@ -265,7 +277,7 @@ export default function RecordingWidget() {
             </div>
           ) : (
             <div className="overlay-clips-list">
-              {visibleClips.map((path) => {
+              {visibleClips.map((path, index) => {
                 const fileName = path.split(/[/\\]/).pop() ?? "Clip";
                 const isConfirming = confirmDeletePath === path;
                 return (
@@ -280,11 +292,20 @@ export default function RecordingWidget() {
                       <button
                         type="button"
                         className="overlay-btn-mini"
+                        onClick={() => setPreviewIndex(index)}
+                        title={t("overlay.recording.preview")}
+                        aria-label={t("overlay.recording.preview")}
+                      >
+                        <Play size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="overlay-btn-mini"
                         onClick={() => void openClipsFolder(path)}
                         title={t("overlay.recording.openFolder")}
                         aria-label={t("overlay.recording.openFolder")}
                       >
-                        <Play size={12} />
+                        <FolderOpen size={12} />
                       </button>
                       <button
                         type="button"
@@ -315,6 +336,16 @@ export default function RecordingWidget() {
             </Button>
           )}
         </>
+      )}
+
+      {previewIndex !== null && (
+        <OverlayClipPreview
+          paths={visibleClips}
+          index={previewIndex}
+          onIndexChange={setPreviewIndex}
+          onClose={() => setPreviewIndex(null)}
+          onOpenFolder={(path) => void openClipsFolder(path)}
+        />
       )}
     </Card>
   );

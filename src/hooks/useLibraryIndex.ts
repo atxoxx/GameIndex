@@ -7,7 +7,7 @@ import type { Game, StoreGameSummary } from "../types/game";
  * strip trademark/edition noise and non-alphanumerics so "Elden Ring"
  * and "ELDEN RING™" collapse to the same key.
  */
-function normalizeName(name: string): string {
+export function normalizeName(name: string): string {
   return name
     .toLowerCase()
     .replace(/™|®|©/g, "")

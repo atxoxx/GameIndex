@@ -10129,4 +10129,12 @@ export const en: TranslationDict = {
   "profile.habits.hourTotal": "Around {hour}:00 · {time}",
   "profile.habits.hint": "Hover a cell for the exact slot · arrow keys move between cells.",
   "profile.habits.hintTouch": "Swipe sideways to explore all hours.",
+  "profile.deleteCapture": "Delete capture",
+  "profile.deleteCaptureTitle": "Delete this capture?",
+  "profile.deleteCaptureBody": "Permanently delete “{name}”? This cannot be undone.",
+  "profile.deleteCaptureDone": "Capture deleted",
+  "profile.deleteCaptureFailed": "Could not delete the capture",
+  "overlay.recording.preview": "Clip preview",
+  "overlay.recording.previewClose": "Close preview",
+  "overlay.recording.previewFailed": "This clip could not be played here.",
 };
