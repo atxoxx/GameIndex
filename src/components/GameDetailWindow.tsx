@@ -40,6 +40,9 @@ import { isTauriRuntime } from "../utils/gameDetailWindow";
 // stylesheet barrel. Vite shares it with the App chunk instead of duplicating
 // it; the alternative (hand-picking page styles) drifts as pages change.
 import "../App.css";
+import "../store.css";
+import "../styles/sidebar-v2.css";
+import "../styles/page.css";
 import "../styles/game-detail-window.css";
 
 const GamePage = lazy(() => import("../pages/GamePage"));
