@@ -83,18 +83,35 @@ function HlsMoviePlayer({ movie }: { movie: MovieEntry }) {
     let hlsInstance: import("hls.js").default | null = null;
     let isCancelled = false;
 
+    const startLoad = () => hlsInstance?.startLoad();
+    const stopLoad = () => hlsInstance?.stopLoad();
+
     import("hls.js").then(({ default: Hls }) => {
       if (isCancelled || !videoRef.current) return;
       if (Hls.isSupported()) {
-        const hls = new Hls();
+        // Same contract as GameMediaSpotlight's HlsPlayer: do NOT buffer
+        // before the user presses play. hls.js defaults to autoStartLoad,
+        // which fetched and appended segments the moment a game page
+        // opened a trailer (page-load network + decode + MSE buffer RAM
+        // nobody asked for). Selecting a thumbnail should not have to
+        // spin the pipeline before the first play either.
+        const hls = new Hls({ autoStartLoad: false });
         hlsInstance = hls;
         hls.loadSource(src);
         hls.attachMedia(videoRef.current);
+        if (!videoRef.current.paused && !videoRef.current.ended) hls.startLoad();
       }
     });
 
+    video.addEventListener("play", startLoad);
+    video.addEventListener("pause", stopLoad);
+    video.addEventListener("ended", stopLoad);
+
     return () => {
       isCancelled = true;
+      video.removeEventListener("play", startLoad);
+      video.removeEventListener("pause", stopLoad);
+      video.removeEventListener("ended", stopLoad);
       if (hlsInstance) {
         hlsInstance.destroy();
       }
@@ -108,7 +125,7 @@ function HlsMoviePlayer({ movie }: { movie: MovieEntry }) {
         controls
         poster={movie.thumbnail || undefined}
         playsInline
-        preload="metadata"
+        preload="none"
         aria-label={label}
         className="videos-main-video"
       />
@@ -126,13 +143,17 @@ function SteamMoviePlayer({ movie }: { movie: MovieEntry }) {
   if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
   if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });
   const label = movie.name || t("game.trailer");
+  // `preload="none"`: WebKitGTK spins up a GStreamer pipeline for the
+  // "metadata" preload on mount and keeps it decoding a trailer the
+  // user never played (the same measured ~75% sustained CPU fix the
+  // media spotlight shipped). The poster still shows; play loads it.
   return (
     <div className="videos-main-video-wrap">
       <video
         controls
         poster={movie.thumbnail || undefined}
         playsInline
-        preload="metadata"
+        preload="none"
         aria-label={label}
         className="videos-main-video"
       >
