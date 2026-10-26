@@ -47,6 +47,9 @@ interface PlayerCountEntry {
 const entries = new Map<number, PlayerCountEntry>();
 let focusBound = false;
 
+/** Entries fresher than this skip the focus refetch (backend cache TTL is 60s). */
+const FOCUS_REFRESH_TTL_MS = 60_000;
+
 function publish(entry: PlayerCountEntry, next: SteamPlayerCountInfo) {
   if (entry.info.count === next.count && entry.info.updatedAt === next.updatedAt) {
     return;
@@ -59,7 +62,14 @@ function ensureFocusListener() {
   if (focusBound || typeof window === "undefined") return;
   focusBound = true;
   window.addEventListener("focus", () => {
-    for (const appId of entries.keys()) {
+    // The 60 s poll interval keeps entries fresh; only refetch entries
+    // that are actually stale, and rate-limit the whole pass so rapid
+    // alt-tabbing can't fan out one IPC + fetch per cached appid.
+    const now = Date.now();
+    for (const [appId, entry] of entries) {
+      if (entry.info.updatedAt && now - entry.info.updatedAt < FOCUS_REFRESH_TTL_MS) {
+        continue;
+      }
       void fetchCount(appId);
     }
   });
