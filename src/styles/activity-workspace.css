@@ -11,15 +11,28 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  width: 100%;
   min-width: 0;
-  padding-bottom: var(--space-3xl);
+  box-sizing: border-box;
+  padding: var(--page-padding, var(--space-xl) var(--space-2xl) var(--space-3xl));
 }
 
 .activity-page__toolbar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-lg);
   min-width: 0;
+}
+
+/* The workspace nav sits on the same left edge as the title and the scope
+   strip below it, so the three read as one column instead of a centered
+   strip floating between two left-aligned rows. */
+.activity-page__tabs .ui-subtabs__strip {
+  justify-content: flex-start;
+}
+
+.activity-page__tabs .ui-subtabs__tab:first-child {
+  padding-left: 0;
 }
 
 .activity-page__body {
@@ -145,7 +158,9 @@
 }
 
 .activity-scope__range-label {
-  margin-left: 0;
+  margin-left: var(--space-2xs);
+  padding-left: var(--space-sm);
+  border-left: 1px solid color-mix(in srgb, var(--color-text-primary) 10%, transparent);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
@@ -160,12 +175,18 @@
   min-width: 0;
 }
 
+/* The saved-views trigger is the only raised control here; keep it on the
+   same 32px baseline as the two selects beside it. */
+.activity-scope__selects .ui-btn {
+  min-height: 32px;
+}
+
 .activity-scope__select {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-height: 32px;
-  padding: 0 var(--space-sm);
+  padding: 0 var(--space-md);
   border-radius: var(--radius-md);
   background: var(--panel-tint-raised);
   color: var(--color-text-secondary);
@@ -341,23 +362,28 @@
 
 .activity-kpis {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-lg);
+  gap: var(--space-xl);
   flex-wrap: wrap;
   min-width: 0;
 }
 
+/* The figures share the row with the weekly-goal card, so they claim equal
+   columns instead of huddling at the left edge and leaving a dead gap. */
 .activity-kpis .ui-statband {
-  flex: 1 1 520px;
-  justify-content: flex-start;
-  padding-block: 0;
-  column-gap: clamp(var(--space-lg), 2.4vw, var(--space-2xl));
+  flex: 1 1 560px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: clamp(var(--space-lg), 2vw, var(--space-xl));
   row-gap: var(--space-md);
+  padding-block: var(--space-2xs);
 }
 
 .activity-kpis .ui-statband__item {
+  gap: var(--space-2xs);
   padding-bottom: 0;
+  min-width: 0;
 }
 
 .activity-kpis .ui-statband__value {
@@ -2322,7 +2348,13 @@
   }
 
   .activity-kpis .ui-statband {
-    flex-basis: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .activity-kpis .ui-statband {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2334,6 +2366,8 @@
   .activity-scope__range-label {
     width: 100%;
     margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 
   .activity-scope__select {

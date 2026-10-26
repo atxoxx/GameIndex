@@ -139,6 +139,17 @@ export default function ActivityPage() {
     [sourceSessions, workspace.gameId],
   );
 
+  // The same source + game scope without the date filter: the overview's
+  // deltas compare against the window before the selected range.
+  const scopedHistory = useMemo(
+    () =>
+      filterSessionsByGame(
+        filterSessionsBySource(sessions, games, workspace.source),
+        workspace.gameId,
+      ),
+    [sessions, games, workspace.source, workspace.gameId],
+  );
+
   const sourceOptions = useMemo(
     () => buildSourceOptions(games, rangeSessions),
     [games, rangeSessions],
@@ -437,6 +448,7 @@ export default function ActivityPage() {
             value={effectiveTab}
             onChange={(tab) => workspace.update({ tab }, { push: true })}
             sticky
+            className="activity-page__tabs"
           />
           {effectiveTab !== "wrapped" && (
             <ActivityScopeBar
@@ -473,6 +485,7 @@ export default function ActivityPage() {
             sessions={sourceSessions}
             allSessions={sessions}
             scopedSessions={scopedSessions}
+            comparisonSessions={scopedHistory}
             games={games}
             range={range}
             gameSummaries={gameSummaries}

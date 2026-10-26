@@ -51,6 +51,8 @@ export interface ActivityOverviewProps {
   allSessions: GameSession[];
   /** Range + source + game scoped sessions. */
   scopedSessions: GameSession[];
+  /** Same source + game scope, unfiltered by range — the baseline for deltas. */
+  comparisonSessions: GameSession[];
   games: Game[];
   range: ActivityRange;
   gameSummaries: ActivityGameSummary[];
@@ -98,6 +100,7 @@ export function ActivityOverview({
   sessions,
   allSessions,
   scopedSessions,
+  comparisonSessions,
   games,
   range,
   gameSummaries,
@@ -126,8 +129,8 @@ export function ActivityOverview({
   const gameById = useMemo(() => new Map(games.map((game) => [game.id, game])), [games]);
 
   const comparison = useMemo(
-    () => buildRangeComparison(scopedSessions, range),
-    [scopedSessions, range],
+    () => buildRangeComparison(comparisonSessions, range),
+    [comparisonSessions, range],
   );
 
   const stats = useMemo(() => {
