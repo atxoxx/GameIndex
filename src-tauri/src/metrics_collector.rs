@@ -1649,17 +1649,21 @@ fn get_cpu_usage(wmi_con: &WMIConnection) -> u32 {
 /// reports its own utilization and there is typically one dominant engine.
 #[cfg(windows)]
 fn get_gpu_usage_wmi(wmi_con: &WMIConnection, gpu_idx: u32) -> u32 {
-    // Approach 1: 3D engines for selected GPU — take the MAX value
+    // Approach 1: 3D engines for selected GPU — take the MAX value.
+    // Rows with max == 0 short-circuit like a real 0% reading instead of
+    // re-querying the remaining fallbacks: an idle GPU (or an idle
+    // machine) previously made *every* sample run all three
+    // GPUEngine queries back to back.
     let query = format!(
         "SELECT UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine WHERE Name LIKE '%phys_{}%' AND Name LIKE '%engtype_3D%'",
         gpu_idx
     );
     if let Ok(results) = wmi_con.raw_query::<WmiGpuEngine>(&query) {
-        let max_val = results.iter()
-            .filter_map(|r| r.utilization_percentage)
-            .max()
-            .unwrap_or(0);
-        if max_val > 0 {
+        if !results.is_empty() {
+            let max_val = results.iter()
+                .filter_map(|r| r.utilization_percentage)
+                .max()
+                .unwrap_or(0);
             return max_val.min(100) as u32;
         }
     }
@@ -1670,11 +1674,11 @@ fn get_gpu_usage_wmi(wmi_con: &WMIConnection, gpu_idx: u32) -> u32 {
         gpu_idx
     );
     if let Ok(results) = wmi_con.raw_query::<WmiGpuEngine>(&query2) {
-        let max_val = results.iter()
-            .filter_map(|r| r.utilization_percentage)
-            .max()
-            .unwrap_or(0);
-        if max_val > 0 {
+        if !results.is_empty() {
+            let max_val = results.iter()
+                .filter_map(|r| r.utilization_percentage)
+                .max()
+                .unwrap_or(0);
             return max_val.min(100) as u32;
         }
     }
