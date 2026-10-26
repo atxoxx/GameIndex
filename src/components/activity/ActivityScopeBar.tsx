@@ -104,94 +104,96 @@ export function ActivityScopeBar({
 
   return (
     <div className="activity-scope" role="group" aria-label={t("activityWs.scope.label")}>
-      <div className="activity-scope__ranges" role="group" aria-label={t("activity.range")}>
-        {PRESETS.map((preset) => (
-          <button
-            key={preset.key}
-            type="button"
-            className={`activity-scope__pill${rangeKey === preset.key ? " is-active" : ""}`}
-            aria-pressed={rangeKey === preset.key}
-            onClick={() => onRangeChange(preset.key)}
-          >
-            {t(preset.labelKey)}
-          </button>
-        ))}
-
-        <Popover
-          label={t("activityWs.scope.custom")}
-          align="start"
-          width={272}
-          role="dialog"
-          trigger={(props) => (
+      <div className="activity-scope__range-group">
+        <div className="activity-scope__ranges" role="group" aria-label={t("activity.range")}>
+          {PRESETS.map((preset) => (
             <button
-              {...props}
+              key={preset.key}
               type="button"
-              className={`activity-scope__pill activity-scope__pill--custom${
-                rangeKey === "custom" ? " is-active" : ""
-              }`}
-              onClick={() => {
-                if (!props["aria-expanded"]) {
-                  setDraftFrom(from || defaultFrom);
-                  setDraftTo(to || defaultTo);
-                }
-                props.onClick();
-              }}
+              className={`activity-scope__pill${rangeKey === preset.key ? " is-active" : ""}`}
+              aria-pressed={rangeKey === preset.key}
+              onClick={() => onRangeChange(preset.key)}
             >
-              <CalendarDays size={13} />
-              {t("activityWs.scope.custom")}
+              {t(preset.labelKey)}
             </button>
-          )}
-        >
-          {(close) => (
-            <div className="activity-scope__custom">
-              <span className="ui-popover__label">{t("activityWs.scope.custom")}</span>
-              <label className="ui-popover__field">
-                {t("activityWs.scope.from")}
-                <input
-                  type="date"
-                  value={draftFrom}
-                  max={draftTo || maxDate}
-                  aria-label={t("activityWs.scope.from")}
-                  onChange={(event) => setDraftFrom(event.target.value)}
-                />
-              </label>
-              <label className="ui-popover__field">
-                {t("activityWs.scope.to")}
-                <input
-                  type="date"
-                  value={draftTo}
-                  min={draftFrom}
-                  max={maxDate}
-                  aria-label={t("activityWs.scope.to")}
-                  onChange={(event) => setDraftTo(event.target.value)}
-                />
-              </label>
-              <p className="ui-popover__hint">{t("activityWs.scope.customHint")}</p>
-              <div className="ui-popover__actions">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    close();
-                  }}
-                >
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={!draftFrom || !draftTo}
-                  onClick={() => {
-                    onCustomRange(draftFrom, draftTo);
-                    close();
-                  }}
-                >
-                  {t("activityWs.scope.apply")}
-                </Button>
+          ))}
+
+          <Popover
+            label={t("activityWs.scope.custom")}
+            align="start"
+            width={272}
+            role="dialog"
+            trigger={(props) => (
+              <button
+                {...props}
+                type="button"
+                className={`activity-scope__pill activity-scope__pill--custom${
+                  rangeKey === "custom" ? " is-active" : ""
+                }`}
+                onClick={() => {
+                  if (!props["aria-expanded"]) {
+                    setDraftFrom(from || defaultFrom);
+                    setDraftTo(to || defaultTo);
+                  }
+                  props.onClick();
+                }}
+              >
+                <CalendarDays size={13} />
+                {t("activityWs.scope.custom")}
+              </button>
+            )}
+          >
+            {(close) => (
+              <div className="activity-scope__custom">
+                <span className="ui-popover__label">{t("activityWs.scope.custom")}</span>
+                <label className="ui-popover__field">
+                  {t("activityWs.scope.from")}
+                  <input
+                    type="date"
+                    value={draftFrom}
+                    max={draftTo || maxDate}
+                    aria-label={t("activityWs.scope.from")}
+                    onChange={(event) => setDraftFrom(event.target.value)}
+                  />
+                </label>
+                <label className="ui-popover__field">
+                  {t("activityWs.scope.to")}
+                  <input
+                    type="date"
+                    value={draftTo}
+                    min={draftFrom}
+                    max={maxDate}
+                    aria-label={t("activityWs.scope.to")}
+                    onChange={(event) => setDraftTo(event.target.value)}
+                  />
+                </label>
+                <p className="ui-popover__hint">{t("activityWs.scope.customHint")}</p>
+                <div className="ui-popover__actions">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      close();
+                    }}
+                  >
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!draftFrom || !draftTo}
+                    onClick={() => {
+                      onCustomRange(draftFrom, draftTo);
+                      close();
+                    }}
+                  >
+                    {t("activityWs.scope.apply")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </Popover>
+            )}
+          </Popover>
+        </div>
 
         <span className="activity-scope__range-label">{rangeLabel}</span>
       </div>

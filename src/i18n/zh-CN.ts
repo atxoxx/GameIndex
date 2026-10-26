@@ -8009,6 +8009,7 @@ export const zhCN: TranslationDict = {
   "settings.interface.widgetActivityToolbar": "时间范围与视图工具栏",
   "settings.interface.widgetActivityKpis": "游戏时长与连胜统计带",
   "settings.interface.widgetActivityPersona": "玩家画像卡片",
+  "settings.interface.widgetActivityValue": "游戏库价值卡片",
   "settings.interface.widgetActivityRecords": "个人记录与里程碑",
   "settings.interface.widgetActivityChart": "游玩时长趋势图",
   "settings.interface.widgetActivityInsights": "时段与会话洞察",

@@ -18,7 +18,7 @@ import PageWidget from "../components/PageWidget";
 import { ActivityActions } from "../components/activity/ActivityActions";
 import { ActivityScopeBar } from "../components/activity/ActivityScopeBar";
 import { ActivitySessionDrawer } from "../components/activity/ActivitySessionDrawer";
-import { ActivityRecapDrawer } from "../components/activity/ActivityRecapDrawer";
+import { ActivityRecapModal } from "../components/activity/ActivityRecapModal";
 import { ManualSessionModal } from "../components/activity/ManualSessionModal";
 import { SessionComparisonModal } from "../components/activity/SessionComparisonModal";
 import { LinkGameModal } from "../components/activity/LinkGameModal";
@@ -475,7 +475,6 @@ export default function ActivityPage() {
             scopedSessions={scopedSessions}
             games={games}
             range={range}
-            rangeLabel={rangeLabel}
             gameSummaries={gameSummaries}
             selectedGameId={workspace.gameId}
             selectedGameName={selectedGameName}
@@ -584,7 +583,7 @@ export default function ActivityPage() {
         onRequestAdd={requestAdd}
       />
 
-      <ActivityRecapDrawer
+      <ActivityRecapModal
         open={recapOpen}
         onClose={() => setRecapOpen(false)}
         sessions={scopedSessions}

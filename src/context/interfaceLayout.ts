@@ -91,6 +91,7 @@ export type PageWidgetKey =
   | "activityToolbar"
   | "activityKpis"
   | "activityPersona"
+  | "activityValue"
   | "activityRecords"
   | "activityChart"
   | "activityInsights"
@@ -212,6 +213,7 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "activityToolbar",
   "activityKpis",
   "activityPersona",
+  "activityValue",
   "activityRecords",
   "activityChart",
   "activityInsights",
@@ -335,6 +337,7 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   activityToolbar: "ui-item-activityToolbar",
   activityKpis: "ui-item-activityKpis",
   activityPersona: "ui-item-activityPersona",
+  activityValue: "ui-item-activityValue",
   activityRecords: "ui-item-activityRecords",
   activityChart: "ui-item-activityChart",
   activityInsights: "ui-item-activityInsights",
@@ -458,6 +461,7 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   activityToolbar: "settings.interface.widgetActivityToolbar",
   activityKpis: "settings.interface.widgetActivityKpis",
   activityPersona: "settings.interface.widgetActivityPersona",
+  activityValue: "settings.interface.widgetActivityValue",
   activityRecords: "settings.interface.widgetActivityRecords",
   activityChart: "settings.interface.widgetActivityChart",
   activityInsights: "settings.interface.widgetActivityInsights",
@@ -684,6 +688,7 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "activityInsights",
       "activityRecords",
       "activityPersona",
+      "activityValue",
       "activityBacklog",
       "activityBreakdown",
     ],

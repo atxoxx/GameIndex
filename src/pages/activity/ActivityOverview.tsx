@@ -53,7 +53,6 @@ export interface ActivityOverviewProps {
   scopedSessions: GameSession[];
   games: Game[];
   range: ActivityRange;
-  rangeLabel: string;
   gameSummaries: ActivityGameSummary[];
   selectedGameId: string | null;
   selectedGameName?: string;
@@ -101,7 +100,6 @@ export function ActivityOverview({
   scopedSessions,
   games,
   range,
-  rangeLabel,
   gameSummaries,
   selectedGameId,
   selectedGameName,
@@ -141,6 +139,7 @@ export function ActivityOverview({
       sessions: scopedSessions.length,
       avgPerDay: Math.round(totalMinutes / Math.max(1, days)),
       longestStreak: longestDayStreak(activeDays),
+      activeDays: activeDays.size,
     };
   }, [scopedSessions, days]);
 
@@ -252,7 +251,11 @@ export function ActivityOverview({
       icon: <Zap size={15} />,
       label: t("activityDash.longestStreak"),
       value: stats.longestStreak > 0 ? `${stats.longestStreak}d` : "—",
-      detail: <span className="activity-delta activity-delta--muted">{rangeLabel}</span>,
+      detail: (
+        <span className="activity-delta activity-delta--muted">
+          {stats.activeDays} {t("activity.activeDays").toLowerCase()}
+        </span>
+      ),
     },
   ];
 
@@ -359,11 +362,18 @@ export function ActivityOverview({
 
       {!selectedGameId && (
         <div className="activity-overview__lower">
-          <PageWidget page="activity" widget="activityPersona">
-            <div className="ui-item-activityPersona activity-overview__persona">
-              <GamerPersonaCard persona={persona} />
-            </div>
-          </PageWidget>
+          <div className="activity-overview__lower-side">
+            <PageWidget page="activity" widget="activityPersona">
+              <div className="ui-item-activityPersona activity-overview__persona">
+                <GamerPersonaCard persona={persona} />
+              </div>
+            </PageWidget>
+            <PageWidget page="activity" widget="activityValue">
+              <div className="ui-item-activityValue activity-overview__value">
+                <ActivityValueCard games={games} />
+              </div>
+            </PageWidget>
+          </div>
           <PageWidget page="activity" widget="activityBacklog">
             <div className="ui-item-activityBacklog activity-overview__backlog">
               <BacklogCompletionHub
@@ -400,7 +410,6 @@ export function ActivityOverview({
               <p className="activity-panel-empty">{t("activityDash.noGenreData")}</p>
             )}
           </Panel>
-          {!selectedGameId && <ActivityValueCard games={games} />}
           <Panel
             className="activity-overview__heatmap"
             heading={t("activityDash.weeklyHeatmap")}

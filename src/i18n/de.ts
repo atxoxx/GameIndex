@@ -8009,6 +8009,7 @@ export const de: TranslationDict = {
   "settings.interface.widgetActivityToolbar": "Zeitraum & Ansichtsmodus-Leiste",
   "settings.interface.widgetActivityKpis": "Spielzeit & Serien-Statistiken",
   "settings.interface.widgetActivityPersona": "Spieler-Persona-Karte",
+  "settings.interface.widgetActivityValue": "Bibliothekswert-Karte",
   "settings.interface.widgetActivityRecords": "Persönliche Rekorde & Meilensteine",
   "settings.interface.widgetActivityChart": "Spielzeit-Trenddiagramm",
   "settings.interface.widgetActivityInsights": "Tageszeit & Sitzungs-Einblicke",

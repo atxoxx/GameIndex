@@ -34,7 +34,7 @@ import {
 } from "./tabs";
 import { ConfirmModal, Button, type StatBandItem } from "../ui";
 import { ActivityActions } from "../activity/ActivityActions";
-import { ActivityRecapDrawer } from "../activity/ActivityRecapDrawer";
+import { ActivityRecapModal } from "../activity/ActivityRecapModal";
 import { ActivityScopeBar } from "../activity/ActivityScopeBar";
 import { ActivitySessionList } from "../activity/ActivitySessionList";
 import { ManualSessionModal } from "../activity/ManualSessionModal";
@@ -562,7 +562,7 @@ export function GameActivityTab({ game }: { game: Game }) {
         games={[game]}
       />
 
-      <ActivityRecapDrawer
+      <ActivityRecapModal
         open={recapOpen}
         onClose={() => setRecapOpen(false)}
         sessions={sessions}

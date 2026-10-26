@@ -8010,6 +8010,7 @@ export const ru: TranslationDict = {
   "settings.interface.widgetActivityToolbar": "Панель периода и режима отображения",
   "settings.interface.widgetActivityKpis": "Статистика времени игры и серии",
   "settings.interface.widgetActivityPersona": "Карточка типажа игрока",
+  "settings.interface.widgetActivityValue": "Карточка стоимости библиотеки",
   "settings.interface.widgetActivityRecords": "Личные рекорды и вехи",
   "settings.interface.widgetActivityChart": "График игрового времени",
   "settings.interface.widgetActivityInsights": "Аналитика времени суток и сессий",

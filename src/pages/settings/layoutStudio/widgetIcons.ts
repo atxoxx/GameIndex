@@ -121,6 +121,7 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   activityToolbar: SlidersHorizontal,
   activityKpis: BarChart2,
   activityPersona: UserCheck,
+  activityValue: Wallet,
   activityRecords: Medal,
   activityChart: TrendingUp,
   activityInsights: PieChart,

@@ -8010,6 +8010,7 @@ export const es: TranslationDict = {
   "settings.interface.widgetActivityToolbar": "Barra de periodo y modo de vista",
   "settings.interface.widgetActivityKpis": "Estadísticas de tiempo de juego y rachas",
   "settings.interface.widgetActivityPersona": "Ficha de perfil de jugador",
+  "settings.interface.widgetActivityValue": "Tarjeta de valor de la biblioteca",
   "settings.interface.widgetActivityRecords": "Récords personales e hitos",
   "settings.interface.widgetActivityChart": "Gráfico de tendencias de juego",
   "settings.interface.widgetActivityInsights": "Información de hora del día y sesiones",

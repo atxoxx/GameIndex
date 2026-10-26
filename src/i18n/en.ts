@@ -7999,6 +7999,7 @@ export const en: TranslationDict = {
   "settings.interface.widgetActivityToolbar": "Timeframe & View Mode Toolbar",
   "settings.interface.widgetActivityKpis": "Playtime & Streak Stat Band",
   "settings.interface.widgetActivityPersona": "Gamer Persona Card",
+  "settings.interface.widgetActivityValue": "Library Value Card",
   "settings.interface.widgetActivityRecords": "Personal Records & Milestones",
   "settings.interface.widgetActivityChart": "Playtime Trend Chart",
   "settings.interface.widgetActivityInsights": "Time of Day & Session Insights",

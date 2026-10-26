@@ -24,7 +24,7 @@ export { ActivityGameRail } from "./ActivityGameRail";
 export { ActivityGoalRing } from "./ActivityGoalRing";
 export { ActivityLiveStrip } from "./ActivityLiveStrip";
 export { ActivityPlaytimeChart } from "./ActivityPlaytimeChart";
-export { ActivityRecapDrawer } from "./ActivityRecapDrawer";
+export { ActivityRecapModal } from "./ActivityRecapModal";
 export { ActivityScopeBar } from "./ActivityScopeBar";
 export { ActivitySessionDrawer } from "./ActivitySessionDrawer";
 export { ActivitySessionFilterMenu } from "./ActivitySessionFilterMenu";
