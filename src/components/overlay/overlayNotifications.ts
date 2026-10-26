@@ -131,7 +131,18 @@ export function useOverlayNotifications() {
       (latest, item) => Math.max(latest, item.timestamp),
       0,
     );
-    markNotificationsSeen(Math.max(Date.now(), newest));
+    // Advance the read marker without ever moving it backwards, so a stale
+    // closure or a future-dated item can never leave the badge stuck on a
+    // non-zero count (and we never re-count items that were already read).
+    const at = Math.max(Date.now(), newest);
+    const next = Number.isFinite(at) && at > 0 ? Math.max(lastSeen, at) : Math.max(lastSeen, Date.now());
+    lastSeen = next;
+    try {
+      localStorage.setItem(STORAGE_KEY, String(lastSeen));
+    } catch {
+      /* ignore */
+    }
+    for (const listener of listeners) listener();
   }, [items]);
 
   return { items, unread, unreadCount: unread.length, markAllSeen };
