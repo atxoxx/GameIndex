@@ -172,19 +172,6 @@ export function CaptureLightbox({
 
   return createPortal(
     <div className="gallery-lightbox" onClick={onClose} role="dialog" aria-modal="true">
-      <button
-        type="button"
-        className="gallery-lightbox__tool gallery-lightbox__close"
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-        title={t("community.quit")}
-        aria-label={t("community.quit")}
-      >
-        <X size={18} aria-hidden="true" />
-      </button>
-
       <div className="gallery-lightbox__header" onClick={(event) => event.stopPropagation()}>
         <div className="gallery-lightbox__title">
           <span className="gallery-lightbox__counter">
@@ -199,6 +186,7 @@ export function CaptureLightbox({
             className={`gallery-lightbox__tool${slideshow ? " is-active" : ""}`}
             onClick={() => setSlideshow((value) => !value)}
             title={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
+            aria-label={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
           >
             {slideshow ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
           </button>
@@ -208,6 +196,7 @@ export function CaptureLightbox({
             className={`gallery-lightbox__tool${isFavorite ? " is-active" : ""}`}
             onClick={() => onToggleFavorite(current.media.path)}
             title={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
+            aria-label={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
           >
             <Star size={16} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
           </button>
@@ -234,8 +223,19 @@ export function CaptureLightbox({
               });
             }}
             title={t("community.openFolder")}
+            aria-label={t("community.openFolder")}
           >
             <FolderOpen size={16} aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            className="gallery-lightbox__tool gallery-lightbox__tool--close"
+            onClick={onClose}
+            title={t("community.quit")}
+            aria-label={t("community.quit")}
+          >
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       </div>
