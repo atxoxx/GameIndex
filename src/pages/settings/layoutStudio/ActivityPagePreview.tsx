@@ -121,9 +121,10 @@ export function ActivityPagePreview({
           "slot",
           <div className="studio-act-toolbar-mock">
             <div className="studio-act-toolbar-tabs">
-              <span className="studio-act-pill is-active">Dashboard</span>
-              <span className="studio-act-pill">Timeline</span>
+              <span className="studio-act-pill is-active">Overview</span>
               <span className="studio-act-pill">Sessions</span>
+              <span className="studio-act-pill">Performance</span>
+              <span className="studio-act-pill">Year in Review</span>
             </div>
             <div className="studio-act-toolbar-filters">
               <span className="studio-act-select">Range: Last 30 Days</span>

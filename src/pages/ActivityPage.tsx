@@ -1,476 +1,683 @@
-import { useState, useMemo, useEffect } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { captureAndSaveScreenshot } from "../utils/screenshot";
+import { BarChart3, History, LayoutDashboard, Sparkles } from "lucide-react";
 import { useActivity } from "../context/ActivityContext";
 import { useGames } from "../context/GameContext";
+import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { useSessionNotes } from "../context/SessionNotesContext";
-import { tempUnitLabel } from "../utils/temp";
-import { formatPlayTime } from "../types/game";
 import { useToast } from "../context/ToastContext";
-import { ActivityDashboard } from "./activity/ActivityDashboard";
-import { ActivityGantt } from "./activity/ActivityGantt";
-import { ActivitySessions } from "./activity/ActivitySessions";
-import { ActivityPerformance } from "./activity/ActivityPerformance";
-import WrappedView from "./activity/WrappedView";
-import * as Icons from "./activity/Icons";
-import { PageHeader, Button } from "../components/ui";
-import PageWidget from "../components/PageWidget";
-import { Segmented, ManualSessionModal } from "../components/activity";
-import type { DateRangeKey } from "../components/activity";
-import { useLanguage } from "../context/LanguageContext";
 import { usePersistedState } from "../hooks/usePersistedState";
-import "./activity/ActivityPage.css";
+import { captureAndSaveScreenshot } from "../utils/screenshot";
+import { copyTextToClipboard } from "../utils/clipboard";
+import { formatPlayTime, gameDisplayName, type Game, type GameSession } from "../types/game";
+import { PageHeader, SubTabs, ConfirmModal, Skeleton } from "../components/ui";
+import PageWidget from "../components/PageWidget";
+import { ActivityActions } from "../components/activity/ActivityActions";
+import { ActivityScopeBar } from "../components/activity/ActivityScopeBar";
+import { ActivitySessionDrawer } from "../components/activity/ActivitySessionDrawer";
+import { ActivityRecapDrawer } from "../components/activity/ActivityRecapDrawer";
+import { ManualSessionModal } from "../components/activity/ManualSessionModal";
+import { SessionComparisonModal } from "../components/activity/SessionComparisonModal";
+import { LinkGameModal } from "../components/activity/LinkGameModal";
+import { AddActivityGameModal } from "../components/activity/AddActivityGameModal";
+import { ActivityOverview } from "./activity/ActivityOverview";
+import { ActivitySessionsTab } from "./activity/ActivitySessionsTab";
+import { useActivityWorkspace } from "./activity/useActivityWorkspace";
+import { useSavedActivityViews } from "./activity/useSavedActivityViews";
+import { useWeeklyGoal } from "./activity/useWeeklyGoal";
+import type { ActivitySessionFilters } from "../utils/activity/sessionQuery";
+import type { PlaytimeAggregation } from "../utils/activity/chartSeries";
+import { recommendedAggregation } from "../utils/activity/chartSeries";
+import type { PlaytimeChartMode, PlaytimeChartStyle } from "../components/activity/ActivityPlaytimeChart";
+import {
+  buildActivityGameSummaries,
+  buildGamePickerOptions,
+  buildSourceOptions,
+  filterSessionsByGame,
+  filterSessionsBySource,
+} from "../utils/activity/scoping";
+import { buildActivityRecap } from "../utils/activity/recap";
+import { buildActivitySummaryText } from "../utils/activity/summary";
+import {
+  buildActivityCsv,
+  buildActivityExportPayload,
+  downloadTextFile,
+} from "../utils/activity/export";
+import {
+  filterSessionsToRange,
+  formatRangeLabel,
+  localDayKey,
+  rangeDayCount,
+  resolveActivityRange,
+  type ActivityRange,
+} from "../utils/activity/range";
 import "../styles/activity.css";
-import "../styles/activity-v2.css";
+import "./activity/ActivityPage.css";
+import "../styles/activity-workspace.css";
 
-type TabType = "dashboard" | "timeline" | "sessions" | "performance" | "wrapped";
-type AggregationType = "day" | "week" | "month";
-type ChartType = "bar" | "line";
+const ActivityPerformance = lazy(() =>
+  import("../components/activity/ActivityPerformance").then((module) => ({
+    default: module.ActivityPerformance,
+  })),
+);
+const WrappedView = lazy(() => import("./activity/WrappedView"));
 
+/**
+ * Activity — the library's play-history workspace.
+ *
+ * The page is a scope plus four views. The scope strip below the tabs is the
+ * single source of truth for the range, source and game; the overview, the
+ * session list, the timeline and telemetry all read the same scoped sessions.
+ */
 export default function ActivityPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const { sessions, deleteSession, deleteSessionsForGame } = useActivity();
   const { games, launchGame } = useGames();
   const { tempUnit, isSimpleUi } = useSettings();
   const { getAllNotes } = useSessionNotes();
   const { showToast } = useToast();
+  const workspace = useActivityWorkspace();
+  const savedViews = useSavedActivityViews();
+  const goal = useWeeklyGoal(sessions);
 
-  const [activeTab, setActiveTab] = usePersistedState<TabType>("gamelib.activity_page.tab_v1", "dashboard", ["dashboard", "timeline", "sessions", "performance", "wrapped"]);
-  const [dateRange, setDateRange] = useState<DateRangeKey>("7d");
-  const [aggregation, setAggregation] = usePersistedState<AggregationType>("gamelib.activity_page.aggregation_v1", "day", ["day", "week", "month"]);
-  const [chartType, setChartType] = usePersistedState<ChartType>("gamelib.activity_page.chart_type_v1", "bar", ["bar", "line"]);
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [manualSessionOpen, setManualSessionOpen] = useState(false);
+  const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
+  const [pendingDeleteGame, setPendingDeleteGame] = useState<{ id: string; name: string } | null>(null);
+  const [pendingBatchDelete, setPendingBatchDelete] = useState<GameSession[] | null>(null);
+  const [inspectedSessionId, setInspectedSessionId] = useState<string | null>(null);
+  const [linkTarget, setLinkTarget] = useState<{ id: string; name: string } | null>(null);
+  const [addTarget, setAddTarget] = useState<{ id: string; name: string } | null>(null);
+  const [compareTarget, setCompareTarget] = useState<{ a: GameSession; b: GameSession } | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
 
-  const effectiveTab: TabType = isSimpleUi && (activeTab === "timeline" || activeTab === "performance")
-    ? "dashboard"
-    : activeTab;
+  const [aggregation, setAggregation] = usePersistedState<PlaytimeAggregation>(
+    "gamelib.activity.overview.aggregation_v2",
+    "day",
+    ["day", "week", "month"],
+  );
+  const [chartStyle, setChartStyle] = usePersistedState<PlaytimeChartStyle>(
+    "gamelib.activity.overview.chart_style_v2",
+    "bar",
+    ["bar", "line"],
+  );
+  const [chartMode, setChartMode] = usePersistedState<PlaytimeChartMode>(
+    "gamelib.activity.overview.chart_mode_v2",
+    "periodic",
+    ["periodic", "cumulative"],
+  );
+  const [railState, setRailState] = usePersistedState<"expanded" | "collapsed">(
+    "gamelib.activity.overview.rail_v2",
+    "expanded",
+    ["expanded", "collapsed"],
+  );
 
-  // Keyboard shortcut listener: 1-4 for subtabs when not inside input/textarea
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName?.toLowerCase();
-      if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const gameById = useMemo(() => new Map(games.map((game) => [game.id, game])), [games]);
 
-      if (e.key === "1") setActiveTab("dashboard");
-      else if (e.key === "2" && !isSimpleUi) setActiveTab("timeline");
-      else if (e.key === "3") setActiveTab("sessions");
-      else if (e.key === "4" && !isSimpleUi) setActiveTab("performance");
-    };
+  const range = useMemo<ActivityRange>(
+    () =>
+      resolveActivityRange({
+        key: workspace.rangeKey,
+        from: workspace.from,
+        to: workspace.to,
+        sessions,
+      }),
+    [workspace.rangeKey, workspace.from, workspace.to, sessions],
+  );
+  const rangeLabel = useMemo(() => formatRangeLabel(range, language), [range, language]);
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSimpleUi]);
+  const rangeSessions = useMemo(() => filterSessionsToRange(sessions, range), [sessions, range]);
+  const sourceSessions = useMemo(
+    () => filterSessionsBySource(rangeSessions, games, workspace.source),
+    [rangeSessions, games, workspace.source],
+  );
+  const scopedSessions = useMemo(
+    () => filterSessionsByGame(sourceSessions, workspace.gameId),
+    [sourceSessions, workspace.gameId],
+  );
+
+  const sourceOptions = useMemo(
+    () => buildSourceOptions(games, rangeSessions),
+    [games, rangeSessions],
+  );
+  const gameSummaries = useMemo(
+    () => buildActivityGameSummaries(sourceSessions, games, t("activityDash.unknownGame")),
+    [sourceSessions, games, t],
+  );
+  const gameOptions = useMemo(() => buildGamePickerOptions(gameSummaries), [gameSummaries]);
+  const selectedGameName = useMemo(() => {
+    if (!workspace.gameId) return undefined;
+    const game = gameById.get(workspace.gameId);
+    if (game) return gameDisplayName(game);
+    return gameSummaries.find((summary) => summary.id === workspace.gameId)?.name;
+  }, [gameById, gameSummaries, workspace.gameId]);
 
   const telemetryCount = useMemo(
     () =>
-      sessions.filter(
-        (s) => s.metrics && ((s.metrics.avgFps ?? 0) > 0 || (s.metrics.avgCpuUsage ?? 0) > 0),
+      scopedSessions.filter(
+        (session) =>
+          session.metrics &&
+          ((session.metrics.avgFps ?? 0) > 0 || (session.metrics.avgCpuUsage ?? 0) > 0),
       ).length,
-    [sessions],
+    [scopedSessions],
   );
 
-  const tabOptions = useMemo(() => {
-    const all = [
-      { value: "dashboard" as const, label: <><Icons.LayoutDashboard size={13} /> {t("activity.tab.dashboard")}</> },
-      { value: "timeline" as const, label: <><Icons.GanttChart size={13} /> {t("activity.tab.timeline")}</> },
+  const allTimeDescription = useMemo(() => {
+    if (sessions.length === 0) return t("activityWs.header.empty");
+    const totalMinutes = sessions.reduce((sum, session) => sum + session.durationMin, 0);
+    return t("activityWs.header.description", {
+      sessions: sessions.length,
+      games: new Set(sessions.map((session) => session.gameId)).size,
+      time: formatPlayTime(totalMinutes),
+    });
+  }, [sessions, t]);
+
+  const inspectedSession = useMemo(
+    () => (inspectedSessionId ? sessions.find((session) => session.id === inspectedSessionId) ?? null : null),
+    [inspectedSessionId, sessions],
+  );
+  const inspectedGame = inspectedSession ? gameById.get(inspectedSession.gameId) : undefined;
+
+  const effectiveTab = isSimpleUi && workspace.tab === "performance" ? "overview" : workspace.tab;
+
+  // A simple-UI deep link to Performance must not leave a hidden tab in the
+  // URL; rewrite it to the tab that is actually rendered.
+  useEffect(() => {
+    if (isSimpleUi && workspace.tab === "performance") {
+      workspace.update({ tab: "overview" });
+    }
+  }, [isSimpleUi, workspace.tab, workspace.update]);
+
+  const tabItems = useMemo(() => {
+    const items = [
       {
-        value: "sessions" as const,
-        label: (
-          <>
-            <Icons.History size={13} /> {t("activity.tab.sessions")}
-            {sessions.length > 0 && <span className="actv-tab-count">{sessions.length}</span>}
-          </>
-        ),
+        id: "overview" as const,
+        label: t("activity.tab.dashboard"),
+        icon: LayoutDashboard,
       },
       {
-        value: "performance" as const,
-        label: (
-          <>
-            <Icons.BarChart3 size={13} /> {t("activity.tab.performance")}
-            {telemetryCount > 0 && <span className="actv-tab-count">{telemetryCount}</span>}
-          </>
-        ),
+        id: "sessions" as const,
+        label: t("activity.tab.sessions"),
+        icon: History,
+        count: scopedSessions.length,
       },
-      { value: "wrapped" as const, label: <><Icons.Sparkles size={13} /> {t("activity.tab.wrapped")}</> },
+      {
+        id: "performance" as const,
+        label: t("activity.tab.performance"),
+        icon: BarChart3,
+        count: telemetryCount,
+      },
+      {
+        id: "wrapped" as const,
+        label: t("activity.tab.wrapped"),
+        icon: Sparkles,
+      },
     ];
-    return isSimpleUi
-      ? all.filter((opt) => opt.value === "dashboard" || opt.value === "sessions")
-      : all;
-  }, [isSimpleUi, t, sessions.length, telemetryCount]);
+    return isSimpleUi ? items.filter((item) => item.id !== "performance") : items;
+  }, [isSimpleUi, scopedSessions.length, telemetryCount, t]);
 
-  const { startDate, endDate } = useMemo(() => {
-    const today = new Date();
-    const endStr = today.toISOString().slice(0, 10);
-    const start = new Date(today);
-
-    if (dateRange === "7d") {
-      start.setDate(today.getDate() - 6);
-    } else if (dateRange === "30d") {
-      start.setDate(today.getDate() - 29);
-    } else if (dateRange === "90d") {
-      start.setDate(today.getDate() - 89);
-    } else if (sessions.length > 0) {
-      const sortedDates = sessions.map((s) => s.date.slice(0, 10)).sort();
-      return { startDate: sortedDates[0], endDate: endStr };
-    } else {
-      start.setFullYear(today.getFullYear() - 1);
+  // Long ranges should not paint hundreds of daily bars, and a monthly
+  // resolution on a short window leaves a single bar. Coarsen or refine the
+  // default when the window changes; a manual choice made afterwards sticks.
+  const rangeSignature = `${range.startDate}|${range.endDate}`;
+  useEffect(() => {
+    const recommended = recommendedAggregation(range);
+    const dayCount = rangeDayCount(range);
+    const points =
+      aggregation === "day"
+        ? dayCount
+        : aggregation === "week"
+          ? Math.ceil(dayCount / 7)
+          : Math.ceil(dayCount / 30);
+    if ((aggregation === "day" && recommended !== "day") || points < 2) {
+      setAggregation(recommended);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeSignature]);
 
-    return { startDate: start.toISOString().slice(0, 10), endDate: endStr };
-  }, [dateRange, sessions]);
+  // A daily bar for a multi-year window is unreadable and expensive; keep the
+  // hard cap even if the user picks Daily afterwards.
+  useEffect(() => {
+    if (aggregation === "day" && rangeDayCount(range) > 366) setAggregation("month");
+  }, [aggregation, range, setAggregation]);
 
-  const availablePlatforms = useMemo(() => {
-    const set = new Set<string>();
-    games.forEach((g) => {
-      if (g.platform) set.add(g.platform);
-    });
-    return Array.from(set).sort();
-  }, [games]);
+  const updateFilters = useCallback(
+    (patch: Partial<ActivitySessionFilters>) => {
+      workspace.update({ filters: { ...workspace.filters, ...patch } });
+    },
+    [workspace],
+  );
 
-  const scopedSummaryStats = useMemo(() => {
-    const inRange = sessions.filter((s) => {
-      const d = s.date.slice(0, 10);
-      if (d < startDate || d > endDate) return false;
-      if (sourceFilter === "all") return true;
-      const g = games.find((item) => item.id === s.gameId);
-      return (g?.platform || "Local").toLowerCase() === sourceFilter.toLowerCase();
-    });
+  const openGame = useCallback(
+    (gameId: string) => {
+      navigate(`/library/${gameId}`);
+    },
+    [navigate],
+  );
 
-    const totalMinutes = inRange.reduce((sum, s) => sum + s.durationMin, 0);
-    const distinctGames = new Set(inRange.map((s) => s.gameId)).size;
+  const launchGameById = useCallback(
+    (gameId: string) => {
+      const game = gameById.get(gameId);
+      if (game) launchGame(game);
+    },
+    [gameById, launchGame],
+  );
 
-    return {
-      playtimeStr: formatPlayTime(totalMinutes),
-      sessionsCount: inRange.length,
-      gamesCount: distinctGames,
-    };
-  }, [sessions, startDate, endDate, sourceFilter, games]);
+  const exportCsv = useCallback(
+    (list: GameSession[], fileBase: string) => {
+      if (list.length === 0) {
+        showToast(t("activityPage.noSessionsExport"), "info");
+        return;
+      }
+      const csv = buildActivityCsv(list, games, getAllNotes());
+      downloadTextFile(
+        csv,
+        `${fileBase}_${new Date().toISOString().slice(0, 10)}.csv`,
+        "text/csv;charset=utf-8;",
+      );
+      showToast(t("activity.exportedAs", { format: "CSV" }), "success");
+    },
+    [games, getAllNotes, showToast, t],
+  );
 
-  const handleExportCSV = () => {
-    if (sessions.length === 0) {
-      showToast(t("activityPage.noSessionsExport"), "info");
-      return;
-    }
-
-    const headers = [
-      t("activityCsv.sessionId"),
-      t("activityCsv.gameName"),
-      t("activityCsv.gameId"),
-      t("activityCsv.datePlayed"),
-      t("activityCsv.durationMinutes"),
-      t("activityCsv.platform"),
-      t("activityCsv.avgFps"),
-      t("activityCsv.minFps"),
-      t("activityCsv.maxFps"),
-      t("activityCsv.avgCpuUsage"),
-      t("activityCsv.avgGpuUsage"),
-      t("activityCsv.avgRamUsage"),
-      t("activityCsv.avgCpuTemp", { unit: tempUnitLabel(tempUnit) }),
-      t("activityCsv.avgGpuTemp", { unit: tempUnitLabel(tempUnit) }),
-      t("sessionNotes.title"),
-    ];
-
-    const allNotes = getAllNotes();
-
-    const rows = sessions.map((s) => {
-      const game = games.find((g) => g.id === s.gameId);
-      const note = allNotes[s.id]?.note || "";
-      return [
-        s.id,
-        s.gameName,
-        s.gameId,
-        s.date,
-        s.durationMin,
-        game?.platform || "Local",
-        s.metrics?.avgFps || "—",
-        s.metrics?.minFps || "—",
-        s.metrics?.maxFps || "—",
-        s.metrics?.avgCpuUsage || "—",
-        s.metrics?.avgGpuUsage || "—",
-        s.metrics?.avgRamUsage || "—",
-        s.metrics?.avgCpuTemp || "—",
-        s.metrics?.avgGpuTemp || "—",
-        note,
-      ];
-    });
-
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `gamelib_activity_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast(t("activity.exportedAs", { format: "CSV" }), "success");
-  };
-
-  const handleExportJSON = async () => {
-    if (sessions.length === 0) {
-      showToast(t("activityPage.noSessionsExport"), "info");
-      return;
-    }
-
-    try {
-      const allNotes = getAllNotes();
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        totalSessions: sessions.length,
-        sessions: sessions.map((s) => ({
-          ...s,
-          platform: games.find((g) => g.id === s.gameId)?.platform || "Local",
-          notes: allNotes[s.id] || null,
-        })),
-      };
-
-      const suggestedName = `gamelib_activity_${new Date().toISOString().slice(0, 10)}.json`;
-      const filePath = await save({
-        defaultPath: suggestedName,
-        filters: [{ name: "JSON File", extensions: ["json"] }],
-      });
-
-      if (filePath) {
+  const exportJson = useCallback(
+    async (list: GameSession[], fileBase: string) => {
+      if (list.length === 0) {
+        showToast(t("activityPage.noSessionsExport"), "info");
+        return;
+      }
+      try {
+        const payload = buildActivityExportPayload(list, games, getAllNotes(), range);
+        const filePath = await save({
+          defaultPath: `${fileBase}_${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{ name: "JSON File", extensions: ["json"] }],
+        });
+        if (!filePath) return;
         await invoke("save_text_file", {
           filePath,
-          contents: JSON.stringify(exportData, null, 2),
+          contents: JSON.stringify(payload, null, 2),
         });
         showToast(t("activity.exportedAs", { format: "JSON" }), "success");
+      } catch (error) {
+        console.error("JSON export failed:", error);
+        showToast(t("activity.exportFailed", { error: String(error) }), "error");
       }
-    } catch (err) {
-      console.error("JSON export failed:", err);
-      showToast(t("activity.exportFailed", { error: String(err) }), "error");
-    }
-  };
+    },
+    [games, getAllNotes, range, showToast, t],
+  );
 
-  const handleCaptureScreenshot = async () => {
-    const container = document.querySelector<HTMLElement>(".activity__container");
-    if (!container) return;
+  const capturePage = useCallback(async () => {
+    const element = document.querySelector<HTMLElement>(".activity-page");
+    if (!element) return;
     try {
-      // The game sidebar scrolls independently of the page, so its clipped
-      // rows are added back to the captured height to avoid cutting games off.
-      const sidebar = container.querySelector<HTMLElement>(".activity-game-sidebar");
-      const sidebarList = sidebar?.querySelector<HTMLElement>(".activity-game-sidebar__list");
-      const expandedSidebarHeight =
-        sidebar && sidebarList
-          ? sidebar.offsetHeight - sidebarList.offsetHeight + sidebarList.scrollHeight
-          : null;
-      const height =
-        !sidebar || expandedSidebarHeight === null
-          ? container.scrollHeight
-          : container.scrollHeight + Math.max(0, expandedSidebarHeight - sidebar.offsetHeight);
-
+      const height = element.scrollHeight;
       const filePath = await captureAndSaveScreenshot({
-        element: container,
-        fileName: "gamelib_activity",
+        element,
+        fileName: "gameindex_activity",
         title: t("activity.saveScreenshot"),
         filterLabel: t("activity.pngImage"),
         height,
         prepareClone: (clonedDoc) => {
-          const clonedSidebar = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar");
-          if (clonedSidebar) {
-            clonedSidebar.style.maxHeight = "none";
-            clonedSidebar.style.position = "static";
-          }
-          const clonedList = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar__list");
-          if (clonedList) {
-            clonedList.style.maxHeight = "none";
-            clonedList.style.overflow = "visible";
-          }
+          clonedDoc
+            .querySelectorAll<HTMLElement>(".activity-rail__list, .activity-rail__covers")
+            .forEach((node) => {
+              node.style.maxHeight = "none";
+              node.style.overflow = "visible";
+            });
         },
       });
-
       if (filePath) showToast(t("activity.screenshotSaved"), "success");
-    } catch (err) {
-      console.error("Screenshot capture failed:", err);
-      showToast(t("activity.screenshotFailed", { error: String(err) }), "error");
+    } catch (error) {
+      console.error("Activity screenshot failed:", error);
+      showToast(t("activity.screenshotFailed", { error: String(error) }), "error");
     }
-  };
+  }, [showToast, t]);
+
+  const copySummary = useCallback(async () => {
+    const recap = buildActivityRecap(scopedSessions, games, range);
+    const text = buildActivitySummaryText({
+      rangeLabel,
+      recap,
+      labels: {
+        title: t("activity.title"),
+        sessions: t("activityWs.recap.sessions"),
+        games: t("activityWs.recap.games"),
+        topGames: t("activityWs.recap.topGames"),
+        footer: t("activityWs.recap.footer"),
+        streakText: t("activityWs.recap.streakPhrase", {
+          days: recap.longestStreak,
+        }),
+        activeDaysText: t("activityWs.recap.activeDaysPhrase", {
+          days: recap.activeDays,
+        }),
+      },
+    });
+    const copied = await copyTextToClipboard(text);
+    showToast(
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      copied ? "success" : "error",
+    );
+  }, [games, range, rangeLabel, scopedSessions, showToast, t]);
+
+  const handleSaveView = useCallback(
+    (name: string) => {
+      savedViews.save({
+        name,
+        tab: effectiveTab,
+        rangeKey: workspace.rangeKey,
+        from: workspace.from,
+        to: workspace.to,
+        source: workspace.source,
+        gameId: workspace.gameId,
+        filters: workspace.filters,
+      });
+      showToast(t("activityWs.scope.viewSaved"), "success");
+    },
+    [effectiveTab, savedViews, showToast, t, workspace],
+  );
+
+  const requestDeleteSession = useCallback((session: GameSession) => {
+    setPendingDeleteSession(session);
+  }, []);
+
+  const requestDeleteGame = useCallback((gameId: string, name: string) => {
+    setPendingDeleteGame({ id: gameId, name });
+  }, []);
+
+  const requestLink = useCallback((gameId: string, name: string) => {
+    setLinkTarget({ id: gameId, name });
+  }, []);
+
+  const requestAdd = useCallback((gameId: string, name: string) => {
+    setAddTarget({ id: gameId, name });
+  }, []);
+
+  const gameForLaunch = useCallback(
+    (game: Game) => {
+      launchGame(game);
+    },
+    [launchGame],
+  );
 
   return (
-    <div className="activity__container actv">
+    <div className="activity-page">
       <PageWidget page="activity" widget="activityHeader">
-      <div className="ui-item-activityHeader">
-        <PageHeader
-          eyebrow={t("activity.eyebrow")}
-          title={t("activity.title")}
-          actions={
-            <div className="activity__header-meta-actions">
-              <div className="activity__header-quick-stats">
-                <span className="activity__quick-stat">
-                  <strong>{scopedSummaryStats.playtimeStr}</strong>
-                </span>
-                <span className="activity__quick-stat-sep">•</span>
-                <span className="activity__quick-stat">
-                  {scopedSummaryStats.sessionsCount} {t("activity.sessions")}
-                </span>
-                <span className="activity__quick-stat-sep">•</span>
-                <span className="activity__quick-stat">
-                  {scopedSummaryStats.gamesCount} {t("activity.gamesPlayed")}
-                </span>
-              </div>
-
-              <PageWidget page="activity" widget="filters">
-              <div className="activity__export-actions ui-complete-only ui-item-filters">
-                <Button variant="primary" size="md" iconOnly leftIcon={<Icons.Plus size={13} />}
-                  type="button"
-                  
-                  onClick={() => setManualSessionOpen(true)}
-                  title={t("activityManual.logSessionBtn")}
-                ></Button>
-                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Camera size={13} />}
-                  type="button"
-                  
-                  onClick={handleCaptureScreenshot}
-                  title={t("activity.capture")}
-                ></Button>
-                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Download size={13} />}
-                  type="button"
-                  
-                  onClick={handleExportCSV}
-                  title={t("activity.exportCsv")}
-                ></Button>
-                <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.FileText size={13} />}
-                  type="button"
-                  
-                  onClick={handleExportJSON}
-                  title={t("activity.exportJson")}
-                ></Button>
-              </div>
-              </PageWidget>
-            </div>
-          }
-        />
-      </div>
+        <div className="ui-item-activityHeader">
+          <PageHeader
+            eyebrow={t("activity.eyebrow")}
+            title={t("activity.title")}
+            description={allTimeDescription}
+            actions={
+              <ActivityActions
+                onLogSession={() => setManualSessionOpen(true)}
+                onExportCsv={() => exportCsv(scopedSessions, "gameindex_activity")}
+                onExportJson={() => void exportJson(scopedSessions, "gameindex_activity")}
+                onShareRecap={() => setRecapOpen(true)}
+                onCapturePage={() => void capturePage()}
+                onCopySummary={() => void copySummary()}
+                onOpenWrapped={
+                  effectiveTab === "wrapped"
+                    ? undefined
+                    : () => workspace.update({ tab: "wrapped" }, { push: true })
+                }
+              />
+            }
+          />
+        </div>
       </PageWidget>
 
       <PageWidget page="activity" widget="activityToolbar">
-      <div className="act-toolbar ui-item-activityToolbar">
-        <div className="act-toolbar__left">
-          <Segmented<TabType>
+        <div className="ui-item-activityToolbar activity-page__toolbar">
+          <SubTabs
             ariaLabel={t("nav.activity")}
+            items={tabItems}
             value={effectiveTab}
-            onChange={setActiveTab}
-            options={tabOptions}
+            onChange={(tab) => workspace.update({ tab }, { push: true })}
+            sticky
           />
-        </div>
-
-        <div className="act-toolbar__right">
-          <select
-            className="act-toolbar__select"
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as DateRangeKey)}
-            aria-label={t("activity.range")}
-          >
-            <option value="7d">{t("activity.7d")}</option>
-            <option value="30d">{t("activity.30d")}</option>
-            <option value="90d">{t("activity.90d")}</option>
-            <option value="all">{t("activity.allTime")}</option>
-          </select>
-
-          <select
-            className="act-toolbar__select"
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            aria-label={t("activityPage.source")}
-          >
-            <option value="all">{t("activity.sourceAll")}</option>
-            {availablePlatforms.map((plat) => (
-              <option key={plat} value={plat}>
-                {plat}
-              </option>
-            ))}
-          </select>
-
-          {effectiveTab === "dashboard" && (
-            <PageWidget page="activity" widget="subtabs">
-            <div className="ui-complete-only ui-item-subtabs" style={{ display: "contents" }}>
-              <Segmented<AggregationType>
-                ariaLabel={t("activity.interval")}
-                value={aggregation}
-                onChange={setAggregation}
-                options={[
-                  { value: "day", label: t("activityPage.aggDay") },
-                  { value: "week", label: t("activityPage.aggWeek") },
-                  { value: "month", label: t("activityPage.aggMonth") },
-                ]}
-              />
-              <Segmented<ChartType>
-                ariaLabel={t("activity.barChart")}
-                value={chartType}
-                onChange={setChartType}
-                options={[
-                  { value: "bar", label: <Icons.BarChart3 size={13} />, title: t("activity.barChart") },
-                  { value: "line", label: <Icons.TrendingUp size={13} />, title: t("activity.lineChart") },
-                ]}
-              />
-            </div>
-            </PageWidget>
+          {effectiveTab !== "wrapped" && (
+            <ActivityScopeBar
+              rangeKey={workspace.rangeKey}
+              rangeLabel={rangeLabel}
+              defaultFrom={range.startDate}
+              defaultTo={range.endDate}
+              maxDate={localDayKey(new Date())}
+              from={workspace.from}
+              to={workspace.to}
+              source={workspace.source}
+              sourceOptions={sourceOptions}
+              gameId={workspace.gameId}
+              gameOptions={gameOptions}
+              selectedGameLabel={selectedGameName}
+              isDefaultScope={workspace.isDefaultScope}
+              savedViews={savedViews.views}
+              onRangeChange={(rangeKey) => workspace.update({ rangeKey })}
+              onCustomRange={workspace.setCustomRange}
+              onSourceChange={(source) => workspace.update({ source })}
+              onGameChange={(gameId) => workspace.update({ gameId })}
+              onReset={workspace.resetScope}
+              onApplyView={workspace.applySavedView}
+              onSaveView={handleSaveView}
+              onDeleteView={savedViews.remove}
+            />
           )}
         </div>
-      </div>
       </PageWidget>
 
-      <main className="activity__main">
-        {effectiveTab === "dashboard" && (
-          <ActivityDashboard
-            sessions={sessions}
+      <div className="activity-page__body">
+        {effectiveTab === "overview" && (
+          <ActivityOverview
+            sessions={sourceSessions}
+            allSessions={sessions}
+            scopedSessions={scopedSessions}
             games={games}
-            dateRange={dateRange}
-            startDate={startDate}
-            endDate={endDate}
+            range={range}
+            rangeLabel={rangeLabel}
+            gameSummaries={gameSummaries}
+            selectedGameId={workspace.gameId}
+            selectedGameName={selectedGameName}
+            railCollapsed={railState === "collapsed"}
+            onToggleRail={() => setRailState(railState === "collapsed" ? "expanded" : "collapsed")}
             aggregation={aggregation}
-            chartType={chartType}
-            sourceFilter={sourceFilter}
-            onDeleteGameSessions={deleteSessionsForGame}
-            onLaunchGame={launchGame}
-          />
-        )}
-
-        {effectiveTab === "timeline" && (
-          <ActivityGantt
-            sessions={sessions}
-            games={games}
-            startDate={startDate}
-            endDate={endDate}
-            sourceFilter={sourceFilter}
-            onLaunchGame={launchGame}
-            onDeleteSession={deleteSession}
+            onAggregationChange={setAggregation}
+            chartStyle={chartStyle}
+            onChartStyleChange={setChartStyle}
+            chartMode={chartMode}
+            onChartModeChange={setChartMode}
+            goal={goal}
+            onSelectGame={(gameId) => workspace.update({ gameId })}
+            onOpenGame={openGame}
+            onLaunchGame={launchGameById}
+            onRequestDeleteGame={requestDeleteGame}
+            onRequestLink={requestLink}
+            onRequestAdd={requestAdd}
+            onLogSession={() => setManualSessionOpen(true)}
           />
         )}
 
         {effectiveTab === "sessions" && (
-          <ActivitySessions
-            sessions={sessions}
+          <ActivitySessionsTab
+            sessions={scopedSessions}
             games={games}
-            onDeleteSession={deleteSession}
-            onLaunchGame={launchGame}
+            range={range}
+            rangeLabel={rangeLabel}
+            hasHistory={sessions.length > 0}
+            filters={workspace.filters}
+            onFiltersChange={updateFilters}
+            view={workspace.sessionView}
+            onViewChange={(sessionView) => workspace.update({ sessionView })}
+            tempUnit={tempUnit}
+            goal={goal}
+            onLogSession={() => setManualSessionOpen(true)}
+            onInspect={(session) => setInspectedSessionId(session.id)}
+            onDelete={requestDeleteSession}
+            onRequestLink={requestLink}
+            onRequestAdd={requestAdd}
+            onLaunchGame={gameForLaunch}
+            onOpenGame={openGame}
+            onCompare={(a, b) => setCompareTarget({ a, b })}
+            onBatchDelete={(list) => setPendingBatchDelete(list)}
+            onExportSelected={(list, format) =>
+              format === "csv"
+                ? exportCsv(list, "gameindex_sessions")
+                : void exportJson(list, "gameindex_sessions")
+            }
           />
         )}
 
         {effectiveTab === "performance" && (
-          <ActivityPerformance
-            sessions={sessions}
-            games={games}
-            startDate={startDate}
-            endDate={endDate}
-            sourceFilter={sourceFilter}
-          />
+          <div className="activity-page__performance">
+            <div className="activity-section-head">
+              <div>
+                <span className="activity-section-head__eyebrow">
+                  {t("activity.tab.performance")}
+                </span>
+                <h2 className="activity-section-head__title">
+                  {t("activityWs.performance.title")}
+                </h2>
+                <p className="activity-section-head__desc">
+                  {t("activityWs.performance.subtitle", {
+                    count: telemetryCount,
+                    range: rangeLabel,
+                  })}
+                </p>
+              </div>
+            </div>
+            <Suspense fallback={<Skeleton width="100%" height="260px" />}>
+              <ActivityPerformance
+                sessions={scopedSessions}
+                games={games}
+                startDate={range.startDate}
+                endDate={range.endDate}
+                sourceFilter="all"
+                mode={workspace.gameId ? "game" : "library"}
+              />
+            </Suspense>
+          </div>
         )}
 
-        {effectiveTab === "wrapped" && <WrappedView sessions={sessions} games={games} />}
-      </main>
+        {effectiveTab === "wrapped" && (
+          <Suspense fallback={<Skeleton width="100%" height="320px" />}>
+            <WrappedView sessions={sessions} games={games} />
+          </Suspense>
+        )}
+      </div>
 
       <ManualSessionModal
         isOpen={manualSessionOpen}
         onClose={() => setManualSessionOpen(false)}
         games={games}
       />
+
+      <ActivitySessionDrawer
+        session={inspectedSession}
+        game={inspectedGame}
+        tempUnit={tempUnit}
+        onClose={() => setInspectedSessionId(null)}
+        onDelete={(session) => requestDeleteSession(session)}
+        onLaunchGame={gameForLaunch}
+        onOpenGame={openGame}
+        onRequestLink={requestLink}
+        onRequestAdd={requestAdd}
+      />
+
+      <ActivityRecapDrawer
+        open={recapOpen}
+        onClose={() => setRecapOpen(false)}
+        sessions={scopedSessions}
+        games={games}
+        range={range}
+        rangeLabel={rangeLabel}
+      />
+
+      <ConfirmModal
+        open={pendingDeleteSession !== null}
+        title={t("activitySessions.deleteConfirmTitle")}
+        message={
+          pendingDeleteSession
+            ? t("activitySessions.deleteConfirmBody", {
+                game: pendingDeleteSession.gameName,
+                date: new Date(pendingDeleteSession.date).toLocaleDateString(language, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                }),
+              })
+            : ""
+        }
+        confirmLabel={t("common.delete")}
+        onCancel={() => setPendingDeleteSession(null)}
+        onConfirm={() => {
+          if (pendingDeleteSession) {
+            deleteSession(pendingDeleteSession.id);
+            if (inspectedSessionId === pendingDeleteSession.id) setInspectedSessionId(null);
+          }
+          setPendingDeleteSession(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={pendingDeleteGame !== null}
+        title={t("activityDash.deleteEntryTitle")}
+        message={t("activityDash.deleteEntryBody", { name: pendingDeleteGame?.name ?? "" })}
+        confirmLabel={t("activityDash.deleteEntry")}
+        onCancel={() => setPendingDeleteGame(null)}
+        onConfirm={() => {
+          if (pendingDeleteGame) {
+            deleteSessionsForGame(pendingDeleteGame.id);
+            if (workspace.gameId === pendingDeleteGame.id) workspace.update({ gameId: null });
+            setInspectedSessionId(null);
+          }
+          setPendingDeleteGame(null);
+        }}
+      />
+
+      <ConfirmModal
+        open={pendingBatchDelete !== null}
+        title={t("activitySessions.batchDeleteConfirmTitle")}
+        message={t("activitySessions.batchDeleteConfirmBody", {
+          count: pendingBatchDelete?.length ?? 0,
+        })}
+        confirmLabel={t("common.delete")}
+        onCancel={() => setPendingBatchDelete(null)}
+        onConfirm={() => {
+          pendingBatchDelete?.forEach((session) => deleteSession(session.id));
+          setPendingBatchDelete(null);
+          setInspectedSessionId(null);
+        }}
+      />
+
+      <SessionComparisonModal
+        isOpen={compareTarget !== null}
+        onClose={() => setCompareTarget(null)}
+        sessions={scopedSessions}
+        initialSessionAId={compareTarget?.a.id}
+        initialSessionBId={compareTarget?.b.id}
+      />
+
+      {linkTarget && (
+        <LinkGameModal
+          isOpen
+          onClose={() => setLinkTarget(null)}
+          unlinkedGameId={linkTarget.id}
+          unlinkedGameTitle={linkTarget.name}
+          games={games}
+          onLinked={(target) => workspace.update({ gameId: target.id })}
+        />
+      )}
+
+      {addTarget && (
+        <AddActivityGameModal
+          isOpen
+          onClose={() => setAddTarget(null)}
+          unlinkedGameId={addTarget.id}
+          unlinkedGameTitle={addTarget.name}
+          onAdded={(newGame) => workspace.update({ gameId: newGame.id })}
+        />
+      )}
     </div>
   );
 }

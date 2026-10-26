@@ -1,0 +1,723 @@
+/* ==========================================================================
+   Performance tab — telemetry overview, comparison, board and timeline
+   Shared by the library Activity page and a game's Activity tab.
+   ========================================================================== */
+
+/* ══ Performance tab ─────────────────────────────────────────────────── */
+
+.performance-insights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.performance-insights__chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.performance-insights__chart-header .section-panel__title {
+  margin-bottom: 0;
+}
+
+.performance-insights__tabs {
+  display: inline-flex;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.performance-insights__tab-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: calc(var(--activity-ctl-h) - 6px);
+  padding: 0 var(--space-md);
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.performance-insights__tab-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.performance-insights__tab-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.performance-insights__tab-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.performance-insights__tab-btn--active,
+.performance-insights__tab-btn--active:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+/* ── Game comparison bars ────────────────────────────────────────────── */
+
+.performance-compare-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.performance-compare-bar__row {
+  display: grid;
+  grid-template-columns: minmax(110px, 180px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  margin: 0 -8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.performance-compare-bar__row:hover {
+  background: var(--color-bg-hover);
+}
+
+.performance-compare-bar__game-name {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.performance-compare-bar__track {
+  height: 12px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.performance-compare-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width var(--duration-slower) var(--ease-standard);
+}
+
+.performance-compare-bar__value {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+/* ── Detailed performance board (table) ──────────────────────────────── */
+
+.performance-insights__table-wrapper {
+  overflow-x: auto;
+}
+
+.performance-insights__table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--text-xs);
+}
+
+.performance-insights__table th,
+.performance-insights__table td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.performance-insights__table th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.performance-insights__table tr:last-child td {
+  border-bottom: none;
+}
+
+.performance-insights__table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.performance-insights__table tbody tr:hover td {
+  background: var(--color-bg-hover);
+}
+
+.performance-insights__table td {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.performance-insights__game-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.performance-insights__game-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* GameThumbnail letter-placeholder is a <div> carrying both classes; pin
+   the rounding explicitly so it never depends on CSS cascade order. */
+.performance-insights__game-icon.game-thumbnail__placeholder,
+.performance-compare-bar__icon.game-thumbnail__placeholder {
+  border-radius: var(--radius-sm);
+}
+
+.performance-insights__game-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.text-high-fps {
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.text-hot-temp {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Session timeline (selectors + stat cards + charts) ──────────────── */
+
+.performance-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.performance-timeline__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.performance-timeline__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.performance-timeline__title svg {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+}
+
+.performance-timeline__controls {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.performance-timeline__game-selector,
+.performance-timeline__session-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.performance-timeline__game-selector-label,
+.performance-timeline__session-selector-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.performance-timeline__game-select,
+.performance-timeline__session-select {
+  height: var(--activity-ctl-h);
+  max-width: 220px;
+  padding: 0 var(--space-md);
+  padding-right: var(--space-xl);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.performance-timeline__game-select:hover,
+.performance-timeline__game-select:focus-visible,
+.performance-timeline__session-select:hover,
+.performance-timeline__session-select:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-tertiary));
+}
+
+.performance-timeline__game-select option,
+.performance-timeline__session-select option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.performance-stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-sm);
+}
+
+.performance-stat-cards__card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.performance-stat-cards__card:hover {
+  border-color: var(--color-border-light);
+  background: var(--color-bg-hover);
+}
+
+.performance-stat-cards__label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.performance-stat-cards__sparkline {
+  margin-top: var(--space-3xs);
+}
+
+.performance-timeline__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-md);
+}
+
+.performance-timeline__chart-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.performance-timeline__chart-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* ══ SVG chart tooltip card ──────────────────────────────────────────── */
+
+.chart-tooltip-card {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  box-shadow: var(--shadow-md);
+  font-family: inherit;
+  min-width: 120px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.chart-tooltip-label {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-xs);
+  text-transform: uppercase;
+}
+
+.chart-tooltip-values {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
+}
+
+.chart-tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chart-tooltip-name {
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.chart-tooltip-val {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ══ Motion ──────────────────────────────────────────────────────────── */
+
+@keyframes activityFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes activityPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+/* Staggered reveal for the stats band. */
+.activity__stat {
+  animation: activityFadeUp var(--duration-normal) var(--ease-standard) both;
+}
+
+.activity__stat:nth-child(2) { animation-delay: 40ms; }
+.activity__stat:nth-child(3) { animation-delay: 80ms; }
+.activity__stat:nth-child(4) { animation-delay: 120ms; }
+.activity__stat:nth-child(5) { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .activity__content,
+  .activity__stat {
+    animation: none;
+  }
+}
+
+/* ══ Performance tab — refactor additions ══════════════════════════════ */
+
+/* ── Overview KPI strip (reuses .activity__stats shell) ─────────────── */
+
+.performance-overview {
+  margin: 0;
+}
+
+.activity__stat-value--sub {
+  font-size: var(--text-xl);
+}
+
+.activity__stat-sub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.3;
+}
+
+/* ── Game comparison bars — identity + rank meta ────────────────────── */
+
+.performance-compare-bar__row {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
+}
+
+.performance-compare-bar__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.performance-compare-bar__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  /* No background here — the GameThumbnail letter-placeholder supplies its
+     own tinted background; a bare background would override it in the
+     cascade (this rule is appended after the --gN slot tints). */
+}
+
+.performance-compare-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.performance-compare-bar__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3xs);
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.performance-compare-bar__rank svg {
+  width: 10px;
+  height: 10px;
+}
+
+.performance-compare-bar__rank--0 {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
+}
+
+.performance-compare-bar__rank--1 {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.performance-compare-bar__rank--2 {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 34%, transparent);
+}
+
+.performance-compare-bar__empty {
+  padding: var(--space-lg);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Detailed board — sortable headers + numeric cells ──────────────── */
+
+.performance-insights__sort-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.performance-insights__sort-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.performance-insights__sort-btn--active {
+  color: var(--color-accent);
+}
+
+.performance-insights__sort-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.55;
+}
+
+.performance-insights__sort-btn--active .performance-insights__sort-icon {
+  opacity: 1;
+}
+
+.performance-insights__sort-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.performance-insights__th--right {
+  text-align: right;
+}
+
+.performance-insights__th--right .performance-insights__sort-btn {
+  justify-content: flex-end;
+}
+
+.performance-insights__td--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.performance-insights__cell-sub {
+  display: block;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  margin-top: var(--space-4xs);
+}
+
+.performance-insights__footer {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-md);
+}
+
+.performance-insights__show-more {
+  appearance: none;
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  height: 30px;
+  padding: 0 var(--space-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.performance-insights__show-more:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+/* ── Timeline stat cards — label row with icon + accent dot ─────────── */
+
+.performance-stat-cards__label-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.performance-stat-cards__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.performance-stat-cards__icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.performance-stat-cards__icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.performance-stat-cards__card .activity-sparkline {
+  background: var(--color-bg-primary);
+}
+
+/* ── Timeline panel — live / estimated badge ────────────────────────── */
+
+.performance-timeline__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: var(--radius-full);
+  padding: var(--space-4xs) var(--space-sm);
+  white-space: nowrap;
+  margin-left: var(--space-2xs);
+}
+
+.performance-timeline__badge--live {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.performance-timeline__badge--estimated {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+/* Staggered reveal for the KPI strip (mirrors the dashboard band). */
+.performance-overview .activity__stat {
+  animation: activityFadeUp var(--duration-normal) var(--ease-standard) both;
+}
+
+.performance-overview .activity__stat:nth-child(2) { animation-delay: 40ms; }
+.performance-overview .activity__stat:nth-child(3) { animation-delay: 80ms; }
+.performance-overview .activity__stat:nth-child(4) { animation-delay: 120ms; }
+.performance-overview .activity__stat:nth-child(5) { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .performance-overview .activity__stat {
+    animation: none;
+  }
+}
+

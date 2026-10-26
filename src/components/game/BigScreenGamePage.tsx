@@ -39,6 +39,7 @@ import type { ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useActivity } from "../../context/ActivityContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
 import { useFocusable } from "../../hooks/useFocusable";
@@ -46,7 +47,12 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, formatPlayTime } from "../../types/game";
+import { StatBand, StatCell } from "../activity";
+import {
+  formatSessionClockRange,
+  formatSessionDay,
+} from "../../utils/activity/sessionTime";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import DownloadModal from "../DownloadModal";
@@ -54,8 +60,7 @@ import "../../styles/activity.css";
 import "../../styles/achievements.css";
 import "../../styles/reviews.css";
 import "../../styles/weblinks.css";
-import BigScreenHeroBackground from "./BigScreenHeroBackground";
-import SpecsCard from "./SpecsCard";
+import BigScreenHeroBackground from "./BigScreenHeroBackground";import SpecsCard from "./SpecsCard";
 import ReleasesCard from "./ReleasesCard";
 import LanguagesSection from "./LanguagesSection";
 import ScreenshotsSection from "./ScreenshotsSection";
@@ -71,7 +76,6 @@ import GameRelationsCard from "../GameRelationsCard";
 import ReviewsTab from "../ReviewsTab";
 import AchievementsTab from "../AchievementsTab";
 import WebLinksTab from "../WebLinksTab";
-import { GameActivityTab } from "./GameActivityTab";
 import BigScreenPill from "../bigscreen/BigScreenPill";
 import BigScreenMetaStrip from "../bigscreen/BigScreenMetaStrip";
 import BigScreenLightbox from "../bigscreen/BigScreenLightbox";
@@ -550,7 +554,7 @@ function BigScreenGamePageContent({ game, onBack }: BigScreenGamePageContentProp
         </BigScreenTabPanel>
         <BigScreenTabPanel tabId="activity" activeTab={activeTab}>
           <div className="bigscreen-gamepage-more">
-            <GameActivityTab game={game} />
+            <BigScreenGameActivity game={game} />
           </div>
         </BigScreenTabPanel>
         <BigScreenTabPanel tabId="more" activeTab={activeTab}>
@@ -1105,6 +1109,101 @@ function BigScreenGamePageSpecs({ game }: { game: Game }) {
 //
 // The relations rail is the tab's focus landing, which is why it sits
 // first — "explore further" is the reason to open this tab at all.
+
+// ── Activity tab content ─────────────────────────────────────
+//
+// Big Screen gets a read-only summary: the figures a controller user
+// scans on a TV, plus the latest sessions. The full workspace (filters,
+// notes, exports, telemetry drawer) stays on the desktop Activity page;
+// embedding it here would add controls the spatial focus engine cannot
+// reach inside portaled popovers.
+function BigScreenGameActivity({ game }: { game: Game }) {
+  const { t, language } = useLanguage();
+  const { getGameSessions } = useActivity();
+  const sessions = useMemo(
+    () =>
+      [...getGameSessions(game.id)].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      ),
+    [game.id, getGameSessions],
+  );
+
+  if (sessions.length === 0) {
+    return (
+      <div className="bigscreen-activity__empty">
+        <h3>{t("gameActivity.noSessionsTitle")}</h3>
+        <p>{t("activityInsights.gameEmptyHint")}</p>
+      </div>
+    );
+  }
+
+  const totalMinutes = sessions.reduce((sum, session) => sum + session.durationMin, 0);
+  const longestMinutes = sessions.reduce((max, session) => Math.max(max, session.durationMin), 0);
+  const averageMinutes = Math.round(totalMinutes / sessions.length);
+  const lastPlayed = formatSessionDay(sessions[0], language);
+
+  return (
+    <div className="bigscreen-activity">
+      <StatBand className="bigscreen-activity__stats">
+        <StatCell
+          hero
+          label={t("activityDash.totalPlaytime")}
+          value={formatPlayTime(totalMinutes)}
+          sub={t("activity.allTime")}
+        />
+        <StatCell
+          label={t("activityDash.sessions")}
+          value={sessions.length}
+          sub={lastPlayed}
+        />
+        <StatCell
+          label={t("activity.avgSession")}
+          value={formatPlayTime(averageMinutes)}
+          sub={t("gameActivity.perSession")}
+        />
+        <StatCell
+          label={t("activity.longestSession")}
+          value={formatPlayTime(longestMinutes)}
+        />
+      </StatBand>
+
+      <section className="bigscreen-activity__panel">
+        <h3 className="bigscreen-activity__title">
+          {t("activitySessions.recentSessions")}
+        </h3>
+        <div className="bigscreen-activity__list">
+          {sessions.slice(0, 8).map((session) => {
+            const metrics = session.metrics;
+            const meta = [
+              metrics?.avgFps ? `${Math.round(metrics.avgFps)} FPS` : null,
+              metrics?.resolution ?? null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <div key={session.id} className="bigscreen-activity__row">
+                <span className="bigscreen-activity__date">
+                  {formatSessionDay(session, language, {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span className="bigscreen-activity__time">
+                  {formatSessionClockRange(session, language)}
+                </span>
+                <span className="bigscreen-activity__meta">{meta || "—"}</span>
+                <span className="bigscreen-activity__duration">
+                  {formatPlayTime(session.durationMin)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function BigScreenGamePageMore({ game }: { game: Game }) {
   return (

@@ -1994,3 +1994,213 @@
     transition: none;
   }
 }
+
+/* ── Popover ────────────────────────────────────────────────────────────
+   An anchored overlay for menus, filter sheets and small editors. The panel
+   is a defined surface (unlike page content) because it floats over the app
+   and must separate itself from whatever sits beneath it. */
+
+.ui-popover__panel {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 160px;
+  max-height: min(70vh, 520px);
+  padding: var(--space-xs);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+  box-shadow: var(--elevation-4);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  animation: ui-popover-in var(--duration-fast) var(--ease-standard);
+}
+
+@keyframes ui-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ui-popover__label {
+  padding: var(--space-2xs) var(--space-sm) var(--space-3xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ui-popover__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-popover__item:hover,
+.ui-popover__item:focus-visible {
+  background: var(--panel-tint-raised);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.ui-popover__item.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.ui-popover__item--danger {
+  color: var(--color-danger);
+}
+
+.ui-popover__item--danger:hover,
+.ui-popover__item--danger:focus-visible {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.ui-popover__item-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: currentColor;
+  opacity: 0.8;
+}
+
+.ui-popover__item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-popover__item-meta {
+  flex: 0 0 auto;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-popover__separator {
+  height: 1px;
+  margin: var(--space-2xs) var(--space-2xs);
+  background: var(--color-border-faint);
+}
+
+.ui-popover__hint,
+.ui-popover__empty {
+  padding: var(--space-2xs) var(--space-sm) var(--space-sm);
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+.ui-popover__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-sm) var(--space-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.ui-popover__field input,
+.ui-popover__field select {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--panel-tint-sunken);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.ui-popover__field input:focus-visible,
+.ui-popover__field select:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.ui-popover__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-2xs) var(--space-3xs);
+}
+
+.ui-popover__views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ui-popover__view-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.ui-popover__view-row .ui-popover__item {
+  flex: 1 1 auto;
+}
+
+.ui-popover__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.ui-popover__delete:hover {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.ui-popover__panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ui-popover__panel::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-popover__panel {
+    animation: none;
+  }
+}

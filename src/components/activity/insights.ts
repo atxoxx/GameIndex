@@ -1,5 +1,6 @@
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { SANE_MAX_FPS, formatPlayTime } from "../../types/game";
+import { sessionDayKey } from "../../utils/activity/sessionTime";
 
 /** Date-range presets shared by both activity surfaces. */
 export type DateRangeKey = "7d" | "30d" | "90d" | "all";
@@ -39,7 +40,7 @@ export function computeRangeWindow(
   const end = new Date(today);
   const endDate = dayKey(end);
   if (range === "all") {
-    const keys = sessions.map((s) => s.date.slice(0, 10)).sort();
+    const keys = sessions.map((s) => sessionDayKey(s)).sort();
     return keys.length > 0
       ? { startDate: keys[0], endDate }
       : { startDate: dayKey(new Date(end.getFullYear() - 1, end.getMonth(), end.getDate())), endDate };
@@ -55,7 +56,7 @@ export function filterSessionsByWindow(
   endDate: string,
 ): GameSession[] {
   return sessions.filter((s) => {
-    const day = s.date.slice(0, 10);
+    const day = sessionDayKey(s);
     return day >= startDate && day <= endDate;
   });
 }
@@ -79,7 +80,7 @@ export function distinctGames(sessions: GameSession[]): number {
 }
 
 export function activeDays(sessions: GameSession[]): number {
-  return new Set(sessions.map((s) => s.date.slice(0, 10))).size;
+  return new Set(sessions.map((s) => sessionDayKey(s))).size;
 }
 
 export type DeltaDirection = "up" | "down" | "flat";
@@ -200,7 +201,7 @@ export function buildRecords({ sessions, games, language, scope }: RecordsOption
   for (const s of sessions) {
     if (!longest || s.durationMin > longest.durationMin) longest = s;
 
-    const key = s.date.slice(0, 10);
+    const key = sessionDayKey(s);
     byDay.set(key, (byDay.get(key) || 0) + s.durationMin);
     if (!gamesByDay.has(key)) gamesByDay.set(key, new Set());
     gamesByDay.get(key)!.add(s.gameId);
@@ -405,7 +406,7 @@ const GAME_SCOPE_DEFS: MilestoneDef[] = ALL_SCOPE_DEFS.filter((d) => d.kind !== 
 
 /** Longest run of consecutive calendar days that appear in the session set. */
 export function longestStreak(sessions: GameSession[]): number {
-  const days = new Set(sessions.map((s) => s.date.slice(0, 10)));
+  const days = new Set(sessions.map((s) => sessionDayKey(s)));
   const sorted = Array.from(days).sort();
   let best = 0;
   let run = 0;
@@ -744,7 +745,7 @@ export function buildCumulativeSeries(
 ): CumulativePoint[] {
   const dayMap = new Map<string, number>();
   sessions.forEach((s) => {
-    const d = s.date.slice(0, 10);
+    const d = sessionDayKey(s);
     dayMap.set(d, (dayMap.get(d) || 0) + s.durationMin);
   });
 

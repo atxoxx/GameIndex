@@ -22,7 +22,7 @@ export interface GameTabShellProps {
 /**
  * The shared opening for every game-detail subtab.
  *
- * It gives the seven tabs one rhythm — identity, live figures, one command
+ * It gives every content tab one rhythm — identity, live figures, one command
  * row, then content — without wrapping anything in a card. Tabs that are
  * full-height workspaces (Notes, Map, WebLinks) simply omit `stats`; media
  * tabs stay compact by passing a short description instead.

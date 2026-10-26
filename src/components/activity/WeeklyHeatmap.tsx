@@ -2,12 +2,16 @@ import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameSession } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
+import { sessionDayKey } from "../../utils/activity/sessionTime";
 import * as Icons from "./Icons";
 import "../../styles/activity-heatmap.css";
 
 export interface WeeklyHeatmapProps {
   sessions: GameSession[];
   timeframeDays?: number;
+  /** Last day of the matrix; defaults to today. Historical/custom ranges
+   *  pass their own end so the grid does not always finish on today. */
+  endDate?: string;
   onSelectDate?: (date: string) => void;
   selectedDate?: string | null;
 }
@@ -15,6 +19,7 @@ export interface WeeklyHeatmapProps {
 export function WeeklyHeatmap({
   sessions,
   timeframeDays = 365,
+  endDate,
   onSelectDate,
   selectedDate,
 }: WeeklyHeatmapProps) {
@@ -35,7 +40,7 @@ export function WeeklyHeatmap({
     let totalMins = 0;
 
     for (const s of sessions) {
-      const key = s.date.slice(0, 10);
+      const key = sessionDayKey(s);
       dayMap.set(key, (dayMap.get(key) || 0) + s.durationMin);
       daySessCount.set(key, (daySessCount.get(key) || 0) + 1);
       totalMins += s.durationMin;
@@ -45,7 +50,8 @@ export function WeeklyHeatmap({
     }
 
     const list: { date: string; minutes: number; games: string[]; sessionsCount: number }[] = [];
-    const start = new Date();
+    const end = endDate ? new Date(`${endDate}T00:00:00`) : new Date();
+    const start = new Date(end);
     start.setDate(start.getDate() - timeframeDays + 1);
 
     let activeDays = 0;
@@ -92,7 +98,7 @@ export function WeeklyHeatmap({
       currentStreak: curStreak,
       bestStreak: bStreak,
     };
-  }, [sessions, timeframeDays]);
+  }, [sessions, timeframeDays, endDate]);
 
   const padded = useMemo<({ date: string; minutes: number; games: string[]; sessionsCount: number } | null)[]>(() => {
     if (cells.length === 0) return [];
@@ -193,6 +199,14 @@ export function WeeklyHeatmap({
                     type="button"
                     key={cell.date}
                     className={`act-heatmap__cell ${intensity(cell.minutes)}${isSelected ? " act-heatmap__cell--selected" : ""}`}
+                    aria-label={t("activityDash.heatmapCellTitle", {
+                      date: new Date(`${cell.date}T12:00:00`).toLocaleDateString(language, {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }),
+                      hours: Math.round((cell.minutes / 60) * 10) / 10,
+                    })}
                     onClick={() => onSelectDate?.(cell.date)}
                     tabIndex={onSelectDate ? 0 : -1}
                     onMouseEnter={(e) => {

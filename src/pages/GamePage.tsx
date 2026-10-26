@@ -59,7 +59,6 @@ import {
   DetailRail,
   GAME_RAIL_GROUPS,
 } from "../components/game";
-import { GameActivityTab } from "../components/game/GameActivityTab";
 import { readPersistedLookupFound } from "../components/game/mapLookupStorage";
 import SaveBackupTab from "../components/game/SaveBackupTab";
 import { GameTabSkeleton } from "../components/game/tabs";
@@ -91,7 +90,7 @@ import {
 } from "../components/game/icons";
 
 /**
- * The seven content-heavy detail tabs are lazy chunks: opening a game should
+ * The eight content-heavy detail tabs are lazy chunks: opening a game should
  * not pay for the review parser, the map viewer and the achievement grid
  * before the Overview has painted.
  */
@@ -102,6 +101,11 @@ const GameNewsTab = lazy(() => import("../components/game/GameNewsTab"));
 const MapTab = lazy(() => import("../components/game/MapTab"));
 const NotesTab = lazy(() => import("../components/game/notes/NotesTab"));
 const GameDlcTab = lazy(() => import("../components/game/dlc/DlcTab"));
+const GameActivityTab = lazy(() =>
+  import("../components/game/GameActivityTab").then((module) => ({
+    default: module.GameActivityTab,
+  })),
+);
 // The per-game editor (154 KB: metadata, compatibility, artwork, launch
 // rules) opens only from Edit actions, so it must not ride along with the
 // detail page the user just clicked.
@@ -740,7 +744,11 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
         </Suspense>
       )}
 
-      {effectiveTab === "activity" && <GameActivityTab game={game} />}
+      {effectiveTab === "activity" && (
+        <Suspense fallback={<GameTabSkeleton count={4} height={220} />}>
+          <GameActivityTab game={game} />
+        </Suspense>
+      )}
 
       {effectiveTab === "notes" && (
         <Suspense fallback={<GameTabSkeleton count={3} height={220} />}>

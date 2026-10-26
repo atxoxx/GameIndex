@@ -9,7 +9,7 @@ import {
   EmptyState,
   SessionComparisonModal,
   buildResolutionBreakdown,
-} from "../../components/activity";
+} from ".";
 import {
   buildGameAverages,
   buildOverview,
@@ -22,7 +22,8 @@ import { PerformanceComparison, type ComparisonMetric } from "./performance/Perf
 import { PerformanceBoard } from "./performance/PerformanceBoard";
 import { PerformanceTimeline } from "./performance/PerformanceTimeline";
 import { usePersistedState } from "../../hooks/usePersistedState";
-import { Button } from "../../components/ui";
+import { Button } from "../ui";
+import "../../styles/activity-performance.css";
 
 export interface ActivityPerformanceProps {
   sessions: GameSession[];
@@ -30,6 +31,8 @@ export interface ActivityPerformanceProps {
   startDate: string;
   endDate: string;
   sourceFilter: string;
+  /** Library shows the cross-game compare/board sections; a game's tab does not. */
+  mode?: "library" | "game";
 }
 
 type PerfSection = "overview" | "compare" | "board" | "timeline";
@@ -40,6 +43,7 @@ export function ActivityPerformance({
   startDate,
   endDate,
   sourceFilter,
+  mode = "library",
 }: ActivityPerformanceProps) {
   const { t } = useLanguage();
   const { totalRamGb, selectedGpu, ensureSamplesFor } = useActivity();
@@ -52,6 +56,11 @@ export function ActivityPerformance({
   );
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
   const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const isGameMode = mode === "game";
+  const section: PerfSection =
+    isGameMode && (perfSection === "compare" || perfSection === "board")
+      ? "overview"
+      : perfSection;
 
   const filteredSessions = useMemo(() => {
     let out = filterSessionsByWindow(sessions, startDate, endDate);
@@ -142,55 +151,50 @@ export function ActivityPerformance({
       )}
 
       <nav className="actv-subtabs" role="tablist" aria-label={t("activity.tab.performance")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={perfSection === "overview"}
-          className={`actv-subtab${perfSection === "overview" ? " is-active" : ""}`}
-          onClick={() => setPerfSection("overview")}
-        >
-          <Icons.Gauge size={13} />
-          <span>{t("activityPerf.performanceInsights")}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={perfSection === "compare"}
-          className={`actv-subtab${perfSection === "compare" ? " is-active" : ""}`}
-          onClick={() => setPerfSection("compare")}
-        >
-          <Icons.ArrowRightLeft size={13} />
-          <span>{t("activityPerf.gameComparisons")}</span>
-          {gameAverages.length > 0 && (
-            <span className="actv-tab-count">{gameAverages.length}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={perfSection === "board"}
-          className={`actv-subtab${perfSection === "board" ? " is-active" : ""}`}
-          onClick={() => setPerfSection("board")}
-        >
-          <Icons.Trophy size={13} />
-          <span>{t("activityPerf.detailedBoard")}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={perfSection === "timeline"}
-          className={`actv-subtab${perfSection === "timeline" ? " is-active" : ""}`}
-          onClick={() => setPerfSection("timeline")}
-        >
-          <Icons.TrendingUp size={13} />
-          <span>{t("activityPerf.sessionTimeline")}</span>
-          {filteredSessions.length > 0 && (
-            <span className="actv-tab-count">{filteredSessions.length}</span>
-          )}
-        </button>
+        {(
+          [
+            { id: "overview" as const, label: t("activityPerf.performanceInsights"), Icon: Icons.Gauge },
+            ...(isGameMode
+              ? []
+              : [
+                  {
+                    id: "compare" as const,
+                    label: t("activityPerf.gameComparisons"),
+                    Icon: Icons.ArrowRightLeft,
+                    count: gameAverages.length,
+                  },
+                  {
+                    id: "board" as const,
+                    label: t("activityPerf.detailedBoard"),
+                    Icon: Icons.Trophy,
+                  },
+                ]),
+            {
+              id: "timeline" as const,
+              label: t("activityPerf.sessionTimeline"),
+              Icon: Icons.TrendingUp,
+              count: filteredSessions.length,
+            },
+          ] as const
+        ).map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            role="tab"
+            aria-selected={section === entry.id}
+            className={`actv-subtab${section === entry.id ? " is-active" : ""}`}
+            onClick={() => setPerfSection(entry.id)}
+          >
+            <entry.Icon size={13} />
+            <span>{entry.label}</span>
+            {"count" in entry && entry.count !== undefined && entry.count > 0 && (
+              <span className="actv-tab-count">{entry.count}</span>
+            )}
+          </button>
+        ))}
       </nav>
 
-      {perfSection === "overview" && (
+      {section === "overview" && (
         <>
           <PerformanceOverview
             overview={overview}
@@ -231,7 +235,7 @@ export function ActivityPerformance({
         </>
       )}
 
-      {perfSection === "compare" && (
+      {section === "compare" && (
         <PerformanceComparison
           games={gameAverages}
           metricTab={metricTab}
@@ -241,7 +245,7 @@ export function ActivityPerformance({
         />
       )}
 
-      {perfSection === "board" && (
+      {section === "board" && (
         <PerformanceBoard
           games={gameAverages}
           tempUnit={tempUnit}
@@ -250,7 +254,7 @@ export function ActivityPerformance({
         />
       )}
 
-      {perfSection === "timeline" && (
+      {section === "timeline" && (
         <PerformanceTimeline
           sessions={filteredSessions}
           gameAverages={gameAverages}

@@ -1,107 +1,67 @@
 import { useMemo } from "react";
-import type { GameSession } from "../../types/game";
+import { CalendarRange, Clock, Target } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import type { GameSession } from "../../types/game";
+import { Panel } from "../ui";
 import {
-  SectionPanel,
-  WeeklyHeatmap,
-  TimeOfDayDistribution,
-  SessionLengthDistribution,
-  RecordsStrip,
-  Milestones,
   DayOfWeekDistribution,
-  buildTimeOfDayDistribution,
-  buildSessionLengthDistribution,
+  SessionLengthDistribution,
+  TimeOfDayDistribution,
+  WeeklyHeatmap,
   buildDayOfWeekDistribution,
-  type RecordItem,
-  type MilestoneLadder,
+  buildSessionLengthDistribution,
+  buildTimeOfDayDistribution,
 } from "../activity";
-import type { Timeframe } from "./GameActivityShared";
-import * as Icons from "../activity/Icons";
+import type { ActivityRange } from "../../utils/activity/range";
+import { rangeDayCount } from "../../utils/activity/range";
 
 export interface GameActivityHabitsViewProps {
   sessions: GameSession[];
-  filteredSessions: GameSession[];
-  timeframe: Timeframe;
-  records: RecordItem[];
-  milestones: MilestoneLadder[];
+  range: ActivityRange;
+  rangeLabel: string;
 }
 
+/** Distribution panels: when, how long and on which days this game is played. */
 export function GameActivityHabitsView({
   sessions,
-  filteredSessions,
-  timeframe,
-  records,
-  milestones,
+  range,
+  rangeLabel,
 }: GameActivityHabitsViewProps) {
   const { t, language } = useLanguage();
+  const days = Math.min(365, rangeDayCount(range));
 
-  const timeframeDays =
-    timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
-  const timeframeLabel =
-    timeframe === "all"
-      ? t("activity.allTime")
-      : t("gameActivity.lastDays", { count: timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90 });
-
-  const timeOfDayDist = useMemo(() => {
-    return buildTimeOfDayDistribution(filteredSessions);
-  }, [filteredSessions]);
-
-  const sessionLengthDist = useMemo(() => {
-    return buildSessionLengthDistribution(filteredSessions);
-  }, [filteredSessions]);
-
-  const dowDist = useMemo(() => {
-    return buildDayOfWeekDistribution(filteredSessions, language);
-  }, [filteredSessions, language]);
+  const timeOfDay = useMemo(() => buildTimeOfDayDistribution(sessions), [sessions]);
+  const sessionLengths = useMemo(() => buildSessionLengthDistribution(sessions), [sessions]);
+  const dayOfWeek = useMemo(
+    () => buildDayOfWeekDistribution(sessions, language),
+    [sessions, language],
+  );
 
   return (
-    <div id="game-activity-panel-habits" role="tabpanel" className="act-stack">
-      {/* Records Strip & Milestones */}
-      <RecordsStrip records={records} />
-      <Milestones ladders={milestones} />
-
-      {/* Routine & Day of Week Grid */}
-      <div className="act-cols">
-        <SectionPanel
-          icon={<Icons.CalendarRange size={14} />}
-          title={t("activityInsights.dayOfWeekTitle")}
-          sub={timeframeLabel}
-        >
-          <DayOfWeekDistribution distribution={dowDist} compact />
-        </SectionPanel>
-
-        <SectionPanel
-          icon={<Icons.Clock size={14} />}
-          title={t("activityInsights.timeOfDayTitle")}
-          sub={timeframeLabel}
-        >
-          <TimeOfDayDistribution distribution={timeOfDayDist} compact />
-        </SectionPanel>
-      </div>
-
-      {/* Duration Distribution & Weekly Activity Heatmap */}
-      <div className="act-cols">
-        <SectionPanel
-          icon={<Icons.Target size={14} />}
-          title={t("activityInsights.sessionLengthsTitle")}
-          sub={timeframeLabel}
-        >
-          <SessionLengthDistribution
-            buckets={sessionLengthDist.buckets}
-            averageMinutes={sessionLengthDist.averageMinutes}
-            longestMinutes={sessionLengthDist.longestMinutes}
-            totalSessions={sessionLengthDist.totalSessions}
-          />
-        </SectionPanel>
-
-        <SectionPanel
-          icon={<Icons.CalendarRange size={14} />}
-          title={t("gameActivity.weeklyActivity")}
-          sub={timeframeLabel}
-        >
-          <WeeklyHeatmap sessions={sessions} timeframeDays={timeframeDays} />
-        </SectionPanel>
-      </div>
+    <div className="activity-game-habits">
+      <Panel heading={t("activityInsights.timeOfDayTitle")} icon={<Clock size={15} />}>
+        <TimeOfDayDistribution distribution={timeOfDay} compact />
+      </Panel>
+      <Panel heading={t("activityInsights.sessionLengthsTitle")} icon={<Target size={15} />}>
+        <SessionLengthDistribution
+          buckets={sessionLengths.buckets}
+          averageMinutes={sessionLengths.averageMinutes}
+          longestMinutes={sessionLengths.longestMinutes}
+          totalSessions={sessionLengths.totalSessions}
+        />
+      </Panel>
+      <Panel heading={t("activityInsights.dayOfWeekTitle")} icon={<CalendarRange size={15} />}>
+        <DayOfWeekDistribution distribution={dayOfWeek} compact />
+      </Panel>
+      <Panel
+        heading={t("gameActivity.weeklyActivity")}
+        icon={<CalendarRange size={15} />}
+        actions={<span className="activity-panel-meta">{rangeLabel}</span>}
+      >
+        <WeeklyHeatmap sessions={sessions} timeframeDays={days} endDate={range.endDate} />
+      </Panel>
     </div>
   );
 }
+
+export default GameActivityHabitsView;

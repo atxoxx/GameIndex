@@ -5,7 +5,6 @@ import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { formatPlayTime, gameDisplayName } from "../../types/game";
-import { SessionInspectorModal } from "../../components/activity/SessionInspectorModal";
 import { GameThumbnail } from "./GameThumbnail";
 import * as Icons from "./Icons";
 import { usePersistedState } from "../../hooks/usePersistedState";
@@ -17,8 +16,10 @@ export interface ActivityGanttProps {
   endDate: string;
   /** Platform/source filter from the global toolbar. "all" = no filter. */
   sourceFilter?: string;
-  onLaunchGame?: (game: Game) => void;
-  onDeleteSession?: (sessionId: string) => void;
+  /** Opens the shared session drawer; the timeline no longer owns a modal. */
+  onInspectSession?: (sessionId: string) => void;
+  /** The page's scope bar owns the game selection. */
+  hideGameFilter?: boolean;
 }
 
 /** A single within-day slice of a session (a session may span multiple days). */
@@ -128,8 +129,8 @@ export function ActivityGantt({
   startDate,
   endDate,
   sourceFilter = "all",
-  onLaunchGame,
-  onDeleteSession,
+  onInspectSession,
+  hideGameFilter = false,
 }: ActivityGanttProps) {
   const { showToast } = useToast();
   const { getNote } = useSessionNotes();
@@ -142,7 +143,6 @@ export function ActivityGantt({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [minDurationFilter, setMinDurationFilter] = useState<number>(0);
   const [density, setDensity] = usePersistedState<"comfortable" | "compact">("gamelib.activity.gantt.density_v1", "comfortable", ["comfortable", "compact"]);
-  const [inspectedSessionId, setInspectedSessionId] = useState<string | null>(null);
   const [hover, setHover] = useState<{
     seg: Segment;
     bucketKey: string;
@@ -449,16 +449,6 @@ export function ActivityGantt({
 
   const tickHours = [0, 4, 8, 12, 16, 20, 24];
 
-  const inspectedSession = useMemo(() => {
-    if (!inspectedSessionId) return null;
-    return sessions.find((s) => s.id === inspectedSessionId) || null;
-  }, [inspectedSessionId, sessions]);
-
-  const inspectedGame = useMemo(() => {
-    if (!inspectedSession) return undefined;
-    return gameById.get(inspectedSession.gameId);
-  }, [inspectedSession, gameById]);
-
   if (totalPlayedMinutes === 0 && !searchQuery) {
     return (
       <div className="section-panel">
@@ -548,19 +538,21 @@ export function ActivityGantt({
           </div>
 
           {/* Game selector */}
-          <select
-            className="act-toolbar__select"
-            value={selectedGameFilter}
-            onChange={(e) => setSelectedGameFilter(e.target.value)}
-            aria-label={t("activityPerf.gameLabel")}
-          >
-            <option value="all">{t("activityPerf.allGames")}</option>
-            {availableGamesForFilter.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+          {!hideGameFilter && (
+            <select
+              className="act-toolbar__select"
+              value={selectedGameFilter}
+              onChange={(e) => setSelectedGameFilter(e.target.value)}
+              aria-label={t("activityPerf.gameLabel")}
+            >
+              <option value="all">{t("activityPerf.allGames")}</option>
+              {availableGamesForFilter.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Min duration filter */}
           <select
@@ -794,7 +786,7 @@ export function ActivityGantt({
                         background: gameColor,
                         boxShadow: `0 1px 3px rgba(0, 0, 0, 0.25)`,
                       }}
-                      onClick={() => setInspectedSessionId(seg.sessionId)}
+                      onClick={() => onInspectSession?.(seg.sessionId)}
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setHover({
@@ -891,15 +883,6 @@ export function ActivityGantt({
           </div>
         </div>
       )}
-
-      {/* ── Session Inspector Modal ───────────────────────────────── */}
-      <SessionInspectorModal
-        session={inspectedSession}
-        game={inspectedGame}
-        onClose={() => setInspectedSessionId(null)}
-        onLaunchGame={onLaunchGame}
-        onDeleteSession={onDeleteSession}
-      />
     </div>
   );
 }

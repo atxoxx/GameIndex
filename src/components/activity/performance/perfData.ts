@@ -1,5 +1,6 @@
 import type { Game, GameSession, SessionMetrics } from "../../../types/game";
 import { buildTimelineFromSessions, buildSingleSessionSeries, type PerfTimelineSeries } from "../../../utils/perfSamples";
+import { sessionDayKey } from "../../../utils/activity/sessionTime";
 
 /**
  * Pure data layer for the Activity → Performance tab.
@@ -43,7 +44,7 @@ export function filterSessionsByWindow(
   endDate: string
 ): GameSession[] {
   return sessions.filter((s) => {
-    const day = s.date.slice(0, 10);
+    const day = sessionDayKey(s);
     return day >= startDate && day <= endDate;
   });
 }

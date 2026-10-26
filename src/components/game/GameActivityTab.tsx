@@ -1,592 +1,607 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { captureAndSaveScreenshot } from "../../utils/screenshot";
+import {
+  BarChart3,
+  Calendar,
+  Clock,
+  Gamepad2,
+  History,
+  LayoutDashboard,
+  Sparkles,
+  Trophy,
+  Zap,
+} from "lucide-react";
 import { useActivity } from "../../context/ActivityContext";
-import { useSettings } from "../../context/SettingsContext";
-import { useToast } from "../../context/ToastContext";
-import { type Game, gameDisplayName } from "../../types/game";
-import { buildTimelineFromSessions, buildSingleSessionSeries } from "../../utils/perfSamples";
-import { ConfirmModal } from "../ui/ConfirmModal";
-import { Button } from "../ui";
+import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { usePersistedState } from "../../hooks/usePersistedState";
-import { GameActivityPlaytimeView } from "./GameActivityPlaytimeView";
-import { GameActivityPerformanceView } from "./GameActivityPerformanceView";
-import { GameActivitySessionsView } from "./GameActivitySessionsView";
+import { useSettings } from "../../context/SettingsContext";
+import { useSessionNotes } from "../../context/SessionNotesContext";
+import { useToast } from "../../context/ToastContext";
+import {
+  formatPlayTime,
+  gameDisplayName,
+  parsePlayTime,
+  type Game,
+  type GameSession,
+} from "../../types/game";
+import {
+  GameTabEmpty,
+  GameTabShell,
+  GameTabToolbar,
+  GameTabViewSwitch,
+  useGameTabState,
+} from "./tabs";
+import { ConfirmModal, Button, type StatBandItem } from "../ui";
+import { ActivityActions } from "../activity/ActivityActions";
+import { ActivityRecapDrawer } from "../activity/ActivityRecapDrawer";
+import { ActivityScopeBar } from "../activity/ActivityScopeBar";
+import { ActivitySessionDrawer } from "../activity/ActivitySessionDrawer";
+import { ActivitySessionList } from "../activity/ActivitySessionList";
+import { ManualSessionModal } from "../activity/ManualSessionModal";
+import {
+  ACTIVITY_RANGE_KEYS,
+  filterSessionsToRange,
+  formatRangeLabel,
+  localDayKey,
+  rangeDayCount,
+  resolveActivityRange,
+  type ActivityRangeKey,
+} from "../../utils/activity/range";
+import {
+  DURATION_FILTERS,
+  SESSION_DENSITIES,
+  SESSION_SORT_FIELDS,
+  SORT_DIRECTIONS,
+  TELEMETRY_FILTERS,
+  sanitizeSessionFilters,
+  type ActivitySessionFilters,
+  type DurationFilter,
+  type SessionDensity,
+  type SessionSortField,
+  type SortDirection,
+  type TelemetryFilter,
+} from "../../utils/activity/sessionQuery";
+import {
+  currentDayStreak,
+  longestDayStreak,
+  sessionDayKey,
+} from "../../utils/activity/sessionTime";
+import { buildActivityRecap } from "../../utils/activity/recap";
+import { buildActivitySummaryText } from "../../utils/activity/summary";
+import {
+  buildActivityCsv,
+  buildActivityExportPayload,
+  downloadTextFile,
+} from "../../utils/activity/export";
+import type { PlaytimeAggregation } from "../../utils/activity/chartSeries";
+import { recommendedAggregation } from "../../utils/activity/chartSeries";
+import type {
+  PlaytimeChartMode,
+  PlaytimeChartStyle,
+} from "../activity/ActivityPlaytimeChart";
+import { ActivityPerformance } from "../activity/ActivityPerformance";
+import { GameActivityOverviewView } from "./GameActivityOverviewView";
 import { GameActivityHabitsView } from "./GameActivityHabitsView";
-import {
-  Segmented,
-  RangePills,
-  EmptyState,
-  ManualSessionModal,
-  buildPeriodComparison,
-  buildRecords,
-  buildMilestoneLadders,
-} from "../activity";
-import { pooledOnePercentLowFps } from "../activity/insights";
-import { useFocusProps } from "../activity/focusable";
-import "../../styles/activity-v2.css";
-import {
-  type Timeframe,
-  type ViewMode,
-  type PlaytimeChartStyle,
-  type PlaytimeAggregation,
-  generateConsistentSeries,
-} from "./GameActivityShared";
-import * as Icons from "../activity/Icons";
+import "../../styles/activity.css";
+import "../../styles/activity-workspace.css";
 
+type GameActivityView = "overview" | "sessions" | "performance" | "habits";
+
+interface GameActivityState {
+  view: GameActivityView;
+  range: ActivityRangeKey;
+  from: string;
+  to: string;
+  chart: PlaytimeChartStyle;
+  agg: PlaytimeAggregation;
+  mode: PlaytimeChartMode;
+  data: TelemetryFilter;
+  dur: DurationFilter;
+  sort: SessionSortField;
+  dir: SortDirection;
+  dens: SessionDensity;
+}
+
+const DEFAULTS: GameActivityState = {
+  view: "overview",
+  range: "30d",
+  from: "",
+  to: "",
+  chart: "bar",
+  agg: "day",
+  mode: "periodic",
+  data: "all",
+  dur: "all",
+  sort: "date",
+  dir: "desc",
+  dens: "comfortable",
+};
+
+const ALLOWED = {
+  view: ["overview", "sessions", "performance", "habits"],
+  range: ACTIVITY_RANGE_KEYS,
+  chart: ["bar", "line"],
+  agg: ["day", "week", "month"],
+  mode: ["periodic", "cumulative"],
+  data: TELEMETRY_FILTERS,
+  dur: DURATION_FILTERS,
+  sort: SESSION_SORT_FIELDS,
+  dir: SORT_DIRECTIONS,
+  dens: SESSION_DENSITIES,
+} satisfies Partial<Record<keyof GameActivityState, readonly string[]>>;
+
+const ALL_VIEWS: Array<{ id: GameActivityView; labelKey: string; icon: typeof LayoutDashboard }> = [
+  { id: "overview", labelKey: "game.tab.overview", icon: LayoutDashboard },
+  { id: "sessions", labelKey: "activity.tab.sessions", icon: History },
+  { id: "performance", labelKey: "activity.tab.performance", icon: BarChart3 },
+  { id: "habits", labelKey: "activity.tab.habits", icon: Sparkles },
+];
+
+/**
+ * A game's activity workspace, rebuilt on the same shell and command row as
+ * every other detail tab. The range and workspace live in the URL
+ * (`?activityView=…&activityRange=…`), so a tab survives a revisit and works
+ * in the game-detail popout.
+ */
 export function GameActivityTab({ game }: { game: Game }) {
-  const { getGameSessions, deleteSession, ensureSamplesFor } = useActivity();
-  const { tempUnit } = useSettings();
+  const { getGameSessions, deleteSession } = useActivity();
+  const { launchGame } = useGames();
+  const { tempUnit, isSimpleUi } = useSettings();
+  const { getAllNotes } = useSessionNotes();
   const { showToast } = useToast();
   const { t, language } = useLanguage();
-  const sessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
+  const [state, update] = useGameTabState<GameActivityState>({
+    prefix: "activity",
+    defaults: DEFAULTS,
+    allowed: ALLOWED,
+  });
 
-  // This tab charts this game's measured curves, so hydrate their samples.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<GameSession | null>(null);
+  const [inspectedId, setInspectedId] = useState<string | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
+
+  const allSessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
+  const range = useMemo(
+    () =>
+      resolveActivityRange({
+        key: state.range,
+        from: state.from,
+        to: state.to,
+        sessions: allSessions,
+      }),
+    [state.range, state.from, state.to, allSessions],
+  );
+  const rangeLabel = useMemo(() => formatRangeLabel(range, language), [range, language]);
+  const sessions = useMemo(
+    () => filterSessionsToRange(allSessions, range),
+    [allSessions, range],
+  );
+
+  const filters: ActivitySessionFilters = useMemo(
+    () =>
+      sanitizeSessionFilters({
+        telemetry: state.data,
+        duration: state.dur,
+        sort: state.sort,
+        dir: state.dir,
+        density: state.dens,
+      }),
+    [state.data, state.dur, state.sort, state.dir, state.dens],
+  );
+
+  const updateFilters = useCallback(
+    (patch: Partial<ActivitySessionFilters>) => {
+      update({
+        data: patch.telemetry ?? filters.telemetry,
+        dur: patch.duration ?? filters.duration,
+        sort: patch.sort ?? filters.sort,
+        dir: patch.dir ?? filters.dir,
+        dens: patch.density ?? filters.density,
+      });
+    },
+    [filters, update],
+  );
+
+  const availableViews = useMemo(
+    () =>
+      (isSimpleUi
+        ? ALL_VIEWS.filter((view) => view.id === "overview" || view.id === "sessions")
+        : ALL_VIEWS
+      ).map((view) => ({ ...view, label: t(view.labelKey) })),
+    [isSimpleUi, t],
+  );
+  const view: GameActivityView = availableViews.some((entry) => entry.id === state.view)
+    ? state.view
+    : "overview";
+
   useEffect(() => {
-    void ensureSamplesFor(sessions.map((s) => s.id));
-  }, [sessions, ensureSamplesFor]);
+    if (!isSimpleUi) return;
+    if (state.view === "performance" || state.view === "habits") {
+      update({ view: "overview" });
+    }
+  }, [isSimpleUi, state.view, update]);
 
-  const [viewMode, setViewMode] = usePersistedState<ViewMode>("gamelib.game_activity.view_mode_v1", "playtime", ["playtime", "performance", "sessions", "habits"]);
-  const [timeframe, setTimeframe] = useState<Timeframe>("30d");
-  const [playtimeChartStyle, setPlaytimeChartStyle] = usePersistedState<PlaytimeChartStyle>("gamelib.game_activity.playtime_chart_style_v1", "bar", ["bar", "line"]);
-  const [playtimeAgg, setPlaytimeAgg] = usePersistedState<PlaytimeAggregation>("gamelib.game_activity.playtime_aggregation_v1", "AGG_DAY", ["AGG_DAY", "AGG_WEEK", "AGG_MONTH"]);
-  const [isolatedSessionIndex, setIsolatedSessionIndex] = useState<number | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [showManualModal, setShowManualModal] = useState(false);
+  useEffect(() => {
+    const recommended = recommendedAggregation(range);
+    const dayCount = rangeDayCount(range);
+    const points =
+      state.agg === "day"
+        ? dayCount
+        : state.agg === "week"
+          ? Math.ceil(dayCount / 7)
+          : Math.ceil(dayCount / 30);
+    if ((state.agg === "day" && recommended !== "day") || points < 2) {
+      update({ agg: recommended });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.startDate, range.endDate]);
 
-  const handleCaptureScreenshot = async () => {
-    const container = document.querySelector<HTMLElement>(".game-activity-tab");
-    if (!container) return;
+  useEffect(() => {
+    if (state.agg === "day" && rangeDayCount(range) > 366) update({ agg: "month" });
+  }, [state.agg, range, update]);
+
+  const stats = useMemo(() => {
+    const totalMinutes = sessions.reduce((sum, session) => sum + session.durationMin, 0);
+    const allTimeMinutes = Math.max(
+      game.playTime ? parsePlayTime(game.playTime) : 0,
+      allSessions.reduce((sum, session) => sum + session.durationMin, 0),
+    );
+    return {
+      totalMinutes,
+      allTimeMinutes,
+      sessions: sessions.length,
+      avgSession: sessions.length > 0 ? Math.round(totalMinutes / sessions.length) : 0,
+      longestSession: sessions.reduce((max, session) => Math.max(max, session.durationMin), 0),
+      currentStreak: currentDayStreak(allSessions.map(sessionDayKey)),
+      bestStreak: longestDayStreak(allSessions.map(sessionDayKey)),
+      activeDays: new Set(sessions.map(sessionDayKey)).size,
+    };
+  }, [sessions, allSessions, game.playTime, range]);
+
+  const lastPlayed = useMemo(() => {
+    if (allSessions.length === 0) return null;
+    const latest = allSessions.reduce((max, session) =>
+      new Date(session.date).getTime() > new Date(max.date).getTime() ? session : max,
+    );
+    return new Date(latest.date).toLocaleDateString(language, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }, [allSessions, language]);
+
+  const description = useMemo(() => {
+    if (allSessions.length === 0) return t("activityWs.gameTab.emptyDescription");
+    return t("activityWs.gameTab.description", {
+      sessions: allSessions.length,
+      time: formatPlayTime(stats.allTimeMinutes),
+      last: lastPlayed ?? "—",
+    });
+  }, [allSessions.length, lastPlayed, stats.allTimeMinutes, t]);
+
+  const statItems: StatBandItem[] = [
+    {
+      id: "playtime",
+      icon: <Clock size={15} />,
+      label: t("activityDash.totalPlaytime"),
+      value: formatPlayTime(stats.totalMinutes),
+      detail: rangeLabel,
+    },
+    {
+      id: "sessions",
+      icon: <Calendar size={15} />,
+      label: t("activityDash.sessions"),
+      value: stats.sessions,
+      detail: t("gameActivity.activeDaysSub", {
+        count: stats.activeDays,
+        s: stats.activeDays === 1 ? "" : "s",
+      }),
+    },
+    {
+      id: "average",
+      icon: <Gamepad2 size={15} />,
+      label: t("activity.avgSession"),
+      value: stats.avgSession > 0 ? formatPlayTime(stats.avgSession) : "—",
+      detail: t("gameActivity.perSession"),
+    },
+    {
+      id: "longest",
+      icon: <Trophy size={15} />,
+      label: t("activity.longestSession"),
+      value: stats.longestSession > 0 ? formatPlayTime(stats.longestSession) : "—",
+      detail: rangeLabel,
+    },
+    {
+      id: "streak",
+      icon: <Zap size={15} />,
+      label: t("activity.currentStreak"),
+      value: stats.currentStreak > 0 ? `${stats.currentStreak}d` : "—",
+      detail:
+        stats.bestStreak > 0
+          ? t("gameActivity.bestStreakSub", { days: stats.bestStreak })
+          : undefined,
+    },
+  ];
+
+  const exportCsv = useCallback(() => {
+    if (sessions.length === 0) {
+      showToast(t("activityPage.noSessionsExport"), "info");
+      return;
+    }
+    const csv = buildActivityCsv(sessions, [game], getAllNotes());
+    downloadTextFile(
+      csv,
+      `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_activity_${range.startDate}.csv`,
+      "text/csv;charset=utf-8;",
+    );
+    showToast(t("activity.exportedAs", { format: "CSV" }), "success");
+  }, [sessions, game, getAllNotes, range, showToast, t]);
+
+  const exportJson = useCallback(async () => {
+    if (sessions.length === 0) {
+      showToast(t("activityPage.noSessionsExport"), "info");
+      return;
+    }
     try {
+      const payload = buildActivityExportPayload(sessions, [game], getAllNotes(), range);
+      const filePath = await save({
+        defaultPath: `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_activity_${range.startDate}.json`,
+        filters: [{ name: "JSON File", extensions: ["json"] }],
+      });
+      if (!filePath) return;
+      await invoke("save_text_file", {
+        filePath,
+        contents: JSON.stringify(payload, null, 2),
+      });
+      showToast(t("activity.exportedAs", { format: "JSON" }), "success");
+    } catch (error) {
+      console.error("Game activity JSON export failed:", error);
+      showToast(t("activity.exportFailed", { error: String(error) }), "error");
+    }
+  }, [sessions, game, getAllNotes, range, showToast, t]);
+
+  const capturePage = useCallback(async () => {
+    const element = document.querySelector<HTMLElement>(".game-activity-tab");
+    if (!element) return;
+    try {
+      const { captureAndSaveScreenshot } = await import("../../utils/screenshot");
       const filePath = await captureAndSaveScreenshot({
-        element: container,
+        element,
         fileName: `${game.name}_activity`,
         title: t("gameActivity.saveScreenshot", { game: gameDisplayName(game) }),
         filterLabel: t("activity.pngImage"),
+        height: element.scrollHeight,
       });
       if (filePath) showToast(t("activity.screenshotSaved"), "success");
     } catch (error) {
-      console.error("Screenshot error:", error);
+      console.error("Game activity screenshot failed:", error);
       showToast(t("activity.screenshotFailed", { error: String(error) }), "error");
     }
-  };
+  }, [game, showToast, t]);
 
-  const handleExportSessions = async (format: "csv" | "json") => {
-    try {
-      const baseName = `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_sessions_${new Date().toISOString().slice(0, 10)}`;
-      const filePath = await save({
-        title: t("activity.exportTitle", { name: gameDisplayName(game) }),
-        defaultPath: `${baseName}.${format}`,
-        filters: [{ name: format === "csv" ? t("activity.csvFile") : t("activity.jsonFile"), extensions: [format] }],
-      });
-      if (!filePath) return;
-
-      let contents: string;
-      if (format === "csv") {
-        const header = [
-          "date", "start_time", "duration_min",
-          "avg_fps", "min_fps", "max_fps",
-          "avg_cpu", "avg_gpu", "avg_ram",
-          "avg_cpu_temp", "avg_gpu_temp", "resolution",
-        ];
-        const rows = filteredSessions.map((s) => {
-          const m = s.metrics;
-          const start = new Date(s.date).toLocaleTimeString("en-GB", { hour12: false });
-          return [
-            s.date.slice(0, 10),
-            start,
-            String(s.durationMin),
-            m ? String(m.avgFps) : "",
-            m ? String(m.minFps) : "",
-            m ? String(m.maxFps) : "",
-            m ? String(m.avgCpuUsage) : "",
-            m ? String(m.avgGpuUsage) : "",
-            m ? String(m.avgRamUsage) : "",
-            m ? String(m.avgCpuTemp) : "",
-            m ? String(m.avgGpuTemp) : "",
-            m ? m.resolution : "",
-          ].join(",");
-        });
-        contents = [header.join(","), ...rows].join("\n");
-      } else {
-        contents = JSON.stringify(
-          filteredSessions.map((s) => ({ date: s.date, durationMin: s.durationMin, metrics: s.metrics ?? null })),
-          null,
-          2,
-        );
-      }
-
-      await invoke("save_text_file", { filePath, contents });
-      showToast(t("activity.exportedAs", { format: format.toUpperCase() }), "success");
-    } catch (error) {
-      console.error("Export error:", error);
-      showToast(t("activity.exportFailed", { error: String(error) }), "error");
-    }
-  };
-
-  const filteredSessions = useMemo(() => {
-    if (timeframe === "all") return sessions;
-    const days = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    return sessions.filter((s) => new Date(s.date) >= cutoff);
-  }, [sessions, timeframe]);
-
-  const stats = useMemo(() => {
-    const totalPlayTimeMin = filteredSessions.reduce((s, sess) => s + sess.durationMin, 0);
-    const totalSessions = filteredSessions.length;
-    const avgSessionMin = totalSessions > 0 ? Math.round(totalPlayTimeMin / totalSessions) : 0;
-
-    const uniqueDays = new Set<string>();
-    filteredSessions.forEach((s) => {
-      if (s.date) uniqueDays.add(s.date.slice(0, 10));
+  const copySummary = useCallback(async () => {
+    const recap = buildActivityRecap(sessions, [game], range);
+    const text = buildActivitySummaryText({
+      rangeLabel,
+      recap,
+      labels: {
+        title: t("activity.title"),
+        sessions: t("activityWs.recap.sessions"),
+        games: t("activityWs.recap.games"),
+        topGames: t("activityWs.recap.topGames"),
+        footer: t("activityWs.recap.footer"),
+        streakText: t("activityWs.recap.streakPhrase", {
+          days: recap.longestStreak,
+        }),
+        activeDaysText: t("activityWs.recap.activeDaysPhrase", {
+          days: recap.activeDays,
+        }),
+      },
     });
-    const sortedDays = Array.from(uniqueDays).sort().reverse();
-
-    let currentStreak = 0;
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const checkDate = sortedDays.includes(today) ? today : sortedDays.includes(yesterday) ? yesterday : null;
-
-    if (checkDate) {
-      const cursor = new Date(checkDate);
-      while (true) {
-        const cursorStr = cursor.toISOString().slice(0, 10);
-        if (sortedDays.includes(cursorStr)) {
-          currentStreak++;
-          cursor.setDate(cursor.getDate() - 1);
-        } else {
-          break;
-        }
-      }
-    }
-
-    let bestStreak = 0;
-    if (sortedDays.length > 0) {
-      const chronoDays = [...sortedDays].reverse();
-      let currentRun = 1;
-      bestStreak = 1;
-      for (let i = 1; i < chronoDays.length; i++) {
-        const prev = new Date(chronoDays[i - 1]);
-        const curr = new Date(chronoDays[i]);
-        const diffDays = Math.ceil(Math.abs(curr.getTime() - prev.getTime()) / 86_400_000);
-        if (diffDays === 1) {
-          currentRun++;
-        } else if (diffDays > 1) {
-          bestStreak = Math.max(bestStreak, currentRun);
-          currentRun = 1;
-        }
-      }
-      bestStreak = Math.max(bestStreak, currentRun);
-    }
-
-    const dayNames = Array.from({ length: 7 }, (_, i) =>
-      new Date(2026, 0, 4 + i).toLocaleDateString(language, { weekday: "short" }),
+    const { copyTextToClipboard } = await import("../../utils/clipboard");
+    const copied = await copyTextToClipboard(text);
+    showToast(
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
+      copied ? "success" : "error",
     );
-    const dayTotals = [0, 0, 0, 0, 0, 0, 0];
-    filteredSessions.forEach((s) => {
-      dayTotals[new Date(s.date).getDay()] += s.durationMin;
-    });
-    let maxDayIdx = 0;
-    let maxDayVal = -1;
-    for (let i = 0; i < 7; i++) {
-      if (dayTotals[i] > maxDayVal) {
-        maxDayVal = dayTotals[i];
-        maxDayIdx = i;
-      }
-    }
-    const mostActiveDay = maxDayVal > 0 ? dayNames[maxDayIdx] : "—";
+  }, [game, range, rangeLabel, sessions, showToast, t]);
 
-    let trendDirection: "up" | "down" | "flat" = "flat";
-    const timeframeDays = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
-    const entries: { mins: number }[] = [];
-    const now = new Date();
-    for (let i = timeframeDays - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().slice(0, 10);
-      const daySessions = filteredSessions.filter((s) => s.date && s.date.slice(0, 10) === dateStr);
-      entries.push({ mins: daySessions.reduce((sum, s) => sum + s.durationMin, 0) });
-    }
-    if (entries.length >= 4) {
-      const mid = Math.floor(entries.length / 2);
-      const firstAvg = entries.slice(0, mid).reduce((sum, e) => sum + e.mins, 0) / mid;
-      const secondAvg = entries.slice(mid).reduce((sum, e) => sum + e.mins, 0) / entries.slice(mid).length;
-      if (firstAvg !== 0 || secondAvg !== 0) {
-        if (firstAvg === 0) trendDirection = "up";
-        else {
-          const change = ((secondAvg - firstAvg) / firstAvg) * 100;
-          if (change > 10) trendDirection = "up";
-          else if (change < -10) trendDirection = "down";
-        }
-      }
-    }
-
-    const sortedChronological = [...filteredSessions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const firstPlayed = sortedChronological.length > 0
-      ? new Date(sortedChronological[0].date).toLocaleDateString(language, { day: "numeric", month: "short", year: "numeric" })
-      : "—";
-    const lastPlayed = sortedChronological.length > 0
-      ? new Date(sortedChronological[sortedChronological.length - 1].date).toLocaleDateString(language, { day: "numeric", month: "short", year: "numeric" })
-      : "—";
-
-    return {
-      totalPlayTimeMin,
-      totalSessions,
-      avgSessionMin,
-      longestSessionMin: filteredSessions.reduce((max, s) => Math.max(max, s.durationMin), 0),
-      currentStreak,
-      bestStreak,
-      trendDirection,
-      mostActiveDay,
-      activeDaysCount: uniqueDays.size,
-      firstPlayed,
-      lastPlayed,
-    };
-  }, [filteredSessions, timeframe, language]);
-
-  const playtimeChartData = useMemo(() => {
-    const timeframeDays = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - timeframeDays);
-
-    if (playtimeAgg === "AGG_DAY") {
-      const dayMap = new Map<string, number>();
-      for (let i = timeframeDays - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        dayMap.set(d.toISOString().slice(0, 10), 0);
-      }
-      filteredSessions.forEach((s) => {
-        const key = s.date.slice(0, 10);
-        if (dayMap.has(key)) dayMap.set(key, dayMap.get(key)! + s.durationMin);
-      });
-      const entries = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      return {
-        data: entries.map((e) => e[1]),
-        labels: entries.map((e) => new Date(e[0]).toLocaleDateString(language, { month: "numeric", day: "numeric" })),
-      };
-    } else if (playtimeAgg === "AGG_WEEK") {
-      const weekMap = new Map<string, number>();
-      const numWeeks = Math.ceil(timeframeDays / 7);
-      for (let i = numWeeks - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i * 7);
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(d.setDate(diff));
-        weekMap.set(startOfWeek.toISOString().slice(0, 10), 0);
-      }
-      filteredSessions.forEach((s) => {
-        const sDate = new Date(s.date);
-        const day = sDate.getDay();
-        const diff = sDate.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(sDate.setDate(diff));
-        let closestKey = "";
-        let minDiff = Infinity;
-        for (const k of weekMap.keys()) {
-          const diffTime = Math.abs(startOfWeek.getTime() - new Date(k).getTime());
-          if (diffTime < minDiff) {
-            minDiff = diffTime;
-            closestKey = k;
-          }
-        }
-        if (closestKey && minDiff < 7 * 24 * 60 * 60 * 1000) {
-          weekMap.set(closestKey, weekMap.get(closestKey)! + s.durationMin);
-        }
-      });
-      const entries = Array.from(weekMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      return {
-        data: entries.map((e) => e[1]),
-        labels: entries.map((e) => `${t("gameActivity.weekShort")} ${new Date(e[0]).toLocaleDateString(language, { month: "numeric", day: "numeric" })}`),
-      };
-    } else {
-      const monthMap = new Map<string, number>();
-      filteredSessions.forEach((s) => {
-        const key = s.date.slice(0, 7);
-        monthMap.set(key, (monthMap.get(key) || 0) + s.durationMin);
-      });
-      const now = new Date();
-      for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = d.toISOString().slice(0, 7);
-        if (new Date(key + "-01") >= cutoffDate && !monthMap.has(key)) monthMap.set(key, 0);
-      }
-      const entries = Array.from(monthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      return {
-        data: entries.map((e) => e[1]),
-        labels: entries.map((e) => new Date(e[0] + "-01").toLocaleDateString(language, { month: "short" })),
-      };
-    }
-  }, [filteredSessions, timeframe, playtimeAgg, language, t]);
-
-  const sessionsWithHw = useMemo(() => {
-    return filteredSessions.filter((s) => s.metrics && s.metrics.avgCpuUsage > 0);
-  }, [filteredSessions]);
-
-  const hasTemps = useMemo(() => {
-    return sessionsWithHw.some((s) => s.metrics && (s.metrics.avgCpuTemp > 0 || s.metrics.avgGpuTemp > 0));
-  }, [sessionsWithHw]);
-
-  const hwAverages = useMemo(() => {
-    if (sessionsWithHw.length === 0) return null;
-    const len = sessionsWithHw.length;
-    const clampFps = (v: number) => (!Number.isFinite(v) || v < 0 || v > 1000 ? 0 : Math.round(v));
-    const fpsSessions = sessionsWithHw.filter((s) => (s.metrics!.avgFps ?? 0) > 0);
-    const fpsLen = fpsSessions.length || 1;
-    const avgFps = Math.round(fpsSessions.reduce((sum, s) => sum + clampFps(s.metrics!.avgFps), 0) / fpsLen);
-    const maxFps = fpsSessions.reduce((max, s) => Math.max(max, clampFps(s.metrics!.maxFps)), 0);
-    const minFps = fpsSessions.reduce((min, s) => {
-      const value = clampFps(s.metrics!.minFps);
-      return value > 0 && (min === 0 || value < min) ? value : min;
-    }, 0);
-    // Pool real FPS samples (or each session's measured minimum) so the 1% low
-    // reflects captured frames instead of a percentage of the average.
-    const onePercentLowFps = pooledOnePercentLowFps(fpsSessions.map((s) => s.metrics!));
-    const avgCpu = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgCpuUsage, 0) / len);
-    const maxCpu = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgCpuUsage), 0);
-    const avgGpu = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgGpuUsage, 0) / len);
-    const maxGpu = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgGpuUsage), 0);
-    const avgCpuT = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgCpuTemp, 0) / len);
-    const maxCpuT = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgCpuTemp), 0);
-    const avgGpuT = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgGpuTemp, 0) / len);
-    const maxGpuT = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgGpuTemp), 0);
-    const avgRamPct = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.metrics!.avgRamUsage, 0) / len);
-    const maxRamPct = sessionsWithHw.reduce((max, s) => Math.max(max, s.metrics!.avgRamUsage), 0);
-
-    return {
-      avgFps, minFps, maxFps, onePercentLowFps,
-      avgCpu, maxCpu: Math.max(avgCpu, maxCpu),
-      avgGpu, maxGpu: Math.max(avgGpu, maxGpu),
-      avgCpuT, maxCpuT: Math.max(avgCpuT, maxCpuT),
-      avgGpuT, maxGpuT: Math.max(avgGpuT, maxGpuT),
-      avgRamPct, maxRamPct: Math.max(avgRamPct, maxRamPct),
-    };
-  }, [sessionsWithHw]);
-
-  const perfTimelineData = useMemo(() => {
-    if (sessionsWithHw.length === 0) return null;
-    const selectedSess = isolatedSessionIndex !== null ? sessionsWithHw[isolatedSessionIndex] : null;
-    const avgDuration = Math.round(sessionsWithHw.reduce((sum, s) => sum + s.durationMin, 0) / sessionsWithHw.length);
-    const durationMin = selectedSess?.durationMin ?? avgDuration;
-
-    const pts = 45;
-    const labels: string[] = [];
-    for (let i = 0; i < pts; i++) {
-      const elapsedSec = Math.round((i / (pts - 1)) * durationMin * 60);
-      labels.push(`${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, "0")}`);
-    }
-
-    let cpu: number[], gpu: number[], ram: number[], fps: number[], cpuTemp: number[], gpuTemp: number[];
-    let real = false;
-
-    if (selectedSess) {
-      const realSeries = buildSingleSessionSeries(selectedSess.metrics, pts);
-      if (realSeries) {
-        ({ cpu, gpu, ram, fps, cpuTemp, gpuTemp } = realSeries);
-        real = true;
-      } else {
-        const m = selectedSess.metrics!;
-        const seedStr = selectedSess.id;
-        cpu = generateConsistentSeries(m.avgCpuUsage, Math.max(0, m.avgCpuUsage - 15), Math.min(100, m.avgCpuUsage + 20), pts, seedStr + "-cpu");
-        gpu = generateConsistentSeries(m.avgGpuUsage, Math.max(0, m.avgGpuUsage - 10), Math.min(100, m.avgGpuUsage + 15), pts, seedStr + "-gpu");
-        ram = generateConsistentSeries(m.avgRamUsage, Math.max(0, m.avgRamUsage - 5), Math.min(100, m.avgRamUsage + 5), pts, seedStr + "-ram");
-        fps = m.avgFps > 0 ? generateConsistentSeries(m.avgFps, m.minFps, m.maxFps, pts, seedStr + "-fps") : new Array(pts).fill(0);
-        cpuTemp = hasTemps ? generateConsistentSeries(m.avgCpuTemp, Math.max(35, m.avgCpuTemp - 8), Math.min(100, m.avgCpuTemp + 10), pts, seedStr + "-cputemp") : [];
-        gpuTemp = hasTemps ? generateConsistentSeries(m.avgGpuTemp, Math.max(35, m.avgGpuTemp - 6), Math.min(100, m.avgGpuTemp + 8), pts, seedStr + "-gputemp") : [];
-      }
-    } else {
-      const realSeries = buildTimelineFromSessions(sessionsWithHw, pts);
-      if (realSeries) {
-        ({ cpu, gpu, ram, fps, cpuTemp, gpuTemp } = realSeries);
-        real = true;
-      } else if (hwAverages) {
-        const seedStr = "all-average";
-        cpu = generateConsistentSeries(hwAverages.avgCpu, Math.max(0, hwAverages.avgCpu - 15), Math.min(100, hwAverages.avgCpu + 20), pts, seedStr + "-cpu");
-        gpu = generateConsistentSeries(hwAverages.avgGpu, Math.max(0, hwAverages.avgGpu - 10), Math.min(100, hwAverages.avgGpu + 15), pts, seedStr + "-gpu");
-        ram = generateConsistentSeries(hwAverages.avgRamPct, Math.max(0, hwAverages.avgRamPct - 5), Math.min(100, hwAverages.avgRamPct + 5), pts, seedStr + "-ram");
-        fps = hwAverages.avgFps > 0 ? generateConsistentSeries(hwAverages.avgFps, Math.round(hwAverages.avgFps * 0.8), hwAverages.maxFps, pts, seedStr + "-fps") : new Array(pts).fill(0);
-        cpuTemp = hasTemps ? generateConsistentSeries(hwAverages.avgCpuT, Math.max(35, hwAverages.avgCpuT - 8), Math.min(100, hwAverages.avgCpuT + 10), pts, seedStr + "-cputemp") : [];
-        gpuTemp = hasTemps ? generateConsistentSeries(hwAverages.avgGpuT, Math.max(35, hwAverages.avgGpuT - 6), Math.min(100, hwAverages.avgGpuT + 8), pts, seedStr + "-gputemp") : [];
-      } else {
-        return null;
-      }
-    }
-
-    return { cpu, gpu, cpuTemp, gpuTemp, ram, fps, labels, real };
-  }, [sessionsWithHw, isolatedSessionIndex, hwAverages, hasTemps]);
-
-  const comparison = useMemo(() => buildPeriodComparison(sessions, timeframe), [sessions, timeframe]);
-  const records = useMemo(
-    () => buildRecords({ sessions: filteredSessions, games: [], language, scope: "game" }),
-    [filteredSessions, language],
+  const inspectedSession = useMemo(
+    () => (inspectedId ? allSessions.find((session) => session.id === inspectedId) ?? null : null),
+    [allSessions, inspectedId],
   );
-  const milestones = useMemo(() => buildMilestoneLadders(sessions, "game"), [sessions]);
 
-  const logSessionFocus = useFocusProps(() => setShowManualModal(true));
-  const screenshotFocus = useFocusProps(handleCaptureScreenshot);
-  const exportCsvFocus = useFocusProps(() => handleExportSessions("csv"));
-  const exportJsonFocus = useFocusProps(() => handleExportSessions("json"));
-
-  if (sessions.length === 0) {
-    return (
-      <div className="game-activity-tab act-stack gav">
-        <EmptyState
-          icon={<Icons.History size={24} />}
+  const body = () => {
+    if (allSessions.length === 0) {
+      return (
+        <GameTabEmpty
+          icon={<History size={22} />}
           title={t("gameActivity.noSessionsTitle")}
-          hint={t("activityInsights.gameEmptyHint")}
-        />
-        <div className="act-empty-actions">
-          <Button
-            ref={logSessionFocus.ref}
-            tabIndex={logSessionFocus.tabIndex}
-            variant="primary"
-            size="sm"
-            leftIcon={<Icons.Plus size={13} />}
-            onClick={logSessionFocus.onClick}
-          >
-            {t("activityManual.logSessionBtn")}
-          </Button>
-        </div>
-        {showManualModal && (
-          <ManualSessionModal
-            isOpen={showManualModal}
-            onClose={() => setShowManualModal(false)}
-            preselectedGameId={game.id}
-            games={[game]}
-          />
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="game-activity-tab act-stack gav">
-        <div className="act-toolbar">
-          <div className="act-toolbar__left">
-            <Segmented<ViewMode>
-              ariaLabel={t("nav.activity")}
-              value={viewMode}
-              onChange={setViewMode}
-              options={[
-                { value: "playtime", label: <><Icons.Clock size={13} /> {t("activity.playtime")}</> },
-                { value: "performance", label: <><Icons.BarChart3 size={13} /> {t("activity.performance")}</> },
-                { value: "sessions", label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
-                { value: "habits", label: <><Icons.Sparkles size={13} /> {t("activity.tab.habits")}</> },
-              ]}
-            />
-            <RangePills value={timeframe} onChange={setTimeframe} />
-          </div>
-
-          <div className="act-toolbar__right">
+          description={t("activityInsights.gameEmptyHint")}
+          actions={
             <Button
-              ref={logSessionFocus.ref}
-              tabIndex={logSessionFocus.tabIndex}
               variant="primary"
               size="sm"
-              leftIcon={<Icons.Plus size={13} />}
-              onClick={logSessionFocus.onClick}
+              onClick={() => setManualOpen(true)}
             >
               {t("activityManual.logSessionBtn")}
             </Button>
-            <Button variant="secondary" size="md" iconOnly leftIcon={<Icons.Camera size={14} />}
-              ref={screenshotFocus.ref}
-              tabIndex={screenshotFocus.tabIndex}
-              type="button"
-              
-              title={t("gameActivity.saveScreenshotBtn")}
-              aria-label={t("gameActivity.saveScreenshotBtn")}
-              onClick={screenshotFocus.onClick}
-            ></Button>
-            <Button ref={exportCsvFocus.ref} tabIndex={exportCsvFocus.tabIndex} variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={exportCsvFocus.onClick}>
-              {t("activity.exportCsv")}
-            </Button>
-            <Button ref={exportJsonFocus.ref} tabIndex={exportJsonFocus.tabIndex} variant="secondary" size="sm" leftIcon={<Icons.Download size={13} />} onClick={exportJsonFocus.onClick}>
-              {t("activity.exportJson")}
-            </Button>
-          </div>
-        </div>
-
-        {viewMode === "playtime" && (
-          <GameActivityPlaytimeView
-            game={game}
-            stats={stats}
-            allSessions={sessions}
-            playtimeChartData={playtimeChartData}
-            filteredSessions={filteredSessions}
-            timeframe={timeframe}
-            playtimeAgg={playtimeAgg}
-            onAggChange={setPlaytimeAgg}
-            playtimeChartStyle={playtimeChartStyle}
-            onStyleChange={setPlaytimeChartStyle}
-            onNavigateToSessions={() => setViewMode("sessions")}
-            comparison={comparison}
-            records={records}
-            milestones={milestones}
-          />
-        )}
-
-        {viewMode === "performance" && (
-          <GameActivityPerformanceView
-            filteredSessions={filteredSessions}
-            sessionsWithHw={sessionsWithHw}
-            hasTemps={hasTemps}
-            hwAverages={hwAverages}
-            perfTimelineData={perfTimelineData}
-            isolatedSessionIndex={isolatedSessionIndex}
-            setIsolatedSessionIndex={setIsolatedSessionIndex}
-            tempUnit={tempUnit}
-          />
-        )}
-
-        {viewMode === "sessions" && (
-          <GameActivitySessionsView
-            game={game}
-            sessions={sessions}
-            sessionsWithHw={sessionsWithHw}
-            hasTemps={hasTemps}
-            tempUnit={tempUnit}
-            onRequestDelete={setPendingDeleteId}
-          />
-        )}
-
-        {viewMode === "habits" && (
-          <GameActivityHabitsView
-            sessions={sessions}
-            filteredSessions={filteredSessions}
-            timeframe={timeframe}
-            records={records}
-            milestones={milestones}
-          />
-        )}
-      </div>
-
-      <ConfirmModal
-        open={pendingDeleteId !== null}
-        title={t("gameActivity.deleteTitle")}
-        message={<span>{t("gameActivity.deleteBody")}</span>}
-        confirmLabel={t("gameActivity.deleteSession")}
-        onCancel={() => setPendingDeleteId(null)}
-        onConfirm={() => {
-          if (pendingDeleteId) {
-            deleteSession(pendingDeleteId);
-            setIsolatedSessionIndex(null);
           }
-          setPendingDeleteId(null);
-        }}
+        />
+      );
+    }
+
+    if (view === "overview") {
+      return (
+        <GameActivityOverviewView
+          game={game}
+          sessions={sessions}
+          allSessions={allSessions}
+          range={range}
+          rangeLabel={rangeLabel}
+          aggregation={state.agg}
+          onAggregationChange={(agg) => update({ agg })}
+          chartStyle={state.chart}
+          onChartStyleChange={(chart) => update({ chart })}
+          chartMode={state.mode}
+          onChartModeChange={(mode) => update({ mode })}
+        />
+      );
+    }
+
+    if (view === "sessions") {
+      return (
+        <ActivitySessionList
+          sessions={sessions}
+          games={[game]}
+          filters={filters}
+          onFiltersChange={updateFilters}
+          onInspect={(session) => setInspectedId(session.id)}
+          onDelete={(session) => setPendingDelete(session)}
+          onLaunchGame={launchGame}
+          variant="game"
+          tempUnit={tempUnit}
+          rangeLabel={rangeLabel}
+          emptyTitle={
+            allSessions.length > 0
+              ? t("activityWs.overview.emptyTitle")
+              : t("activityWs.sessions.noSessionsTitle")
+          }
+          emptyHint={
+            allSessions.length > 0
+              ? t("activityWs.overview.emptyHint")
+              : t("activityWs.sessions.noSessionsHint")
+          }
+        />
+      );
+    }
+
+    if (view === "performance") {
+      return (
+        <ActivityPerformance
+          sessions={sessions}
+          games={[game]}
+          startDate={range.startDate}
+          endDate={range.endDate}
+          sourceFilter="all"
+          mode="game"
+        />
+      );
+    }
+
+    return <GameActivityHabitsView sessions={sessions} range={range} rangeLabel={rangeLabel} />;
+  };
+
+  return (
+    <>
+      <GameTabShell
+        className="game-activity-tab"
+        eyebrow={gameDisplayName(game)}
+        title={t("activityWs.gameTab.title")}
+        description={description}
+        icon={<Sparkles size={18} />}
+        actions={
+          <ActivityActions
+            compact
+            onLogSession={() => setManualOpen(true)}
+            onExportCsv={exportCsv}
+            onExportJson={() => void exportJson()}
+            onShareRecap={() => setRecapOpen(true)}
+            onCapturePage={() => void capturePage()}
+            onCopySummary={() => void copySummary()}
+          />
+        }
+        stats={statItems}
+        statsLabel={t("activity.title")}
+        toolbar={
+          <GameTabToolbar
+            filters={
+              <GameTabViewSwitch
+                items={availableViews.map((entry) => ({
+                  id: entry.id,
+                  label: entry.label,
+                  icon: entry.icon,
+                }))}
+                value={view}
+                onChange={(next) => update({ view: next })}
+                ariaLabel={t("activityWs.gameTab.views")}
+              />
+            }
+            below={
+              <ActivityScopeBar
+                rangeKey={state.range}
+                rangeLabel={rangeLabel}
+                defaultFrom={range.startDate}
+                defaultTo={range.endDate}
+                maxDate={localDayKey(new Date())}
+                from={state.from}
+                to={state.to}
+                source="all"
+                sourceOptions={[]}
+                gameId={null}
+                gameOptions={[]}
+                isDefaultScope={state.range === DEFAULTS.range}
+                savedViews={[]}
+                showSource={false}
+                showGame={false}
+                showViews={false}
+                onRangeChange={(rangeKey) => update({ range: rangeKey, from: "", to: "" })}
+                onCustomRange={(from, to) => update({ range: "custom", from, to })}
+                onSourceChange={() => undefined}
+                onGameChange={() => undefined}
+                onReset={() => update({ range: DEFAULTS.range, from: "", to: "" })}
+                onApplyView={() => undefined}
+                onSaveView={() => undefined}
+                onDeleteView={() => undefined}
+              />
+            }
+          />
+        }
+      >
+        {body()}
+      </GameTabShell>
+
+      <ManualSessionModal
+        isOpen={manualOpen}
+        onClose={() => setManualOpen(false)}
+        preselectedGameId={game.id}
+        games={[game]}
       />
 
-      {showManualModal && (
-        <ManualSessionModal
-          isOpen={showManualModal}
-          onClose={() => setShowManualModal(false)}
-          preselectedGameId={game.id}
-          games={[game]}
-        />
-      )}
+      <ActivitySessionDrawer
+        session={inspectedSession}
+        game={game}
+        tempUnit={tempUnit}
+        onClose={() => setInspectedId(null)}
+        onDelete={(session) => setPendingDelete(session)}
+        onLaunchGame={launchGame}
+      />
+
+      <ActivityRecapDrawer
+        open={recapOpen}
+        onClose={() => setRecapOpen(false)}
+        sessions={sessions}
+        games={[game]}
+        range={range}
+        rangeLabel={rangeLabel}
+      />
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        title={t("gameActivity.deleteTitle")}
+        message={t("gameActivity.deleteBody")}
+        confirmLabel={t("gameActivity.deleteSession")}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) {
+            deleteSession(pendingDelete.id);
+            if (inspectedId === pendingDelete.id) setInspectedId(null);
+          }
+          setPendingDelete(null);
+        }}
+      />
     </>
   );
 }

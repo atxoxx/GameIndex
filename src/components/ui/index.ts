@@ -7,6 +7,9 @@ export type { CardProps } from "./Card";
 export { Panel } from "./Panel";
 export type { PanelProps, PanelTone } from "./Panel";
 
+export { Popover } from "./Popover";
+export type { PopoverProps, PopoverTriggerProps } from "./Popover";
+
 export { DetailDrawer } from "./DetailDrawer";
 export type { DetailDrawerProps } from "./DetailDrawer";
 
