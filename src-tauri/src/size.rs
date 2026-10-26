@@ -341,7 +341,7 @@ pub async fn measure_path_size(path: String) -> Result<SizeDetectionResult, Stri
 /// games whose `sizeRootPath` no longer exists.
 #[tauri::command]
 pub fn check_paths_exist(paths: Vec<String>) -> Vec<bool> {
-    paths.iter().map(|p| Path::new(p).exists()).collect()
+    paths.par_iter().map(|p| Path::new(p).exists()).collect()
 }
 
 /// Reveal `path` in the OS file manager (Explorer / Finder / file

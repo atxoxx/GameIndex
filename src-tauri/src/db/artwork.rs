@@ -174,8 +174,10 @@ pub fn cleanup_non_library_caches(app_data_dir: &Path, max_age: Duration) {
 /// libraries written before thumbnails existed; idempotent, so it is safe to
 /// run on every boot. Returns the number of thumbnails written.
 pub fn ensure_thumbnails(app_data_dir: &Path) -> usize {
+    // Collect (game_id, slot, file path) work items up front so the
+    // decode/encode pass can run in parallel via the rayon global pool.
+    let mut work: Vec<(String, &'static str, std::path::PathBuf)> = Vec::new();
     let Ok(games) = std::fs::read_dir(artwork_root(app_data_dir)) else { return 0; };
-    let mut written = 0;
     for game in games.flatten() {
         if !game.path().is_dir() { continue; }
         let game_id = game.file_name().to_string_lossy().to_string();
@@ -186,14 +188,24 @@ pub fn ensure_thumbnails(app_data_dir: &Path) -> usize {
             // A `_thumb` file's stem ends in `_thumb`, so it never matches a
             // slot name and the walk is not re-encoding its own output.
             if !THUMB_SLOTS.contains(&slot) { continue; }
+            let slot: &'static str = match THUMB_SLOTS.iter().copied().find(|s| *s == slot) {
+                Some(s) => s,
+                None => continue,
+            };
             let Some(relative) = thumbnail_relative_path(&game_id, slot) else { continue; };
             if app_data_dir.join(&relative).is_file() { continue; }
-            let Ok(bytes) = std::fs::read(file.path()) else { continue; };
-            let Some(thumb) = encode_thumbnail(&bytes, slot) else { continue; };
-            if write_atomic(&app_data_dir.join(&relative), &thumb).is_ok() { written += 1; }
+            work.push((game_id.clone(), slot, file.path()));
         }
     }
-    written
+    use rayon::prelude::*;
+    work.par_iter()
+        .map(|(game_id, slot, path)| {
+            let Ok(bytes) = std::fs::read(path) else { return 0usize; };
+            let Some(thumb) = encode_thumbnail(&bytes, slot) else { return 0usize; };
+            let Some(relative) = thumbnail_relative_path(game_id, slot) else { return 0usize; };
+            if write_atomic(&app_data_dir.join(relative), &thumb).is_ok() { 1usize } else { 0usize }
+        })
+        .sum()
 }
 
 /// Delete artwork files no longer referenced by library rows.

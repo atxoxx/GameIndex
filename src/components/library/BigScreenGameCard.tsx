@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 import { gameDisplayName, type Game } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { useRunningIds } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
@@ -29,11 +29,11 @@ export default function BigScreenGameCard({
   game,
   onClick,
 }: BigScreenGameCardProps) {
-  const { runningGameIds } = useGames();
+  const runningIds = useRunningIds();
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const isRunning = runningGameIds.includes(game.id);
+  const isRunning = runningIds.includes(game.id);
 
   const focusable = useFocusable(onClick);
 

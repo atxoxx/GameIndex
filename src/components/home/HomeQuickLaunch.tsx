@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { gameDisplayName, type Game } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { useGameCardActions, useGames, useRunningIds } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import HomeSection from "./HomeSection";
 
@@ -9,7 +9,9 @@ const MAX_ITEMS = 5;
 
 export default function HomeQuickLaunch() {
   const navigate = useNavigate();
-  const { games, runningGameIds, launchGame } = useGames();
+  const { games } = useGames();
+  const runningGameIds = useRunningIds();
+  const { launchGame } = useGameCardActions();
   const { t } = useLanguage();
 
   const quickGames = useMemo<Game[]>(() => {

@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useActiveDownloadCount } from "../context/DownloadContext";
-import { useGames } from "../context/GameContext";
+import { useGameById, useRunningIds } from "../context/GameContext";
 import { useAppVersion } from "../hooks/useAppVersion";
 import { useBigScreen } from "../context/BigScreenContext";
 import {
@@ -122,7 +122,8 @@ const allNavTabs: Tab[] = [
 
 export default function TopNav() {
   const { t } = useLanguage();
-  const { games, runningGameIds } = useGames();
+  const runningIds = useRunningIds();
+  const runningGame = useGameById(runningIds[0] ?? "");
   const location = useLocation();
   const navigate = useNavigate();
   const activeDownloads = useActiveDownloadCount();
@@ -148,12 +149,7 @@ export default function TopNav() {
   const moreRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
 
-  // Find currently running game for live HUD indicator
-  const runningGame = useMemo(() => {
-    if (runningGameIds.length === 0) return null;
-    return games.find((g) => runningGameIds.includes(g.id)) ?? null;
-  }, [games, runningGameIds]);
-
+  // Find currently running game for live HUD indicator (narrow selector)
   useEffect(() => {
     return subscribeUnseenCommunity((count) => {
       setUnseenCommunity(count);

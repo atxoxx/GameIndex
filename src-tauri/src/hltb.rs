@@ -395,14 +395,27 @@ fn token_cache() -> &'static Mutex<Option<SearchToken>> {
 async fn pace() {
     static GATE: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
     let gate = GATE.get_or_init(|| tokio::sync::Mutex::new(None));
-    let mut last = gate.lock().await;
-    if let Some(at) = *last {
-        let elapsed = at.elapsed();
-        if elapsed < MIN_REQUEST_GAP {
-            tokio::time::sleep(MIN_REQUEST_GAP - elapsed).await;
-        }
+    let wait = {
+        let mut last = gate.lock().await;
+        let wait = match *last {
+            Some(at) => {
+                let elapsed = at.elapsed();
+                if elapsed < MIN_REQUEST_GAP {
+                    MIN_REQUEST_GAP - elapsed
+                } else {
+                    Duration::ZERO
+                }
+            }
+            None => Duration::ZERO,
+        };
+        // Schedule the next slot up front so concurrent callers don't
+        // all sleep for the same gap; the lock is dropped before sleeping.
+        *last = Some(Instant::now() + wait);
+        wait
+    };
+    if !wait.is_zero() {
+        tokio::time::sleep(wait).await;
     }
-    *last = Some(Instant::now());
 }
 
 async fn get_token(force: bool) -> Option<SearchToken> {

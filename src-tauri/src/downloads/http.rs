@@ -1235,18 +1235,22 @@ impl SegmentProgressTracker {
         None
     }
 
-    async fn save(&mut self) {
-        if self.dirty {
-            let meta = SegmentMeta {
-                total_size: self.total_size,
-                chunk_size: self.chunk_size,
-                chunks: self.chunks.clone(),
-            };
-            if let Ok(json) = serde_json::to_string(&meta) {
-                let _ = tokio::fs::write(&self.meta_path, json).await;
-            }
-            self.dirty = false;
+    /// Take any pending dirty state out of the tracker and return the
+    /// (path, json) payload to be written to disk. Returns `None` when
+    /// nothing needs persisting. Clearing `dirty` happens here so the
+    /// actual disk write can run *after* the mutex guard is dropped.
+    fn take_pending_save(&mut self) -> Option<(std::path::PathBuf, String)> {
+        if !self.dirty {
+            return None;
         }
+        let meta = SegmentMeta {
+            total_size: self.total_size,
+            chunk_size: self.chunk_size,
+            chunks: self.chunks.clone(),
+        };
+        let json = serde_json::to_string(&meta).ok()?;
+        self.dirty = false;
+        Some((self.meta_path.clone(), json))
     }
 }
 
@@ -1497,12 +1501,17 @@ async fn stream_chunk(
         if uncommitted_bytes >= 2 * 1024 * 1024 || last_save.elapsed() >= Duration::from_secs(2) {
             uncommitted_bytes = 0;
             last_save = std::time::Instant::now();
-            if let Ok(mut tracker) = progress_tracker.try_lock() {
+            let pending = if let Ok(mut tracker) = progress_tracker.try_lock() {
                 if let Some(val) = tracker.chunks.get_mut(chunk_index) {
                     *val = current_downloaded;
                     tracker.dirty = true;
                 }
-                tracker.save().await;
+                tracker.take_pending_save()
+            } else {
+                None
+            };
+            if let Some((path, json)) = pending {
+                let _ = tokio::fs::write(path, json).await;
             }
         }
     }
@@ -1510,13 +1519,16 @@ async fn stream_chunk(
     let _ = file.flush().await;
     drop(file);
 
-    {
+    let pending = {
         let mut tracker = progress_tracker.lock().await;
         if let Some(val) = tracker.chunks.get_mut(chunk_index) {
             *val = current_downloaded;
             tracker.dirty = true;
         }
-        tracker.save().await;
+        tracker.take_pending_save()
+    };
+    if let Some((path, json)) = pending {
+        let _ = tokio::fs::write(path, json).await;
     }
 
     SegmentResult::Done
@@ -1795,13 +1807,16 @@ async fn attempt_segmented_download(
                             downloaded = after;
                             // Persist the chunk offset before sleeping so a
                             // pause/restart never re-fetches committed bytes.
-                            {
+                            let pending = {
                                 let mut t = tracker.lock().await;
                                 if let Some(val) = t.chunks.get_mut(chunk_index) {
                                     *val = after;
                                     t.dirty = true;
                                 }
-                                t.save().await;
+                                t.take_pending_save()
+                            };
+                            if let Some((path, json)) = pending {
+                                let _ = tokio::fs::write(path, json).await;
                             }
                             attempt += 1;
                             RETRY_COUNT.fetch_add(1, Ordering::Relaxed);

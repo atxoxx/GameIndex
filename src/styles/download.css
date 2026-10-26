@@ -5306,6 +5306,8 @@
 
 /* ─── Download Row (Enhanced Table / List View) ────────────────── */
 .dl-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 68px;
   display: grid;
   grid-template-columns: auto minmax(75px, 105px) auto minmax(0, 1fr) minmax(110px, 130px) minmax(75px, 95px) auto;
   align-items: center;

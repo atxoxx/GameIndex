@@ -4270,6 +4270,8 @@
 }
 
 .act-session-dist__row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
   display: grid;
   grid-template-columns: 140px 1fr 110px;
   align-items: center;

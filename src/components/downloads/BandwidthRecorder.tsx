@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import {
   setBandwidthSpeeds,
@@ -11,8 +11,8 @@ import {
  */
 export default function BandwidthRecorder() {
   const { activeDownloads } = useDownloads();
-  const down = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
-  const up = activeDownloads.reduce((acc, d) => acc + (d.uploadSpeed || 0), 0);
+  const down = useMemo(() => activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0), [activeDownloads]);
+  const up = useMemo(() => activeDownloads.reduce((acc, d) => acc + (d.uploadSpeed || 0), 0), [activeDownloads]);
 
   useEffect(() => {
     setBandwidthSpeeds(down, up);

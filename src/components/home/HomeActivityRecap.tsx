@@ -48,11 +48,11 @@ export default function HomeActivityRecap() {
     ? runningGameIds.includes(mostPlayedGame.id)
     : false;
 
-  const cells = [
+  const cells = useMemo(() => [
     { label: t("activityDash.totalPlaytime"), value: formatPlayTime(week.totalMin) },
     { label: t("activityDash.sessions"), value: String(week.sessionsCount) },
     { label: t("home.activity.gamesPlayed"), value: String(week.gamesPlayed) },
-  ];
+  ], [t, week.totalMin, week.sessionsCount, week.gamesPlayed]);
 
   return (
     <HomeSection

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime, gameDisplayName } from "../../types/game";
-import { useGames, useLiveElapsed } from "../../context/GameContext";
+import { useGameCardActions, useLiveElapsed, useRunningIds } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import HeroTrailer from "./HeroTrailer";
@@ -28,7 +28,8 @@ interface SpotlightItem {
 
 function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const navigate = useNavigate();
-  const { launchGame, runningGameIds } = useGames();
+  const { launchGame } = useGameCardActions();
+  const runningGameIds = useRunningIds();
   const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -91,7 +92,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
     // 2. Continue Playing (most recently active)
     const played = games.filter((g) => g.lastPlayed && !seenIds.has(g.id));
     if (played.length > 0) {
-      const latest = [...played].sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))[0];
+      const latest = played.reduce((a, b) => ((b.lastPlayed ?? 0) > (a.lastPlayed ?? 0) ? b : a));
       deck.push({
         id: `continue-${latest.id}`,
         categoryKey: "home.spotlight.continue",
@@ -106,9 +107,9 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
       (g) => (g.igdbRating ?? g.criticRating ?? 0) > 0 && !seenIds.has(g.id)
     );
     if (rated.length > 0) {
-      const best = [...rated].sort(
-        (a, b) => (b.igdbRating ?? b.criticRating ?? 0) - (a.igdbRating ?? a.criticRating ?? 0)
-      )[0];
+      const best = rated.reduce((a, b) =>
+        (b.igdbRating ?? b.criticRating ?? 0) > (a.igdbRating ?? a.criticRating ?? 0) ? b : a
+      );
       deck.push({
         id: `topRated-${best.id}`,
         categoryKey: "home.spotlight.topRated",
@@ -137,11 +138,12 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
     }
 
     // 5. Most Played All-Time
-    const byPlaytime = [...games]
-      .filter((g) => !seenIds.has(g.id))
-      .sort((a, b) => parsePlayTime(b.playTime) - parsePlayTime(a.playTime));
-    if (byPlaytime.length > 0 && parsePlayTime(byPlaytime[0].playTime) > 0) {
-      const favorite = byPlaytime[0];
+    const unSeen = games.filter((g) => !seenIds.has(g.id));
+    const favorite = unSeen.reduce<Game | null>((acc, g) => {
+      if (acc === null) return g;
+      return parsePlayTime(g.playTime) > parsePlayTime(acc.playTime) ? g : acc;
+    }, null);
+    if (favorite && parsePlayTime(favorite.playTime) > 0) {
       deck.push({
         id: `mostPlayed-${favorite.id}`,
         categoryKey: "home.spotlight.mostPlayed",

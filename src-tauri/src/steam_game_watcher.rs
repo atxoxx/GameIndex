@@ -15,6 +15,9 @@
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 /// Lightweight parsed Steam app manifest. Only the fields we care about.
 #[derive(Debug, Clone, Serialize)]
@@ -212,7 +215,33 @@ fn is_absolute_path_string(s: &str) -> bool {
 /// flipping `StateFlags` while a game is mid-launch / mid-update
 /// hand-off. Callers should fall back to a synthetic pseudo-session if
 /// this returns `None`.
+const APP_INSTALL_CACHE_TTL: Duration = Duration::from_secs(60);
+
+fn app_install_cache() -> &'static Mutex<HashMap<u32, (Option<AppManifest>, Instant)>> {
+    static CACHE: OnceLock<Mutex<HashMap<u32, (Option<AppManifest>, Instant)>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
+    // Serve from a short-lived cache so repeated calls during library
+    // sync / watcher rebuilds / size detection don't re-read manifests.
+    if let Ok(cache) = app_install_cache().lock() {
+        if let Some((cached, at)) = cache.get(&app_id) {
+            if at.elapsed() < APP_INSTALL_CACHE_TTL {
+                return cached.clone();
+            }
+        }
+    }
+
+    let result = find_app_install_dir_uncached(app_id);
+
+    if let Ok(mut cache) = app_install_cache().lock() {
+        cache.insert(app_id, (result.clone(), Instant::now()));
+    }
+    result
+}
+
+fn find_app_install_dir_uncached(app_id: u32) -> Option<AppManifest> {
     let primary_root = find_steam_install_dir()?;
 
     // Build the search list: primary install first, then every

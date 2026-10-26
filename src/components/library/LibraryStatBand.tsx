@@ -38,7 +38,7 @@ export default function LibraryStatBand({
 
   const installedPct = games.length > 0 ? Math.round((installedCount / games.length) * 100) : 0;
 
-  const items: StatBandItem[] = [
+  const items: StatBandItem[] = useMemo(() => [
     {
       id: "total",
       label: t("lib.hero.stat.total"),
@@ -74,8 +74,8 @@ export default function LibraryStatBand({
       tone: "warning",
       detail: addedThisWeek === 1 ? t("lib.hero.stat.addedWeekSub") : undefined,
     },
-  ];
-
+  ], [games.length, installedCount, installedPct, totalPlaytime, addedThisWeek, t, onToggleInstalled]);
+ 
   return (
     <StatBand
       className="library-stat-band"

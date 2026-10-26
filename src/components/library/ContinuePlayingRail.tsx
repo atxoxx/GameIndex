@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { gameDisplayName, type Game } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { useGameCardActions, useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
 import { useCollapsedState } from "../../hooks/useCollapsedState";
@@ -128,7 +128,7 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
   onClick: (game: Game) => void;
 }) {
   const { t } = useLanguage();
-  const { launchGame } = useGames();
+  const { launchGame } = useGameCardActions();
   const [hovered, setHovered] = useState(false);
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
   const steamAppId =

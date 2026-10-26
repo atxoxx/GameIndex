@@ -27,6 +27,7 @@ vi.mock("../../context/LanguageContext", () => ({
 }));
 vi.mock("../../context/GameContext", () => ({
   useGames: () => ({ runningGameIds: runningIds }),
+  useRunningIds: () => runningIds,
 }));
 vi.mock("../../hooks/useGameCardArt", () => ({
   useGameCardArt: () => ({

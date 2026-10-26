@@ -50,7 +50,7 @@ where
 // (rare, but it can cause `elapsed >= TTL` to spuriously fail), so
 // reads use saturating semantics.
 pub(crate) struct PlayerCountCache {
-    cache: std::sync::Mutex<HashMap<u32, (u32, Instant)>>,
+    cache: std::sync::Mutex<HashMap<u32, (Option<u32>, Instant)>>,
 }
 
 impl Default for PlayerCountCache {
@@ -91,7 +91,7 @@ pub async fn get_steam_player_count(
             // won't make this negative; the `>=` check is safe on all
             // platforms Rust supports.
             if fetched_at.elapsed() < PLAYER_COUNT_CACHE_TTL {
-                return Ok(Some(*count));
+                return Ok(*count);
             }
         }
     }
@@ -143,29 +143,24 @@ pub async fn get_steam_player_count(
         .await
         .map_err(|e| format!("Failed to parse Steam player count JSON: {}", e))?;
 
-    // Cache + return â€” even on `result != 1` we want to avoid hitting
-    // the API again within the TTL window, so we store `None` to mean
-    // "not currently tracked" (the frontend hides the badge either way).
+    // Cache + return. Cache both tracked (Some count) and untracked
+    // (result != 1) outcomes so we don't re-query Steam for titles it
+    // has no data for within the TTL window. Transport/parse failures
+    // return before this point and are therefore never cached.
     let result_ok = payload.response.result == 1;
-    let player_count = payload.response.player_count;
+    let player_count = if result_ok {
+        payload.response.player_count
+    } else {
+        None
+    };
 
     {
         let mut cache = state.cache.lock().map_err(|e| e.to_string())?;
-        // Only cache positive results so a transient Steam hiccup
-        // doesn't poison the TTL with a zero count.
-        if let Some(count) = player_count {
-            if result_ok {
-                cache.insert(app_id, (count, Instant::now()));
-                prune_fetched(&mut cache, |(_, at)| *at);
-            }
-        }
+        cache.insert(app_id, (player_count, Instant::now()));
+        prune_fetched(&mut cache, |(_, at)| *at);
     }
 
-    if result_ok {
-        Ok(player_count)
-    } else {
-        Ok(None)
-    }
+    Ok(player_count)
 }
 
 /// Look up the Steam app id for a game by name (best-effort).
