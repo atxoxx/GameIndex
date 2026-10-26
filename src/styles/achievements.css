@@ -1112,6 +1112,16 @@
   grid-column: 1 / -1;
 }
 
+/* Skip layout/paint for achievements scrolled off-screen. Large sets
+   (RetroAchievements consoles run into the hundreds) otherwise lay out
+   and paint every card at once, which is a big paint + memory bite on
+   weak iGPUs. The `auto` length keeps scroll anchoring stable before a
+   card has ever rendered; after that the browser remembers the real size. */
+.achievement-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 132px;
+}
+
 .achievements-last-synced {
   text-align: center;
   font-size: var(--text-2xs);
@@ -1363,6 +1373,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   transition: background var(--duration-fast), border-color var(--duration-fast);
+  /* Off-screen rows cost nothing; see .achievement-card above. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 58px;
 }
 
 .ach-compact-row:hover {

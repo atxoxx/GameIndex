@@ -86,7 +86,7 @@
   /* Overlay scrims (modal backdrops, lightbox) */
   --color-scrim: rgba(4, 5, 9, 0.62);
   --color-scrim-strong: rgba(4, 5, 9, 0.8);
-  --blur-scrim: blur(16px);
+  --blur-scrim: blur(10px);
 
   /* ── Scrim-for-Artwork tokens — EXEMPTION: over artwork only ──────────
      Fixed light-on-dark values for text/borders over photographic

@@ -59,7 +59,9 @@
   background-size: cover;
   background-position: center;
   z-index: 0;
-  filter: blur(26px) saturate(150%) brightness(0.78);
+  /* blur 18 instead of 26: a full-bleed re-blurred backdrop is the
+     store page's single biggest GPU surface; the dimming keeps the look. */
+  filter: blur(18px) saturate(150%) brightness(0.78);
   transform: scale(1.18);
   transition: background-image 600ms ease;
   animation: store-hero-kenburns 14s ease-in-out infinite alternate;

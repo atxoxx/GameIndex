@@ -79,7 +79,7 @@ body.launch-splash-window {
   width: 130%;
   height: 130%;
   object-fit: cover;
-  filter: blur(36px) brightness(0.65) saturate(130%);
+  filter: blur(26px) brightness(0.65) saturate(130%);
   opacity: 0.28;
   transform: scale(1.04);
   transition: opacity 300ms ease;
@@ -87,7 +87,7 @@ body.launch-splash-window {
 
 [data-theme="light"] .splashscreen-ambient-art {
   opacity: 0.14;
-  filter: blur(36px) brightness(1.1) saturate(120%);
+  filter: blur(26px) brightness(1.1) saturate(120%);
 }
 
 .splashscreen-ambient-glow-primary {
