@@ -211,7 +211,7 @@ export default function FriendsDmsTab({
                 >
                   <div className="dm-thread-avatar-wrapper">
                     {friend?.avatar && friend.avatar.startsWith("data:") ? (
-                      <img src={friend.avatar} alt={friendDisplay} className="dm-thread-avatar" />
+                      <img src={friend.avatar} alt={friendDisplay} className="dm-thread-avatar" loading="lazy" decoding="async" />
                     ) : (
                       <div
                         className="dm-thread-avatar-procedural"
@@ -267,7 +267,7 @@ export default function FriendsDmsTab({
             <div className="dm-conversation-header">
               <div className="dm-conversation-friend-meta">
                 {activeFriend?.avatar && activeFriend.avatar.startsWith("data:") ? (
-                  <img src={activeFriend.avatar} alt={selectedDmFriendName} className="dm-header-avatar" />
+                  <img src={activeFriend.avatar} alt={selectedDmFriendName} className="dm-header-avatar" loading="lazy" decoding="async" />
                 ) : (
                   <div
                     className="dm-header-avatar-procedural"
@@ -435,7 +435,7 @@ export default function FriendsDmsTab({
             <div className="dm-composer-bar">
               {pendingAttachment && (
                 <div className="dm-attachment-preview">
-                  <img src={pendingAttachment.dataUrl} alt={pendingAttachment.name} />
+                  <img src={pendingAttachment.dataUrl} alt={pendingAttachment.name} loading="lazy" decoding="async" />
                   <button
                     type="button"
                     className="dm-attachment-preview-remove"
@@ -493,7 +493,7 @@ export default function FriendsDmsTab({
       {lightboxUrl &&
         createPortal(
           <div className="dm-lightbox" onClick={() => setLightboxUrl(null)}>
-            <img src={lightboxUrl} alt="" />
+            <img src={lightboxUrl} alt="" loading="eager" decoding="async" />
           </div>,
           document.body
         )}

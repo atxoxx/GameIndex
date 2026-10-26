@@ -99,5 +99,5 @@ export function ArtworkImage({
     return () => window.clearTimeout(timer);
   }, [inView, keepLoaded, unloadDelay]);
 
-  return <img ref={setRef} src={showSrc ? src ?? undefined : undefined} alt={alt} decoding="async" {...rest} />;
+  return <img ref={setRef} src={showSrc ? src ?? undefined : undefined} alt={alt} loading="eager" decoding="async" {...rest} />;
 }

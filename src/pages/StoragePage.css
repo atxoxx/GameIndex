@@ -1077,6 +1077,8 @@
 }
 
 .gt-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard);
 }

@@ -28,6 +28,19 @@ body,
   overscroll-behavior: none;
 }
 
+/* Smooth, jank-free scrolling on every scroll container. `scroll-behavior:
+   smooth` only affects programmatic scrollTo/scrollIntoView (wheel scrolling
+   keeps the OS-level smoothness), so this never slows manual scrolling. */
+.scroll-container,
+.modal-body,
+.drawer-body,
+.panel-body,
+[data-scroll-container] {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Tauri window drag region helpers (crucial for Linux WebKitGTK) */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;

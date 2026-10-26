@@ -661,6 +661,8 @@
 /* ── Queue rows ────────────────────────────────────────────────────────── */
 
 .dlp .dlrow-wrap {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
   display: flex;
   flex-direction: column;
   width: 100%;

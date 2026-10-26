@@ -5923,6 +5923,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 /* ─── Download Grid Card (Cinematic / Cards View) ───────────────── */
 .dl-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);

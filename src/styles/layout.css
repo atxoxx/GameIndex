@@ -110,7 +110,10 @@ html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
   margin: var(--space-sm);
   background-color: var(--color-bg-secondary);
   background-image: var(--mesh-gradient);

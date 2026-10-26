@@ -339,6 +339,8 @@
 /* Each grid cell wraps the StoreGameCard plus the meta row (added date)
    and the note editor. */
 .wishlist-card-wrap {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
