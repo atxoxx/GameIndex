@@ -390,7 +390,6 @@ function CandidateCard({
             playsInline
             loop
             preload="auto"
-            className={`media-fetch-video ${shouldAnimate ? "media-fetch-img-active" : "media-fetch-img-static"}`}
             onLoadedData={(e) => {
               if (!shouldAnimate && e.currentTarget.currentTime === 0) {
                 e.currentTarget.currentTime = 0.001;
@@ -404,7 +403,6 @@ function CandidateCard({
               src={candidate.url}
               alt={`${candidate.source} ${slotLabel}`}
               decoding="async"
-              className="media-fetch-img-active"
             />
           ) : (
             <img
@@ -412,7 +410,6 @@ function CandidateCard({
               alt={`${candidate.source} ${slotLabel}`}
               loading="lazy"
               decoding="async"
-              className="media-fetch-img-static"
               onError={(e) => {
                 if (candidate.thumbUrl && e.currentTarget.src !== candidate.url) {
                   e.currentTarget.src = candidate.url;
@@ -572,6 +569,20 @@ export function MediaCandidateGallery({
       cancelled = true;
     };
   }, [slot, search, gameName, steamAppId]);
+
+  // The preview is a stacked overlay above the modal that opened the gallery.
+  // Escape closes it first (capture + stopPropagation) instead of also closing
+  // the gallery/modal underneath.
+  useEffect(() => {
+    if (!previewCandidate) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setPreviewCandidate(null);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [previewCandidate]);
 
   function runSearch() {
     setSearch((prev) => ({
@@ -755,7 +766,7 @@ export function MediaCandidateGallery({
         </form>
       )}
 
-      <div className={variant === "modal" ? "lb-browser-body media-fetch-body" : "media-fetch-inline-body"}>
+      <div className={variant === "modal" ? "lb-browser-body" : "media-fetch-inline-body"}>
         {!loading && allCandidates.length > 0 && (
           <div className="media-fetch-toolbar">
             {FORMAT_FILTERS.map((f) => {
@@ -844,7 +855,13 @@ export function MediaCandidateGallery({
               setPreviewCandidate(null);
             }}
           >
-            <div className="media-fetch-preview" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="media-fetch-preview"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${previewCandidate.source} ${slotLabel}`}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}  onClick={() => setPreviewCandidate(null)} aria-label={t("editImage.closePreview")}></Button>
               <div className={`media-fetch-preview-img${isTransparentSlot(slot) ? " transparent" : ""}`}>
                 {isVideoUrl(previewCandidate.url) ? (

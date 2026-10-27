@@ -29,7 +29,10 @@
   position: absolute;
   top: var(--space-md);
   inset-inline: var(--space-md);
-  z-index: 5;
+  /* Above the sticky tab strip: the quick-actions menu opens downward out of
+   * this bar and must not be painted under the tabs. Modals are portaled to
+   * <body>, so they still outrank the bar's stacking context. */
+  z-index: calc(var(--z-sticky) + 1);
   margin: 0;
 }
 
@@ -211,6 +214,13 @@
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-lg);
   }
+}
+
+/* Every side-column widget can be switched off (Layout Studio, or no card
+ * applicable to this game). With no rail mounted the second track would sit
+ * empty and squeeze the reading column, so collapse to one column. */
+.game-content-grid:not(:has(> .game-side-col)) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Game Sections — tonal panels, not boxes.
@@ -1089,8 +1099,10 @@
 }
 
 /* A side-column widget whose card renders nothing (no DLC, no Steam app id,
-   a save-suite that is off, …) must not leave its flex gap behind. */
-.game-side-col > div:empty {
+   a save-suite that is off, …) must not leave its flex gap behind. The rail
+   wraps each card in a `.rail-group__item`, so test the wrapper itself. */
+.game-side-col > div:empty,
+.rail-group__item:empty {
   display: none;
 }
 
@@ -1919,9 +1931,10 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 1000;
+  z-index: var(--z-popover);
   width: 250px;
   max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
   overflow-y: auto;
   scrollbar-width: thin;
   background: color-mix(in srgb, var(--color-surface-raised) 94%, black 6%);
@@ -2840,7 +2853,9 @@
 
 .rail-group__head:focus-visible {
   outline: none;
-  box-shadow: var(--ring-accent);
+  /* The panel clips its children (`overflow: hidden` for the rounded
+   * corners), so an outset ring would be cut off at the panel edge. */
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 .rail-group__icon {
@@ -2882,6 +2897,13 @@
 .rail-group__body {
   display: flex;
   flex-direction: column;
+}
+
+/* A panel whose cards all turned out empty (no ratings, no ProtonDB report,
+   no DLC, …) has nothing to disclose: drop the header too instead of leaving
+   an empty section that opens onto blank space. */
+.rail-group:has(> .rail-group__body):not(:has(> .rail-group__body > .rail-group__item:not(:empty))) {
+  display: none;
 }
 
 .rail-group__item + .rail-group__item {
@@ -3046,7 +3068,6 @@
 
 .activity-pulse__stat-box {
   background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
-  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-md);
   display: flex;
@@ -3101,7 +3122,7 @@
   width: 100%;
   height: 4px;
   border-radius: var(--radius-full);
-  background: var(--color-border-subtle);
+  background: var(--color-border);
   overflow: hidden;
   margin-top: var(--space-2xs);
 }
@@ -3111,23 +3132,6 @@
   border-radius: var(--radius-full);
   background: var(--color-warning);
   transition: width 400ms ease;
-}
-
-.rail-group__body .game-section-title,
-.rail-group__body .activity-pulse__header,
-.rail-group__body .game-save-backup-card__header {
-  margin: calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-md);
-  padding: var(--space-sm) var(--space-lg);
-  background: var(--color-bg-tertiary);
-  border-bottom: 1px solid var(--color-border);
-  border-radius: 0;
-}
-
-.rail-group__body .activity-pulse__header .game-section-title,
-.rail-group__body .game-save-backup-card__header .game-section-title {
-  margin: 0;
-  padding: 0;
-  border-bottom: 0;
 }
 
 /* The pulse boxes are tonal metrics, not mini cards. */
@@ -3177,7 +3181,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-surface-hover) 80%, transparent);
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid var(--color-border-faint);
   padding: var(--space-3xs) var(--space-sm);
   border-radius: var(--radius-full);
 }
@@ -3378,6 +3382,13 @@
   border-color: var(--color-accent);
   box-shadow: 0 0 12px var(--color-accent-glow);
   transform: translateY(-2px);
+}
+
+/* The filmstrip is a horizontal scroll container, so an outset ring would be
+   clipped: draw the focus ring inside the thumb instead. */
+.media-spotlight__thumb:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 .media-spotlight__thumb-img {

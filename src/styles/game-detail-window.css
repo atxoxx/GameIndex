@@ -42,6 +42,9 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  /* Same stable gutter as the shell's `.app-main`, so the page does not shift
+   * sideways when a tab's content changes the scroll height. */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 

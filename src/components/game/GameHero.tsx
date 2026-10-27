@@ -188,6 +188,8 @@ export default function GameHero({
   const rating = ratingProp ?? (game?.igdbRating || game?.criticRating) ?? null;
 
   const [coverErrored, setCoverErrored] = useState(false);
+  /** The cover URL failed but SteamGridDB art may still stand in. */
+  const [coverFailed, setCoverFailed] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
   const [sgdbPosterFailed, setSgdbPosterFailed] = useState(false);
   const {
@@ -219,6 +221,7 @@ export default function GameHero({
   useEffect(() => {
     setLogoErrored(false);
     setCoverErrored(false);
+    setCoverFailed(false);
     setSgdbPosterFailed(false);
   }, [logoUrl, coverUrl, steamAppId, name]);
 
@@ -367,7 +370,7 @@ export default function GameHero({
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIdx, setLightboxIdx] = useState(0);
 
-  const posterSrc = coverUrl ?? sgdbGridUrl;
+  const posterSrc = (coverUrl && !coverFailed ? coverUrl : null) ?? sgdbGridUrl;
 
   const handleOpenPoster = useCallback(() => {
     const src = posterSrc;
@@ -706,7 +709,11 @@ export default function GameHero({
         alt={displayName}
         className="game-hero__poster-img"
         onError={() => {
-          if (sgdbGridUrl) {
+          // Drop a broken cover for the SteamGridDB grid before giving up on
+          // the poster entirely.
+          if (coverUrl && !coverFailed && sgdbGridUrl) {
+            setCoverFailed(true);
+          } else if (sgdbGridUrl) {
             setSgdbPosterFailed(true);
           } else {
             setCoverErrored(true);

@@ -216,7 +216,11 @@
 .ratings-card__cta:focus-visible {
   border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.ratings-card__cta:focus-visible {
   outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .ratings-card__cta svg {
@@ -392,7 +396,11 @@
   color: var(--color-accent);
   border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
   background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary));
+}
+
+.ttb-details-btn:focus-visible {
   outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .ttb-summary {

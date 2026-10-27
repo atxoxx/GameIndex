@@ -511,6 +511,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
         nodes.push(
           <button
             key="back"
+            type="button"
             className="game-back-link game-top-bar__back"
             onClick={handleBack}
             aria-label={t("gamePage.returnToLibrary")}

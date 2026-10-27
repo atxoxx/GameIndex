@@ -345,7 +345,6 @@ export default function SystemRequirementsCard({
           {sourceLabel && (
             <span
               className={`system-requirements-card__source-pill system-requirements-card__source-pill--${payload?.source ?? "steam"}`}
-              aria-label={`Source: ${sourceLabel}`}
             >
               {t("about.from", { source: sourceLabel })}
             </span>

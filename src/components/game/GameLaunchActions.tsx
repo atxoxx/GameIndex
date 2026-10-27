@@ -99,6 +99,7 @@ export default function GameLaunchActions({
     <div className={`game-launch-actions game-launch-actions--${size}`}>
       {showInstall && (
         <button
+          type="button"
           className="game-launch-btn game-launch-btn--install"
           onClick={handleInstall}
         >
@@ -114,11 +115,12 @@ export default function GameLaunchActions({
         // The force-close action terminates the process and records the
         // session via the same `game-exited` path as a natural exit.
         <>
-          <button className="game-launch-btn running" disabled>
+          <button type="button" className="game-launch-btn running" disabled>
             <span className="running-dot-pulse" />
             {runningLabel}
           </button>
           <button
+            type="button"
             className="game-launch-btn game-launch-btn--force-close"
             onClick={handleForceClose}
             disabled={isClosing}
@@ -148,6 +150,7 @@ export default function GameLaunchActions({
             // attached chevron opens the executables picker.
             <div className="game-launch-split">
               <button
+                type="button"
                 className="game-launch-btn game-launch-btn--main"
                 onClick={onLaunch}
               >
@@ -155,6 +158,7 @@ export default function GameLaunchActions({
                 {t("launch.launchGame")}
               </button>
               <button
+                type="button"
                 className="game-launch-btn game-launch-btn--chevron"
                 onClick={() => setPickerOpen(true)}
                 title={t("game.execExtras.chooserTitle")}
@@ -167,6 +171,7 @@ export default function GameLaunchActions({
             </div>
           ) : (
             <button
+              type="button"
               className="game-launch-btn"
               onClick={onLaunch}
             >

@@ -260,7 +260,6 @@ export default function AboutSection({
           {sourceLabel && (
             <span
               className={`about-section__source-pill about-section__source-pill--${payload?.source ?? "manual"}`}
-              aria-label={`Source: ${sourceLabel}`}
             >
               {t("about.from", { source: sourceLabel })}
             </span>
