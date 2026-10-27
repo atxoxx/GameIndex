@@ -274,6 +274,12 @@
 
 @media (max-width: 900px) {
   .reels-split {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Stacked layout: cap the reel rail so a long list cannot push the selected
+     reel and the clip registry below the fold. */
+  .reels-list {
+    max-height: 220px;
   }
 }

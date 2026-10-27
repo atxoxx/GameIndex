@@ -299,8 +299,9 @@ export default function ReelsPage() {
                     type="button"
                     className={`reels-list__item${reel.id === selectedReelId ? " reels-list__item--active" : ""}`}
                     onClick={() => setSelectedReelId(reel.id)}
+                    aria-current={reel.id === selectedReelId ? "true" : undefined}
                   >
-                    <Clapperboard size={14} />
+                    <Clapperboard size={14} aria-hidden="true" />
                     <span className="reels-list__name">{reel.name}</span>
                     <span className="reels-list__count">{reel.clipIds.length}</span>
                   </button>
@@ -310,7 +311,7 @@ export default function ReelsPage() {
           )}
         </Panel>
 
-        <Panel as="main" className="reels-detail">
+        <Panel className="reels-detail">
           {creating && (
             <div className="reels-inline-form">
               <input
@@ -318,6 +319,7 @@ export default function ReelsPage() {
                 autoFocus
                 value={newReelName}
                 placeholder={t("reels.namePlaceholder")}
+                aria-label={t("reels.namePlaceholder")}
                 onChange={(e) => setNewReelName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void createReel();
@@ -340,6 +342,7 @@ export default function ReelsPage() {
                 autoFocus
                 value={renameValue}
                 placeholder={t("reels.namePlaceholder")}
+                aria-label={t("reels.namePlaceholder")}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void renameReel();
