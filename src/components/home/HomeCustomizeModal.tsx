@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -64,6 +65,20 @@ export default function HomeCustomizeModal({
   onClose,
 }: HomeCustomizeModalProps) {
   const { t } = useLanguage();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

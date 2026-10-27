@@ -155,8 +155,10 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-2xs) var(--space-md);
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-surface) 65%, transparent);
   border: 1px solid var(--color-border);
@@ -215,8 +217,10 @@
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
+  font-family: inherit;
   font-size: var(--text-md);
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
   transition: background var(--duration-fast) var(--ease-standard),
@@ -413,10 +417,12 @@
   animation: pulseRunningDot 1.4s infinite ease-in-out;
 }
 
-/* Quick Play FAB */
+/* Quick Play FAB. Anchored to the top-right so it never sits over the
+   metadata row at the bottom of the cover (the player-count pill reaches
+   that corner on narrower spotlight cards). */
 .home-spotlight__play {
   position: absolute;
-  bottom: var(--space-md);
+  top: var(--space-md);
   right: var(--space-md);
   z-index: 3;
   display: inline-flex;
@@ -642,6 +648,7 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-lg);
+  font-family: inherit;
   background: color-mix(in srgb, var(--color-surface) 80%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
@@ -670,6 +677,14 @@
 .home-empty-card__icon svg {
   width: 22px;
   height: 22px;
+}
+
+.home-empty-card__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
 }
 
 .home-empty-card__title {
@@ -708,6 +723,7 @@
   align-items: center;
   gap: var(--space-xs);
   padding: var(--space-2xs) var(--space-md);
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -827,6 +843,7 @@
   gap: var(--space-2xs);
   flex-shrink: 0;
   padding: var(--space-2xs) var(--space-sm);
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -1301,9 +1318,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
+  min-width: 0;
 }
 
 .home-achievement-row__name {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
@@ -1313,8 +1333,10 @@
 }
 
 .home-achievement-row__rarity {
+  flex-shrink: 0;
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
+  white-space: nowrap;
   padding: var(--space-4xs) var(--space-2xs);
   border: 1px solid currentColor;
   border-radius: var(--radius-full);
@@ -1324,14 +1346,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
 .home-achievement-row__game {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.home-achievement-row__time {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* ── Downloads Widget ──────────────────────────────────────────────────── */
@@ -1442,6 +1473,12 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.home-downloads__bytes,
+.home-downloads__speed {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .home-downloads__status--downloading,
 .home-downloads__status--fetchingMetadata {
   color: var(--color-accent);
@@ -1461,7 +1498,8 @@
   display: flex;
   gap: var(--space-md);
   overflow-x: auto;
-  padding-bottom: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xs) var(--space-sm);
+  scroll-padding-inline: var(--space-xs);
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
   -webkit-overflow-scrolling: touch;
@@ -1484,6 +1522,7 @@
   width: clamp(104px, 9vw, 160px);
   flex-shrink: 0;
   padding: 0;
+  font-family: inherit;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -1723,6 +1762,8 @@
 
 /* News Rail */
 .home-news-card {
+  display: flex;
+  flex-direction: column;
   width: clamp(180px, 17vw, 260px);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
@@ -1747,6 +1788,7 @@
 
 .home-news-card__cover {
   position: relative;
+  flex-shrink: 0;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: var(--color-bg-tertiary);
@@ -1802,6 +1844,7 @@
 }
 
 .home-news-card__body {
+  flex: 1;
   padding: var(--space-sm) var(--space-md) var(--space-md);
   display: flex;
   flex-direction: column;
@@ -1825,6 +1868,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
+  margin-top: auto;
 }
 
 .home-news-card__date {
@@ -1886,10 +1930,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 220ms var(--ease-enter);
+  animation: homeModalUp 220ms var(--ease-enter);
 }
 
-@keyframes slideUp {
+@keyframes homeModalUp {
   from {
     opacity: 0;
     transform: translateY(16px) scale(0.98);
@@ -2015,6 +2059,12 @@
   border-color: var(--color-accent);
 }
 
+/* The checkbox itself is visually hidden; the switch must show its focus ring. */
+.home-customize-toggle input:focus-visible + .home-customize-toggle__switch {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .home-customize-toggle input:checked + .home-customize-toggle__switch::after {
   transform: translateX(14px);
   background: var(--color-accent-contrast, #fff);
@@ -2037,6 +2087,7 @@
 
 .home-customize-modal__reset-btn {
   padding: var(--space-xs) var(--space-md);
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
@@ -2054,6 +2105,7 @@
 
 .home-customize-modal__done-btn {
   padding: var(--space-xs) var(--space-lg);
+  font-family: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent-contrast, #fff);
@@ -2098,7 +2150,7 @@
 
 /* Mirror of the ≤1040 sidebar rule — when the dashboard is stacked the
    widgets can pair up again. */
-@media (max-width: 1160px) {
+@media (max-width: 1320px) {
   .home-dashboard__sidebar {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -2313,6 +2365,7 @@
 /* Quick overview spacing — the metrics are the shared .ui-statband primitive. */
 .home-quick-stats {
   width: 100%;
+  justify-content: flex-start;
 }
 
 
@@ -2427,6 +2480,14 @@
 .home-spotlight__friends .friends-playing {
   border: 0;
   background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+/* The shared player-count pill keeps its green dot but drops the framed
+   badge chrome so it reads as one of the spotlight's metadata chips. */
+.home-spotlight__player-badge {
+  border: 0;
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+  box-shadow: none;
 }
 
 .home-empty-card {
@@ -2564,4 +2625,19 @@
 .home-dashboard__sidebar > :empty,
 .home-dashboard__main > :empty {
   display: none;
+}
+
+/* The sidebar pairs its widgets in a two-column grid on mid-width windows.
+   The stacked band's top padding + hairline belong to vertical rhythm only —
+   in a row they push one widget below the other and draw a stray divider. */
+@media (min-width: 721px) and (max-width: 1320px) {
+  .home-dashboard__sidebar {
+    column-gap: var(--space-xl);
+    row-gap: var(--space-xl);
+  }
+
+  .home-dashboard__sidebar > * {
+    padding-block: 0;
+    border-top: 0;
+  }
 }

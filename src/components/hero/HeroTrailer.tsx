@@ -137,7 +137,16 @@ export default function HeroTrailer({
     };
   }, [isFileTrailer]);
 
-  if (!parsed) return null;
+  // An unparseable trailer URL must not blank the hero: fall back to the
+  // still frame so the spotlight keeps its artwork.
+  if (!parsed) {
+    if (!poster) return null;
+    return (
+      <div ref={containerRef} className={`hero-trailer${className ? ` ${className}` : ""}`} aria-hidden>
+        <img className="hero-trailer__poster" src={poster} alt="" aria-hidden="true" />
+      </div>
+    );
+  }
 
   if (parsed.kind === "file") {
     return (

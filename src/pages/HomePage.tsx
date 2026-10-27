@@ -104,35 +104,38 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* 1. Cinematic Multi-Candidate Spotlight Hero */}
-      <PageWidget page="home" widget="hero">
-        <div className="ui-item-hero">
-          {isSimpleUi ? (
-            <header className="home-simple-header">
-              <h1 className="home-simple-title">{t("home.simple.title")}</h1>
-              <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
-              <div className="home-simple-actions">
-                <button
-                  type="button"
-                  className="home-simple-btn home-simple-btn--primary"
-                  onClick={() => navigate("/store")}
-                >
-                  {t("home.simple.browseStore")}
-                </button>
-                <button
-                  type="button"
-                  className="home-simple-btn"
-                  onClick={() => navigate("/library")}
-                >
-                  {t("home.simple.yourLibrary")}
-                </button>
-              </div>
-            </header>
-          ) : (
+      {/* 1. Cinematic Multi-Candidate Spotlight Hero.
+             Simple mode keeps its welcome header outside the hero widget: the
+             `.ui-item-hero` marker is hidden in Simple mode, which used to take
+             the whole first-run greeting down with it. */}
+      {isSimpleUi ? (
+        <header className="home-simple-header">
+          <h1 className="home-simple-title">{t("home.simple.title")}</h1>
+          <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
+          <div className="home-simple-actions">
+            <button
+              type="button"
+              className="home-simple-btn home-simple-btn--primary"
+              onClick={() => navigate("/store")}
+            >
+              {t("home.simple.browseStore")}
+            </button>
+            <button
+              type="button"
+              className="home-simple-btn"
+              onClick={() => navigate("/library")}
+            >
+              {t("home.simple.yourLibrary")}
+            </button>
+          </div>
+        </header>
+      ) : (
+        <PageWidget page="home" widget="hero">
+          <div className="ui-item-hero">
             <HomeHero games={games} onOpenGame={openGame} />
-          )}
-        </div>
-      </PageWidget>
+          </div>
+        </PageWidget>
+      )}
 
       {/* 2. Glanceable Quick Stats Bar */}
       {sectionsConfig.quickStats && !isEmpty && (
@@ -143,22 +146,23 @@ export default function HomePage() {
         </PageWidget>
       )}
 
-      {/* 3. Dashboard Grid Header with Customization Trigger */}
-      <PageWidget page="home" widget="dashboard">
-        <div className="home-dashboard-header ui-complete-only ui-item-dashboard">
-          <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
-          <button
-            type="button"
-            className="home-customize-btn"
-            onClick={() => setCustomizeOpen(true)}
-            title={t("home.customize.title")}
-            aria-label={t("home.customize.title")}
-          >
-            <Settings2 size={15} aria-hidden="true" />
-            <span>{t("home.customize.title")}</span>
-          </button>
-        </div>
-      </PageWidget>
+      {/* 3. Dashboard Grid Header with Customization Trigger.
+             Rendered outside PageWidget on purpose: the global "Dashboard
+             widget rows" toggle must not remove the only entry point to the
+             Home section toggles. */}
+      <div className="home-dashboard-header ui-complete-only">
+        <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
+        <button
+          type="button"
+          className="home-customize-btn"
+          onClick={() => setCustomizeOpen(true)}
+          title={t("home.customize.title")}
+          aria-label={t("home.customize.title")}
+        >
+          <Settings2 size={15} aria-hidden="true" />
+          <span>{t("home.customize.title")}</span>
+        </button>
+      </div>
 
       {/* 4. Two-column Player Dashboard */}
       <div className="home-dashboard">
