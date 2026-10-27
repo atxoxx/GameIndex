@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type Achievement,
@@ -27,6 +28,14 @@ export default function AchievementsRecentFeed({
 }: AchievementsRecentFeedProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const activateOnKey = (gameId: string) => (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigate(`/library/${gameId}`);
+    }
+  };
 
   if (recentAchievements.length === 0) return null;
 
@@ -61,10 +70,14 @@ export default function AchievementsRecentFeed({
               data-rarity={rarity}
               data-game-detail-route={`/library/${item.gameId}`}
               data-game-detail-title={item.game ? gameDisplayName(item.game) : undefined}
+              role="button"
+              tabIndex={0}
+              aria-label={item.achievement.displayName}
               style={{
                 borderColor: `color-mix(in srgb, ${rarityColor} 35%, var(--color-border))`,
               }}
               onClick={() => navigate(`/library/${item.gameId}`)}
+              onKeyDown={activateOnKey(item.gameId)}
             >
               <div className="ach-recent-feed-icon-wrap">
                 <img

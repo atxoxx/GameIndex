@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type Game,
@@ -43,17 +43,30 @@ function GameAchievementRowBase({
 }: GameAchievementRowProps) {
   const { t } = useLanguage();
   const isPerfect = pct === 100 && total > 0;
+  const name = gameDisplayName(game);
+
+  const activate = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <div
       className={`achievements-game-row ${isPerfect ? "is-perfect" : ""}`}
       data-game-detail-route={`/library/${game.id}`}
-      data-game-detail-title={gameDisplayName(game)}
+      data-game-detail-title={name}
+      role="button"
+      tabIndex={0}
+      aria-label={name}
       onClick={onClick}
+      onKeyDown={activate}
     >
       <div className="achievements-game-cover">
         {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={gameDisplayName(game)} loading="lazy" />
+          <img src={game.coverArtUrl} alt={name} loading="lazy" />
         ) : (
           <div className="achievements-game-cover-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
@@ -67,7 +80,7 @@ function GameAchievementRowBase({
 
       <div className="achievements-game-info">
         <div className="achievements-game-name-row">
-          <span className="achievements-game-name">{gameDisplayName(game)}</span>
+          <span className="achievements-game-name">{name}</span>
           {pointsTotal > 0 && (
             <span className="ach-row-points-badge">
               {pointsEarned} / {pointsTotal} pts
@@ -141,7 +154,8 @@ const GameAchievementRow = memo(GameAchievementRowBase, (prev, next) => {
     prev.pointsEarned === next.pointsEarned &&
     prev.pointsTotal === next.pointsTotal &&
     prev.lastSynced === next.lastSynced &&
-    prev.source === next.source
+    prev.source === next.source &&
+    prev.rarity === next.rarity
   );
 });
 

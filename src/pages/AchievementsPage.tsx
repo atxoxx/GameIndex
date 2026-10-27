@@ -118,11 +118,13 @@ export default function AchievementsPage() {
         if (q && !name.toLowerCase().includes(q)) {
           return false;
         }
+        // Source is a second axis, so it has to narrow the status buckets
+        // instead of being skipped by their early returns.
+        if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
         if (completionFilter === "almost_done") return item.pct >= 70 && item.pct < 100 && item.total > 0;
         if (completionFilter === "in_progress") return item.unlocked > 0 && item.pct < 100;
         if (completionFilter === "not_started") return item.unlocked === 0 || !item.data;
-        if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
         return true;
       });
     if (sortBy === "name") {
@@ -291,6 +293,10 @@ export default function AchievementsPage() {
   }
 
   const syncing = isSyncing || bulkSyncing;
+  // The empty state has to distinguish "nothing to show" from "nothing matches
+  // what you filtered down to" — and offer a way back from the latter.
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || completionFilter !== "all" || sourceFilter !== "all";
 
   return (
     <div className="achievements-page page">
@@ -549,6 +555,7 @@ export default function AchievementsPage() {
               type="text"
               className="achievements-search-input"
               placeholder={t("achievements.searchPlaceholder")}
+              aria-label={t("achievements.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -561,6 +568,7 @@ export default function AchievementsPage() {
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
               className="achievements-sort-select"
+              aria-label={t("achievementsPage.sort")}
             >
               <option value="completion">{t("achievementsPage.completionPct")}</option>
               <option value="gamerscore">{t("achievementsPage.sortGamerscore")}</option>
@@ -618,14 +626,18 @@ export default function AchievementsPage() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </div>
-            <h4>{searchQuery ? t("achievements.noMatchSearch") : t("achievementsPage.noGames")}</h4>
-            {searchQuery && (
+            <h4>{hasActiveFilters ? t("achievements.noMatchSearch") : t("achievementsPage.noGames")}</h4>
+            {hasActiveFilters && (
               <button
                 type="button"
                 className="achievements-btn achievements-btn--secondary"
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  setCompletionFilter("all");
+                  setSourceFilter("all");
+                }}
               >
-                {t("common.clearSearch")}
+                {t("common.reset")}
               </button>
             )}
           </div>

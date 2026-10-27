@@ -1240,6 +1240,10 @@
   color: var(--color-text-primary);
   margin: 0;
   line-height: 1.3;
+  /* A flex child's `min-width: auto` would refuse to shrink below the full
+     nowrap title, so the ellipsis never engaged and long names clipped at
+     the card edge instead. */
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1419,12 +1423,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  min-width: 0;
 }
 
 .ach-compact-name {
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

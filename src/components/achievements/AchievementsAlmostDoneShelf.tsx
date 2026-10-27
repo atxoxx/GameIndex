@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { gameDisplayName, type Game, type AchievementSource } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
@@ -21,6 +22,14 @@ export default function AchievementsAlmostDoneShelf({
 }: AchievementsAlmostDoneShelfProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const activateOnKey = (gameId: string) => (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigate(`/library/${gameId}`);
+    }
+  };
 
   if (games.length === 0) return null;
 
@@ -48,7 +57,11 @@ export default function AchievementsAlmostDoneShelf({
             className="ach-almost-done-card"
             data-game-detail-route={`/library/${item.game.id}`}
             data-game-detail-title={gameDisplayName(item.game)}
+            role="button"
+            tabIndex={0}
+            aria-label={gameDisplayName(item.game)}
             onClick={() => navigate(`/library/${item.game.id}`)}
+            onKeyDown={activateOnKey(item.game.id)}
           >
             <div className="ach-almost-done-cover">
               {item.game.coverArtUrl ? (

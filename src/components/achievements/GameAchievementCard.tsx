@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type Game,
@@ -43,20 +43,33 @@ function GameAchievementCardBase({
 }: GameAchievementCardProps) {
   const { t } = useLanguage();
   const isPerfect = pct === 100 && total > 0;
+  const name = gameDisplayName(game);
+
+  const activate = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <div
       className={`ach-game-card ${isPerfect ? "is-perfect" : ""}`}
       data-game-detail-route={`/library/${game.id}`}
-      data-game-detail-title={gameDisplayName(game)}
+      data-game-detail-title={name}
+      role="button"
+      tabIndex={0}
+      aria-label={name}
       onClick={onClick}
+      onKeyDown={activate}
     >
       {/* Top Banner / Cover */}
       <div className="ach-game-card-cover-wrap">
         {game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}
-            alt={gameDisplayName(game)}
+            alt={name}
             className="ach-game-card-cover"
             loading="lazy"
           />
@@ -88,8 +101,8 @@ function GameAchievementCardBase({
 
       {/* Card Body */}
       <div className="ach-game-card-body">
-        <h4 className="ach-game-card-name" title={gameDisplayName(game)}>
-          {gameDisplayName(game)}
+        <h4 className="ach-game-card-name" title={name}>
+          {name}
         </h4>
 
         {/* Points & Progress stats */}
@@ -171,7 +184,8 @@ const GameAchievementCard = memo(GameAchievementCardBase, (prev, next) => {
     prev.pointsEarned === next.pointsEarned &&
     prev.pointsTotal === next.pointsTotal &&
     prev.lastSynced === next.lastSynced &&
-    prev.source === next.source
+    prev.source === next.source &&
+    prev.rarity === next.rarity
   );
 });
 
