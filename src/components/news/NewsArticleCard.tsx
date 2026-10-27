@@ -139,6 +139,8 @@ export default function NewsArticleCard({
       aria-label={t("news.readArticle", { title: article.title })}
       onClick={() => onOpen(item)}
       onKeyDown={(event) => {
+        // Nested controls (save, topic chips) bubble their own Enter/Space.
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onOpen(item);

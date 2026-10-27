@@ -359,6 +359,7 @@ export default function NewsSourcesDrawer({ open, onClose }: NewsSourcesDrawerPr
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder={t("news.feedNamePlaceholder")}
+                  aria-label={t("news.feedNamePlaceholder")}
                   maxLength={40}
                 />
                 <input
@@ -366,6 +367,7 @@ export default function NewsSourcesDrawer({ open, onClose }: NewsSourcesDrawerPr
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder={t("news.feedUrlPlaceholder")}
+                  aria-label={t("news.feedUrlPlaceholder")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") handleAdd();
                   }}
