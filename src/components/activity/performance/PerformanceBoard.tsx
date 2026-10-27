@@ -127,6 +127,7 @@ export function PerformanceBoard({
               type="text"
               className="performance-board-search__input"
               placeholder={t("activityPerf.searchBoard")}
+              aria-label={t("activityPerf.searchBoard")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -198,7 +199,7 @@ export function PerformanceBoard({
                           name={g.gameTitle}
                           className="performance-insights__game-icon"
                         />
-                        <span className="performance-insights__game-title">{g.gameTitle}</span>
+                        <span className="performance-insights__game-title" title={g.gameTitle}>{g.gameTitle}</span>
                       </div>
                     </td>
                     <td className="performance-insights__td--num">{g.sessionsCount}</td>

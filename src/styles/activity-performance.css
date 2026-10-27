@@ -40,7 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  height: calc(var(--activity-ctl-h) - 6px);
+  height: calc(var(--act-ctl-h) - 6px);
   padding: 0 var(--space-md);
   border-radius: calc(var(--radius-md) - 2px);
   font-size: var(--text-xs);
@@ -81,9 +81,13 @@
   gap: var(--space-2xs);
 }
 
+/* rank | game | value | delta | bar — the delta chip is optional, so every
+   cell is placed explicitly and the delta column keeps its width when empty;
+   auto-placement would shift the bar into the delta column whenever a row
+   sits exactly on the average. */
 .performance-compare-bar__row {
   display: grid;
-  grid-template-columns: minmax(110px, 180px) minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1.1fr) 140px 48px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-xs) var(--space-sm);
@@ -106,6 +110,7 @@
 }
 
 .performance-compare-bar__track {
+  grid-column: 5;
   height: 12px;
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-full);
@@ -119,6 +124,7 @@
 }
 
 .performance-compare-bar__value {
+  grid-column: 3;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -170,6 +176,10 @@
   background: var(--color-bg-hover);
 }
 
+.performance-insights__row--clickable {
+  cursor: pointer;
+}
+
 .performance-insights__table td {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
@@ -179,6 +189,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  min-width: 0;
+  max-width: 280px;
 }
 
 .performance-insights__game-icon {
@@ -199,6 +211,9 @@
 .performance-insights__game-title {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .text-high-fps {
@@ -272,7 +287,7 @@
 
 .performance-timeline__game-select,
 .performance-timeline__session-select {
-  height: var(--activity-ctl-h);
+  height: var(--act-ctl-h);
   max-width: 220px;
   padding: 0 var(--space-md);
   padding-right: var(--space-xl);
@@ -481,15 +496,17 @@
 
 /* ── Game comparison bars — identity + rank meta ────────────────────── */
 
-.performance-compare-bar__row {
-  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
-}
-
 .performance-compare-bar__identity {
+  grid-column: 2;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
+}
+
+.performance-compare-bar__diff {
+  grid-column: 4;
+  justify-self: end;
 }
 
 .performance-compare-bar__icon {
@@ -512,6 +529,7 @@
 }
 
 .performance-compare-bar__rank {
+  grid-column: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -547,6 +565,12 @@
   color: var(--color-warning);
   background: color-mix(in srgb, var(--color-warning) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-warning) 34%, transparent);
+}
+
+.performance-compare-bar__rank--rest {
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
 }
 
 .performance-compare-bar__empty {
@@ -682,7 +706,9 @@
   border: 1px solid var(--color-border-faint);
   border-radius: var(--radius-sm);
   padding: var(--space-2xs) var(--space-sm) var(--space-xs);
-  flex: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ── Timeline panel — live / estimated badge ────────────────────────── */

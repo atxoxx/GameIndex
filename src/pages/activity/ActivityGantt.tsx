@@ -522,6 +522,7 @@ export function ActivityGantt({
               type="text"
               className="activity-gantt__search-input"
               placeholder={t("activityGantt.searchGame")}
+              aria-label={t("activityGantt.searchGame")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -817,8 +818,10 @@ export function ActivityGantt({
         <div
           className="activity-gantt__tooltip"
           style={{
-            left: `${hover.clientX}px`,
-            top: `${hover.clientY - 10}px`,
+            left: `clamp(150px, ${hover.clientX}px, calc(100vw - 150px))`,
+            top: hover.clientY < 170 ? hover.clientY + 24 : hover.clientY - 10,
+            transform:
+              hover.clientY < 170 ? "translate(-50%, 0)" : "translate(-50%, -100%)",
           }}
         >
           <div className="activity-gantt__tooltip-header">

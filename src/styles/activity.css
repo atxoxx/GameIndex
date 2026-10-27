@@ -2135,18 +2135,8 @@
 }
 
 /* ══ Session Inspector Modal & Shared Modals ─────────────────────────── */
-.act-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: var(--space-lg);
-  animation: actFadeIn 0.15s ease-out;
-}
+/* The scrim itself is declared with the Manual/Compare modals further down;
+   keep one definition so the stacking order cannot drift. */
 
 .act-modal {
   background: var(--color-surface);
@@ -2719,18 +2709,8 @@
 }
 
 /* ══ Session Inspector Modal ─────────────────────────────────────────── */
-.act-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  padding: var(--space-lg);
-  animation: actFadeIn var(--duration-fast, 150ms) ease-out;
-}
+/* One scrim definition lives with the Manual/Compare modals further down,
+   so the stacking order cannot drift between the two blocks. */
 
 .act-modal {
   background: var(--color-surface);
@@ -3380,7 +3360,7 @@
 
 .activity-sessions-toolbar__search-input {
   width: 100%;
-  height: var(--activity-ctl-h);
+  height: var(--act-ctl-h);
   padding: 0 var(--space-xl) 0 var(--space-2xl);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -3432,8 +3412,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--activity-ctl-h);
-  height: var(--activity-ctl-h);
+  width: var(--act-ctl-h);
+  height: var(--act-ctl-h);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -3698,7 +3678,7 @@
 }
 
 .activity-gantt__game-select {
-  height: var(--activity-ctl-h);
+  height: var(--act-ctl-h);
   padding: 0 var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -3711,7 +3691,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
-  height: var(--activity-ctl-h);
+  height: var(--act-ctl-h);
   padding: 0 var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -5298,7 +5278,7 @@
   inset: 0;
   background: color-mix(in srgb, var(--color-bg-primary) 75%, transparent);
   backdrop-filter: blur(8px);
-  z-index: 1000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;

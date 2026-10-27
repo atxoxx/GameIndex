@@ -226,17 +226,25 @@ export function WeeklyHeatmap({
         </div>
       </div>
 
-      {/* Floating rich tooltip on hover */}
+      {/* Floating rich tooltip on hover. Fixed positioning escapes the
+          scroll container, so the anchor is clamped to the viewport and
+          flipped below the row when the cell sits near the top edge. */}
       {hoveredCell && (
         <div
           className="act-heatmap__popover"
           style={{
             position: "fixed",
-            left: `${hoveredCell.clientX}px`,
-            top: `${hoveredCell.clientY - 10}px`,
-            transform: "translate(-50%, -100%)",
+            left: `clamp(140px, ${hoveredCell.clientX}px, calc(100vw - 140px))`,
+            top:
+              hoveredCell.clientY < 160
+                ? hoveredCell.clientY + 24
+                : hoveredCell.clientY - 10,
+            transform:
+              hoveredCell.clientY < 160
+                ? "translate(-50%, 0)"
+                : "translate(-50%, -100%)",
             pointerEvents: "none",
-            zIndex: 1000,
+            zIndex: "var(--z-popover)",
           }}
         >
           <div className="act-heatmap__popover-date">

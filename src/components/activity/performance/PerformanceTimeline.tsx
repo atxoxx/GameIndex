@@ -94,6 +94,7 @@ export function PerformanceTimeline({
               <span className="performance-timeline__game-selector-label">{t("activityPerf.gameLabel")}</span>
               <select
                 className="performance-timeline__game-select"
+                aria-label={t("activityPerf.gameLabel")}
                 value={selectedGameFilter}
                 onChange={(e) => {
                   setSelectedGameFilter(e.target.value);
@@ -114,6 +115,7 @@ export function PerformanceTimeline({
                 <span className="performance-timeline__session-selector-label">{t("activityPerf.sessionLabel")}</span>
                 <select
                   className="performance-timeline__session-select"
+                  aria-label={t("activityPerf.sessionLabel")}
                   value={selectedSessionId}
                   onChange={(e) => setSelectedSessionId(e.target.value)}
                 >

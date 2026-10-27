@@ -88,6 +88,7 @@ export function ActivitySessionNotes({ sessionId, action }: ActivitySessionNotes
             rows={4}
             value={draft}
             placeholder={t("sessionNotes.placeholder")}
+            aria-label={t("sessionNotes.title")}
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="activity-note__tag-row">
@@ -96,6 +97,7 @@ export function ActivitySessionNotes({ sessionId, action }: ActivitySessionNotes
               className="activity-note__tag-input"
               value={tagInput}
               placeholder={t("sessionNotes.tagPlaceholder")}
+              aria-label={t("sessionNotes.tagPlaceholder")}
               onChange={(event) => setTagInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {

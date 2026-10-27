@@ -303,7 +303,7 @@
 }
 
 .activity-gantt__stat-val {
-  font-size: var(--text-base);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
@@ -730,7 +730,7 @@
 /* Floating Hover Tooltip */
 .activity-gantt__tooltip {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-popover);
   transform: translate(-50%, -100%);
   background: color-mix(in srgb, var(--color-surface-raised, var(--color-surface)) 94%, transparent);
   border: 1px solid var(--color-border);
@@ -1257,7 +1257,7 @@
 .act-add-modal__result-cover {
   width: 36px;
   height: 48px;
-  border-radius: var(--radius-2xs);
+  border-radius: var(--radius-xs);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -1265,7 +1265,7 @@
 .act-add-modal__result-placeholder {
   width: 36px;
   height: 48px;
-  border-radius: var(--radius-2xs);
+  border-radius: var(--radius-xs);
   background: var(--color-surface);
   display: flex;
   align-items: center;
