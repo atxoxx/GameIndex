@@ -116,7 +116,12 @@ export default function GameNewsListView({
                 <span className="game-news-source-pill">
                   {article.sourceName}
                 </span>
-                {!isRead && <span className="game-news-unread-dot" title="Unread" />}
+                {!isRead && (
+                  <span
+                    className="game-news-unread-dot"
+                    title={t("game.news.unread")}
+                  />
+                )}
               </div>
 
               <h4 className="game-news-list-title" title={article.title}>

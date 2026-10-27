@@ -109,7 +109,7 @@
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-snug);
+  line-height: var(--line-height-normal);
   color: var(--color-text-primary);
 }
 
@@ -163,6 +163,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  min-width: 0;
   min-height: 28px;
   padding: 0 var(--space-sm);
   border: 0;
@@ -174,6 +175,19 @@
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
+}
+
+/* The card's action row is a single line: a long locale label shortens
+   here instead of pushing the mark-owned button past the card edge. */
+.dlc-watch > svg {
+  flex-shrink: 0;
+}
+
+.dlc-watch > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dlc-watch:hover {
@@ -489,7 +503,7 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-xl);
-  line-height: var(--leading-tight);
+  line-height: var(--line-height-tight);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
@@ -579,7 +593,7 @@
   margin: 0;
   white-space: pre-line;
   font-size: var(--text-sm);
-  line-height: var(--leading-relaxed);
+  line-height: var(--line-height-relaxed);
   color: var(--color-text-secondary);
 }
 

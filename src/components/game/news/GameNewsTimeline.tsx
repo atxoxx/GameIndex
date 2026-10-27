@@ -58,7 +58,7 @@ export default function GameNewsTimeline({
   };
 
   return (
-    <div className="game-news-timeline" role="feed" aria-label="Game updates timeline">
+    <div className="game-news-timeline" role="feed" aria-label={t("game.news.viewTimeline")}>
       <div className="game-news-timeline-track" aria-hidden="true" />
 
       {articles.map((article, index) => {
@@ -117,7 +117,12 @@ export default function GameNewsTimeline({
                   <span className="game-news-source-pill">
                     {article.sourceName}
                   </span>
-                  {!isRead && <span className="game-news-unread-dot" title="Unread" />}
+                  {!isRead && (
+                    <span
+                      className="game-news-unread-dot"
+                      title={t("game.news.unread")}
+                    />
+                  )}
                 </div>
 
                 <div className="game-news-timeline-actions">

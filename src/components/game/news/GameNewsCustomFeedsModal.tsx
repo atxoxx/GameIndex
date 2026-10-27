@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Button } from "../../ui";
@@ -50,6 +50,16 @@ export default function GameNewsCustomFeedsModal({
       .toLowerCase();
     return clean.length >= 3 ? clean : null;
   }, [gameName]);
+
+  // Escape closes, like every other dialog in the app.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -105,7 +115,7 @@ export default function GameNewsCustomFeedsModal({
   };
 
   return createPortal(
-    <div className="game-news-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+    <div className="game-news-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={t("game.news.customFeedsTitle")}>
       <div className="game-news-modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="game-news-modal-header">
           <div className="game-news-modal-header-text">
@@ -119,7 +129,7 @@ export default function GameNewsCustomFeedsModal({
             type="button"
             
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
           ></Button>
         </div>
 
@@ -154,6 +164,7 @@ export default function GameNewsCustomFeedsModal({
                   type="text"
                   placeholder="e.g. Official Dev Blog or Reddit"
                   value={feedName}
+                  aria-label={t("game.news.feedName")}
                   onChange={(e) => setFeedName(e.target.value)}
                 />
               </div>
@@ -164,6 +175,7 @@ export default function GameNewsCustomFeedsModal({
                   type="text"
                   placeholder={t("game.news.feedUrlPlaceholder")}
                   value={feedUrl}
+                  aria-label={t("game.news.feedUrl")}
                   onChange={(e) => setFeedUrl(e.target.value)}
                 />
               </div>
@@ -205,8 +217,8 @@ export default function GameNewsCustomFeedsModal({
                       type="button"
                       className="game-news-delete-btn"
                       onClick={() => handleDeleteFeed(feed.id)}
-                      title="Remove feed"
-                      aria-label="Remove feed"
+                      title={t("common.remove")}
+                      aria-label={t("common.remove")}
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6" />

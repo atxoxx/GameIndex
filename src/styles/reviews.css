@@ -577,9 +577,10 @@
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 70;
+  z-index: var(--z-popover);
   min-width: 190px;
   max-height: min(320px, 60vh);
+  max-height: min(320px, 60dvh);
   max-width: calc(100vw - 24px);
   overflow-y: auto;
   padding: var(--space-2xs);
@@ -2343,7 +2344,7 @@ ol.rv-bbcode-list {
 .rv-rail__meta {
   padding: 0 var(--space-sm);
   font-size: var(--text-2xs);
-  line-height: var(--leading-relaxed);
+  line-height: var(--line-height-relaxed);
   color: var(--color-text-muted);
 }
 
@@ -2389,8 +2390,13 @@ ol.rv-bbcode-list {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 70;
+  /* Above the sticky detail strip, below the global overlays. */
+  z-index: var(--z-popover);
   width: min(360px, calc(100vw - 40px));
+  /* At the 600px-tall minimum window the field list is taller than the
+     space under the command row: cap it and scroll the fields so the
+     footer's Reset / Done stay reachable. */
+  max-height: min(70dvh, 540px);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -2404,6 +2410,7 @@ ol.rv-bbcode-list {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
@@ -2432,6 +2439,9 @@ ol.rv-bbcode-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .rv-filter-field {
@@ -2478,6 +2488,7 @@ ol.rv-bbcode-list {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
   gap: var(--space-sm);
   padding-top: var(--space-sm);
   border-top: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
@@ -2550,7 +2561,7 @@ ol.rv-bbcode-list {
   padding-left: var(--space-md);
   border-left: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
   font-size: var(--text-md);
-  line-height: var(--leading-relaxed);
+  line-height: var(--line-height-relaxed);
   color: var(--color-text-primary);
 }
 

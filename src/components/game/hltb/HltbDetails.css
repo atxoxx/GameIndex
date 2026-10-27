@@ -281,6 +281,11 @@
   scrollbar-gutter: stable;
 }
 
+.hltb-sections {
+  display: flex;
+  flex-direction: column;
+}
+
 .hltb-sections--stacked {
   display: flex;
   flex-direction: column;

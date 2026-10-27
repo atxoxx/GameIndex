@@ -83,7 +83,7 @@
   font-size: clamp(var(--text-xl), 1.7vw, var(--text-2xl));
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.015em;
-  line-height: var(--leading-tight);
+  line-height: var(--line-height-tight);
   color: var(--color-text-primary);
 }
 
