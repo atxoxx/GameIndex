@@ -48,6 +48,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        // Default to a non-submit button so a UI-kit Button dropped inside a
+        // <form> never submits it by accident; callers that want a submit
+        // can still pass `type="submit"` (the spread below wins).
+        type="button"
         className={[
           "ui-btn",
           variantClasses[variant],
