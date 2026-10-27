@@ -156,8 +156,9 @@ export default function FriendsProfileTab({
             </h3>
 
             <div className="form-group">
-              <label className="form-label">{t("friends.displayName")}</label>
+              <label className="form-label" htmlFor="friend-profile-name">{t("friends.displayName")}</label>
               <input
+                id="friend-profile-name"
                 type="text"
                 className="profile-input"
                 value={profile.name}
@@ -207,8 +208,9 @@ export default function FriendsProfileTab({
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t("friendsPage.customStatus")}</label>
+              <label className="form-label" htmlFor="friend-profile-status">{t("friendsPage.customStatus")}</label>
               <input
+                id="friend-profile-status"
                 type="text"
                 className="profile-input"
                 placeholder={t("friendsPage.customStatusPlaceholder")}
@@ -218,8 +220,9 @@ export default function FriendsProfileTab({
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t("friendsPage.bio")}</label>
+              <label className="form-label" htmlFor="friend-profile-bio">{t("friendsPage.bio")}</label>
               <textarea
+                id="friend-profile-bio"
                 className="profile-input"
                 rows={3}
                 placeholder={t("friendsPage.bioPlaceholder")}
@@ -229,8 +232,9 @@ export default function FriendsProfileTab({
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t("friendsPage.region")}</label>
+              <label className="form-label" htmlFor="friend-profile-region">{t("friendsPage.region")}</label>
               <input
+                id="friend-profile-region"
                 type="text"
                 className="profile-input"
                 placeholder={t("friendsPage.regionPlaceholder")}

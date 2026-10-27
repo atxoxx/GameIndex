@@ -204,6 +204,7 @@ export default function SuggestionCard({
             <input
               className="profile-input sug-comment-input"
               placeholder={t("friendsPage.writeComment")}
+              aria-label={t("friendsPage.writeComment")}
               value={commentDraft}
               onChange={(e) => setCommentDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendComment()}

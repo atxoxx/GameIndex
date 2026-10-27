@@ -27,6 +27,15 @@ export default function EditNicknameModal({
     if (isOpen) setNickname(friend?.nickname || "");
   }, [isOpen, friend?.id, friend?.nickname]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !friend) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,14 +50,17 @@ export default function EditNicknameModal({
   };
 
   return createPortal(
-    <div className="friends-modal-backdrop" onClick={onClose}>
+    <div className="friends-modal-backdrop" onClick={onClose} role="presentation">
       <form
         className="friends-modal-box friends-modal-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="friends-nickname-modal-title"
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
         <div className="friends-modal-header">
-          <h2 className="friends-modal-title">
+          <h2 className="friends-modal-title" id="friends-nickname-modal-title">
             <PencilIcon /> {t("friendsPage.setNickname")}
           </h2>
           <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
@@ -63,6 +75,7 @@ export default function EditNicknameModal({
               type="text"
               className="profile-input"
               placeholder={friend.name}
+              aria-label={t("friendsPage.setNickname")}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               autoFocus

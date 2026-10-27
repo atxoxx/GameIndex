@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
@@ -41,6 +41,16 @@ export default function AddFriendModal({
   const { showToast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<"add" | "mycode">("add");
 
+  // Escape closes, matching the sync and nickname dialogs.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const copyToClipboard = (text: string, label: string) => {
@@ -49,10 +59,16 @@ export default function AddFriendModal({
   };
 
   return createPortal(
-    <div className="friends-modal-backdrop" onClick={onClose}>
-      <div className="friends-modal-box" onClick={(e) => e.stopPropagation()}>
+    <div className="friends-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="friends-modal-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="friends-add-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="friends-modal-header">
-          <h2 className="friends-modal-title">
+          <h2 className="friends-modal-title" id="friends-add-modal-title">
             <UsersIcon /> {t("friendsPage.addFriendModalTitle")}
           </h2>
           <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
@@ -85,6 +101,7 @@ export default function AddFriendModal({
                   type="text"
                   className="profile-input"
                   placeholder={t("friends.pasteCodePlaceholder")}
+                  aria-label={t("friends.pasteCodePlaceholder")}
                   value={friendCodeInput}
                   onChange={(e) => onFriendCodeInputChange(e.target.value)}
                   autoFocus
@@ -143,15 +160,6 @@ export default function AddFriendModal({
                   )}
                 </div>
               )}
-
-              <div className="friends-modal-footer">
-                <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.cancel")} </Button>
-                <Button variant="primary" size="md" leftIcon={<PlusIcon />}
-                  type="button"
-                  onClick={onAddFriend}
-                  disabled={!decodedFriend}
-                > {t("friends.addFriend")} </Button>
-              </div>
             </div>
           ) : (
             <div className="my-code-display">
@@ -187,6 +195,24 @@ export default function AddFriendModal({
             </div>
           )}
         </div>
+
+        {activeSubTab === "add" && (
+          <div className="friends-modal-footer">
+            <Button variant="secondary" size="md" type="button" onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              type="button"
+              leftIcon={<PlusIcon />}
+              onClick={onAddFriend}
+              disabled={!decodedFriend}
+            >
+              {t("friends.addFriend")}
+            </Button>
+          </div>
+        )}
       </div>
     </div>,
     document.body

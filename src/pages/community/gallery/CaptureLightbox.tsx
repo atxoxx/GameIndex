@@ -176,7 +176,13 @@ export function CaptureLightbox({
   const stripEnd = Math.min(total, index + 9);
 
   return createPortal(
-    <div className="gallery-lightbox" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="gallery-lightbox"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("profile.tab.gallery")}
+    >
       <div className="gallery-lightbox__header" onClick={(event) => event.stopPropagation()}>
         <div className="gallery-lightbox__title">
           <span className="gallery-lightbox__counter">

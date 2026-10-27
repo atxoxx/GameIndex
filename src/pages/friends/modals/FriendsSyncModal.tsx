@@ -141,6 +141,7 @@ export default function FriendsSyncModal({
                 type="text"
                 className="profile-input sync-folder-input"
                 readOnly
+                aria-label={t("friendsPage.syncFolder")}
                 value={syncFolderPath || t("friendsPage.noFolderSelected")}
               />
               <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}

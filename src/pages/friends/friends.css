@@ -93,6 +93,7 @@
   font-size: var(--text-2xl);
   line-height: 1.1;
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .friends-cockpit__status {
@@ -103,6 +104,8 @@
   margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .friends-cockpit__live {
@@ -424,6 +427,11 @@
 }
 
 .friends-spin {
+  animation: friends-spin 1s linear infinite;
+}
+
+/* Sync Diagnostics modal reuses the same rotation on its refresh glyph. */
+.sync-spinner {
   animation: friends-spin 1s linear infinite;
 }
 
@@ -1369,7 +1377,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 80;
+  z-index: var(--z-popover);
   width: 208px;
 }
 
@@ -1493,11 +1501,13 @@
   margin: 0;
   font-size: var(--text-xl);
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .friend-detail__alias {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
+  overflow-wrap: anywhere;
 }
 
 .friend-detail__meta {
@@ -1946,11 +1956,17 @@
 .friends-digest__next-main strong {
   font-size: var(--text-sm);
   color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .friends-digest__next-main span:last-child {
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .friends-digest__list {
@@ -3146,6 +3162,10 @@
   .friends-sync__dot.is-syncing {
     animation: none;
   }
+
+  .sync-spinner {
+    animation: none;
+  }
 }
 /* Session Card Header */
 .session-card-header {
@@ -3163,7 +3183,7 @@
   flex-shrink: 0;
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elevation-3);
   background: var(--color-bg-tertiary);
 }
 
@@ -5016,7 +5036,7 @@
   height: 80px;
   border-radius: var(--radius-md);
   object-fit: cover;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--elevation-3);
 }
 
 .race-cover-placeholder {
@@ -5522,9 +5542,10 @@
 .friends-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  z-index: var(--z-modal);
+  background: var(--color-scrim);
+  backdrop-filter: var(--blur-scrim);
+  -webkit-backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5544,6 +5565,7 @@
   width: 100%;
   max-width: 520px;
   max-height: 85vh;
+  max-height: min(85dvh, 760px);
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-2xl);
@@ -5578,6 +5600,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-sm);
+  flex-shrink: 0;
 }
 
 .friends-modal-title {
@@ -5598,6 +5622,16 @@
   gap: var(--space-md);
 }
 
+/* A form child (create session, edit profile) must pass the height budget
+   down so the body scrolls and the footer stays pinned instead of being
+   clipped by the box's overflow. */
+.friends-modal-box > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .friends-modal-footer {
   padding: var(--space-md) var(--space-lg);
   border-top: 1px solid var(--color-border);
@@ -5605,6 +5639,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-sm);
+  flex-shrink: 0;
   background: color-mix(in srgb, var(--color-bg-primary) 30%, var(--color-surface));
 }
 
@@ -6238,6 +6273,7 @@ textarea.profile-input {
 
 .sync-folder-input {
   flex: 1;
+  min-width: 0;
 }
 
 .nostr-relays-list {
@@ -6254,6 +6290,7 @@ textarea.profile-input {
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-md);
   font-size: var(--text-2xs);
+  min-width: 0;
 }
 
 .nostr-relay-dot {
@@ -6281,6 +6318,10 @@ textarea.profile-input {
   font-family: var(--font-family-mono, monospace);
   color: var(--color-text-primary);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Base = "not checked yet" (muted); modifiers match the dot states so a
@@ -6414,6 +6455,12 @@ textarea.profile-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.sync-activity-header > div {
+  min-width: 0;
 }
 
 .sync-last-time-label {
@@ -6448,16 +6495,21 @@ textarea.profile-input {
 
 .sync-log-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .sync-log-time {
   font-weight: 700;
   color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .sync-log-summary {
   color: var(--color-text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sync-log-details-list {
@@ -6472,6 +6524,7 @@ textarea.profile-input {
 .sync-log-detail-line {
   color: var(--color-text-secondary);
   font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
 }
 
 .color-swatch-picker {
@@ -6488,8 +6541,8 @@ textarea.profile-input {
 }
 
 .color-swatch-btn.active {
-  border-color: var(--color-text-primary, #fff);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  border-color: var(--color-text-primary);
+  box-shadow: var(--elevation-2);
 }
 
 /* Common Empty State */
@@ -6688,8 +6741,8 @@ textarea.profile-input {
 .dm-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 1500;
-  background: rgba(0, 0, 0, 0.8);
+  z-index: var(--z-modal);
+  background: var(--color-scrim-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6701,7 +6754,7 @@ textarea.profile-input {
   max-width: 100%;
   max-height: 100%;
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--elevation-5);
 }
 
 /* ── Sessions: recurrence + launch/edit buttons ────────────────────── */

@@ -159,6 +159,7 @@ export default function FriendsDmsTab({
             <select
               className="profile-input dms-new-chat-select"
               value={newChatFriendId}
+              aria-label={t("friendsPage.newConversation")}
               onChange={(e) => {
                 const val = e.target.value;
                 setNewChatFriendId(val);
@@ -182,6 +183,7 @@ export default function FriendsDmsTab({
             type="text"
             className="profile-input dms-search-input"
             placeholder={t("friendsPage.searchMessages")}
+            aria-label={t("friendsPage.searchMessages")}
             value={threadSearch}
             onChange={(e) => setThreadSearch(e.target.value)}
           />
@@ -458,6 +460,7 @@ export default function FriendsDmsTab({
                 className="dm-attach-btn"
                 onClick={() => attachInputRef.current?.click()}
                 title={t("friendsPage.sendAttachment")}
+                aria-label={t("friendsPage.sendAttachment")}
               >
                 <PaperclipIcon />
               </button>
@@ -465,6 +468,7 @@ export default function FriendsDmsTab({
                 type="text"
                 className="profile-input dm-composer-input"
                 placeholder={t("friendsPage.typeMessagePlaceholder")}
+                aria-label={t("friendsPage.typeMessagePlaceholder")}
                 value={messageDraft}
                 onChange={(e) => setMessageDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}

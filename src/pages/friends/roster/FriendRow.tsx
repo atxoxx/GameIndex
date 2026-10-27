@@ -253,9 +253,9 @@ export function FriendRow({
               top: menuPos.top,
               left: menuPos.left,
               width: MENU_WIDTH,
-              maxHeight: "calc(100vh - 16px)",
+              maxHeight: "calc(100dvh - 16px)",
               overflowY: "auto",
-              zIndex: 1200,
+              zIndex: "var(--z-popover)",
             }}
             onMouseDown={(event) => event.stopPropagation()}
           >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { Friend, FriendCircle } from "../friendsTypes";
@@ -45,6 +45,16 @@ export default function FriendsCirclesModal({
     circles.length > 0 ? circles[0].id : null
   );
 
+  // Escape closes, matching the sync and add-friend dialogs.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleCreate = (e: React.FormEvent) => {
@@ -66,10 +76,18 @@ export default function FriendsCirclesModal({
   const activeCircle = circles.find((c) => c.id === selectedCircleId) || circles[0];
 
   return createPortal(
-    <div className="friends-modal-backdrop" onClick={onClose}>
-      <div className="friends-modal-box friends-circles-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="friends-modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="friends-modal-box friends-circles-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="friends-circles-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="friends-modal-header">
-          <h2 className="friends-modal-title">{t("friendsPage.manageCircles")}</h2>
+          <h2 className="friends-modal-title" id="friends-circles-modal-title">
+            {t("friendsPage.manageCircles")}
+          </h2>
           <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
         </div>
 
@@ -79,6 +97,7 @@ export default function FriendsCirclesModal({
               type="text"
               className="profile-input"
               placeholder={t("friendsPage.newCircleName")}
+              aria-label={t("friendsPage.newCircleName")}
               value={newCircleName}
               onChange={(e) => setNewCircleName(e.target.value)}
             />
@@ -113,6 +132,7 @@ export default function FriendsCirclesModal({
                     {editingCircleId === c.id ? (
                       <input
                         className="profile-input circle-edit-input"
+                        aria-label={t("friendsPage.circleName")}
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         onBlur={() => handleSaveRename(c.id)}

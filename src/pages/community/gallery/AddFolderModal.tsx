@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -20,6 +20,14 @@ export function AddFolderModal({ isAdding, onCancel, onConfirm }: AddFolderModal
   const [picking, setPicking] = useState(false);
 
   const canConfirm = name.trim().length > 0 && folderPath.length > 0 && !isAdding;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
 
   const pickFolder = useCallback(async () => {
     try {
@@ -70,6 +78,7 @@ export function AddFolderModal({ isAdding, onCancel, onConfirm }: AddFolderModal
           </span>
           <Button
             variant="secondary"
+            type="button"
             onClick={pickFolder}
             disabled={picking}
             leftIcon={<FolderOpen size={14} />}
@@ -79,11 +88,12 @@ export function AddFolderModal({ isAdding, onCancel, onConfirm }: AddFolderModal
         </div>
 
         <div className="gallery-modal__actions">
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" type="button" onClick={onCancel}>
             {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
+            type="button"
             onClick={() => onConfirm(name, folderPath)}
             disabled={!canConfirm}
           >

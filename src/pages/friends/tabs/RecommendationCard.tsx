@@ -203,6 +203,7 @@ export default function RecommendationCard({
             <input
               className="profile-input rec-comment-input"
               placeholder={t("friendsPage.writeComment")}
+              aria-label={t("friendsPage.writeComment")}
               value={commentDraft}
               onChange={(e) => setCommentDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendComment()}

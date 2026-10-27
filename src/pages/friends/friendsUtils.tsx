@@ -382,6 +382,7 @@ export function SearchableGameSelector({
           type="text"
           className="game-search-input"
           placeholder={placeholder ?? t("friends.typeGameName")}
+          aria-label={placeholder ?? t("friends.typeGameName")}
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -395,6 +396,7 @@ export function SearchableGameSelector({
             className="game-search-clear-btn"
             onClick={() => setSearchQuery("")}
             title={t("friends.clearText")}
+            aria-label={t("friends.clearText")}
           >
             ×
           </button>

@@ -174,6 +174,7 @@ export function ProfileHeader({
                 variant="tertiary"
                 size="md"
                 iconOnly
+                type="button"
                 leftIcon={<Share2 size={15} />}
                 title={t("community.shareProfile")}
                 aria-label={t("community.shareProfile")}
@@ -185,6 +186,7 @@ export function ProfileHeader({
                 variant="tertiary"
                 size="md"
                 iconOnly
+                type="button"
                 leftIcon={<Camera size={15} />}
                 title={t("activity.capture")}
                 aria-label={t("activity.capture")}
@@ -196,6 +198,7 @@ export function ProfileHeader({
                 variant="tertiary"
                 size="md"
                 iconOnly
+                type="button"
                 leftIcon={<Download size={15} />}
                 title={t("stats.exportData")}
                 aria-label={t("stats.exportData")}
