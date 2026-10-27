@@ -19,7 +19,10 @@ export function OwnershipBanner({
 
   if (dismissed) return null;
 
-  if (step === "checking" || !ownership) {
+  // Only the checking step renders the placeholder card: once the search has
+  // moved on, a null result means the ownership probe failed, and a stuck
+  // "Checking ownership…" panel would keep stealing space from the results.
+  if (step === "checking") {
     return (
       <div className="dl-ownership-card dl-ownership-card--checking">
         <div className="dl-ownership-icon-box dl-ownership-icon-box--checking">
@@ -42,7 +45,7 @@ export function OwnershipBanner({
     );
   }
 
-  if (!ownership.isOwnedAnywhere) return null;
+  if (!ownership || !ownership.isOwnedAnywhere) return null;
 
   const ownedStores = ownership.ownedStores.filter((s) => s.owned);
   const primary = ownedStores[0];

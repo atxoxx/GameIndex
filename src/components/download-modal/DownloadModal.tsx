@@ -1450,6 +1450,7 @@ export default function DownloadModal({
           className="modal dl-modal dlm"
           onMouseDown={(e) => e.stopPropagation()}
           role="dialog"
+          aria-modal="true"
           aria-label={t("downloadButton.download")}
         >
           {gameCover && (

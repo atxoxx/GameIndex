@@ -3442,7 +3442,39 @@
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dl-progress-card.indeterminate .dl-progress-card-bar-fill {
+/* The topnav popover writes the fill as `.dl-progress-card-fill` with a
+ * per-status modifier (DownloadPopover.tsx), so mirror the bar-fill rules
+ * under that name as well or the bar paints only its empty track. */
+.dl-progress-card-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-xs);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dl-progress-card-fill--fetchingMetadata,
+.dl-progress-card-fill--seeding {
+  background: var(--color-info);
+}
+
+.dl-progress-card-fill--queued {
+  background: var(--color-text-muted);
+}
+
+.dl-progress-card-fill--paused {
+  background: var(--color-warning);
+}
+
+.dl-progress-card-fill--completed {
+  background: var(--color-success);
+}
+
+.dl-progress-card-fill--error {
+  background: var(--color-danger);
+}
+
+.dl-progress-card.indeterminate .dl-progress-card-bar-fill,
+.dl-progress-card.indeterminate .dl-progress-card-fill {
   /* When totalSize is unknown, animate a moving stripe instead of a
    * static fill. We use a 30% window. */
   width: 30% !important;

@@ -1481,8 +1481,10 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 }
 
 /* Narrow windows: stack the progress bar under the name and drop the
-   size column so the name keeps room to breathe. */
-@media (max-width: 760px) {
+   size column so the name keeps room to breathe. The threshold is the
+   viewport, but the queue only gets `viewport - sidebar` (280px), so the
+   five-column row starts overflowing well above its own width. */
+@media (max-width: 1024px) {
   .dl-file-item {
     grid-template-columns: 24px minmax(0, 1fr) auto;
     row-gap: var(--space-xs);

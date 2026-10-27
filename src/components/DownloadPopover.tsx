@@ -243,6 +243,7 @@ const DownloadCard = React.memo(({
         <div className="dl-progress-card-actions">
           {isActiveStatus(status) && !isPaused && (
             <button
+              type="button"
               className="dl-progress-card-btn"
               onClick={() => onPause(download.id)}
               title={t("downloads.pauseTitle")}
@@ -253,6 +254,7 @@ const DownloadCard = React.memo(({
           )}
           {isPaused && (
             <button
+              type="button"
               className="dl-progress-card-btn"
               onClick={() => onResume(download.id)}
               title={t("downloads.resumeTitle")}
@@ -262,6 +264,7 @@ const DownloadCard = React.memo(({
             </button>
           )}
           <button
+            type="button"
             className="dl-progress-card-btn danger"
             onClick={() => onRemove(download.id)}
             title={isCompleted ? "Remove from history" : "Remove"}
@@ -270,6 +273,7 @@ const DownloadCard = React.memo(({
             <RemoveIcon />
           </button>
           <button
+            type="button"
             className="dl-progress-card-btn danger-fill"
             onClick={() => onDeleteFiles(download)}
             title={t("downloads.deleteFromDiskTitle")}
@@ -498,6 +502,7 @@ export default function DownloadPopover({
         <div className="dl-popover-tabs" role="tablist">
           <button
             role="tab"
+            type="button"
             aria-selected={tab === "active"}
             className={`dl-popover-tab${tab === "active" ? " active" : ""}`}
             onClick={() => setTab("active")}
@@ -511,6 +516,7 @@ export default function DownloadPopover({
           </button>
           <button
             role="tab"
+            type="button"
             aria-selected={tab === "history"}
             className={`dl-popover-tab${tab === "history" ? " active" : ""}`}
             onClick={() => setTab("history")}
@@ -529,6 +535,7 @@ export default function DownloadPopover({
             navigate("/downloads");
           }}
           title={t("downloads.openFullPage")}
+          aria-label={t("downloads.openFullPage")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -590,6 +597,7 @@ export default function DownloadPopover({
       {tab === "history" && historyCount > 0 && (
         <div className="dl-popover-footer">
           <button
+            type="button"
             className="dl-popover-footer-btn"
             onClick={handleClearHistory}
             disabled={clearing}
@@ -622,6 +630,7 @@ export default function DownloadPopover({
        *  bulk actions, or the magnet quick-add bar. */}
       <div className="dl-popover-footer dl-popover-footer--viewall">
         <button
+          type="button"
           className="dl-popover-footer-link"
           onClick={handleViewAll}
           title={t("downloads.openFullPage")}

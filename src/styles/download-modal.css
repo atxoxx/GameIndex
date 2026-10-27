@@ -963,6 +963,11 @@
   color: var(--dlm-ink-3);
 }
 
+.dlm .dl-flag--cache-checking {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
 /* Row actions: quiet by default, full strength on hover/focus. */
 .dlm .dl-result-actions {
   display: flex;

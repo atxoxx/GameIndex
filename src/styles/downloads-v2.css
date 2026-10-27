@@ -1647,6 +1647,9 @@
     position: absolute;
     top: 2px;
     right: 2px;
+    /* The rule above hides every span in the button, so restore the dot —
+       it is the only "limits active" cue left once the label is gone. */
+    display: block;
   }
 }
 
