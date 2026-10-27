@@ -6,7 +6,10 @@
    hardcoded colours) so every theme including light reads correctly.
    ============================================================================ */
 
-.deals-page {
+/* The detail modal is portaled to <body>, so it needs its own copy of the
+   surface tokens rather than inheriting them from `.deals-page`. */
+.deals-page,
+.deals-modal {
   --deals-surface: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
@@ -47,12 +50,14 @@
 .deals-sticky {
   position: sticky;
   top: 0;
-  z-index: 12;
+  z-index: var(--z-sticky);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  margin: calc(var(--space-sm) * -1) calc(var(--space-lg) * -1) 0;
-  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  /* Bleed the band to the panel edge, then re-inset its content by the page's
+     own inline gutter so the tabs line up with the header at every width. */
+  margin: calc(var(--space-sm) * -1) calc(var(--page-padding-inline, var(--space-lg)) * -1) 0;
+  padding: var(--space-sm) var(--page-padding-inline, var(--space-lg)) var(--space-md);
   background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border-faint);
 }
@@ -277,6 +282,11 @@
   white-space: nowrap;
 }
 
+.deals-chip--toggle {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+}
+
 .deals-chip--reset {
   background: transparent;
   color: var(--color-text-tertiary);
@@ -289,8 +299,11 @@
   position: absolute;
   top: calc(100% + var(--space-sm));
   right: 0;
-  z-index: 20;
+  z-index: var(--z-popover);
   width: min(360px, 92vw);
+  max-height: min(60vh, calc(100dvh - 320px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -593,7 +606,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-2xs);
+  flex-wrap: wrap;
   z-index: 2;
+}
+
+/* Keep the top badges clear of the discount chip when both are present; the
+   row wraps instead of running underneath it on narrow or localised cards. */
+.deals-tile__art:has(.deals-tile__discount) .deals-tile__badges {
+  right: calc(var(--space-sm) + 46px);
 }
 
 .deals-tile__badge {
@@ -784,6 +804,12 @@
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
+}
+
+/* A note on its own (no price before it) stays left-aligned under the title
+   instead of being pushed to the far edge of the card. */
+.deals-tile__price-row > .deals-tile__price-note:first-child {
+  margin-left: 0;
 }
 
 .deals-tile__meta {
@@ -1070,6 +1096,12 @@
   padding-top: var(--space-sm);
 }
 
+.deals-playtester {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 /* ── Detail modal ──────────────────────────────────────────────────────── */
 .deals-modal-backdrop {
   z-index: var(--z-modal);
@@ -1261,6 +1293,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
+  min-height: 0;
   padding: var(--space-xl);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1634,9 +1667,16 @@
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .deals-sticky {
-    margin-inline: calc(var(--space-md) * -1);
-    padding-inline: var(--space-md);
+  /* The control band runs out of room beside the search well before the page
+     hits its minimum width, so give the controls their own full row instead
+     of letting them wrap right-aligned under a half-empty search. */
+  .deals-toolbar__controls {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .deals-search {
+    max-width: none;
   }
 
   .deals-grid,
@@ -1677,11 +1717,6 @@
 }
 
 @media (max-width: 720px) {
-  .deals-toolbar__controls {
-    width: 100%;
-    margin-left: 0;
-  }
-
   .deals-sort {
     flex: 1 1 auto;
   }
@@ -1714,6 +1749,17 @@
   .deals-modal__scroll,
   .deals-modal__footer {
     padding-inline: var(--space-lg);
+  }
+}
+
+/* Short windows: the hero must not eat the scroll area above the footer. */
+@media (max-height: 640px) {
+  .deals-modal__hero {
+    min-height: 148px;
+  }
+
+  .deals-modal__intro {
+    padding: var(--space-lg);
   }
 }
 
