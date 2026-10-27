@@ -204,10 +204,25 @@ html[data-game-accent] .sidebar {
   display: flex;
   align-items: center;
   gap: var(--space-2xs);
+  min-width: 0;
 }
 
 .sidebar-section-header .sidebar-section-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0.08em;
+}
+
+/* The live "N of M" result is the more useful half of the header, so it keeps
+   its full width and the title gives way first. */
+.sidebar-section-header .sidebar-list-result {
+  flex-shrink: 0;
+}
+
+.sidebar-section-header .sidebar-section-toggle {
+  min-width: 0;
 }
 
 .sidebar-section-header--collapsible {

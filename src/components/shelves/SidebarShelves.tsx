@@ -164,6 +164,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
             type="button"
             className="sidebar-shelves__action"
             title={t("shelves.createFromFilters")}
+            aria-label={t("shelves.createFromFilters")}
             onClick={() => openCreate(true)}
           >
             <Plus size={14} />
@@ -221,6 +222,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
                       data-shelf-action
                       className="shelf-row__action"
                       title={shelf.pinned ? t("shelves.unpin") : t("shelves.pin")}
+                      aria-label={shelf.pinned ? t("shelves.unpin") : t("shelves.pin")}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleTogglePin(shelf);
@@ -233,6 +235,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
                       data-shelf-action
                       className="shelf-row__action"
                       title={t("shelves.edit")}
+                      aria-label={t("shelves.edit")}
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditing(shelf);
@@ -247,6 +250,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
                       data-shelf-action
                       className="shelf-row__action shelf-row__action--danger"
                       title={t("shelves.delete")}
+                      aria-label={t("shelves.delete")}
                       onClick={(e) => {
                         e.stopPropagation();
                         setPendingDelete(shelf);

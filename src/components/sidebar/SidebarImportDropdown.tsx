@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import type { SidebarImportDropdownProps } from "./types";
@@ -17,6 +17,7 @@ export default function SidebarImportDropdown({
 }: SidebarImportDropdownProps) {
   const { t } = useLanguage();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
   // Close on Escape or click outside
   useEffect(() => {
@@ -29,14 +30,34 @@ export default function SidebarImportDropdown({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // Anchor the menu to the button, but flip it above when the empty-state CTA
+  // sits low enough that opening downward would run past the window edge.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el || !anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const width = el.offsetWidth || 240;
+    const height = el.offsetHeight;
+    const left = Math.max(
+      8,
+      Math.min(rect.left, window.innerWidth - width - 8),
+    );
+    const below = rect.bottom + 6;
+    const top =
+      below + height + 8 <= window.innerHeight
+        ? below
+        : Math.max(8, rect.top - height - 6);
+    setPosition({ top, left });
+  }, [anchorEl]);
+
   if (!anchorEl) return null;
 
-  const rect = anchorEl.getBoundingClientRect();
   const menuStyle: React.CSSProperties = {
     position: "fixed",
-    top: rect.bottom + 6,
-    left: Math.max(8, Math.min(rect.left, window.innerWidth - 248)),
+    top: position?.top ?? 8,
+    left: position?.left ?? 8,
     width: 240,
+    visibility: position ? "visible" : "hidden",
     zIndex: "var(--z-popover)",
   };
 

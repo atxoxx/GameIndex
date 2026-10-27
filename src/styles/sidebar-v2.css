@@ -277,6 +277,12 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   box-shadow: var(--ring-accent);
 }
 
+/* Single-line actions (Random, View options): no description line, so they
+   sit shorter than the import items and keep the icon centred on the title. */
+.sbn-menu__item--row {
+  padding-block: var(--space-2xs);
+}
+
 .sbn-menu__icon {
   display: grid;
   place-items: center;
@@ -513,11 +519,15 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   align-items: center;
   gap: var(--space-4xs);
   opacity: 0;
+  /* Invisible but still laid out: keep them out of the hit test until the row
+     is hovered or focused, or a tap on the count would hit Delete. */
+  pointer-events: none;
 }
 
 .sbn .shelf-row:hover .shelf-row__actions,
 .sbn .shelf-row:focus-within .shelf-row__actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .sbn .shelf-row__action {
@@ -865,6 +875,16 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   color: var(--color-text-primary);
 }
 
+/* The name line is a flex row so badges can lead, but `text-overflow` does
+   nothing on a flex container's anonymous text run — the title needs its own
+   shrinkable box or a long name is cut off mid-word with no ellipsis. */
+.sbn .sidebar-game-name__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sbn .sidebar-game-meta {
   display: flex;
   align-items: center;
@@ -1183,6 +1203,35 @@ html[data-sidebar-position="right"] .sidebar.sbn {
   color: var(--color-text-primary);
 }
 
+/* Forced rail (narrow window): the empty state keeps its icon and CTA but
+   drops the copy, so the ~68px content column can't sprout a horizontal
+   scrollbar under the list. */
+.app-sidebar.sidebar-icon-rail .sbn .sidebar-empty {
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-md) var(--space-2xs);
+  gap: var(--space-2xs);
+}
+
+.app-sidebar.sidebar-icon-rail .sbn .sidebar-empty-title {
+  display: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sbn .sidebar-empty-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.app-sidebar.sidebar-icon-rail .sbn .sidebar-empty-cta {
+  width: 100%;
+  height: auto;
+  min-height: 26px;
+  padding: var(--space-2xs) 0;
+  font-size: var(--text-2xs);
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+}
+
 /* ── Alphabet scrubber ─────────────────────────────────────────────────── */
 
 .sbn .sidebar-alphabet-scrubber {
@@ -1344,7 +1393,7 @@ html[data-sidebar-position="right"] .sidebar.sbn {
 /* ── Inline view options (inside the "…" panel) ───────────────────────── */
 
 .sbn-menu {
-  max-height: min(680px, calc(100vh - 96px));
+  max-height: min(680px, calc(100dvh - 96px));
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -1560,6 +1609,16 @@ html[data-sidebar-position="right"] .sidebar.sbn {
 
 .app-sidebar.sidebar-icon-rail .sbn .sidebar-game-meta {
   display: none;
+}
+
+/* Rail rows clamp the title to two lines. The inline ellipsis box added for
+   the full-width list would force a single nowrap line instead, so hand the
+   clamp back to the parent here. */
+.app-sidebar.sidebar-icon-rail .sbn .sidebar-game-name__text {
+  display: inline;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────── */

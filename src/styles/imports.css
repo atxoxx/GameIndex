@@ -981,10 +981,29 @@
 }
 
 /* ── Wizard body layout ────────────────────────────────────────────── */
+/* Wizard shell: header, stepper and footer stay put; the only scroll region
+   is the step body, so a long review list can never push the footer out of a
+   short window. */
+.import-wizard {
+  overflow: hidden;
+}
+
 .import-wizard-body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* One scrollbar treatment across every scrolling area in the wizard (step
+   body, link list, suggestions, extras) so switching steps doesn't shift the
+   content gutter or swap between a thin and a full-width bar. */
+.import-review,
+.import-confirm,
+.import-link-items,
+.suggestions-list,
+.import-review-extras {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* ── Review step ───────────────────────────────────────────────────── */

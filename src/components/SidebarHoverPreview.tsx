@@ -355,7 +355,6 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
             style={{
               borderColor: status.color,
               color: status.color,
-              background: "rgba(0, 0, 0, 0.6)",
             }}
           >
             {t(status.labelKey)}

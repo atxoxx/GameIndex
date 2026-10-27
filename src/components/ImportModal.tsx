@@ -328,6 +328,7 @@ function ReviewStep({
                 type="text"
                 className="import-review-filter-input"
                 placeholder={t("import.review.filterPlaceholder")}
+                aria-label={t("import.review.filterPlaceholder")}
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
               />
@@ -335,6 +336,7 @@ function ReviewStep({
                 <button
                   type="button"
                   className="clear-btn"
+                  aria-label={t("common.clear")}
                   onClick={() => setFilterQuery("")}
                 >
                   ✖
@@ -600,11 +602,17 @@ function LinkStep({
                   type="text"
                   className="import-search-input"
                   placeholder={t("import.searchIgdb")}
+                  aria-label={t("import.searchIgdb")}
                   value={activeQuery}
                   onChange={(e) => onQueryChange(e.target.value)}
                 />
                 {activeQuery && (
-                  <button className="clear-btn" onClick={() => onQueryChange("")}>
+                  <button
+                    type="button"
+                    className="clear-btn"
+                    aria-label={t("common.clear")}
+                    onClick={() => onQueryChange("")}
+                  >
                     ✖
                   </button>
                 )}
@@ -630,6 +638,7 @@ function LinkStep({
                       return (
                         <button
                           key={game.id}
+                          type="button"
                           className={`suggestion-item${isLinked ? " linked" : ""}`}
                           onClick={() => onLinkGame(game)}
                         >
@@ -936,6 +945,17 @@ export default function ImportModal({
 
   const [importing, setImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<string>("");
+
+  // Escape dismisses the wizard, but never while an import is running — the
+  // progress overlay claims the modal and the operation owns the files.
+  useEffect(() => {
+    if (importing) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [importing, onCancel]);
 
   const activeQuery = searchQueries[activePath] || "";
 
@@ -1268,6 +1288,9 @@ export default function ImportModal({
     <div className="modal-backdrop" onMouseDown={onCancel}>
       <div
         className={`modal import-modal import-wizard${steps.length > 2 ? " batch-import-layout" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-wizard-title"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {importing && (
@@ -1295,9 +1318,33 @@ export default function ImportModal({
             </svg>
           </div>
           <div className="modal-header-text">
-            <h2 className="modal-title">{headerTitle}</h2>
+            <h2 className="modal-title" id="import-wizard-title">{headerTitle}</h2>
             <p className="modal-subtitle">{headerSubtitle}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            type="button"
+            onClick={onCancel}
+            disabled={importing}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+            leftIcon={
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            }
+          />
         </div>
 
         <div className="import-stepper">

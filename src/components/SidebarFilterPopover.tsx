@@ -490,6 +490,7 @@ export default function SidebarFilterPopover({
             className="sidebar-filter-popover-select"
             value={sort}
             onChange={(e) => onSortChange(e.target.value as LibrarySort)}
+            aria-label={t("sidebarFilter.sort")}
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>{t(SORT_LABEL_KEYS[opt])}</option>
@@ -613,7 +614,7 @@ export default function SidebarFilterPopover({
       {/* Footer: live count, small and unobtrusive ───────────────── */}
       <footer className="sidebar-filter-popover-footer">
         <span className="sidebar-filter-popover-count">
-          <strong>{filteredCount}</strong> of {totalGames} game{totalGames !== 1 ? "s" : ""}
+          {t("sidebar.resultOfTotal", { count: filteredCount, total: totalGames })}
         </span>
       </footer>
     </div>,

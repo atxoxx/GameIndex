@@ -48,18 +48,33 @@ export default function SidebarOverflowMenu({
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!el || !anchorEl) return;
-    const rect = anchorEl.getBoundingClientRect();
-    const width = 272;
-    const height = el.offsetHeight;
-    const left = Math.min(
-      Math.max(8, rect.right - width),
-      Math.max(8, window.innerWidth - width - 8),
-    );
-    const top = Math.min(
-      rect.bottom + 6,
-      Math.max(8, window.innerHeight - height - 8),
-    );
-    setPosition({ top, left });
+
+    const place = () => {
+      const rect = anchorEl.getBoundingClientRect();
+      const width = el.offsetWidth || 272;
+      const height = el.offsetHeight;
+      const left = Math.min(
+        Math.max(8, rect.right - width),
+        Math.max(8, window.innerWidth - width - 8),
+      );
+      const top = Math.min(
+        rect.bottom + 6,
+        Math.max(8, window.innerHeight - height - 8),
+      );
+      setPosition({ top, left });
+    };
+
+    place();
+    // The inline view-options panel grows the menu after mount. Re-measure on
+    // every size change so the expanded panel can't run off the window edge.
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", place);
+    };
   }, [anchorEl]);
 
   if (!anchorEl) return null;

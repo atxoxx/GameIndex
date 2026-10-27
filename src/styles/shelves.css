@@ -176,7 +176,7 @@
 
 .shelf-builder-modal {
   width: min(560px, calc(100vw - 48px));
-  max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 96px);
 }
 
 .shelf-builder-modal .modal-header-icon {
@@ -360,6 +360,17 @@
 }
 
 /* ── Home rails ──────────────────────────────────────────────────── */
+
+/* Pinned-shelf rails reuse the Continue / Recently Added header icon chrome,
+   tinted with the shelf's own swatch instead of a fixed status colour. */
+.lib-rail--shelf {
+  --shelf-swatch: var(--color-accent);
+}
+
+.lib-rail--shelf .lib-rail-icon--shelf {
+  border: 1px solid
+    color-mix(in srgb, var(--shelf-swatch, var(--color-accent)) 32%, transparent);
+}
 
 .lib-rail-icon--shelf {
   color: var(--shelf-swatch, var(--color-accent));

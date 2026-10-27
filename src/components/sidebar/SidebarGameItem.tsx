@@ -249,7 +249,9 @@ function SidebarGameItemBase({
               {t("library.vrBadge")}
             </span>
           )}
-          <HighlightedName name={displayName} query={searchQuery} />
+          <span className="sidebar-game-name__text">
+            <HighlightedName name={displayName} query={searchQuery} />
+          </span>
         </div>
 
         {density !== "compact" && (
