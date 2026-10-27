@@ -277,7 +277,11 @@
   flex-shrink: 1;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  padding: var(--space-3xs);
+  /* The badge hangs 3px above its tab and carries a 2px ring shadow (see
+     .topnav-tab-badge), and a focused tab paints a 3px ring. A uniform 2px
+     inset had `overflow-y: hidden` shaving the badge flat and clipping the
+     focus ring, so the inset clears badge + ring on every side. */
+  padding: calc(var(--space-2xs) + var(--space-4xs)) var(--space-2xs) var(--space-2xs);
   background: var(--color-surface);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -418,6 +422,15 @@
   height: 16px;
 }
 
+/* Docs and Big Screen are the last two header actions. Both ride the shared
+ * .topnav-btn shell; the hooks exist so a UI style can target them without
+ * also catching downloads/settings. They must never shrink — the right
+ * cluster is at its tightest against the 900px minimum window. */
+.topnav-btn-docs,
+.topnav-btn-bigscreen {
+  flex-shrink: 0;
+}
+
 .topnav-btn-badge {
   position: absolute;
   top: 4px;
@@ -469,7 +482,7 @@
  * Min / max(+restore) / close rendered into the topnav when the
  * Tauri main window ships with decorations:false
  * (see src-tauri/tauri.conf.json). The vertical divider between
- * .topnav-right and .topnav-window-chrome keeps the boundary
+ * .topnav-right and .window-controls keeps the boundary
  * visible against every theme without competing with the
  * existing bottom-border of .topnav.
  *
@@ -478,9 +491,10 @@
  * parent <nav>'s double-click -> maximize handler doesn't fire
  * on a button double-click.
  */
-.topnav-window-chrome {
+.window-controls {
   display: flex;
   align-items: center;
+  gap: var(--space-3xs);
   margin-left: 0;
   padding-left: var(--space-xs);
   border-left: 1px solid color-mix(in srgb,
@@ -494,7 +508,7 @@
 }
 
 /* Topnav right cluster: bundles .topnav-right (page actions)
- * and .topnav-window-chrome (min/max/close + the vertical
+ * and .window-controls (min/max/close + the vertical
  * divider) into a single flex unit. The parent .topnav runs
  * justify-content: space-between and, when given three direct
  * children, distributes equal space on both sides of the middle
@@ -507,19 +521,10 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  /* No gap: .topnav-window-chrome owns the visual gap before
+  /* No gap: .window-controls owns the visual gap before
    * the divider via its own padding-left. Adding a gap here
    * would double-count. */
   gap: 0;
-}
-
-/* The marker below used to be matched directly; now the
-   cluster rule is inserted above it so .topnav-related
-   rules stay contiguous in the file. */
-.window-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3xs);
 }
 
 .window-controls-btn {

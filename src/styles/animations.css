@@ -148,19 +148,12 @@
 }
 
 /* Unified Page / Section Enter — cohesive motion for all routes.
-   pageIn: shell enters once; fadeUp: inner sections stagger with --d delay.
-   Both use ease-out + compositor-only (opacity/transform/filter) and honor
-   prefers-reduced-motion globally. */
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
-  to   { opacity: 1; transform: none; filter: none; }
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
-  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-}
-
+   The `pageIn` / `fadeUp` keyframes live in `styles/page.css` (loaded with
+   the app shell); this file used to declare a second, heavier pair with the
+   same names, so the winner depended on CSS load order. Only the utilities
+   are kept here — the keyframe definitions stay in one place. `.page-enter`
+   is a Big Screen utility and Big Screen always mounts under the shell.
+   Both animate on the compositor and honour prefers-reduced-motion globally. */
 .page-enter { animation: pageIn var(--duration-normal) var(--ease-out) both; }
 .fade-up { opacity: 0; animation: fadeUp var(--duration-slow) var(--ease-out) both; animation-delay: var(--d, 0ms); }
 

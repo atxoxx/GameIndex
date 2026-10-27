@@ -45,8 +45,7 @@
   /* Full-screen scrims and overlays. */
   .modal-backdrop,
   .modal,
-  .command-palette-backdrop,
-  .command-palette-panel,
+  .cp-backdrop,
   .image-lightbox__backdrop,
   .image-lightbox__thumb-strip,
   .bigscreen-search-scrim,

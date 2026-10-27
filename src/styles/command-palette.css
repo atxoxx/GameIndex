@@ -1728,8 +1728,23 @@
 }
 
 @media (max-width: 760px) {
+  /* There is no room for a side-by-side inspector here, but hiding it
+     outright turned the peek affordance (Ctrl+Enter / the footer hint)
+     into a no-op: `peekOpen` still flipped, nothing rendered. Lay the
+     preview over the result list instead so the peek still reads as a
+     temporary surface; Escape/Ctrl+Enter dismiss it as before. */
+  .cp-panel {
+    position: relative;
+  }
+
   .cp-panel .cp-preview {
-    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: auto;
+    border-left: 0;
+    border-radius: inherit;
+    background: var(--color-bg-secondary);
   }
 }
 
