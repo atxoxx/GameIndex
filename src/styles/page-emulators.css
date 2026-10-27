@@ -1146,6 +1146,7 @@
 .emu-games-bulk-buttons {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-xs);
 }
 
@@ -1422,6 +1423,10 @@
 /* ── ROM Table View ─────────────────────────────────────────────── */
 
 .emu-games-table {
+  /* One source of truth for the fixed columns: the header cells and the row
+     cells must resolve to the same width or the labels drift. */
+  --emu-col-size: 90px;
+  --emu-col-actions: 90px;
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
@@ -1495,12 +1500,12 @@
 }
 
 .emu-game-size-col {
-  width: 90px;
+  width: var(--emu-col-size, 90px);
   text-align: right;
 }
 
 .emu-game-actions-col {
-  width: 90px;
+  width: var(--emu-col-actions, 90px);
 }
 
 .emu-game-launch-col {
@@ -1577,7 +1582,7 @@
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   flex-shrink: 0;
-  min-width: 80px;
+  min-width: var(--emu-col-size, 90px);
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1592,7 +1597,9 @@
 .emu-game-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-3xs);
+  width: var(--emu-col-actions, 90px);
   flex-shrink: 0;
 }
 
@@ -1889,6 +1896,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
+  min-width: 0;
 }
 
 .emulators-field-header {
@@ -1938,6 +1946,8 @@
 .emulators-field input,
 .emulators-field select,
 .emulators-field textarea {
+  width: 100%;
+  min-width: 0;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--text-sm);
   border: 1px solid var(--color-border);
@@ -2082,7 +2092,7 @@
 /* ── Download emulator modal ────────────────────────────────────── */
 
 .download-emulator-modal {
-  max-height: 85vh;
+  max-height: 85dvh;
 }
 
 .download-emulator-body {
@@ -2606,7 +2616,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  padding: 0 var(--space-lg);
+  padding: 0 var(--space-xl);
 }
 .emu-rom-badge {
   display: inline-flex;
@@ -2616,8 +2626,8 @@
   border-radius: var(--radius-full);
   font-size: var(--text-2xs);
   font-weight: 600;
-  color: var(--color-text);
-  background: var(--color-bg-2);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   white-space: nowrap;
 }
@@ -2626,18 +2636,21 @@
   border-color: var(--accent);
 }
 .emu-rom-badge--warn {
-  color: var(--color-warning, #f59e0b);
-  border-color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
 }
 
 .emu-rom-tabs {
   display: flex;
   gap: var(--space-2xs);
-  padding: 0 var(--space-lg);
+  padding: 0 var(--space-xl);
   border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .emu-rom-tab {
   appearance: none;
+  flex: 0 0 auto;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -2645,17 +2658,18 @@
   padding: var(--space-sm) var(--space-md);
   font-size: var(--text-sm);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 .emu-rom-tab:hover {
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 .emu-rom-tab.is-active {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
 .emu-rom-inspect-body--tabs {
-  max-height: 60vh;
+  max-height: 60dvh;
   overflow-y: auto;
 }
 .emu-rom-tab-panel {
@@ -2673,7 +2687,7 @@
 .emu-panel-head h4 {
   margin: 0;
   font-size: var(--text-sm);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 .emu-panel-head--spaced {
   margin-top: var(--space-sm);
@@ -2701,7 +2715,7 @@
   padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-1);
+  background: var(--color-bg-secondary);
 }
 .emu-candidate-info {
   display: flex;
@@ -2740,14 +2754,14 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--text-xs);
-  color: var(--color-text);
-  background: var(--color-bg-1);
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
 }
 .emu-controller-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-success, #22c55e);
+  background: var(--color-success);
   flex-shrink: 0;
 }
 .emu-controller-muted {
@@ -2789,7 +2803,7 @@
   padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-1);
+  background: var(--color-bg-secondary);
 }
 .emu-save-entry-info {
   display: flex;
@@ -2830,7 +2844,7 @@
 .emu-filter-chip {
   appearance: none;
   border: 1px solid var(--color-border);
-  background: var(--color-bg-1);
+  background: var(--color-bg-secondary);
   color: var(--color-text-muted);
   border-radius: var(--radius-full);
   padding: var(--space-2xs) var(--space-md);
@@ -2881,8 +2895,8 @@
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-1);
-  color: var(--color-text);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
 }
@@ -2912,11 +2926,12 @@
 .emu-bios-body,
 .emu-discovery-body,
 .emu-folder-body {
-  max-height: 55vh;
+  max-height: 55dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-xl);
 }
 .emu-dup-group {
   border: 1px solid var(--color-border);
@@ -2940,7 +2955,7 @@
   flex-direction: column;
   gap: var(--space-3xs);
   padding: var(--space-xs) var(--space-sm);
-  background: var(--color-bg-1);
+  background: var(--color-bg-secondary);
   border-radius: var(--radius-sm);
 }
 .emu-dup-game-name {
@@ -2963,7 +2978,7 @@
   padding: var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-1);
+  background: var(--color-bg-secondary);
 }
 .emu-discovery-info {
   display: flex;
@@ -3318,7 +3333,7 @@
 /* ── Add surface ────────────────────────────────────────────────── */
 .emu-add-modal {
   max-width: min(720px, 94vw);
-  max-height: 86vh;
+  max-height: 86dvh;
   display: flex;
   flex-direction: column;
 }

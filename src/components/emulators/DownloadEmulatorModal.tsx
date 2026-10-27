@@ -497,6 +497,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
                   readOnly
                   value={installDir}
                   placeholder={t("emulators.download.chooseFolder")}
+                  aria-label={t("emulators.download.chooseFolder")}
                 />
                 <Button
                   type="button"
@@ -537,7 +538,18 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
               </div>
               {renderSummary()}
               <div className="download-emulator-progress">
-                <div className="download-emulator-progress-bar">
+                <div
+                  className="download-emulator-progress-bar"
+                  role="progressbar"
+                  aria-label={statusLabel}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={
+                    determinate && download
+                      ? Math.round((download.progress ?? 0) * 100)
+                      : undefined
+                  }
+                >
                   <div
                     className={`download-emulator-progress-fill${
                       determinate ? "" : " is-indeterminate"

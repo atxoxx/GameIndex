@@ -272,7 +272,7 @@ function OverviewTab({
           </span>
           {game.romPath && (
             <div className="emu-rom-inspect-path-actions">
-              <button type="button" className="emu-icon-btn" title={t("gameInfo.copyClipboard")} onClick={copyPath}>
+              <button type="button" className="emu-icon-btn" title={t("gameInfo.copyClipboard")} aria-label={t("gameInfo.copyClipboard")} onClick={copyPath}>
                 <svg {...ICON}>
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
@@ -282,6 +282,7 @@ function OverviewTab({
                 type="button"
                 className="emu-icon-btn"
                 title={t("emulators.games.openLocation")}
+                aria-label={t("emulators.games.openLocation")}
                 onClick={() => game.romPath && onOpenLocation(game.romPath)}
               >
                 <svg {...ICON}>

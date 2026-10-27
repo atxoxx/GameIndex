@@ -12,7 +12,7 @@
 
 .exe-picker {
   width: min(560px, calc(100vw - var(--space-xl) * 2));
-  max-height: 80vh;
+  max-height: 80dvh;
   overflow-y: auto;
   background: var(--color-surface);
   color: var(--color-text-primary);
@@ -203,6 +203,11 @@
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+.exe-picker-error {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
 }
 
 /* Edit-game modal — additional executables.

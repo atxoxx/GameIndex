@@ -7,7 +7,7 @@
 .modal.emulators-modal.emu-editor {
   width: min(940px, 94vw);
   max-width: 940px;
-  max-height: 88vh;
+  max-height: 88dvh;
   padding: 0;
   overflow: hidden;
   display: flex;

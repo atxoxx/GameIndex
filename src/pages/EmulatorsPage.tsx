@@ -1150,6 +1150,7 @@ export default function EmulatorsPage() {
               onMouseDown={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
+              aria-label={t("emulators.games.renameTitle")}
             >
               <div className="modal-header">
                 <h2>{t("emulators.games.renameTitle")}</h2>
@@ -1218,6 +1219,7 @@ export default function EmulatorsPage() {
               className="modal emulators-modal emu-bios-modal"
               role="dialog"
               aria-modal="true"
+              aria-label={t("emulators.bios.title")}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="modal-header">
@@ -1306,6 +1308,7 @@ export default function EmulatorsPage() {
               className="modal emulators-modal emu-folder-modal"
               role="dialog"
               aria-modal="true"
+              aria-label={t("emulators.discovery.romFolders")}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="modal-header">

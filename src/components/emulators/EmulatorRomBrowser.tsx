@@ -475,6 +475,7 @@ export default function EmulatorRomBrowser({
               className="modal emulators-modal emu-dup-modal"
               role="dialog"
               aria-modal="true"
+              aria-label={t("emulators.duplicates.title")}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="modal-header">

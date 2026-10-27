@@ -252,6 +252,7 @@ export default function EmulatorAddModal({
                   <input
                     type="text"
                     placeholder={t("emulators.add.search")}
+                    aria-label={t("emulators.add.search")}
                     value={catalogSearch}
                     onChange={(e) => setCatalogSearch(e.target.value)}
                   />
