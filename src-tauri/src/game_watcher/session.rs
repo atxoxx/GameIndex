@@ -248,12 +248,25 @@ pub(crate) fn find_session_process(
     let expected_stem = exe_stem_lower(matched_exe)
         .filter(|s| !s.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| s.contains(kw)));
 
+    // Normalize the install dir up front. Parsing the *normalized* path is
+    // what makes the parent climbs below platform-independent: on Linux a
+    // Windows-style install dir (`C:\Games\Publisher\Launcher`) canonicalizes
+    // to `c:/games/publisher/launcher`, so `Path::parent` splits it into
+    // components instead of returning the whole string as one component.
+    // The same normalization keeps Wine/Proton paths (mixed separators)
+    // climbing on Windows.
+    let install_dir_norm: Option<PathBuf> = install_dir.map(|d| {
+        PathBuf::from(
+            trim_path_separators(&normalize_path_lower(&d.to_string_lossy())).to_string(),
+        )
+    });
+
     // Tier 1: the session's own install dir. This is the only scan
     // allowed to use the bundled-Java-runtime fallback — a Java game's
     // real process (e.g. Songs of Syx's `jre\bin\javaw.exe`) lives in
     // this exact folder, while a parent-level scan must never steal a
     // sibling game's bundled runtime.
-    if let Some(dir) = install_dir {
+    if let Some(dir) = install_dir_norm.as_deref() {
         if let Some(p) =
             find_best_process_in_dir(processes, dir, expected_stem.as_deref(), true)
         {
@@ -285,9 +298,8 @@ pub(crate) fn find_session_process(
     let stem = exe_stem_lower(matched_exe);
     if let Some(lower) = stem {
         if !lower.is_empty() && !SKIP_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
-            if let Some(dir_lower) = install_dir.map(|d| {
-                trim_path_separators(&normalize_path_lower(&d.to_string_lossy())).to_string()
-            }) {
+            if let Some(dir_norm) = install_dir_norm.as_deref() {
+                let dir_lower = dir_norm.to_string_lossy();
                 let mut best: Option<(u64, ProcessInfo)> = None;
                 for p in processes {
                     let pstem = match exe_stem_lower(&p.exe_path) {
@@ -303,22 +315,19 @@ pub(crate) fn find_session_process(
                     // Keep the candidate within the install-dir tree (or its
                     // parents) to avoid stealing an unrelated game.
                     let pl = normalize_path_lower(&p.exe_path);
-                    if pl.starts_with(&dir_lower) {
+                    if pl.starts_with(dir_lower.as_ref()) {
                         let score = p.working_set_size;
                         if best.as_ref().map(|(s, _)| score > *s).unwrap_or(true) {
                             best = Some((score, p.clone()));
                         }
                         continue;
                     }
-                    let mut cur = install_dir.and_then(|d| d.parent());
+                    let mut cur = dir_norm.parent();
                     let mut within = false;
                     for _ in 0..4 {
                         if let Some(pp) = cur {
-                            let pp_l = trim_path_separators(&normalize_path_lower(
-                                &pp.to_string_lossy(),
-                            ))
-                            .to_string();
-                            if !pp_l.is_empty() && pl.starts_with(&pp_l) {
+                            let pp_l = pp.to_string_lossy();
+                            if !pp_l.is_empty() && pl.starts_with(pp_l.as_ref()) {
                                 within = true;
                                 break;
                             }
