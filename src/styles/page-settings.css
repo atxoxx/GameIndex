@@ -22,6 +22,7 @@
 }
 
 .settings-shell--toptabs {
+  --settings-nav-clearance: 130px;
   flex-direction: column;
   align-items: stretch;
   width: 100%;
@@ -47,7 +48,6 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   margin-bottom: var(--space-xs);
-  position: relative;
 }
 
 /* Brand top accent edge */
@@ -279,7 +279,7 @@
   transition: max-height 220ms var(--ease-standard), opacity 180ms ease, margin 220ms ease, padding 220ms ease;
   margin-top: var(--space-xs);
   padding-top: var(--space-xs);
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--color-border-faint);
 }
 
 .settings-subtabs-strip-container--collapsed {
@@ -929,10 +929,19 @@
   box-shadow: 0 0 8px var(--color-success);
 }
 
-/* Smooth-scroll anchors land with breathing room under the sticky bar. */
+/* Smooth-scroll anchors land with breathing room under the sticky bar. The
+ * two-tier nav wraps to a second row below ~1010px and stacks to four rows at
+ * 900px, so the reserved offset has to grow with it or the jumped-to heading
+ * ends up behind the bar. */
 .settings-content [id],
 .settings-section[id] {
-  scroll-margin-top: 130px;
+  scroll-margin-top: var(--settings-nav-clearance, 130px);
+}
+
+@media (max-width: 1010px) {
+  .settings-shell--toptabs {
+    --settings-nav-clearance: 190px;
+  }
 }
 
 /* The content column already spaces children via `gap`; neutralise the
@@ -1059,11 +1068,14 @@
 
 /* ── Undelimited settings navigation ─────────────────────────────────────
    The category row and the subtab strip drop their trays: labels sit in the
-   page flow and the active item is marked by an accent underline. */
+   page flow and the active item is marked by an accent underline. The bar
+   still pins (position: sticky above), so it keeps a page-toned wash —
+   without one, scrolled sections show through the labels. No border, radius
+   or shadow: the wash is invisible until content passes underneath. */
 .settings-topnav-bar {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  background: color-mix(in srgb, var(--color-bg-secondary) 96%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 0;
   border-radius: 0;
   box-shadow: none;

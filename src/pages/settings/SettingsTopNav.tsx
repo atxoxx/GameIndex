@@ -380,12 +380,15 @@ export default function SettingsTopNav({
         </div>
       </div>
 
-      {/* Secondary Row: Dynamic Subtabs Strip (Collapsible) */}
+      {/* Secondary Row: Dynamic Subtabs Strip (Collapsible). When collapsed the
+          strip is only clipped, so `inert` also keeps its links out of the tab
+          order. */}
       <div
         className={`settings-subtabs-strip-container${
           showSubtabs ? "" : " settings-subtabs-strip-container--collapsed"
         }`}
         aria-hidden={!showSubtabs}
+        inert={!showSubtabs}
       >
         <div
           className="settings-subtabs-bar"

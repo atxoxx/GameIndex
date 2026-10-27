@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bookmark,
   Check,
@@ -302,78 +303,103 @@ export function StudioPresetsBar({
         </button>
       </div>
 
-      {/* Save Preset Modal */}
-      {showSaveModal && (
-        <div className="studio-modal-backdrop" onClick={() => setShowSaveModal(false)}>
-          <div className="studio-modal" onClick={(e) => e.stopPropagation()}>
-            <h4 className="studio-modal__title">{t("settings.interface.savePresetModalTitle")}</h4>
-            <p className="studio-modal__desc">{t("settings.interface.savePresetModalDesc")}</p>
-            <input
-              type="text"
-              className="studio-modal__input"
-              placeholder={t("settings.interface.savePresetPlaceholder")}
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") setShowSaveModal(false);
-              }}
-            />
-            <div className="studio-modal__actions">
-              <button
-                type="button"
-                className="studio-modal__btn studio-modal__btn--ghost"
-                onClick={() => setShowSaveModal(false)}
+      {/* Save Preset Modal — portalled so the scrim covers the app chrome
+          (the studio lives inside the isolated, scroll-clipped main panel). */}
+      {createPortal(
+        <>
+          {showSaveModal && (
+            <div className="studio-modal-backdrop" onClick={() => setShowSaveModal(false)}>
+              <div
+                className="studio-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="studio-save-preset-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                {t("common.cancel")}
-              </button>
-              <button
-                type="button"
-                className="studio-modal__btn studio-modal__btn--primary"
-                onClick={handleSave}
-                disabled={!saveName.trim()}
-              >
-                {t("settings.interface.savePresetConfirm")}
-              </button>
+                <h4 className="studio-modal__title" id="studio-save-preset-title">
+                  {t("settings.interface.savePresetModalTitle")}
+                </h4>
+                <p className="studio-modal__desc">{t("settings.interface.savePresetModalDesc")}</p>
+                <input
+                  type="text"
+                  className="studio-modal__input"
+                  placeholder={t("settings.interface.savePresetPlaceholder")}
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                    if (e.key === "Escape") setShowSaveModal(false);
+                  }}
+                />
+                <div className="studio-modal__actions">
+                  <button
+                    type="button"
+                    className="studio-modal__btn studio-modal__btn--ghost"
+                    onClick={() => setShowSaveModal(false)}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-modal__btn studio-modal__btn--primary"
+                    onClick={handleSave}
+                    disabled={!saveName.trim()}
+                  >
+                    {t("settings.interface.savePresetConfirm")}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Import Preset Modal */}
-      {showImportModal && (
-        <div className="studio-modal-backdrop" onClick={() => setShowImportModal(false)}>
-          <div className="studio-modal studio-modal--wide" onClick={(e) => e.stopPropagation()}>
-            <h4 className="studio-modal__title">{t("settings.interface.importModalTitle")}</h4>
-            <p className="studio-modal__desc">{t("settings.interface.importModalDesc")}</p>
-            <textarea
-              className="studio-modal__textarea"
-              placeholder='{ "layout": { ... } }'
-              value={importJsonText}
-              onChange={(e) => setImportJsonText(e.target.value)}
-              rows={8}
-              autoFocus
-            />
-            <div className="studio-modal__actions">
-              <button
-                type="button"
-                className="studio-modal__btn studio-modal__btn--ghost"
-                onClick={() => setShowImportModal(false)}
+          {/* Import Preset Modal */}
+          {showImportModal && (
+            <div className="studio-modal-backdrop" onClick={() => setShowImportModal(false)}>
+              <div
+                className="studio-modal studio-modal--wide"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="studio-import-preset-title"
+                onClick={(e) => e.stopPropagation()}
               >
-                {t("common.cancel")}
-              </button>
-              <button
-                type="button"
-                className="studio-modal__btn studio-modal__btn--primary"
-                onClick={handleImportApply}
-                disabled={!importJsonText.trim()}
-              >
-                {t("settings.interface.importApplyBtn")}
-              </button>
+                <h4 className="studio-modal__title" id="studio-import-preset-title">
+                  {t("settings.interface.importModalTitle")}
+                </h4>
+                <p className="studio-modal__desc">{t("settings.interface.importModalDesc")}</p>
+                <textarea
+                  className="studio-modal__textarea"
+                  placeholder='{ "layout": { ... } }'
+                  value={importJsonText}
+                  onChange={(e) => setImportJsonText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowImportModal(false);
+                  }}
+                  rows={8}
+                  autoFocus
+                />
+                <div className="studio-modal__actions">
+                  <button
+                    type="button"
+                    className="studio-modal__btn studio-modal__btn--ghost"
+                    onClick={() => setShowImportModal(false)}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-modal__btn studio-modal__btn--primary"
+                    onClick={handleImportApply}
+                    disabled={!importJsonText.trim()}
+                  >
+                    {t("settings.interface.importApplyBtn")}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>,
+        document.body,
       )}
     </div>
   );

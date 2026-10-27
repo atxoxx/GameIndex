@@ -2507,7 +2507,7 @@
 }
 
 .backup-subtab-pill.active .backup-subtab-icon {
-  color: var(--color-primary);
+  color: var(--color-accent);
   opacity: 1;
 }
 
@@ -2526,7 +2526,7 @@
 }
 
 .backup-subtab-badge--highlight {
-  background: var(--color-primary);
+  background: var(--color-accent);
   color: var(--color-text-inverse, #fff);
 }
 
@@ -2786,8 +2786,8 @@
   align-items: center;
   padding: var(--space-4xs) var(--space-xs);
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
 }
@@ -2816,8 +2816,8 @@
 }
 
 .backup-archive-card:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-primary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-accent));
 }
 
 .backup-archive-icon-wrap {
@@ -2827,8 +2827,8 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
   flex-shrink: 0;
 }
 
@@ -2968,13 +2968,13 @@
 }
 
 .backup-preset-card:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-primary));
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-accent));
 }
 
 .backup-preset-card.active {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 
 .backup-preset-card-title {
@@ -3025,7 +3025,7 @@
 
 .backup-search-input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
 }
 
 .backup-selection-actions {
@@ -3074,7 +3074,7 @@
 }
 
 .backup-radio-label input[type="radio"] {
-  accent-color: var(--color-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
@@ -3096,7 +3096,7 @@
 
 .backup-note-input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
 }
 
 .backup-action-footer {
@@ -3140,14 +3140,14 @@
 }
 
 .backup-dropzone:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary));
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-accent));
 }
 
 .backup-dropzone--active,
 .backup-dropzone.dragover {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   transform: scale(0.995);
 }
 
@@ -3155,8 +3155,8 @@
    card so the "file selected" state reads clearly. */
 .backup-dropzone.has-file {
   border-style: solid;
-  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-secondary));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary));
 }
 
 .backup-dropzone-content {
@@ -3174,8 +3174,8 @@
   width: 52px;
   height: 52px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
   margin-bottom: var(--space-xs);
 }
 
@@ -3221,8 +3221,8 @@
 
 .backup-recent-chip:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 
 .backup-chip-name {
@@ -3292,7 +3292,7 @@
 }
 
 .backup-folder-icon {
-  color: var(--color-primary);
+  color: var(--color-accent);
   flex-shrink: 0;
   margin-top: var(--space-3xs);
 }
@@ -3580,7 +3580,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--color-scrim);
   backdrop-filter: blur(6px);
   padding: var(--space-md);
   animation: fadeIn 0.15s ease-out;
@@ -3876,7 +3876,9 @@
 
 .backup-diff-table-container {
   flex: 1;
-  overflow-y: auto;
+  /* Both axes: the card clips overflow-x, so a wide diff table must scroll
+     here rather than disappear at the edge. */
+  overflow: auto;
   padding: var(--space-md);
 }
 
@@ -4254,8 +4256,8 @@
   display: inline-flex;
   align-items: center;
   padding: var(--space-3xs) var(--space-sm);
-  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
@@ -4304,18 +4306,18 @@
 }
 
 .settings-backup-mode-card:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-primary));
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-accent));
 }
 
 .settings-backup-mode-card.active {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 
 .settings-backup-mode-card input[type="radio"] {
   margin-top: var(--space-3xs);
-  accent-color: var(--color-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
@@ -4346,7 +4348,7 @@
 
 /* Archive list icon + dropzone states */
 .backup-archive-icon {
-  color: var(--color-primary);
+  color: var(--color-accent);
 }
 
 .backup-dropzone-icon {
@@ -4470,7 +4472,7 @@
 }
 
 .backup-text-input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
 }
 
 /* Radio helper description */
