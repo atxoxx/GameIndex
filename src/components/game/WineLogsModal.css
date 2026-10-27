@@ -5,7 +5,7 @@
 .wine-logs-modal {
   width: 100%;
   max-width: 960px;
-  max-height: 90vh;
+  max-height: min(90dvh, 840px);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
@@ -189,12 +189,29 @@
 
 /* Verbose level selector */
 .wine-logs-verbose-label {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+/* The select's own arrow is suppressed so the control matches the app chrome;
+   draw it from theme tokens instead of a baked-in SVG colour. */
+.wine-logs-verbose-label::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -4px;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 
 .wine-logs-verbose-select {
@@ -210,9 +227,6 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   max-width: 190px;
 }
@@ -361,8 +375,9 @@
 
 /* ─── Terminal Body ────────────────────────────────────────── */
 .wine-logs-body {
-  flex: 1;
-  min-height: 360px;
+  flex: 1 1 auto;
+  /* Shrink with the viewport so the footer stays reachable at 600px tall. */
+  min-height: min(360px, 40dvh);
   max-height: 580px;
   overflow-y: auto;
   overflow-x: auto;
@@ -383,7 +398,7 @@
   gap: var(--space-md);
   padding: var(--space-4xs) 0;
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: anywhere;
   color: var(--color-text-secondary);
 }
 
@@ -402,6 +417,7 @@
 
 .wine-log-text {
   flex: 1;
+  min-width: 0;
 }
 
 /* Line highlight classes */

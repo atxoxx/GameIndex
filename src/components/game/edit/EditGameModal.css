@@ -291,9 +291,12 @@
 
 .edit-search-result-path {
   margin-left: auto;
+  min-width: 0;
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .edit-search-enter {
@@ -1352,6 +1355,8 @@
 
 .edit-inherited-info code {
   color: var(--color-accent);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .edit-inherited-actions {
@@ -1495,6 +1500,7 @@
     "hero hero hero hero hero hero"
     "cover cover logo logo icon icon";
   gap: var(--space-md);
+  align-items: start;
 }
 
 .edit-artwork-slot {
@@ -1535,6 +1541,9 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  /* The slot's real ratio arrives inline as aspect-ratio; cap it so a poster
+     cover does not turn the board into a full-height column. */
+  max-height: 240px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
@@ -1562,13 +1571,8 @@
 }
 
 .edit-artwork-slot--hero .edit-artwork-preview {
-  height: clamp(150px, 22vh, 210px);
-}
-
-.edit-artwork-slot--cover .edit-artwork-preview,
-.edit-artwork-slot--logo .edit-artwork-preview,
-.edit-artwork-slot--icon .edit-artwork-preview {
-  height: 170px;
+  /* The inline 16 / 5 ratio decides the height; keep the row compact. */
+  max-height: 220px;
 }
 
 .edit-artwork-slot--hero .edit-artwork-preview img {
@@ -2401,7 +2405,7 @@
   flex-direction: column;
   gap: var(--space-md);
   max-width: min(90vw, 720px);
-  max-height: 88vh;
+  max-height: 88dvh;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

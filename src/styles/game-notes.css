@@ -6,9 +6,11 @@
 
 .notes-tab {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  /* Prefer the 300px list, but give the editor back the space when the page
+     column is narrower than a full window. */
+  grid-template-columns: clamp(220px, 30%, 300px) minmax(0, 1fr);
   gap: var(--space-lg);
-  height: clamp(460px, 64vh, 780px);
+  height: clamp(460px, 64dvh, 780px);
   animation: importMenuIn var(--duration-normal) var(--ease-enter);
 }
 
@@ -115,7 +117,7 @@
   position: absolute;
   top: calc(100% + var(--space-2xs));
   right: 0;
-  z-index: 20;
+  z-index: var(--z-popover);
   width: 256px;
   max-height: min(60vh, 420px);
   overflow-y: auto;
@@ -923,6 +925,16 @@ h6.note-markdown__heading {
   box-shadow: var(--elevation-3);
 }
 
+/* Cross-game result: the owning game sits above the note, so the note's own
+   excerpt carries a touch more weight than in a same-game row. */
+.note-list-item--search {
+  gap: var(--space-3xs);
+}
+
+.note-list-item--search .note-list-item__excerpt {
+  color: var(--color-text-secondary);
+}
+
 .note-search-item__game {
   display: flex;
   align-items: center;
@@ -971,7 +983,7 @@ h6.note-markdown__heading {
 
 .notes-drawer__body {
   font-size: var(--text-sm);
-  line-height: var(--leading-relaxed);
+  line-height: var(--line-height-relaxed);
   color: var(--color-text-primary);
 }
 

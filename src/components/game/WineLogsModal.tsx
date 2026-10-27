@@ -302,6 +302,7 @@ export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: Wine
               type="text"
               className="wine-logs-search-input"
               placeholder={t("wineLogs.searchPlaceholder") || "Filter log entries (e.g. err, dxvk, crash)..."}
+              aria-label={t("wineLogs.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -310,7 +311,8 @@ export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: Wine
                 type="button"
                 className="wine-logs-search-clear"
                 onClick={() => setSearchQuery("")}
-                title="Clear filter"
+                title={t("common.clear")}
+                aria-label={t("common.clear")}
               >
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -376,6 +378,7 @@ export function WineLogsModal({ gameId, gameName, onClose, onOpenEditTab }: Wine
               className="wine-logs-copy-path-btn"
               onClick={handleCopyPath}
               title={t("wineLogs.copyPath") || "Copy log file path"}
+              aria-label={t("wineLogs.copyPath") || "Copy log file path"}
             >
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />

@@ -117,6 +117,7 @@ export function EditMetadataDrawer() {
                       rel="noopener noreferrer"
                       className="edit-metadata-link"
                       title={t("edit.openSourcePage")}
+                      aria-label={t("edit.openSourcePage")}
                     >
                       <ExternalLink size={14} aria-hidden="true" />
                     </a>

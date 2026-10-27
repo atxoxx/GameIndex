@@ -91,6 +91,7 @@ export function EditGameHeader({
           isLoading={fetchingMetadata}
           leftIcon={!fetchingMetadata ? <Sparkles size={15} /> : undefined}
           title={t("edit.fetchMetadata")}
+          aria-label={t("edit.fetchMetadata")}
         >
           <span className="edit-header-btn-label">{t("edit.fetchMetadata")}</span>
         </Button>

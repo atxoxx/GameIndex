@@ -381,15 +381,8 @@
   cursor: default;
 }
 
-/* Inline helper text under an edit-modal field (e.g. the display-name
- * override explaining it is presentation-only). */
-.edit-field-hint {
-  display: block;
-  margin-top: var(--space-xs);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
+/* Inline helper text under an edit field is defined once, in
+ * components/game/edit/EditGameModal.css — the edit form's own stylesheet. */
 
 /* Hint line below the input that surfaces the detected root path
  * (truncated with ellipsis; full path is exposed via title=). */
