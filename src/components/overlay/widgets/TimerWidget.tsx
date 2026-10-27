@@ -144,6 +144,7 @@ export default function TimerWidget() {
             activeTab === "stopwatch" ? " active" : ""
           }`}
           onClick={() => setActiveTab("stopwatch")}
+          aria-pressed={activeTab === "stopwatch"}
         >
           <TimerIcon size={13} />
           <span>{t("overlay.timer.stopwatch")}</span>
@@ -155,6 +156,7 @@ export default function TimerWidget() {
             activeTab === "target" ? " active" : ""
           }`}
           onClick={() => setActiveTab("target")}
+          aria-pressed={activeTab === "target"}
         >
           <Target size={13} />
           <span>{t("overlay.timer.sessionGoal")}</span>
@@ -250,6 +252,7 @@ export default function TimerWidget() {
                     targetMins === p.mins ? " active" : ""
                   }`}
                   onClick={() => setTargetMins(p.mins)}
+                  aria-pressed={targetMins === p.mins}
                 >
                   {p.label ?? t(p.labelKey!)}
                 </button>
@@ -272,7 +275,7 @@ export default function TimerWidget() {
                   </span>
                   <span>
                     {targetReached ? (
-                      <span className="text-success flex items-center gap-1">
+                      <span className="overlay-target-labels__done">
                         <Sparkles size={11} />
                         100%
                       </span>

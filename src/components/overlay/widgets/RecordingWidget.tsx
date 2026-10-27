@@ -175,7 +175,7 @@ export default function RecordingWidget() {
           <Button
             variant="ghost"
             size="sm"
-            className="overlay-btn-icon"
+            iconOnly
             onClick={() => void openClipsFolder()}
             title={t("overlay.recording.openFolder")}
             aria-label={t("overlay.recording.openFolder")}

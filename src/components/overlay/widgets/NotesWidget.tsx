@@ -257,7 +257,7 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
       {notes.length === 0 ? (
         <div className="overlay-notes-empty-state">
           <div className="overlay-notes-empty-icon-wrap">
-            <FileText size={32} className="overlay-notes-empty-icon" />
+            <FileText size={32} />
           </div>
           <p className="overlay-notes-empty-title">{t("overlay.notes.noNotes")}</p>
           <p className="overlay-text-muted">{t("overlay.notes.createPrompt")}</p>
@@ -307,6 +307,7 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
                     type="button"
                     className={`overlay-notes-tab-pill${isSelected ? " active" : ""}`}
                     onClick={() => handleSelectNote(n)}
+                    aria-pressed={isSelected}
                   >
                     {n.pinned && <Pin size={11} className="overlay-notes-pin-icon" />}
                     <span>{n.title || t("overlay.notes.newNote")}</span>
@@ -371,6 +372,7 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
                   setDraftTitle(e.target.value);
                 }}
                 placeholder={t("overlay.notes.noteTitle")}
+                aria-label={t("overlay.notes.noteTitle")}
                 className="overlay-notes-title-input"
               />
 
@@ -440,17 +442,23 @@ function NotesManager({ gameId, gameTitle }: { gameId: string; gameTitle: string
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleAddTag();
-                      if (e.key === "Escape") setShowTagForm(false);
+                      if (e.key === "Escape") {
+                        // Cancel the tag form only — do not let the page's
+                        // Escape handler collapse the whole HUD.
+                        e.stopPropagation();
+                        setShowTagForm(false);
+                      }
                     }}
                     autoFocus
                     placeholder={t("overlay.notes.addTag")}
+                    aria-label={t("overlay.notes.addTag")}
                     className="overlay-tag-input"
                   />
                   <button
                     type="button"
                     onClick={handleAddTag}
                     className="overlay-btn-mini"
-                    aria-label="Confirm tag"
+                    aria-label={t("overlay.notes.addTag")}
                   >
                     ✓
                   </button>

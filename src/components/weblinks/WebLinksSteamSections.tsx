@@ -93,6 +93,7 @@ export default function WebLinksSteamSections({
                 type="text"
                 className="wl-appid-quick-input"
                 placeholder={t("weblinks.linkAppIdPlaceholder")}
+                aria-label={t("weblinks.linkAppIdPlaceholder")}
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 autoFocus

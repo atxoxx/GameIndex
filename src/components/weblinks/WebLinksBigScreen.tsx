@@ -109,6 +109,10 @@ export default function WebLinksBigScreen({ game }: { game: Game }) {
           <BigScreenLinkCard key={item.id} item={item} />
         ))}
       </div>
+
+      {filteredLinks.length === 0 && (
+        <p className="wl-bigscreen-empty">{t("weblinks.hub.noResults")}</p>
+      )}
     </div>
   );
 }

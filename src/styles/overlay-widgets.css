@@ -154,6 +154,16 @@
   flex-shrink: 0;
 }
 
+.overlay-text-success {
+  color: var(--color-success);
+}
+
+/* Two-step delete: the armed state has to be visible, not just in the title. */
+.overlay-confirm-danger {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+}
+
 .overlay-btn-mini {
   display: inline-flex;
   align-items: center;
@@ -183,6 +193,13 @@
   background: var(--color-danger);
   color: var(--color-accent-contrast);
   border-color: var(--color-danger);
+}
+
+/* Pinned/preview toggles reuse the same micro-button. */
+.overlay-btn-mini.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
 }
 
 .overlay-screenshot-lightbox {
@@ -420,9 +437,12 @@
 .overlay-timer-mode-btn {
   flex: 1;
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  row-gap: 2px;
+  min-width: 0;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: none;
@@ -465,6 +485,7 @@
 }
 
 .overlay-timer-badge-mini {
+  flex-shrink: 0;
   font-size: 0.65rem;
   font-family: var(--font-mono);
   padding: 1px 5px;
@@ -572,6 +593,10 @@
   color: var(--color-text-tertiary);
 }
 
+.overlay-lap-time {
+  font-variant-numeric: tabular-nums;
+}
+
 .overlay-target-card {
   display: flex;
   flex-direction: column;
@@ -669,6 +694,13 @@
   color: var(--color-text-tertiary);
 }
 
+.overlay-target-labels__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+}
+
 
 /* ---- Notes widget ---- */
 /* ── Notes Widget ─────────────────────────────────────────────────────── */
@@ -761,6 +793,12 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.overlay-notes-templates-dropdown {
+  display: flex;
+  min-width: 0;
+  max-width: 150px;
 }
 
 .overlay-notes-add-btn {
@@ -993,6 +1031,11 @@
   flex-shrink: 0;
 }
 
+.overlay-record-status__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .overlay-record-status--recording {
   color: var(--color-text-primary);
   border-color: var(--color-danger);
@@ -1112,6 +1155,13 @@
   flex-direction: column;
   gap: var(--space-lg);
   width: 100%;
+  min-width: 0;
+}
+
+.overlay-performance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
   min-width: 0;
 }
 
@@ -1238,6 +1288,13 @@
   justify-content: center;
 }
 
+/* Widget/state markers: keep the cards from overflowing their flex column. */
+.overlay-recording-widget,
+.overlay-session-empty,
+.overlay-clip-preview {
+  min-width: 0;
+}
+
 
 /* ---- Guides browser ---- */
 /* ── Guides (in-HUD browser) ─────────────────────────────────────────── */
@@ -1246,6 +1303,12 @@
    so the frame is a sized placeholder with no visible chrome of its own. */
 
 .overlay-guides-widget {
+  min-width: 0;
+}
+
+/* Only the live browser needs to fill the section; the empty state should
+   keep its natural height instead of painting a mostly-blank card. */
+.overlay-guides-widget--active {
   flex: 1;
   display: flex;
   flex-direction: column;

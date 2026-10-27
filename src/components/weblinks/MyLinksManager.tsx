@@ -225,7 +225,7 @@ export default function MyLinksManager({
                 className="wl-mylinks-add-input label-field"
                 type="text"
                 placeholder={t("weblinks.addTitlePlaceholder")}
-                aria-label="Custom link label"
+                aria-label={t("weblinks.addTitlePlaceholder")}
                 value={labelInput}
                 onChange={(e) => setLabelInput(e.target.value)}
               />
@@ -233,7 +233,7 @@ export default function MyLinksManager({
                 className="wl-mylinks-add-input tag-field"
                 type="text"
                 placeholder={t("weblinks.addTagPlaceholder")}
-                aria-label="Tag"
+                aria-label={t("weblinks.addTagPlaceholder")}
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
               />
@@ -306,6 +306,7 @@ export default function MyLinksManager({
               type="text"
               className="wl-mylinks-search-input"
               placeholder={t("weblinks.searchLinksPlaceholder")}
+              aria-label={t("weblinks.searchLinksPlaceholder")}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
             />

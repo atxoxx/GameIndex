@@ -202,6 +202,7 @@ export default function WebLinksAddressBar({
           className="wl-urlbar-input"
           value={inputUrl}
           placeholder={t("weblinks.addressPlaceholder")}
+          aria-label={t("weblinks.addressPlaceholder")}
           onFocus={() => setIsEditing(true)}
           onBlur={() => setIsEditing(false)}
           onChange={(e) => setInputUrl(e.target.value)}
@@ -234,7 +235,9 @@ export default function WebLinksAddressBar({
                 ? t("weblinks.pinned")
                 : t("weblinks.pinLink")
             }
-            aria-label={t("weblinks.pinLink")}
+            aria-label={
+              isPinned || pinnedFlash ? t("weblinks.pinned") : t("weblinks.pinLink")
+            }
           >
             <StarIcon filled={isPinned || pinnedFlash} />
           </button>

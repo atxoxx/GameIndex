@@ -206,7 +206,7 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
           <Button
             variant="ghost"
             size="sm"
-            className="overlay-btn-icon"
+            iconOnly
             onClick={() => void openScreenshotsFolder()}
             title={t("overlay.screenshot.openFolder")}
             aria-label={t("overlay.screenshot.openFolder")}
@@ -264,8 +264,15 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <div
                   className="overlay-screenshot-card__thumb"
                   onClick={() => setPreviewPath(path)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setPreviewPath(path);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
+                  aria-label={fileName}
                   title={fileName}
                 >
                   <CaptureImage path={path} alt={fileName} />
@@ -282,11 +289,15 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                       type="button"
                       className="overlay-btn-mini"
                       onClick={() => handleCopy(path)}
-                      title={t("overlay.screenshot.copied")}
-                      aria-label={t("overlay.screenshot.copied")}
+                      title={
+                        copiedPath === path
+                          ? t("overlay.screenshot.copied")
+                          : t("common.copy")
+                      }
+                      aria-label={t("common.copy")}
                     >
                       {copiedPath === path ? (
-                        <Check size={12} className="text-success" />
+                        <Check size={12} className="overlay-text-success" />
                       ) : (
                         <Copy size={12} />
                       )}
@@ -379,12 +390,17 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconOnly
                   onClick={() => handleCopy(previewPath)}
-                  title={t("overlay.screenshot.copied")}
-                  aria-label={t("overlay.screenshot.copied")}
+                  title={
+                    copiedPath === previewPath
+                      ? t("overlay.screenshot.copied")
+                      : t("common.copy")
+                  }
+                  aria-label={t("common.copy")}
                 >
                   {copiedPath === previewPath ? (
-                    <Check size={14} className="text-success" />
+                    <Check size={14} className="overlay-text-success" />
                   ) : (
                     <Copy size={14} />
                   )}
@@ -392,6 +408,7 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconOnly
                   onClick={() => void openScreenshotsFolder(previewPath)}
                   title={t("overlay.screenshot.openFolder")}
                   aria-label={t("overlay.screenshot.openFolder")}
@@ -401,9 +418,12 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`overlay-btn-danger${
-                    confirmDeletePath === previewPath ? " active" : ""
-                  }`}
+                  iconOnly
+                  className={
+                    confirmDeletePath === previewPath
+                      ? "overlay-confirm-danger"
+                      : undefined
+                  }
                   onClick={() => void handleDelete(previewPath)}
                   title={
                     confirmDeletePath === previewPath
@@ -417,6 +437,7 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconOnly
                   onClick={() => setPreviewZoomed((value) => !value)}
                   title={
                     previewZoomed
@@ -435,6 +456,7 @@ export default function ScreenshotsWidget({ bare = false }: OverlayWidgetProps) 
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconOnly
                   onClick={closePreview}
                   aria-label={t("overlay.screenshot.close")}
                   data-testid="overlay-lightbox-close"

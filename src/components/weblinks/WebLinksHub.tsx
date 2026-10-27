@@ -84,6 +84,14 @@ export default function WebLinksHub({
       matches(source),
   );
 
+  // The My Links section renders its own empty state, so the shared "no
+  // results" line must not double up on it; a filtered fixed category with no
+  // matches still needs one even when custom links exist elsewhere.
+  const noResults =
+    visibleFixed.length === 0 &&
+    activeCategory !== "mylinks" &&
+    (!showCustom || visibleCustom.length === 0);
+
   return (
     <div className="wl-hub">
       {lastSource && !needle && (
@@ -243,7 +251,7 @@ export default function WebLinksHub({
         </section>
       )}
 
-      {visibleFixed.length === 0 && visibleCustom.length === 0 && (
+      {noResults && (
         <p className="wl-hub-noresults">{t("weblinks.hub.noResults")}</p>
       )}
 

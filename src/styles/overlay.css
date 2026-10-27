@@ -19,6 +19,8 @@
   );
   --overlay-backdrop: blur(var(--overlay-bg-blur, 14px)) saturate(1.2);
   --overlay-mask-opaque: #fff;
+  /* Placeholder behind capture thumbnails while the image loads. */
+  --overlay-media-bg: var(--color-bg-tertiary);
 
   /* Comfortable density (default). */
   --ov-gap: 12px;
@@ -908,8 +910,10 @@ body.overlay-window {
 
 .overlay-subtabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
+  row-gap: 4px;
   padding: 0 var(--ov-pad) 8px;
   flex-shrink: 0;
 }
@@ -918,6 +922,8 @@ body.overlay-window {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
   padding: 5px 9px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
@@ -1155,12 +1161,15 @@ body.overlay-window {
 }
 
 .overlay-hotkeys__label {
+  min-width: 0;
   font-size: 0.72rem;
   color: var(--color-text-secondary);
 }
 
 .overlay-hotkeys__keys {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 3px;
   flex-shrink: 0;
 }
@@ -1435,7 +1444,7 @@ body.overlay-window {
   align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
-  min-height: 118px;
+  min-height: 7.4rem;
   padding: 12px;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -1469,8 +1478,10 @@ body.overlay-window {
   flex-direction: column;
   gap: 7px;
   min-width: 0;
-  /* Leave room for the session clock in the top-right corner. */
-  padding-right: 104px;
+  /* Leave room for the session clock in the top-right corner. rem-based so
+     the text-scale accessibility control keeps the gap in proportion; 8rem
+     clears the clock's 7.25rem max width plus its 9px inset. */
+  padding-right: 8rem;
 }
 
 .overlay-session-hero__logo {
@@ -1485,6 +1496,10 @@ body.overlay-window {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.overlay-session-hero__branding {
   min-width: 0;
 }
 
@@ -1549,7 +1564,7 @@ body.overlay-window {
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
-  max-width: 116px;
+  max-width: 7.25rem;
   padding: 4px 8px;
   border-radius: var(--radius-md);
   border: 1px solid var(--scrim-border);
@@ -1916,33 +1931,6 @@ body.overlay-window {
   }
 }
 
-.overlay-btn-mini {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.overlay-btn-mini:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-}
-
-.overlay-btn-mini.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  border-color: var(--color-accent);
-}
-
 .overlay-select-mini {
   font-family: var(--font-sans);
   font-size: 0.72rem;
@@ -1974,8 +1962,10 @@ body.overlay-window {
 
 .overlay-widget__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
+  row-gap: var(--space-2xs);
   margin-bottom: var(--space-sm);
   min-width: 0;
 }

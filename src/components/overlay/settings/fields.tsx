@@ -168,6 +168,7 @@ export function OverlayFieldChips<T extends string | number = string>({
             type="button"
             className={chipClass}
             title={option.title}
+            aria-pressed={active}
             onClick={() => onChange(option.id)}
           >
             {option.content ??

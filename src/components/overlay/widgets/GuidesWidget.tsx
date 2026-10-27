@@ -432,7 +432,11 @@ export default function GuidesWidget() {
   const searchPending = activeTab === "websites" && searchEngine !== null && !searchUrl;
 
   return (
-    <Card variant="glass" className="overlay-widget overlay-guides-widget" data-testid="overlay-guides">
+    <Card
+      variant="glass"
+      className="overlay-widget overlay-guides-widget overlay-guides-widget--active"
+      data-testid="overlay-guides"
+    >
       <div className="overlay-widget__head">
         <span className="overlay-widget__icon" aria-hidden>
           <BookOpen />
