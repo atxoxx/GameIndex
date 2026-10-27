@@ -32,7 +32,7 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * DetailDrawer — a right-hand slide-over for inspecting one item without
+ * DetailDrawer — a centered detail dialog for inspecting one item without
  * losing the workspace behind it.
  *
  * The drawer owns the interaction contract every detail surface should share:
