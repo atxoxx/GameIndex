@@ -83,6 +83,7 @@ export default function DiscoverBookmarksView({
             type="text"
             className="mods-discover-search-input"
             placeholder={t("mods.discover.searchBookmarksPlaceholder")}
+            aria-label={t("mods.discover.searchBookmarksPlaceholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -103,6 +104,10 @@ export default function DiscoverBookmarksView({
           />
         ))}
       </div>
+
+      {filtered.length === 0 && (
+        <p className="mods-discover-hint">{t("mods.noModsMatch")}</p>
+      )}
     </div>
   );
 }

@@ -142,6 +142,7 @@ export default function SourceConfigModal({
                       type="text"
                       className="mods-source-input"
                       placeholder={s.externalId ?? t("mods.source.mappingPlaceholder")}
+                      aria-label={`${s.name} · ${t("mods.source.gameMapping")}`}
                       value={linkDrafts[s.id] ?? ""}
                       onChange={(e) =>
                         setLinkDrafts((d) => ({ ...d, [s.id]: e.target.value }))

@@ -73,10 +73,24 @@ export default function RemoteModGrid({
     return () => observer.disconnect();
   }, [hasMore, canObserve, onLoadMore, loading, loadingMore, results.length]);
 
-  // Scroll listener for back-to-top and scroll paging fallback
+  // Scroll listener for back-to-top and scroll paging fallback. The app shell
+  // scrolls inside `.app-main`, so listen on the document in the capture phase
+  // and read the real scroll container instead of `window`.
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const getScroller = () => {
+    const cached = scrollerRef.current;
+    if (cached?.isConnected) return cached;
+    const found = containerRef.current?.closest<HTMLElement>(".app-main") ?? null;
+    scrollerRef.current = found;
+    return found;
+  };
+
   useEffect(() => {
     const handleScroll = () => {
-      const top = window.scrollY || document.documentElement.scrollTop;
+      const scroller = getScroller();
+      const top = scroller
+        ? scroller.scrollTop
+        : window.scrollY || document.documentElement.scrollTop;
       setShowBackToTop(top > 400);
 
       if (hasMore) {
@@ -87,15 +101,17 @@ export default function RemoteModGrid({
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.addEventListener("scroll", handleScroll, {
+      passive: true,
+      capture: true,
+    });
+    return () => document.removeEventListener("scroll", handleScroll, true);
   }, [hasMore, onLoadMore]);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    if (containerRef.current) {
-      containerRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    const scroller = getScroller();
+    if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (!hasSource) {

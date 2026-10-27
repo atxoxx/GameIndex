@@ -91,6 +91,7 @@ export default function DiscoverHistoryView({
             type="text"
             className="mods-discover-search-input"
             placeholder={t("mods.discover.searchHistoryPlaceholder")}
+            aria-label={t("mods.discover.searchHistoryPlaceholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -177,6 +178,10 @@ export default function DiscoverHistoryView({
           </li>
         ))}
       </ul>
+
+      {filtered.length === 0 && (
+        <p className="mods-discover-hint">{t("mods.noModsMatch")}</p>
+      )}
     </div>
   );
 }

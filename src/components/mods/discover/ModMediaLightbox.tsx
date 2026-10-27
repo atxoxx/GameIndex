@@ -1,6 +1,6 @@
 // Full-screen viewer for description images/videos and the gallery.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
@@ -22,6 +22,16 @@ export default function ModMediaLightbox({
   onClose,
 }: ModMediaLightboxProps) {
   const { t } = useLanguage();
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
+
+  // Move focus into the viewer while it is open and hand it back to the
+  // gallery item afterwards, so keyboard users are never stranded.
+  useEffect(() => {
+    restoreRef.current = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => restoreRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -53,6 +63,7 @@ export default function ModMediaLightbox({
       aria-label={item.type === "video" ? t("mods.discover.video") : t("mods.discover.image")}
     >
       <button
+        ref={closeRef}
         type="button"
         className="mods-media-lightbox-close"
         onClick={onClose}

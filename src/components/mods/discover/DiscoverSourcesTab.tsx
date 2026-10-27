@@ -157,6 +157,7 @@ export default function DiscoverSourcesTab({
                       type="text"
                       className="mods-discover-input"
                       placeholder={t("mods.source.gameSlugPlaceholder")}
+                      aria-label={t("mods.source.gameSlug")}
                       value={linkDraft}
                       onChange={(e) =>
                         setLinkDrafts((d) => ({ ...d, [source.id]: e.target.value }))

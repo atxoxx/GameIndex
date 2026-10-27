@@ -526,6 +526,7 @@ export default function ModsDiscoverView({
                       className="mods-discover-search-clear"
                       onClick={() => browse.setQuery("")}
                       title={t("mods.source.clear")}
+                      aria-label={t("mods.source.clear")}
                     >
                       <X size={13} />
                     </button>

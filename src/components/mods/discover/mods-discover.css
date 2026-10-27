@@ -48,7 +48,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: var(--text-sm);
   transition: border-color var(--duration-normal) var(--ease-standard);
 }
@@ -94,7 +94,7 @@
 
 .mods-discover-icon-btn:hover:not(:disabled) {
   background: var(--color-bg-hover);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   border-color: var(--color-border-light);
 }
 
@@ -163,6 +163,17 @@
   border-radius: var(--radius-lg);
 }
 
+.mods-discover-skeleton--list {
+  flex-direction: row;
+  align-items: center;
+}
+
+.mods-discover-skeleton--compact {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .mods-discover-loadmore {
   display: flex;
   justify-content: center;
@@ -183,7 +194,7 @@
 
 .mods-discover-empty h3 {
   margin: 0;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: var(--text-lg);
 }
 
@@ -271,7 +282,7 @@
 .mods-discover-card-name {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -326,13 +337,14 @@
   border: none;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--duration-normal) var(--ease-standard);
 }
 
-.mods-discover-card:hover .mods-discover-card-external {
+.mods-discover-card:hover .mods-discover-card-external,
+.mods-discover-card:focus-within .mods-discover-card-external {
   opacity: 1;
 }
 
@@ -358,7 +370,7 @@
 
 .mods-discover-progress-label {
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .mods-discover-progress-track {
@@ -406,7 +418,7 @@
   gap: var(--space-sm);
   margin: 0 0 var(--space-md);
   font-size: var(--text-sm);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .mods-discover-recent ul {
@@ -436,7 +448,7 @@
 
 .mods-discover-recent-name {
   font-size: var(--text-sm);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -580,7 +592,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: var(--text-sm);
 }
 
@@ -629,7 +641,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-2xl);
-  box-shadow: 0 24px 64px -8px rgba(0, 0, 0, 0.6), var(--shadow-xl);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
   animation: modal-in 220ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
@@ -1129,8 +1141,8 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.75);
-  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
+  color: var(--color-text-primary);
   display: grid;
   place-items: center;
   font-size: var(--text-2xs);
@@ -1361,6 +1373,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-lg);
+  flex-wrap: wrap;
   min-width: 0;
 }
 
@@ -1394,7 +1407,7 @@
 .mods-discover-hero-text h2 {
   margin: 0 0 var(--space-xs);
   font-size: var(--text-2xl);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .mods-discover-hero-meta {
@@ -1462,13 +1475,13 @@
 
 .mods-discover-chip:not(:disabled):hover {
   border-color: var(--color-border-light);
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .mods-discover-chip.is-selected {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .mods-discover-chip--skeleton {
@@ -1512,6 +1525,8 @@
 .mods-discover-toolbar {
   position: sticky;
   top: 0;
+  /* Below the shell chrome on purpose: in the game-page subtab the sticky tab
+     strip (--z-sticky) must stay above this toolbar. */
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -1676,7 +1691,7 @@
 .mods-discover-row-name {
   font-weight: 600;
   font-size: var(--text-sm);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1960,7 +1975,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--color-bg) 90%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 90%, transparent);
 }
 
 .mods-media-lightbox-stage {
@@ -1984,7 +1999,7 @@
   height: min(620px, 86vh);
   border: none;
   border-radius: var(--radius-lg);
-  background: var(--color-bg);
+  background: var(--color-bg-primary);
 }
 
 .mods-media-lightbox-close {
@@ -1999,7 +2014,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-surface);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   cursor: pointer;
 }
 
@@ -2015,7 +2030,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-surface);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   cursor: pointer;
 }
 
@@ -2041,6 +2056,12 @@
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
+}
+
+.mods-media-lightbox-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .mods-media-lightbox-external {
@@ -2165,6 +2186,25 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
+}
+
+.mods-discover-spotlight-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Fallback initials shown when a spotlight cover fails to load. */
+.mods-discover-thumb-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
 }
 
 .mods-discover-badge-installed {
@@ -2542,6 +2582,10 @@
   opacity: 1;
 }
 
+.mods-discover-card:focus-within .mods-discover-card-actions {
+  opacity: 1;
+}
+
 .mods-discover-card-action-btn {
   display: inline-flex;
   align-items: center;
@@ -2551,7 +2595,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 85%, transparent);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: all var(--duration-fast) var(--ease-standard);
   backdrop-filter: blur(8px);
@@ -2589,7 +2633,7 @@
   position: fixed;
   bottom: 28px;
   right: 28px;
-  z-index: 40;
+  z-index: var(--z-popover);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2881,7 +2925,7 @@
 
 .mods-discover-sources-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   gap: var(--space-md);
 }
 
@@ -3008,7 +3052,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  color: var(--color-text);
+  color: var(--color-text-primary);
   font-size: var(--text-xs);
 }
 
@@ -3344,7 +3388,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   width: 260px;
   display: flex;
   flex-direction: column;

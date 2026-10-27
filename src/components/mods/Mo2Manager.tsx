@@ -65,6 +65,7 @@ const Mo2ModRow = memo(function Mo2ModRow({
           className="mo2-arrow-btn"
           onClick={() => onMove(mod, "up")}
           title={t("mods.mo2.reorderUp")}
+          aria-label={t("mods.mo2.reorderUp")}
         >
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="18 15 12 9 6 15" />
@@ -78,6 +79,7 @@ const Mo2ModRow = memo(function Mo2ModRow({
           className="mo2-arrow-btn"
           onClick={() => onMove(mod, "down")}
           title={t("mods.mo2.reorderDown")}
+          aria-label={t("mods.mo2.reorderDown")}
         >
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="6 9 12 15 18 9" />
@@ -576,6 +578,7 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
                 className="mo2-icon-action-btn"
                 onClick={() => handleOpenFolder(selectedInstance.instancePath)}
                 title={t("mods.mo2.openFolder")}
+                aria-label={t("mods.mo2.openFolder")}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -702,6 +705,7 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
             <input
               type="text"
               placeholder={activeTab === "mods" ? t("mods.mo2.searchPlaceholder") : t("mods.mo2.pluginSearchPlaceholder")}
+              aria-label={activeTab === "mods" ? t("mods.mo2.searchPlaceholder") : t("mods.mo2.pluginSearchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="mo2-search-input"
@@ -865,6 +869,7 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
                     className="mo2-arrow-btn"
                     onClick={() => handlePluginMove(plugin, "up")}
                     title={t("mods.mo2.reorderUp")}
+                    aria-label={t("mods.mo2.reorderUp")}
                   >
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="18 15 12 9 6 15" />
@@ -878,6 +883,7 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
                     className="mo2-arrow-btn"
                     onClick={() => handlePluginMove(plugin, "down")}
                     title={t("mods.mo2.reorderDown")}
+                    aria-label={t("mods.mo2.reorderDown")}
                   >
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="6 9 12 15 18 9" />

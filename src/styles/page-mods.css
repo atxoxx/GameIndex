@@ -13,7 +13,7 @@
   padding: var(--space-xs) var(--space-md);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  background: var(--color-surface-raised);
   color: var(--text-secondary);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
@@ -77,6 +77,8 @@
    The Mods page (no sticky page header) keeps the sticky behavior. */
 .mods-tab .mods-detail-pane {
   position: static;
+  max-height: none;
+  overflow: visible;
 }
 
 /* ── Toolbar & Filter Controls ──────────────────────────────────── */
@@ -674,6 +676,9 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   white-space: nowrap;
   background: color-mix(in srgb, var(--color-text-muted) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
@@ -685,6 +690,12 @@
 .mods-row-author svg {
   color: var(--color-text-muted);
   flex-shrink: 0;
+}
+
+.mods-row-author span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mods-row-badges {
@@ -738,6 +749,11 @@
   gap: var(--space-lg);
   position: sticky;
   top: 16px;
+  /* A sticky inspector taller than the viewport can never be scrolled to its
+     end, so cap it at the scrollport and let the pane scroll itself. */
+  max-height: calc(100dvh - var(--topnav-height, 56px) - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scroll-margin-top: var(--space-xl);
   min-width: 0;
 }
@@ -1386,7 +1402,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-md);
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
   padding: var(--space-sm) var(--space-lg);
   background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
   border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
@@ -1397,11 +1414,13 @@
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
+  min-width: 0;
 }
 
 .mods-bulk-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
 }
 
@@ -1549,6 +1568,7 @@
   justify-content: space-between;
   gap: var(--space-sm);
   width: 100%;
+  min-width: 0;
 }
 
 .mods-conflict-status-pill {
@@ -1558,6 +1578,8 @@
   border-radius: var(--radius-full);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .mods-conflict-status-pill.winner {
@@ -1622,6 +1644,13 @@
 .mods-file-item {
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.mods-file-item code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mods-file-item:hover {
@@ -1695,7 +1724,7 @@
 .mods-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--color-scrim);
   backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
@@ -1716,6 +1745,7 @@
   gap: var(--space-lg);
   padding: var(--space-2xl);
   max-height: 85vh;
+  max-height: min(85dvh, 900px);
   overflow-y: auto;
   animation: modsSlideDown var(--duration-normal) var(--ease-standard);
 }
@@ -1849,6 +1879,10 @@
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mods-preset-meta {
@@ -1886,12 +1920,13 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
 .mods-presets-tab:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-card-hover, rgba(255, 255, 255, 0.04));
+  background: var(--color-bg-hover);
 }
 
 .mods-presets-tab.active {
@@ -1920,6 +1955,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  min-width: 0;
 }
 
 .mo2-active-badge {
@@ -2110,7 +2146,9 @@
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  transition: background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
 }
 
 .mods-empty-actions .btn--primary {
@@ -2166,6 +2204,7 @@
     position: static !important;
     top: auto !important;
     max-height: none !important;
+    overflow: visible !important;
   }
 }
 
