@@ -28,12 +28,15 @@
   margin: 0 auto;
   padding: var(--space-xl) var(--space-xl) var(--space-4xl);
   box-sizing: border-box;
+  /* Opacity only. A transform here — even a filled translateY(0) — becomes the
+     containing block for the fixed .docs-top button and pins it to the bottom
+     of the page instead of the viewport. */
   animation: docsFade var(--duration-normal) var(--ease-standard) both;
 }
 
 @keyframes docsFade {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── Hero Section ────────────────────────────────────────────────────────── */
@@ -612,6 +615,14 @@
   width: 100%;
 }
 
+/* The in-page rail is absent in search mode; without this the empty third
+   track keeps squeezing the result cards (and the rail never comes back). */
+@media (min-width: 1341px) {
+  .docs-layout:has(.docs-search-mode) {
+    grid-template-columns: 290px minmax(0, 1fr);
+  }
+}
+
 /* ── Category & Subcategory Sidebar Tree ─────────────────────────────────── */
 
 .docs-sidebar {
@@ -620,7 +631,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  max-height: calc(100vh - var(--space-xl) * 2);
+  /* .app-main is the scroller and it starts below the top nav; measuring
+     against 100vh would let the last entries sit under the window edge. */
+  max-height: calc(var(--app-h) - var(--topnav-height) - var(--space-xl) * 2);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-md) var(--space-sm);
@@ -1606,7 +1619,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  max-height: calc(100vh - var(--space-xl) * 2);
+  max-height: calc(var(--app-h) - var(--topnav-height) - var(--space-xl) * 2);
   overflow-y: auto;
   padding: var(--space-md) var(--space-sm);
   border-radius: var(--radius-lg);
@@ -1751,6 +1764,11 @@
   transform: translateY(-2px);
 }
 
+.docs-search-card:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
 .docs-search-card__top {
   display: flex;
   align-items: center;
@@ -1801,7 +1819,7 @@
   position: fixed;
   right: var(--space-xl);
   bottom: var(--space-xl);
-  z-index: 40;
+  z-index: var(--z-sticky);
   display: grid;
   place-items: center;
   width: 42px;
@@ -1856,9 +1874,12 @@
     gap: var(--space-lg);
   }
 
+  /* Stacked above the article, every category expanded would push the
+     article thousands of pixels down; keep the tree scrollable instead. */
   .docs-sidebar {
     position: static;
-    max-height: none;
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
   }
 }
 

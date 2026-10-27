@@ -835,7 +835,17 @@ function DocsPageContent() {
                       <article
                         key={sub.id}
                         className="docs-search-card"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={getSubTitle(sub)}
                         onClick={() => selectSubcategory(sub.id)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            selectSubcategory(sub.id);
+                          }
+                        }}
                       >
                         <div className="docs-search-card__top">
                           <span className="docs-search-card__cat">
