@@ -336,6 +336,18 @@
   align-items: start;
 }
 
+/* The cards inside follow the Store density, so the tracks have to follow it
+   too: compact cards cap at 150px and list rows are full-width horizontal
+   rows. Mirrors `.store-game-grid` in store.css. */
+.wishlist-page-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+
+.wishlist-page-grid--list {
+  grid-template-columns: 1fr;
+  gap: var(--space-xs);
+}
+
 /* Each grid cell wraps the StoreGameCard plus the meta row (added date)
    and the note editor. */
 .wishlist-card-wrap {

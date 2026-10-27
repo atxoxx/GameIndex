@@ -615,7 +615,11 @@ export default function LibraryVirtualGrid({
         {isList && renderListHeader()}
 
         {groupLayouts.map((layout) => {
-          const { group, collapsed, firstRow, lastRow, topSpace, bottomSpace } = layout;
+          const { group, collapsed, firstRow, lastRow, rows, topSpace, bottomSpace } = layout;
+          // A spacer only reserves its space if it spans as many fixed-height
+          // grid tracks as the rows it replaces — a single-track item with a
+          // tall `height` overflows instead of pushing the cards below it.
+          const hiddenRows = Math.max(0, rows - 1 - lastRow);
           const sliceStart = firstRow * cols;
           const visibleGames = collapsed
             ? []
@@ -631,7 +635,7 @@ export default function LibraryVirtualGrid({
                     <div
                       className="lib-group-row-spacer"
                       aria-hidden="true"
-                      style={{ gridColumn: "1 / -1", height: topSpace }}
+                      style={{ gridColumn: "1 / -1", gridRow: `span ${Math.max(1, firstRow)}`, height: topSpace }}
                     />
                   )}
                   {visibleGames.map((g, i) => renderItem(g, sliceStart + i))}
@@ -639,7 +643,7 @@ export default function LibraryVirtualGrid({
                     <div
                       className="lib-group-row-spacer"
                       aria-hidden="true"
-                      style={{ gridColumn: "1 / -1", height: bottomSpace }}
+                      style={{ gridColumn: "1 / -1", gridRow: `span ${Math.max(1, hiddenRows)}`, height: bottomSpace }}
                     />
                   )}
                 </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import StoreGameCard from "../components/store/StoreGameCard";
 import { useWishlistContext } from "../context/WishlistContext";
+import { DensityContext } from "../context/DensityContext";
 import { requestShareToFriends } from "./friendSuggestionSignal";
 import type { StoreGameSummary, WishlistEntry } from "../types/game";
 import { Button, ConfirmModal, PageHeader, Panel, StatBand, SubTabs } from "../components/ui";
@@ -101,6 +102,9 @@ export default function WishlistPage() {
   const navigate = useNavigate();
   const { wishlist, hydrated, toggle, setNote, clear } = useWishlistContext();
   const { t } = useLanguage();
+  // Cards follow the Store density from context; the grid has to follow too,
+  // or a list row is squeezed into a cover-sized column.
+  const density = useContext(DensityContext)?.density ?? "cozy";
 
   // ── Filter / sort state (persisted to localStorage) ──────────────────
   const [filters, setFilters] = useState<PersistedFilters>(() => {
@@ -548,7 +552,7 @@ export default function WishlistPage() {
             </Panel>
           ) : (
             <PageWidget page="wishlist" widget="wishlistGrid">
-              <div className="wishlist-page-grid ui-item-wishlistGrid">
+              <div className={`wishlist-page-grid wishlist-page-grid--${density} ui-item-wishlistGrid`}>
                 {visible.map((entry) => (
                   <WishlistCard
                     key={entry.slug}

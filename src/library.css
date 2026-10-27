@@ -461,6 +461,13 @@
   outline-offset: 2px;
 }
 
+/* Continue Playing covers also carry the Steam player-count pill in the
+   bottom-left corner, so the hover "Play" action sits a row higher instead of
+   covering the count. */
+.lib-rail--continue .lib-rail-resume {
+  bottom: calc(var(--space-xs) + 26px);
+}
+
 /* Touch/handheld: there is no hover, so reveal the hover-only FAB and
    resume pill permanently (translate keeps the pill horizontally centered). */
 @media (hover: none) {

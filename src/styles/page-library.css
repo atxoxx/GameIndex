@@ -303,7 +303,7 @@
 .library-page > .ui-item-libToolbar {
   position: sticky;
   top: var(--space-sm);
-  z-index: 30;
+  z-index: var(--z-sticky);
 }
 
 .library-command {
@@ -1486,6 +1486,14 @@
   object-fit: contain;
 }
 
+/* List rows fall back to cover art when the store only has box art. */
+.library-page .lib-card-list-thumb .lib-card-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .library-page .lib-card-placeholder-letter {
   font-size: var(--text-xs);
   font-weight: var(--font-weight-bold);
@@ -1674,7 +1682,7 @@
 
 .library-popover {
   position: fixed;
-  z-index: calc(var(--z-modal) + 2);
+  z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--color-border-light);
@@ -2051,7 +2059,7 @@
   position: fixed;
   left: 50%;
   bottom: var(--space-lg);
-  z-index: calc(var(--z-modal) + 3);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -2157,6 +2165,15 @@
 }
 
 /* ── Empty states ────────────────────────────────────────────────────── */
+
+/* Layout Studio slots stay mounted when their widget renders nothing (no
+   chips means no active filter, no resume strip means no session inside the
+   window). An empty flex child still adds a row gap, so take it out of the
+   flow instead of leaving a hole between the toolbar and the grid. */
+.library-page > .ui-item-libFilterChips:empty,
+.library-page > .ui-item-libResume:empty {
+  display: none;
+}
 
 .library-page .lib-filtered-empty {
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
