@@ -71,12 +71,6 @@ export default function BigScreenLightbox({
           <img
             src={src}
             alt={t("bigscreen.lightbox.fullscreenPreview")}
-            style={{
-              maxWidth: "100%",
-              maxHeight: "85vh",
-              objectFit: "contain",
-              display: "block",
-            }}
           />
         )}
       </div>

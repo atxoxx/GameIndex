@@ -109,6 +109,10 @@ export default function BigScreenHome() {
 
   const playProps = useFocusable(handlePlay);
   const detailsProps = useFocusable(handleDetails);
+  // The welcome hero is the whole page when the library is empty, so its
+  // only action must be a controller focus stop too (same contract as the
+  // Play / Game Hub buttons above).
+  const browseLibraryProps = useFocusable(() => navigate("/library"));
 
   const facts = useMemo(() => {
     if (!featuredGame) return [];
@@ -260,6 +264,7 @@ export default function BigScreenHome() {
                 </p>
                 <div className="bs-home-actions">
                   <button
+                    {...browseLibraryProps}
                     type="button"
                     className="bs-btn bs-btn--primary"
                     onClick={() => navigate("/library")}

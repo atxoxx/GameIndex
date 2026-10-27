@@ -234,12 +234,16 @@
     transform var(--bs-dur) var(--bs-ease);
 }
 
+/* The track owns the horizontal scroll, so it needs its own breathing
+   room: the focus ring and the active underline are painted outside the
+   item box and would otherwise be clipped by `overflow`. */
 .bs-nav-track {
   display: flex;
   align-items: center;
   gap: 0.3rem;
   width: 100%;
   min-width: 0;
+  padding: 0.55rem 0.3rem;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -687,7 +691,7 @@
   display: flex;
   flex-direction: column;
   width: min(58rem, 96vw);
-  max-height: min(88vh, 54rem);
+  max-height: min(88dvh, 54rem);
   border: 1px solid var(--bs-border);
   border-radius: var(--bs-radius-lg);
   background: color-mix(in srgb, var(--bs-bg) 92%, var(--bs-text) 5%);

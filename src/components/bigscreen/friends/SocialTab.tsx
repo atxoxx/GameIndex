@@ -477,6 +477,7 @@ function CommentsSection({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t("friendsPage.commentPlaceholder")}
+          aria-label={t("friendsPage.commentPlaceholder")}
           tabIndex={inputProps.tabIndex}
           role={inputProps.role}
           onClick={inputProps.onClick}
@@ -535,6 +536,7 @@ function RecommendationComposer({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("friendsPage.recommendGame")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >
@@ -640,6 +642,7 @@ function SuggestionComposer({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("friendsPage.shareGameWishlist")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >

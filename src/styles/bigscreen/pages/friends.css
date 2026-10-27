@@ -762,7 +762,8 @@
   gap: var(--bs-card-gap);
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: var(--bs-space-2);
+  /* Room for the card focus ring on all four sides. */
+  padding: 0.4rem 0.3rem var(--bs-space-2);
   scrollbar-width: none;
 }
 
@@ -1391,7 +1392,7 @@
 .bigscreen-friends .bigscreen-friendoptions-panel {
   display: flex;
   flex-direction: column;
-  max-height: min(88vh, 46rem);
+  max-height: min(88dvh, 46rem);
   overflow: hidden;
 }
 
@@ -1513,6 +1514,8 @@
   flex-direction: column;
   gap: 0.15rem;
   max-height: 10rem;
+  /* Keep the row focus ring inside the scrollport. */
+  padding: 0.35rem;
   overflow-y: auto;
 }
 
@@ -1565,7 +1568,7 @@
   display: flex;
   flex-direction: column;
   width: min(46rem, 96vw);
-  max-height: min(88vh, 46rem);
+  max-height: min(88dvh, 46rem);
   overflow: hidden;
 }
 

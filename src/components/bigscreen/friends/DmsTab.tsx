@@ -202,6 +202,7 @@ function DmPane({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t("friendsPage.dmPlaceholder")}
+          aria-label={t("friendsPage.dmPlaceholder")}
           tabIndex={inputProps.tabIndex}
           role={inputProps.role}
           onClick={inputProps.onClick}

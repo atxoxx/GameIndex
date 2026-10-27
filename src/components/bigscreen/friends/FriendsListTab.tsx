@@ -271,6 +271,7 @@ function SearchBox({
         type="text"
         className="bigscreen-input"
         placeholder={t("friends.searchPlaceholder")}
+        aria-label={t("friends.searchPlaceholder")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         tabIndex={inputProps.tabIndex}
@@ -463,6 +464,7 @@ function CirclesManager({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("friendsPage.manageCircles")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >

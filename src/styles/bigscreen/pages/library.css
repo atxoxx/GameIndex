@@ -65,7 +65,7 @@
   min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding-bottom: 0.2rem;
+  padding: 0.4rem 0.2rem;
   scrollbar-width: none;
 }
 

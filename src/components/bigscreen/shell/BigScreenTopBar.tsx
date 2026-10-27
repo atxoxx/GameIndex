@@ -4,10 +4,16 @@
 // The section nav is a sibling element (see BigScreenNav) so a preset
 // can move it from a top row to a side rail without re-mounting it and
 // without a second DOM tree.
+//
+// Every utility is registered with `useFocusable`: the D-pad reaches
+// them from the section nav (the engine deliberately does not wrap the
+// header strip so these stay reachable), and A activates them like any
+// card.
 
 import { useEffect, useState } from "react";
 import { useGamepad } from "../../../hooks/GamepadProvider";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useFocusable } from "../../../hooks/useFocusable";
 
 interface BigScreenTopBarProps {
   onOpenSearch: () => void;
@@ -23,6 +29,10 @@ export default function BigScreenTopBar({
   const { t, language } = useLanguage();
   const gamepad = useGamepad();
   const [time, setTime] = useState("");
+  const searchProps = useFocusable(onOpenSearch);
+  const guideProps = useFocusable(onOpenGuide);
+  const pointerProps = useFocusable(gamepad.toggleVirtualMouse);
+  const exitProps = useFocusable(onRequestExit);
 
   useEffect(() => {
     const update = () =>
@@ -68,6 +78,7 @@ export default function BigScreenTopBar({
         </span>
 
         <button
+          {...searchProps}
           type="button"
           className="bs-utility"
           onClick={onOpenSearch}
@@ -81,6 +92,7 @@ export default function BigScreenTopBar({
         </button>
 
         <button
+          {...guideProps}
           type="button"
           className="bs-utility"
           onClick={onOpenGuide}
@@ -94,6 +106,7 @@ export default function BigScreenTopBar({
         </button>
 
         <button
+          {...pointerProps}
           type="button"
           className="bs-utility"
           data-active={gamepad.virtualMouse.visible ? "true" : undefined}
@@ -117,6 +130,7 @@ export default function BigScreenTopBar({
         <span className="bs-clock">{time}</span>
 
         <button
+          {...exitProps}
           type="button"
           className="bs-utility bs-utility--exit"
           onClick={onRequestExit}

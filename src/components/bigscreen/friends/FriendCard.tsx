@@ -167,6 +167,7 @@ function FriendMenu({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="bigscreen-friendoptions-title"
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >
@@ -176,7 +177,7 @@ function FriendMenu({
       >
         <div className="bigscreen-friendoptions-head">
           <FriendAvatar avatar={friend.avatar} name={friend.name} className="bigscreen-friend-avatar bigscreen-friend-avatar--sm" />
-          <h4 className="bigscreen-friendoptions-title">{displayName(friend)}</h4>
+          <h4 className="bigscreen-friendoptions-title" id="bigscreen-friendoptions-title">{displayName(friend)}</h4>
         </div>
 
         <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn" {...compareProps}>

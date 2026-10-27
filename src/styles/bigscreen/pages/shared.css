@@ -138,7 +138,9 @@
   gap: var(--bs-card-gap);
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.3rem 0.15rem 0.7rem;
+  /* Vertical room for the focused card's lift + ring; the track clips
+     both because a horizontal scroller cannot leave overflow visible. */
+  padding: 0.7rem 0.5rem 0.8rem;
   scroll-behavior: smooth;
   scrollbar-width: none;
 }
@@ -183,6 +185,7 @@
 }
 
 .bigscreen-rail:hover .bigscreen-rail-fade,
+.bigscreen-rail:focus-within .bigscreen-rail-fade,
 .bigscreen-rail.is-active .bigscreen-rail-fade {
   opacity: 0.9;
 }
@@ -192,7 +195,7 @@
   display: flex;
   gap: var(--bs-space-3);
   overflow-x: auto;
-  padding: 0.3rem 0.15rem 0.8rem;
+  padding: 0.5rem 0.3rem 0.8rem;
   scrollbar-width: none;
 }
 
@@ -357,7 +360,7 @@
   color: var(--bs-text-dim);
   font: inherit;
   font-size: var(--bs-text-sm);
-  font-weight: var(--bs-medium, 500);
+  font-weight: var(--bs-weight-medium);
   cursor: pointer;
   transition:
     background-color var(--bs-dur-fast) var(--bs-ease),
@@ -399,6 +402,9 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.4rem 0.15rem;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -446,7 +452,7 @@
   position: absolute;
   left: 0.9rem;
   right: 0.9rem;
-  bottom: -0.55rem;
+  bottom: -0.3rem;
   height: 0.14rem;
   border-radius: var(--bs-radius-pill);
   background: var(--bs-accent);
@@ -494,7 +500,6 @@
 }
 
 .bigscreen-tab-panel {
-  position: relative;
   height: 100%;
   min-height: 0;
   overflow-y: auto;
@@ -956,7 +961,7 @@
 .bigscreen-overlay-drawer-panel {
   position: relative;
   width: min(46rem, 96vw);
-  max-height: min(86vh, 44rem);
+  max-height: min(86dvh, 46rem);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--bs-border);
@@ -976,6 +981,7 @@
 
 .bigscreen-overlay-drawer-header {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: var(--bs-space-3);
@@ -1041,6 +1047,7 @@
 
 .bigscreen-modal-footer {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--bs-space-2);
@@ -1135,7 +1142,7 @@
   z-index: var(--z-bigscreen-float);
   display: grid;
   place-items: start center;
-  padding: max(9vh, 4rem) var(--bs-gutter) var(--bs-gutter);
+  padding: max(9dvh, 4rem) var(--bs-gutter) var(--bs-gutter);
 }
 
 .bigscreen-search-scrim {
@@ -1240,7 +1247,7 @@
 
 .bigscreen-lightbox-frame {
   max-width: 92vw;
-  max-height: 86vh;
+  max-height: 86dvh;
   border-radius: var(--bs-radius-md);
   overflow: hidden;
   box-shadow: var(--bs-shadow-panel);
@@ -1249,7 +1256,7 @@
 .bigscreen-lightbox-frame img,
 .bigscreen-lightbox-frame video {
   max-width: 92vw;
-  max-height: 86vh;
+  max-height: 86dvh;
   display: block;
   object-fit: contain;
 }

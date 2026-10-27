@@ -372,6 +372,7 @@ function CompareSearch({ value, onChange }: { value: string; onChange: (v: strin
         type="search"
         className="bigscreen-input"
         placeholder={t("friendsPage.compareSearchGames")}
+        aria-label={t("friendsPage.compareSearchGames")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         tabIndex={inputProps.tabIndex}

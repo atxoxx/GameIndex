@@ -336,6 +336,7 @@ export default function BigScreenFriends() {
           data-bigscreen-overlay="true"
           role="dialog"
           aria-modal="true"
+          aria-label={t("bigscreen.friends.addFriendTitle")}
           className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
           onClick={() => setShowAddModal(false)}
         >
@@ -351,6 +352,7 @@ export default function BigScreenFriends() {
               value={fd.friendCodeInput}
               onChange={(e) => fd.setFriendCodeInput(e.target.value)}
               placeholder={t("bigscreen.friends.publicKeyPlaceholder")}
+              aria-label={t("bigscreen.friends.publicKeyPlaceholder")}
               tabIndex={friendCodeFocusable.tabIndex}
               role={friendCodeFocusable.role}
               onClick={friendCodeFocusable.onClick}
@@ -439,6 +441,7 @@ function NicknameModal({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("bigscreen.friends.setNickname")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >
@@ -460,7 +463,8 @@ function NicknameModal({
             className="bigscreen-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={t("bigscreen.friends.circleNamePlaceholder")}
+            placeholder={t("friendsPage.nicknamePrompt")}
+            aria-label={t("friendsPage.nicknamePrompt")}
             tabIndex={inputProps.tabIndex}
             role={inputProps.role}
             onClick={inputProps.onClick}

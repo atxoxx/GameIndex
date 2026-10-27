@@ -38,7 +38,7 @@ export interface BigScreenModalProps {
   children?: ReactNode;
   /** Right-aligned action row (callers build focusable buttons). */
   footer?: ReactNode;
-  /** Panel width override (defaults to a centered 560px dialog). */
+  /** Panel width override (defaults to a centered rem-scaled dialog). */
   width?: string;
   /** Panel max-height override (defaults to 80% of the viewport). */
   maxHeight?: string;
@@ -50,8 +50,8 @@ export default function BigScreenModal({
   onClose,
   children,
   footer,
-  width = "560px",
-  maxHeight = "80%",
+  width = "min(34rem, 92vw)",
+  maxHeight = "min(80dvh, 44rem)",
 }: BigScreenModalProps) {
   const { t } = useLanguage();
   // Focusable close button — registered with the spatial-nav registry so

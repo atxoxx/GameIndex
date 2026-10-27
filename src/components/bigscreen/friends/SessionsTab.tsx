@@ -181,6 +181,7 @@ function SessionSearch({ value, onChange }: { value: string; onChange: (v: strin
         type="text"
         className="bigscreen-input"
         placeholder={t("friendsPage.searchSessionsPlaceholder")}
+        aria-label={t("friendsPage.searchSessionsPlaceholder")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         tabIndex={inputProps.tabIndex}
@@ -310,6 +311,7 @@ function CreateSessionModal({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("friendsPage.scheduleGameSession")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >
@@ -673,6 +675,7 @@ function LobbyDetailModal({
       data-bigscreen-overlay="true"
       role="dialog"
       aria-modal="true"
+      aria-label={t("bigscreen.friends.lobbyDetails")}
       className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
       onMouseDown={onClose}
     >

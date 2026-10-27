@@ -189,7 +189,7 @@
   align-items: center;
   gap: var(--bs-space-4);
   min-height: 3.3rem;
-  padding: var(--bs-space-2) var(--bs-gutter);
+  padding: 0.15rem var(--bs-gutter);
   border-bottom: 1px solid var(--bs-border-soft);
   background: var(--bs-surface-solid);
 }
@@ -229,6 +229,8 @@
   align-items: center;
   gap: var(--bs-space-1);
   min-width: 0;
+  /* Room for the focus ring; the scroller clips it otherwise. */
+  padding: 0.35rem 0.2rem;
   margin-left: auto;
   overflow-x: auto;
   scrollbar-width: none;
@@ -653,8 +655,8 @@
    one scroll region (the body), the banner and footer stay pinned. */
 .bigscreen-news-reader-panel {
   width: min(56rem, 92vw);
-  height: min(86vh, 46rem);
-  max-height: 86vh;
+  height: min(86dvh, 46rem);
+  max-height: 86dvh;
   padding: 0;
   display: flex;
   flex-direction: column;
