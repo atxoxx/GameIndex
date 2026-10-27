@@ -14,22 +14,23 @@
 .health-hero {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-md);
-  padding: var(--space-lg);
+  padding: var(--space-xl);
+  border: 0;
+  border-radius: var(--radius-2xl);
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)) 0%,
-    var(--color-surface) 100%
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 3%, transparent) 100%
   );
-  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
-  border-radius: var(--radius-xl);
 }
 
 .health-hero-icon {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
   display: flex;
   align-items: center;
@@ -43,20 +44,22 @@
 }
 
 .health-hero-text {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
 }
 
 .health-hero-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
 .health-hero-desc {
   margin: var(--space-2xs) 0 0 0;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }
 
@@ -86,13 +89,17 @@
 /* ── Panel shell ──────────────────────────────────────────────────────── */
 
 .health-panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
+    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
+  );
 }
 
 .health-tab {
@@ -129,13 +136,13 @@
 .health-check-box {
   width: 15px;
   height: 15px;
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-surface);
-  background: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -162,9 +169,9 @@
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-lg);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
 }
 
 .health-score-visual {
@@ -264,15 +271,16 @@
   gap: var(--space-sm);
   padding: var(--space-md);
   text-align: left;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .health-cat-card:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
   transform: translateY(-1px);
 }
 
@@ -406,11 +414,12 @@
 .health-issue {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
 }
 
 .health-issue-severity {
@@ -437,7 +446,7 @@
 }
 
 .health-issue-body {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -462,7 +471,7 @@
 }
 
 .health-issue-path {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -480,8 +489,10 @@
 .health-issue-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .health-gap-badges {
@@ -530,9 +541,9 @@
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
 }
 
 .health-duplicate-header {
@@ -558,11 +569,12 @@
 .health-duplicate-game {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
 }
 
 .health-duplicate-pick {
@@ -584,6 +596,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3xs);
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -610,7 +623,7 @@
 .health-bulk-track {
   height: 6px;
   border-radius: var(--radius-xs);
-  background: var(--color-bg-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   overflow: hidden;
 }
 
@@ -619,98 +632,4 @@
   border-radius: var(--radius-xs);
   background: var(--color-accent);
   transition: width 0.2s ease;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   Tonal pass — the health center reads as one surface: a tinted hero,
-   a tinted work area, and tonal issue rows. Severity keeps its color.
-   ══════════════════════════════════════════════════════════════════════ */
-
-.health-page {
-  gap: var(--space-lg);
-}
-
-.health-hero {
-  border: 0;
-  border-radius: var(--radius-2xl);
-  padding: var(--space-xl);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
-    color-mix(in srgb, var(--color-accent) 3%, transparent) 100%
-  );
-}
-
-.health-hero-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-}
-
-.health-hero-title {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  letter-spacing: -0.02em;
-}
-
-.health-hero-desc {
-  font-size: var(--text-sm);
-}
-
-.health-panel {
-  border: 0;
-  border-radius: var(--radius-2xl);
-  padding: var(--space-xl);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-text-primary) 3.4%, transparent) 0%,
-    color-mix(in srgb, var(--color-text-primary) 1.4%, transparent) 100%
-  );
-}
-
-.health-score-card {
-  border: 0;
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
-}
-
-.health-cat-card {
-  border: 0;
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-text-primary) 3.2%, transparent);
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.health-cat-card:hover:not(:disabled) {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-  transform: translateY(-1px);
-}
-
-.health-issue {
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
-}
-
-.health-duplicate-group {
-  border: 0;
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
-}
-
-.health-duplicate-game {
-  border: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
-}
-
-.health-check-box {
-  border: 0;
-  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-}
-
-.health-bulk-track {
-  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }

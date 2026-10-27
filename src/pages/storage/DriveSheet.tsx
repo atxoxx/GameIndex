@@ -29,8 +29,8 @@ const MAX_LISTED = 40;
 /**
  * DriveSheet — the drill-down the rail's chevron opens.
  *
- * A right-hand sheet rather than a route: the table stays exactly where it
- * was, and closing returns the user to the same scroll position.
+ * A modal rather than a route: the table stays exactly where it was, and
+ * closing returns the user to the same scroll position.
  */
 export function DriveSheet({
   drive,

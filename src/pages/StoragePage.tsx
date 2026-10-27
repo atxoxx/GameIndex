@@ -590,7 +590,9 @@ export default function StoragePage() {
   );
 
   return (
-    <div className="storage-page page">
+    <div
+      className={`storage-page page${selectMode && tab === "games" ? " storage-page--batch-open" : ""}`}
+    >
       <PageWidget page="storage" widget="storageHeader">
         <div className="ui-item-storageHeader">
           <PageHeader

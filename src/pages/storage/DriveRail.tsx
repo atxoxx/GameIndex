@@ -109,7 +109,8 @@ export function DriveRail({
 
               <div
                 className="drive-rail__bar"
-                role="img"
+                role={hasUsage ? "img" : undefined}
+                aria-hidden={hasUsage ? undefined : true}
                 aria-label={
                   hasUsage
                     ? t("storage.rail.usageAria", {

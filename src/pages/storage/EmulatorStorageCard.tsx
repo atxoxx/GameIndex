@@ -176,6 +176,7 @@ export function EmulatorStorageCard({
               <input
                 type="text"
                 placeholder={t("storage.searchPlaceholder")}
+                aria-label={t("storage.searchPlaceholder")}
                 value={romSearch}
                 onChange={(e) => setRomSearch(e.target.value)}
                 className="emu-storage-search-input"
@@ -185,6 +186,7 @@ export function EmulatorStorageCard({
                   type="button"
                   className="emu-storage-search-clear"
                   onClick={() => setRomSearch("")}
+                  aria-label={t("storage.clearSearch")}
                 >
                   ×
                 </button>
