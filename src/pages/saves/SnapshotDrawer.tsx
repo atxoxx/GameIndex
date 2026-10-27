@@ -21,7 +21,7 @@ interface SnapshotDrawerProps {
 }
 
 /**
- * Slide-over snapshot inspector.
+ * Snapshot inspector modal.
  *
  * Reads the versioned manifest on demand rather than shipping every file list
  * with the page: a library-wide timeline can hold hundreds of snapshots, and
@@ -40,6 +40,7 @@ export default function SnapshotDrawer({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -96,6 +97,21 @@ export default function SnapshotDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [backupId, onClose]);
 
+  // Contain focus: the page behind the modal is not inert, so a Tab or a
+  // stray controller move must not land on a snapshot row underneath.
+  useEffect(() => {
+    if (!backupId) return;
+    const onFocusIn = (event: FocusEvent) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const target = event.target as Node | null;
+      if (target && panel.contains(target)) return;
+      closeRef.current?.focus();
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [backupId]);
+
   useEffect(() => {
     if (!backupId) return;
     const previous = document.body.style.overflow;
@@ -147,6 +163,7 @@ export default function SnapshotDrawer({
       }}
     >
       <aside
+        ref={panelRef}
         className="saves-drawer__panel"
         role="dialog"
         aria-modal="true"
@@ -200,7 +217,7 @@ export default function SnapshotDrawer({
             </p>
           ) : (
             <>
-              <label className="saves-drawer__search">
+              <div className="saves-drawer__search">
                 <Search size={14} aria-hidden="true" />
                 <input
                   type="search"
@@ -219,7 +236,7 @@ export default function SnapshotDrawer({
                     <X size={13} />
                   </button>
                 )}
-              </label>
+              </div>
 
               {files.length === 0 ? (
                 <p className="saves-drawer__empty">{t("saves.drawer.noFiles")}</p>
