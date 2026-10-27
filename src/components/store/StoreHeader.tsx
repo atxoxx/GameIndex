@@ -47,6 +47,7 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
               c.clearSelection();
             }}
             aria-pressed={c.bulkMode}
+            aria-label={t("storeToolbar.selectMultiple")}
             title={t("storeToolbar.selectMultiple")}
           >
             <CheckSquare size={14} aria-hidden="true" />
@@ -58,6 +59,11 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
             className={`store-header-action-btn${c.compareOpen ? " active" : ""}`}
             onClick={() => c.setCompareOpen(true)}
             disabled={compareCount === 0}
+            aria-label={
+              compareCount > 0
+                ? t("store.header.compareCount", { count: compareCount })
+                : t("store.header.compare")
+            }
             title={t("store.header.compare")}
           >
             <BarChart3 size={14} aria-hidden="true" />
@@ -72,6 +78,7 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
             type="button"
             className="store-header-action-btn"
             onClick={() => setSurpriseOpen(true)}
+            aria-label={t("store.surpriseTitle")}
             title={t("store.surpriseTitle")}
           >
             <Shuffle size={14} aria-hidden="true" />
@@ -84,6 +91,11 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
               className={`store-header-action-btn${c.showHidden ? " active" : ""}`}
               onClick={() => c.setShowHidden(!c.showHidden)}
               aria-pressed={c.showHidden}
+              aria-label={
+                c.showHidden
+                  ? t("storeHeader.toggleDismissed")
+                  : t("storeHeader.toggleDismissedShow")
+              }
               title={
                 c.showHidden
                   ? t("storeHeader.toggleDismissed")

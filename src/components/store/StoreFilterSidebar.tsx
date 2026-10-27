@@ -353,6 +353,7 @@ export default function StoreFilterSidebar({
             type="number"
             className="store-filter-year-input"
             placeholder={t("store.filter.yearFrom")}
+            aria-label={t("store.filter.yearFrom")}
             value={yearMin ?? ""}
             onChange={(e) =>
               onYearRangeChange(
@@ -368,6 +369,7 @@ export default function StoreFilterSidebar({
             type="number"
             className="store-filter-year-input"
             placeholder={t("store.filter.yearTo")}
+            aria-label={t("store.filter.yearTo")}
             value={yearMax ?? ""}
             onChange={(e) =>
               onYearRangeChange(
@@ -392,6 +394,7 @@ export default function StoreFilterSidebar({
         <input
           type="range"
           className="store-filter-slider"
+          aria-label={t("store.filter.minRating")}
           min={0}
           max={95}
           step={5}

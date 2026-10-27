@@ -138,6 +138,16 @@ const ANCHOR_GAP = 8;
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointerDown, true);
       window.clearTimeout(focusTimer);
+      // Closing drops the focused control with the panel: hand focus back to
+      // the trigger, unless the user moved it somewhere else themselves.
+      const active = document.activeElement;
+      const trigger = anchorRef?.current;
+      if (
+        trigger?.isConnected &&
+        (!active || active === document.body || panelRef.current?.contains(active))
+      ) {
+        trigger.focus();
+      }
     };
   }, [open, close, anchorRef]);
 

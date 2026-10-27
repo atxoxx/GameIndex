@@ -547,6 +547,7 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
             return (
               <button
                 key="back"
+                type="button"
                 className="game-back-link game-top-bar__back"
                 onClick={() => navigate("/store")}
                 aria-label={t("store.backToStore")}

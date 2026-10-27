@@ -240,6 +240,7 @@ export default function StoreSearchBar({
           type="text"
           className="store-search-input"
           placeholder={t("store.searchPlaceholder")}
+          aria-label={t("store.searchPlaceholder")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}

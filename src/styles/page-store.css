@@ -224,7 +224,7 @@
 .store-surprise-scrim {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: var(--z-modal);
   background: var(--color-scrim);
   backdrop-filter: var(--blur-scrim);
   -webkit-backdrop-filter: var(--blur-scrim);
@@ -1871,6 +1871,13 @@
   border-radius: var(--radius-xs);
 }
 
+.store-card-list-thumb .store-card-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
 .store-card-list-info {
   min-width: 0;
   display: flex;
@@ -2014,6 +2021,26 @@
   gap: var(--space-xs);
   justify-content: flex-end;
   min-width: 0;
+}
+
+/* The rating and CrackWatch pills are absolutely positioned on the poster
+   card; in the list row they belong to the inline badge cell, otherwise
+   they float over the row's action corner and thumbnail. */
+.store-game-card-list .store-card-rating,
+.store-game-card-list .store-card-cw-badge {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+}
+
+/* Same for the bulk-select box: park it over the poster instead of the
+   row's action cell, where it covered the compare button. */
+.store-game-card-list .store-card-select {
+  top: var(--space-2xs);
+  right: auto;
+  left: var(--space-2xs);
 }
 
 .store-card-action-btn {
@@ -3508,6 +3535,24 @@
     width: 34px;
     padding: 0;
     justify-content: center;
+  }
+}
+
+/* The docked 280px sidebar leaves ~540px of catalogue at the 900px
+   minimum window, so the hero must compact well before the 860px viewport
+   breakpoint (which never fires with the sidebar out). */
+@media (max-width: 1120px) {
+  .store-page .store-spotlight-stage {
+    padding: var(--space-xl);
+    gap: var(--space-xl);
+  }
+
+  .store-page .store-spotlight-media {
+    margin-left: 0;
+  }
+
+  .store-page .store-spotlight-card-wrap {
+    width: clamp(130px, 18vw, 180px);
   }
 }
 

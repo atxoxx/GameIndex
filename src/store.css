@@ -296,7 +296,7 @@
   height: 18px;
   padding: 0 var(--space-2xs);
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--color-accent-contrast) 25%, transparent);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
@@ -477,7 +477,7 @@
   position: sticky;
   top: var(--store-sticky-top);
   align-self: flex-start;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100dvh - 96px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;

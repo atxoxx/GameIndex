@@ -80,21 +80,20 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
 
   // Focus input when opened + lock scroll + focus trap origin
   useEffect(() => {
-    if (open) {
-      // sync query from catalogue on open
-      setQuery(catalogue.searchQuery);
-      setSelectedIndex(-1);
-      // delay focus to allow modal mount
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        clearTimeout(t);
-        document.body.style.overflow = prevOverflow;
-      };
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    // sync query from catalogue on open
+    setQuery(catalogue.searchQuery);
+    setSelectedIndex(-1);
+    // delay focus to allow modal mount
+    const timer = setTimeout(() => inputRef.current?.focus(), 30);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
+      previous?.focus?.();
+    };
   }, [open, catalogue.searchQuery]);
 
   // Close on outside mousedown/touchstart on scrim (handled via scrim onClick)
@@ -132,6 +131,24 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
       } else if (e.key === "Escape") {
         e.preventDefault();
         setOpen(false);
+      } else if (e.key === "Tab") {
+        const root = modalRef.current;
+        if (!root) return;
+        const focusables = Array.from(
+          root.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+          )
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     },
     [flatGrouped, selectedIndex, trimmed, catalogue]
@@ -389,13 +406,13 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
 
         <div className="store-search-palette-footer">
           <span>
-            <kbd>↵</kbd> {t("store.search.clearSearch") || "to select"}
+            <kbd>↵</kbd> {t("common.select")}
           </span>
           <span>
-            <kbd>↑</kbd> <kbd>↓</kbd> navigate
+            <kbd>↑</kbd> <kbd>↓</kbd> {t("commandPalette.hintNavigate")}
           </span>
           <span>
-            <kbd>ESC</kbd> close
+            <kbd>ESC</kbd> {t("common.close")}
           </span>
           <span style={{ marginLeft: "auto", opacity: 0.7 }}>Ctrl+K</span>
         </div>

@@ -404,6 +404,11 @@ function StoreGameCardBase({
               className={`store-card-action-btn${wishlisted ? " active" : ""}`}
               onClick={(e) => onToggleWishlist!(game, e)}
               title={wishlisted ? t("store.spotlight.wishlisted") : t("store.spotlight.addToWishlist")}
+              aria-label={
+                wishlisted
+                  ? t("store.gameCard.removeWishlistAria", { name: game.name })
+                  : t("store.gameCard.addWishlistAria", { name: game.name })
+              }
               aria-pressed={wishlisted}
             >
               <svg

@@ -310,6 +310,7 @@ export default function StoreCompareModal({
                   className="store-compare-col-cover-btn"
                   onClick={() => onOpenGame(g)}
                   title={t("store.compare.openGame")}
+                  aria-label={`${t("store.compare.openGame")} ${g.name}`}
                 >
                   {g.coverUrl ? (
                     <img src={g.coverUrl} alt="" className="store-compare-col-cover" />
