@@ -77,7 +77,7 @@ export default function AccentPreview({
           <div className="accent-preview__card-header">
             <div className="accent-preview__card-title">
               <span className="accent-preview__dot" aria-hidden="true" />
-              <span>Precision Solid System</span>
+              <span>{t("settings.accent.cardTitle")}</span>
             </div>
             {autoGameAccent && (
               <span className="accent-preview__live">
@@ -99,15 +99,15 @@ export default function AccentPreview({
               {t("settings.accent.softSample")}
             </span>
             <span className="accent-preview__chip-laser">
-              Laser Edge
+              {t("settings.accent.laserEdge")}
             </span>
           </div>
         </div>
 
         {/* Tonal Precision Ramp */}
         <div className="accent-preview__ramp-wrap">
-          <span className="accent-preview__ramp-label">Tonal Ramp</span>
-          <div className="accent-preview__ramp">
+          <span className="accent-preview__ramp-label">{t("settings.accent.tonalRamp")}</span>
+          <div className="accent-preview__ramp" title={t("settings.accent.rampStep")}>
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--base"
               title="100% Base Accent"

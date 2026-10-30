@@ -289,7 +289,7 @@ export default function SettingsTopNav({
               <kbd
                 className="settings-search-kbd"
                 aria-hidden
-                title="Press Ctrl+K or / to search"
+                title={t("settings.searchKbdHint")}
               >
                 Ctrl+K
               </kbd>
@@ -306,7 +306,7 @@ export default function SettingsTopNav({
                   <div className="settings-search-empty-wrap">
                     <p className="settings-search-empty">{t("settings.navEmpty")}</p>
                     <p className="settings-search-tip">
-                      Try searching for <em>theme</em>, <em>steam</em>, <em>language</em>, <em>bandwidth</em>, or <em>plugins</em>.
+                      {t("settings.searchTip")}
                     </p>
                   </div>
                 ) : (
@@ -340,7 +340,7 @@ export default function SettingsTopNav({
                         <span
                           className={`settings-search-result-kind settings-search-result-kind--${entry.kind}`}
                         >
-                          {entry.kind === "tab" ? "Tab" : t("settings.onThisPage")}
+                          {entry.kind === "tab" ? t("settings.kindTab") : t("settings.onThisPage")}
                         </span>
                       </button>
                     );

@@ -876,7 +876,7 @@ function DocsPageContent() {
             /* Focused Article Mode */
             <article className="docs-article" id={`article-${activeSub.id}`}>
               {/* Breadcrumb Trail */}
-              <nav className="docs-breadcrumbs" aria-label="Breadcrumb">
+              <nav className="docs-breadcrumbs" aria-label={t("docs.breadcrumb")}>
                 <button
                   type="button"
                   className="docs-breadcrumb-btn"
