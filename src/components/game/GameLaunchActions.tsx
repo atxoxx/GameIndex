@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { useToast } from "../../context/ToastContext";
 import { useGames, useLiveElapsed } from "../../context/GameContext";
 import { useGameUpdateCheck } from "../../hooks/useGameUpdateCheck";
-import { IconDownload, IconPlay } from "./icons";
+import { IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
 import GameExecutablePickerModal from "./GameExecutablePickerModal";
+import StoreInstallAction from "../store/StoreInstallAction";
 import { formatPlayTime, gameDisplayName, type Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -13,15 +12,13 @@ import { useLanguage } from "../../context/LanguageContext";
  * GameLaunchActions
  *
  *  The button cluster on the hero overlay:
- *   - "Install via Steam" (only when the game is a Steam title
- *     that isn't installed)
+ *   - Store install state (StoreInstallAction): a live progress button while
+ *     Steam / Epic is transferring this game, otherwise the Steam hand-off
  *   - "Launch Game" (disabled + pulsing dot when running)
  *   - The shared DownloadButton (magnet / direct / debrid flow)
  *
  *  Owns no local state; reads `isRunning` from the GameContext and
- *  calls `launchGame` to start the process. Errors during the
- *  Steam install hand-off are surfaced through the toast context
- *  so the rest of the app doesn't have to know about it.
+ *  calls `launchGame` to start the process.
  */
 
 interface GameLaunchActionsProps {
@@ -37,7 +34,6 @@ export default function GameLaunchActions({
 }: GameLaunchActionsProps) {
   const { runningGameIds, closingGameIds, forceCloseGame, launchGame } = useGames();
   const liveElapsed = useLiveElapsed();
-  const { showToast } = useToast();
   const { t } = useLanguage();
   // For installed games, a background check surfaces a "Update
   // available" label on the DownloadButton when the sources carry a
@@ -85,28 +81,9 @@ export default function GameLaunchActions({
       ? t("game.runningTime", { time: formatPlayTime(liveMinutes) })
       : t("game.running");
 
-  const showInstall =
-    !game.installed && game.platform === "Steam" && game.steamAppId;
-
-  function handleInstall() {
-    if (!game.steamAppId) return;
-    openUrl(`steam://install/${game.steamAppId}`).catch((err) =>
-      showToast(t("launch.installFailedToast", { err: String(err) }), "error")
-    );
-  }
-
   return (
     <div className={`game-launch-actions game-launch-actions--${size}`}>
-      {showInstall && (
-        <button
-          type="button"
-          className="game-launch-btn game-launch-btn--install"
-          onClick={handleInstall}
-        >
-          <IconDownload size={16} />
-          {t("game.installViaSteam")}
-        </button>
-      )}
+      <StoreInstallAction game={game} />
       {isRunning ? (
         // Running state — surfaces both a passive status pill and a
         // destructive action button. Splitting them keeps "Running…" as

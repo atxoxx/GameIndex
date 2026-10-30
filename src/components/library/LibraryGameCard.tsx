@@ -10,6 +10,8 @@ import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibi
 import { ArtworkImage } from "../ui/ArtworkImage";
 import { playLaunchSound } from "../../utils/soundEffects";
 import { isLibraryScrolling } from "./libraryScroll";
+import { useStoreInstallFor } from "../../hooks/useStoreInstalls";
+import StoreInstallBar from "../store/StoreInstallBar";
 
 interface LibraryGameCardProps {
   game: Game;
@@ -58,6 +60,11 @@ function LibraryGameCardBase({
     useCardDisplaySettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
+
+  // A store client (Steam / Epic) working on this game right now. The card
+  // is memoized against prop churn, but this subscription re-renders it on
+  // its own when the transfer advances.
+  const storeTransfer = useStoreInstallFor(game.id);
 
   // Skip the hover state (and the animated poster it enables) while the grid
   // is still moving under the pointer.
@@ -174,10 +181,14 @@ function LibraryGameCardBase({
           <h3 className="lib-card-name" title={displayName}>
             {displayName}
           </h3>
-          {game.developer && (
-            <span className="lib-card-list-dev" title={game.developer}>
-              {game.developer}
-            </span>
+          {storeTransfer ? (
+            <StoreInstallBar entry={storeTransfer} variant="inline" updating={game.installed} />
+          ) : (
+            game.developer && (
+              <span className="lib-card-list-dev" title={game.developer}>
+                {game.developer}
+              </span>
+            )
           )}
         </div>
 
@@ -305,6 +316,8 @@ function LibraryGameCardBase({
             {t("library.running")}
           </span>
         )}
+
+        {storeTransfer && <StoreInstallBar entry={storeTransfer} updating={game.installed} />}
 
         <div className="lib-card-actions" onClick={(event) => event.stopPropagation()}>
           <button

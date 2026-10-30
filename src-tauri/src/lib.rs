@@ -32,6 +32,7 @@ mod epic;
 mod gog;
 mod humble;
 mod steam_game_watcher;
+mod store_installs;
 mod rockstar;
 mod uplay;
 mod beta_stores;
@@ -268,6 +269,9 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             downloads::debrid_update_only_files,
             downloads::torrent_start_selected,
             downloads::torrent_set_speed_limits,
+            // Store-side install progress (Steam / Epic manifests).
+            store_installs::store_installs_list,
+            store_installs::store_installs_scan_now,
             downloads::torrent_open_folder,
             downloads::download_set_seed_config,
             downloads::download_set_seed_limits,
@@ -806,6 +810,14 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
                 game_watcher,
                 app.handle().clone(),
             );
+
+            // ── Store-side install progress ────────────────────────────
+            // Follows downloads the store clients are running (install,
+            // update, repair) by reading their manifests, so the library
+            // can show real progress for work GameIndex did not start.
+            let store_install_manager =
+                store_installs::StoreInstallManager::start(app.handle().clone(), db.clone());
+            app.manage(store_install_manager);
 
             // ── L6: restore-window-on-last-exit ────────────────────────
             // When `restore_on_exit_enabled` is on and the main window

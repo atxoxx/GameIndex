@@ -889,6 +889,49 @@ pub fn list_watch_targets(db: &Db) -> Result<Vec<GameWatchTarget>, String> {
     Ok(out)
 }
 
+/// A library game as the store-install poller needs it: which store app it
+/// belongs to, plus the install state it is coming from.
+#[derive(Debug, Clone)]
+pub struct StoreInstallTarget {
+    pub id: String,
+    pub name: String,
+    pub installed: bool,
+    pub steam_app_id: Option<u32>,
+    pub epic_namespace: Option<String>,
+    pub epic_catalog_item_id: Option<String>,
+}
+
+/// Every game the store poller could match a transfer against. Re-read
+/// once a minute, so it stays a single indexed select with no JSON
+/// decoding.
+pub fn list_store_install_targets(db: &Db) -> Result<Vec<StoreInstallTarget>, String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, installed, steam_app_id, epic_namespace, epic_catalog_item_id \
+             FROM games \
+             WHERE steam_app_id IS NOT NULL OR epic_namespace IS NOT NULL",
+        )
+        .map_err(|e| format!("games store install targets prepare: {e}"))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(StoreInstallTarget {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                installed: r.get(2)?,
+                steam_app_id: r.get(3)?,
+                epic_namespace: r.get(4)?,
+                epic_catalog_item_id: r.get(5)?,
+            })
+        })
+        .map_err(|e| format!("games store install targets query: {e}"))?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| format!("games store install target: {e}"))?);
+    }
+    Ok(out)
+}
+
 /// Minimal game row for the overlay's running-game detection: identity, the
 /// launch exe path and the ROM linkage. Deliberately avoids `list_all`, which
 /// would decode every game's full artwork/metadata JSON for a lookup that only

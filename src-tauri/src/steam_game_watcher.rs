@@ -321,6 +321,10 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
     let mut build_id: Option<String> = None;
     let mut last_owner: Option<String> = None;
     let mut installed_dlcs: Vec<u32> = Vec::new();
+    let mut bytes_to_download: Option<u64> = None;
+    let mut bytes_downloaded: Option<u64> = None;
+    let mut bytes_to_stage: Option<u64> = None;
+    let mut bytes_staged: Option<u64> = None;
 
     // Walk odd indices (1, 3, 5, …) and look two slots ahead for the
     // value. `split('"')` on `"appid" "440"` yields `["", "appid",
@@ -338,6 +342,13 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
             "installdir" => installdir = Some(value.to_string()),
             "StateFlags" => state_flags = value.trim().parse::<u32>().ok(),
             "buildid" => build_id = Some(value.trim().to_string()),
+            // Live transfer counters. Steam rewrites these four while it
+            // downloads and unpacks, so they are the only real progress
+            // signal available to an outside process.
+            "BytesToDownload" => bytes_to_download = value.trim().parse::<u64>().ok(),
+            "BytesDownloaded" => bytes_downloaded = value.trim().parse::<u64>().ok(),
+            "BytesToStage" => bytes_to_stage = value.trim().parse::<u64>().ok(),
+            "BytesStaged" => bytes_staged = value.trim().parse::<u64>().ok(),
             "LastOwner" => last_owner = Some(value.trim().to_string()),
             "dlcappid" => {
                 if let Ok(id) = value.trim().parse::<u32>() {
@@ -370,6 +381,10 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
         build_id,
         last_owner,
         installed_dlcs,
+        bytes_to_download,
+        bytes_downloaded,
+        bytes_to_stage,
+        bytes_staged,
     })
 }
 
@@ -382,6 +397,14 @@ pub struct AppManifestFields {
     pub build_id: Option<String>,
     pub last_owner: Option<String>,
     pub installed_dlcs: Vec<u32>,
+    /// Bytes Steam still has to pull for this app (compressed, as sent).
+    pub bytes_to_download: Option<u64>,
+    /// Bytes already pulled.
+    pub bytes_downloaded: Option<u64>,
+    /// Bytes Steam still has to write out of the download cache.
+    pub bytes_to_stage: Option<u64>,
+    /// Bytes already written.
+    pub bytes_staged: Option<u64>,
 }
 
 impl AppManifestFields {
@@ -415,6 +438,42 @@ mod tests {
         assert_eq!(m.name, "Team Fortress 2");
         assert_eq!(m.install_dir, "Team Fortress 2");
         assert!(m.is_fully_installed());
+    }
+
+    #[test]
+    fn parse_appmanifest_reads_live_transfer_counters() {
+        let raw = r#""AppState"
+{
+    "appid"  "570"
+    "name"  "Dota 2"
+    "installdir"  "dota 2 beta"
+    "StateFlags"  "1026"
+    "BytesToDownload"  "4294967296"
+    "BytesDownloaded"  "1073741824"
+    "BytesToStage"  "8589934592"
+    "BytesStaged"  "0"
+}
+"#;
+        let m = parse_appmanifest(raw, 570).unwrap();
+        assert_eq!(m.bytes_to_download, Some(4_294_967_296));
+        assert_eq!(m.bytes_downloaded, Some(1_073_741_824));
+        assert_eq!(m.bytes_to_stage, Some(8_589_934_592));
+        assert_eq!(m.bytes_staged, Some(0));
+    }
+
+    #[test]
+    fn parse_appmanifest_without_counters_leaves_them_empty() {
+        let raw = r#""AppState"
+{
+    "appid"  "440"
+    "name"  "Team Fortress 2"
+    "installdir"  "Team Fortress 2"
+    "StateFlags"  "4"
+}
+"#;
+        let m = parse_appmanifest(raw, 440).unwrap();
+        assert_eq!(m.bytes_to_download, None);
+        assert_eq!(m.bytes_downloaded, None);
     }
 
     #[test]

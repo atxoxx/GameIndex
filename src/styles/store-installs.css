@@ -1,0 +1,251 @@
+/* Store-side install progress — Steam / Epic transfers GameIndex only
+   watches. Shared by the library card bar, the game hero button and the
+   downloads page section. */
+
+.store-install-track {
+  position: relative;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  overflow: hidden;
+}
+
+.store-install-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--duration-fast) linear;
+}
+
+.store-install-track.is-indeterminate .store-install-fill,
+.store-install-bar.is-indeterminate .store-install-fill {
+  width: 40%;
+  animation: store-install-sweep 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes store-install-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(310%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-install-track.is-indeterminate .store-install-fill,
+  .store-install-bar.is-indeterminate .store-install-fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}
+
+/* ── Card overlay ─────────────────────────────────────────────────── */
+
+.store-install-bar--overlay {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-sm) var(--space-xs);
+  background: linear-gradient(to top, var(--color-scrim-strong), transparent);
+  /* The card surface owns the click; the bar is a readout only. */
+  pointer-events: none;
+}
+
+.store-install-caption {
+  display: block;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-install-caption-detail {
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+}
+
+.store-install-bar.is-installing .store-install-fill {
+  background: var(--color-warning);
+}
+
+.store-install-bar.is-pending .store-install-fill {
+  background: var(--color-text-tertiary);
+}
+
+/* ── Inline variant (list rows) ───────────────────────────────────── */
+
+.store-install-bar--inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.store-install-bar--inline .store-install-caption {
+  color: var(--color-text-secondary);
+}
+
+/* ── Hero button ──────────────────────────────────────────────────── */
+
+.game-launch-btn--transfer {
+  position: relative;
+  overflow: hidden;
+}
+
+.game-launch-transfer-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  /* Darkens the button's own install-blue rather than layering a second
+     accent colour on top of it. */
+  background: color-mix(in srgb, var(--color-info) 55%, var(--color-bg-primary));
+  transition: width var(--duration-fast) linear;
+}
+
+.game-launch-btn--transfer > svg,
+.game-launch-transfer-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Downloads page section ───────────────────────────────────────── */
+
+.dl-store-installs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.dl-store-installs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.dl-store-installs-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.dl-store-installs-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dl-store-installs-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-badge);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-store-installs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.dl-store-installs-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.dl-store-installs-action:hover,
+.dl-store-installs-action:focus-visible {
+  border-color: var(--color-accent-border);
+  color: var(--color-text-primary);
+}
+
+.dl-store-installs-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-store-install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--color-border-faint);
+}
+
+.dl-store-install:first-child {
+  border-top: none;
+}
+
+.dl-store-install-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.dl-store-install-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-store-install-percent {
+  flex: none;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.dl-store-install-meta {
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.dl-store-install-detail {
+  color: var(--color-text-tertiary);
+}
+
+.dl-store-installs-hint {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+}

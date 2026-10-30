@@ -27,6 +27,7 @@ import { useWatcherIndex } from "./game/useWatcherIndex";
 import { useSessions } from "./game/useSessions";
 import { useLaunch } from "./game/useLaunch";
 import { useEnrich, gameNeedsEnrichment } from "./game/useEnrich";
+import { useStoreInstallEvents } from "./game/useStoreInstallEvents";
 import { deduplicateAndMergeTags } from "../utils/genreTags";
 import { normalizeGameArtworkUrls } from "../utils/artworkUrl";
 
@@ -378,6 +379,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     t,
     removeGamesRef,
   });
+
+  // ── Store install completions ───────────────────────────────────
+  // A finished Steam / Epic download flips the game to installed right
+  // away instead of waiting for the watcher's own (much slower) scan.
+  useStoreInstallEvents({ gamesRef, setGames, showToast, t });
 
   // ── Sessions: running / closing / liveElapsed / untracked ───────
   const sessions = useSessions({

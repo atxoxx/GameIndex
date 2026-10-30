@@ -22,6 +22,7 @@ import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
 import DownloadsTabs, { type DownloadsTabKey } from "../components/downloads/DownloadsTabs";
 import DownloadsHistoryTab from "../components/downloads/DownloadsHistoryTab";
+import StoreInstallsSection from "../components/downloads/StoreInstallsSection";
 import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
@@ -403,6 +404,10 @@ export default function DownloadsPage() {
             />
           </div>
           </PageWidget>
+
+      {/* Store-side transfers first: they belong to another program, so
+          they sit apart from the queue GameIndex actually owns. */}
+      <StoreInstallsSection />
 
       {/* Main Downloads List / Grid / Table Section */}
       <PageWidget page="downloads" widget="downloadsQueue">
