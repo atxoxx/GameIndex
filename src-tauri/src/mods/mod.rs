@@ -920,6 +920,13 @@ pub fn mo2_detect_instances(game_path: String, game_name: String) -> Result<Vec<
     Ok(mo2::detect_mo2_instances(&game_path, &game_name))
 }
 
+/// Validate a folder (or file) the user picked as an MO2 instance. Fails with a
+/// clear message instead of silently falling back to machine-wide detection.
+#[tauri::command]
+pub fn mo2_resolve_instance(path: String) -> Result<mo2::Mo2Instance, String> {
+    mo2::resolve_instance_at(&path)
+}
+
 #[tauri::command]
 pub fn mo2_get_profile_details(instance_path: String, profile_name: String) -> Result<mo2::Mo2ProfileDetails, String> {
     mo2::get_profile_details(&instance_path, &profile_name)
@@ -999,6 +1006,7 @@ pub fn mo2_launch_game(
     instance_path: String,
     profile_name: String,
     executable: String,
+    mo_exe_path: Option<String>,
     run_as_admin: Option<bool>,
 ) -> Result<String, String> {
     mo2::launch_with_mo2(
@@ -1008,6 +1016,7 @@ pub fn mo2_launch_game(
         &instance_path,
         &profile_name,
         &executable,
+        mo_exe_path,
         run_as_admin.unwrap_or(false),
     )
 }

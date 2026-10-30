@@ -111,6 +111,10 @@ pub const GAMES_V15_DDL: &str = include_str!("schema_games_v15.sql");
 /// v16: purchase cost + currency for the $/hour tracker.
 pub const GAMES_V16_DDL: &str = include_str!("schema_games_v16.sql");
 
+/// v17: Mod Organizer 2 launch settings (enable flag, profile,
+/// executable, instance root).
+pub const GAMES_V17_DDL: &str = include_str!("schema_games_v17.sql");
+
 /// DDL for the `game_notes` domain: user-authored notes / guides
 /// attached to library games (Markdown content + tags + pin flag).
 pub const GAME_NOTES_DDL: &str = include_str!("schema_game_notes.sql");
@@ -235,7 +239,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "games",
-        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL), ("v12", GAMES_V12_DDL), ("v13", GAMES_V13_DDL), ("v14", GAMES_V14_DDL), ("v15", GAMES_V15_DDL), ("v16", GAMES_V16_DDL)],
+        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL), ("v8", GAMES_V8_DDL), ("v9", GAMES_V9_DDL), ("v10", GAMES_V10_DDL), ("v11", GAMES_V11_DDL), ("v12", GAMES_V12_DDL), ("v13", GAMES_V13_DDL), ("v14", GAMES_V14_DDL), ("v15", GAMES_V15_DDL), ("v16", GAMES_V16_DDL), ("v17", GAMES_V17_DDL)],
     },
     DomainSchema {
         label: "sessions",

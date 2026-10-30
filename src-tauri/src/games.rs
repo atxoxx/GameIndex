@@ -55,6 +55,19 @@ pub(crate) struct GameData {
     /// ISO-8601 timestamp of the last mods-folder measurement.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) mods_detected_at: Option<String>,
+    /// Route this game's launches through Mod Organizer 2 instead of the
+    /// raw executable. `None` = never configured (treated as disabled).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mo2_launch_enabled: Option<bool>,
+    /// MO2 profile to launch with; `None` uses MO2's default profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mo2_profile: Option<String>,
+    /// Executable MO2 should run for this game.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mo2_executable: Option<String>,
+    /// Root of the MO2 (portable) instance these settings belong to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) mo2_instance_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) icon_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -429,6 +442,10 @@ impl From<GameData> for db::games::GameRow {
             play_status: g.play_status,
             purchase_cost: g.purchase_cost,
             purchase_currency: g.purchase_currency,
+            mo2_launch_enabled: g.mo2_launch_enabled,
+            mo2_profile: g.mo2_profile,
+            mo2_executable: g.mo2_executable,
+            mo2_instance_path: g.mo2_instance_path,
             genres: g.genres,
             themes: g.themes,
             game_modes: g.game_modes,
@@ -542,6 +559,10 @@ impl From<db::games::GameRow> for GameData {
             play_status: r.play_status,
             purchase_cost: r.purchase_cost,
             purchase_currency: r.purchase_currency,
+            mo2_launch_enabled: r.mo2_launch_enabled,
+            mo2_profile: r.mo2_profile,
+            mo2_executable: r.mo2_executable,
+            mo2_instance_path: r.mo2_instance_path,
             emulator_id: r.emulator_id,
             rom_path: r.rom_path,
             rom_hash: r.rom_hash,
@@ -1048,6 +1069,10 @@ mod tests {
             "modsFolder": "C:/Games/Test/mods",
             "modsSizeBytes": 55,
             "modsDetectedAt": "2026-01-02T00:00:00Z",
+            "mo2LaunchEnabled": true,
+            "mo2Profile": "Default",
+            "mo2Executable": "C:/Games/Test/game.exe",
+            "mo2InstancePath": "C:/MO2",
             "iconUrl": "data:image/png;base64,BBBB",
             "bannerUrl": "data:image/png;base64,CCCC",
             "logoUrl": "data:image/png;base64,DDDD",
@@ -1171,6 +1196,10 @@ mod tests {
             "modsFolder": "C:/Games/Test/mods",
             "modsSizeBytes": 55,
             "modsDetectedAt": "2026-01-02T00:00:00Z",
+            "mo2LaunchEnabled": true,
+            "mo2Profile": "Default",
+            "mo2Executable": "C:/Games/Test/game.exe",
+            "mo2InstancePath": "C:/MO2",
             "iconUrl": "data:image/png;base64,BBBB",
             "bannerUrl": "data:image/png;base64,CCCC",
             "logoUrl": "data:image/png;base64,DDDD",

@@ -102,7 +102,10 @@ export default function ModManager({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const rawMods = payload?.mods ?? [];
-  const isMo2Detected = mo2.instances.length > 0;
+  // Detection lists every instance on the machine now, so relevance decides
+  // whether this game actually has an MO2 library worth merging.
+  const isMo2Detected =
+    Boolean(game.mo2InstancePath) || (mo2.selectedInstance?.relevance ?? 0) > 0;
 
   // Build lookup maps from active MO2 profile mods and plugins
   const mo2StatusMap = useMemo(() => {
@@ -754,7 +757,7 @@ export default function ModManager({
       ]
     : [];
 
-  const showModeSwitcher = mo2.instances.length > 0 && !hideMo2Switcher;
+  const showModeSwitcher = isMo2Detected && !hideMo2Switcher;
   const effectiveMode = showModeSwitcher ? managerMode : "standard";
 
   useEffect(() => {

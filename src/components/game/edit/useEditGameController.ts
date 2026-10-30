@@ -24,7 +24,12 @@ import {
   gameIsVr,
 } from "../../../types/game";
 import type { Mo2Instance } from "../../../types/mo2";
-import { getGameMo2Config, saveGameMo2Config } from "../../../utils/mo2Storage";
+import { mergeMo2Instances } from "../../../utils/mo2Selection";
+import {
+  type GameMo2Config,
+  getGameMo2Config,
+  saveGameMo2Config,
+} from "../../../utils/mo2Storage";
 import type { SteamLaunchOption } from "../../../types/steam";
 import { toWebviewAssetUrl } from "../../../utils/artworkUrl";
 import type { CompatibilitySettings } from "../../../pages/settings/CompatibilityTab";
@@ -49,6 +54,18 @@ function sameValue(a: unknown, b: unknown): boolean {
     }
   }
   return false;
+}
+
+/** Windows paths are case-insensitive, so instance identity is compared that way. */
+function mo2PathKey(path: string): string {
+  return path.trim().toLowerCase();
+}
+
+/** Backend rejections are strings; anything else falls back to the caller's text. */
+function mo2ErrorText(err: unknown): string {
+  if (typeof err === "string") return err.trim();
+  if (err instanceof Error) return err.message.trim();
+  return "";
 }
 
 export function useEditGameController({ game, onClose }: EditGameControllerArgs) {
@@ -276,6 +293,15 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     const cfg = getGameMo2Config(game.id);
     return game.mo2InstancePath || cfg?.instancePath || "";
   });
+  const [mo2InstanceError, setMo2InstanceError] = useState<string | null>(null);
+  const [mo2Resolving, setMo2Resolving] = useState(false);
+
+  // Paths that already produced an answer, so blurring an untouched field (or
+  // locating the same folder twice) does not hit the backend again.
+  const mo2AppliedKeyRef = useRef("");
+  const mo2FailedKeyRef = useRef("");
+  const mo2PendingKeyRef = useRef("");
+  const mo2ResolveSeq = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,45 +313,124 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       .then(async (instances) => {
         if (cancelled) return;
         let list = instances || [];
-        if (preferred && !list.some((i) => i.instancePath.toLowerCase() === preferred.toLowerCase())) {
+        if (preferred && !list.some((i) => mo2PathKey(i.instancePath) === mo2PathKey(preferred))) {
           try {
-            const extra = await invoke<Mo2Instance[]>("mo2_detect_instances", {
-              gamePath: preferred,
-              gameName: gameDisplayName(game),
+            // Detection only scans well-known locations; validate the saved
+            // folder directly so a portable instance on another drive survives.
+            const saved = await invoke<Mo2Instance>("mo2_resolve_instance", {
+              path: preferred,
             });
-            if (!cancelled && extra && extra.length > 0) {
-              list = [...extra, ...list];
+            if (!cancelled && saved?.instancePath) {
+              list = [saved, ...list];
             }
           } catch {
-            // ignore
+            // The saved folder is no longer an instance; the first pass still
+            // gives the user something to pick from.
           }
         }
         if (cancelled) return;
-        setMo2Instances(list);
-        if (list.length > 0) {
-          const matched = (preferred ? list.find((i) => i.instancePath.toLowerCase() === preferred.toLowerCase()) : null) || list[0];
-          if (!preferred) {
-            setEditMo2InstancePath(matched.instancePath);
-            markBaseline({ editMo2InstancePath: matched.instancePath });
-          }
-          if (!editMo2Profile) {
-            const nextProfile = matched.selectedProfile || matched.profiles[0] || "Default";
-            setEditMo2Profile(nextProfile);
-            markBaseline({ editMo2Profile: nextProfile });
-          }
-          if (!editMo2Executable && matched.customExecutables && matched.customExecutables.length > 0) {
-            setEditMo2Executable(matched.customExecutables[0].title);
-            markBaseline({ editMo2Executable: matched.customExecutables[0].title });
-          }
+        setMo2Instances(mergeMo2Instances(list));
+        const matched = preferred
+          ? list.find((i) => mo2PathKey(i.instancePath) === mo2PathKey(preferred))
+          : list[0];
+        // A saved path detection did not return says nothing about which
+        // instance the user meant, so leave the draft alone instead of
+        // borrowing the first instance's profile and executable.
+        if (!matched) return;
+        if (!preferred) {
+          setEditMo2InstancePath(matched.instancePath);
+          markBaseline({ editMo2InstancePath: matched.instancePath });
+        }
+        if (!editMo2Profile) {
+          const nextProfile = matched.selectedProfile || matched.profiles[0] || "Default";
+          setEditMo2Profile(nextProfile);
+          markBaseline({ editMo2Profile: nextProfile });
+        }
+        if (!editMo2Executable && matched.customExecutables && matched.customExecutables.length > 0) {
+          setEditMo2Executable(matched.customExecutables[0].title);
+          markBaseline({ editMo2Executable: matched.customExecutables[0].title });
         }
       })
-      .catch((err) => {
-        console.warn("Failed to detect MO2 instances:", err);
+      .catch(() => {
+        // Detection is best effort; an empty result just means the user has to
+        // point at the instance folder by hand.
       });
     return () => {
       cancelled = true;
     };
   }, [game.path, game.name, game.displayName]);
+
+  /** Validate one folder against the backend and adopt its profile/executable. */
+  async function resolveMo2Instance(path: string): Promise<Mo2Instance | null> {
+    const seq = ++mo2ResolveSeq.current;
+    setMo2Resolving(true);
+    try {
+      const instance = await invoke<Mo2Instance>("mo2_resolve_instance", { path });
+      if (seq !== mo2ResolveSeq.current) return null;
+      setMo2Instances((prev) => mergeMo2Instances(prev, [instance]));
+      setEditMo2InstancePath(instance.instancePath);
+      setEditMo2Profile(instance.selectedProfile || instance.profiles[0] || "Default");
+      if (instance.customExecutables && instance.customExecutables.length > 0) {
+        setEditMo2Executable(instance.customExecutables[0].title);
+      }
+      setMo2InstanceError(null);
+      mo2AppliedKeyRef.current = mo2PathKey(instance.instancePath);
+      mo2FailedKeyRef.current = "";
+      return instance;
+    } catch (err) {
+      if (seq !== mo2ResolveSeq.current) return null;
+      setMo2InstanceError(mo2ErrorText(err) || t("edit.mo2InstanceInvalid"));
+      mo2FailedKeyRef.current = mo2PathKey(path);
+      return null;
+    } finally {
+      if (seq === mo2ResolveSeq.current) setMo2Resolving(false);
+    }
+  }
+
+  /** Take whatever is typed or picked, keep it in the draft, and validate it.
+   *  An invalid path stays visible with an error; profile and executable keep
+   *  their previous values so no other instance's settings leak in. */
+  async function applyMo2InstancePath(rawPath: string): Promise<void> {
+    setEditMo2InstancePath(rawPath);
+    const path = rawPath.trim();
+    if (!path) {
+      mo2AppliedKeyRef.current = "";
+      mo2FailedKeyRef.current = "";
+      setMo2InstanceError(null);
+      return;
+    }
+    const key = mo2PathKey(path);
+    if (key === mo2AppliedKeyRef.current) {
+      setMo2InstanceError(null);
+      return;
+    }
+    if (key === mo2FailedKeyRef.current) return;
+    if (key === mo2PendingKeyRef.current) return;
+    mo2PendingKeyRef.current = key;
+    try {
+      await resolveMo2Instance(path);
+    } finally {
+      if (mo2PendingKeyRef.current === key) mo2PendingKeyRef.current = "";
+    }
+  }
+
+  async function browseMo2Instance(): Promise<void> {
+    let picked = "";
+    try {
+      const selection = await open({
+        directory: true,
+        multiple: false,
+        title: t("edit.mo2BrowseInstance"),
+      });
+      if (typeof selection === "string") picked = selection;
+    } catch (err) {
+      setMo2InstanceError(mo2ErrorText(err) || t("edit.mo2InstanceInvalid"));
+      return;
+    }
+    // A cancelled dialog leaves the draft untouched.
+    if (!picked) return;
+    await applyMo2InstancePath(picked);
+  }
 
   // ── Compatibility / Proton / Wine State ──────────────────────────
   const [compatEnabled, setCompatEnabled] = useState(
@@ -1386,12 +1491,16 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
             }
           : undefined,
     });
-    saveGameMo2Config(game.id, {
-      enabled: editMo2LaunchEnabled,
-      profile: editMo2Profile.trim() || undefined,
-      executable: editMo2Executable.trim() || undefined,
-      instancePath: editMo2InstancePath.trim() || undefined,
-    });
+    // Omitted keys keep their stored value: the helper merges, so an explicit
+    // `undefined` would erase a previously saved instance path.
+    const mo2Config: GameMo2Config = { enabled: editMo2LaunchEnabled };
+    const mo2ProfileValue = editMo2Profile.trim();
+    const mo2ExecutableValue = editMo2Executable.trim();
+    const mo2InstanceValue = editMo2InstancePath.trim();
+    if (mo2ProfileValue) mo2Config.profile = mo2ProfileValue;
+    if (mo2ExecutableValue) mo2Config.executable = mo2ExecutableValue;
+    if (mo2InstanceValue) mo2Config.instancePath = mo2InstanceValue;
+    saveGameMo2Config(game.id, mo2Config);
     if (editUntracked !== (game.untracked ?? isGameUntracked(game.id))) {
       toggleGameTracking(game.id, editUntracked);
     }
@@ -1399,9 +1508,13 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     showToast(t("edit.toast.gameUpdated"), "success");
   }
 
-  const activeMo2Instance =
-    mo2Instances.find((i) => i.instancePath === editMo2InstancePath) ||
-    mo2Instances[0];
+  // Only trust the instance the draft actually points at: a saved path that is
+  // missing from the detected list must not fall back to someone else's
+  // profiles. The first instance is the default only before a path is chosen.
+  const mo2PreferredPath = editMo2InstancePath.trim();
+  const activeMo2Instance = mo2PreferredPath
+    ? mo2Instances.find((i) => mo2PathKey(i.instancePath) === mo2PathKey(mo2PreferredPath))
+    : mo2Instances[0];
 
   const selectedRunner = availableRunners.find(
     (r) => r.path === compatCustomRunner.trim()
@@ -1889,6 +2002,10 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     handlePickExtraExe,
     appendLaunchArg,
     mo2Instances,
+    mo2InstanceError,
+    mo2Resolving,
+    browseMo2Instance,
+    applyMo2InstancePath,
     editMo2LaunchEnabled,
     setEditMo2LaunchEnabled,
     editMo2Profile,

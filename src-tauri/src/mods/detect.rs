@@ -275,7 +275,7 @@ fn scan_bethesda(game_id: &str, game_dir: &Path, exe_lower: &str, out: &mut Scan
     });
     // Check if an MO2 instance exists for this game and has an active profile with plugins.txt
     let mo2_instances = super::mo2::detect_mo2_instances(&game_dir.to_string_lossy(), "");
-    if let Some(inst) = mo2_instances.first() {
+    if let Some(inst) = mo2_instances.first().filter(|i| i.relevance > 0) {
         let mo2_p = Path::new(&inst.profiles_dir)
             .join(&inst.selected_profile)
             .join("plugins.txt");

@@ -9,11 +9,13 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Game } from "../../types/game";
 import type { Mo2Mod, Mo2Plugin } from "../../types/mo2";
 import { useMo2 } from "../../hooks/useMo2";
+import type { Mo2SelectionPayload } from "../../hooks/useMo2";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { getGameMo2Config, saveGameMo2Config } from "../../utils/mo2Storage";
+import { resolveMo2Selection } from "../../utils/mo2Selection";
 import { Button, Card, Badge } from "../ui";
 import "../../styles/mo2-manager.css";
 
@@ -139,23 +141,45 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   const { showToast } = useToast();
   const { updateGame, runningGameIds } = useGames();
   const isRunning = runningGameIds.includes(game.id);
+
+  // Persist every committed instance/profile switch on the game record so the
+  // launch path resolves exactly what the picker shows.
+  const handleSelectionChange = useCallback(
+    (sel: Mo2SelectionPayload) => {
+      saveGameMo2Config(game.id, {
+        instancePath: sel.instancePath,
+        profile: sel.profile,
+        executable: sel.executable,
+      });
+      updateGame(game.id, {
+        mo2InstancePath: sel.instancePath,
+        mo2Profile: sel.profile,
+        mo2Executable: sel.executable,
+      });
+    },
+    [game.id, updateGame]
+  );
+
   const {
     instances,
     selectedInstance,
-    setSelectedInstance,
     selectedProfile,
     details,
     loading,
     launching,
+    error,
+    clearError,
+    refreshInstances,
     setModEnabled,
     setModsEnabled,
     reorderMods,
     setPluginEnabled,
     reorderPlugins,
+    selectInstance,
     switchProfile,
     launchViaMo2,
     browseForMo2,
-  } = useMo2(game);
+  } = useMo2(game, { onSelectionChange: handleSelectionChange });
 
   const [activeTab, setActiveTab] = usePersistedState<Mo2Tab>(
     "gamelib.mods.mo2.tab_v1",
@@ -188,10 +212,17 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   }, [game.mo2Executable]);
 
   useEffect(() => {
-    if (!selectedExecutable && selectedInstance?.customExecutables && selectedInstance.customExecutables.length > 0) {
-      setSelectedExecutable(selectedInstance.customExecutables[0].title);
+    if (!selectedInstance || selectedExecutable) return;
+    const resolved = resolveMo2Selection([selectedInstance], {
+      instancePath: selectedInstance.instancePath,
+      profile: selectedProfile ?? undefined,
+      gamePath: game.path,
+      allowUnrelatedFallback: true,
+    });
+    if (resolved?.executable) {
+      setSelectedExecutable(resolved.executable);
     }
-  }, [selectedExecutable, selectedInstance]);
+  }, [selectedExecutable, selectedInstance, selectedProfile, game.path]);
 
   const handleToggleMo2Launch = () => {
     const nextVal = !mo2LaunchEnabled;
@@ -224,10 +255,50 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   };
 
   const handleProfileSwitch = async (profileName: string) => {
-    await switchProfile(profileName);
-    const instPath = selectedInstance?.instancePath;
-    saveGameMo2Config(game.id, { profile: profileName, ...(instPath ? { instancePath: instPath } : {}) });
-    updateGame(game.id, { mo2Profile: profileName, ...(instPath ? { mo2InstancePath: instPath } : {}) });
+    try {
+      // switchProfile notifies `onSelectionChange`, which persists the new
+      // profile against the currently selected instance.
+      await switchProfile(profileName);
+    } catch (e) {
+      showToast(String(e), "error");
+    }
+  };
+
+  const handleInstanceSwitch = async (instancePath: string) => {
+    const target = instances.find((i) => i.instancePath === instancePath);
+    if (!target || target.instancePath === selectedInstance?.instancePath) return;
+
+    try {
+      const selection = await selectInstance(target);
+      setSelectedExecutable(selection.executable);
+      showToast(t("mods.mo2.switchedInstance", { name: target.name }), "success");
+    } catch (e) {
+      showToast(String(e), "error");
+    }
+  };
+
+  const handleLocate = async () => {
+    try {
+      const picked = await browseForMo2();
+      if (!picked) return;
+      const resolved = resolveMo2Selection([picked], {
+        instancePath: picked.instancePath,
+        profile: selectedProfile ?? undefined,
+        executable: selectedExecutable,
+        gamePath: game.path,
+        allowUnrelatedFallback: true,
+      });
+      setSelectedExecutable(resolved?.executable ?? "");
+      showToast(t("mods.mo2.instanceAdded", { name: picked.name }), "success");
+    } catch {
+      // The hook already recorded the backend message; keep the toast short.
+      showToast(t("mods.mo2.invalidInstance"), "error");
+    }
+  };
+
+  const handleRetryDetect = () => {
+    clearError();
+    void refreshInstances(true);
   };
 
   const mods = details?.mods ?? [];
@@ -416,17 +487,23 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   };
 
   const handleLaunch = async () => {
-    if (!selectedInstance) return;
+    if (!selectedInstance) {
+      showToast(t("mods.mo2.instanceMissing"), "error");
+      return;
+    }
     if (isRunning) {
       showToast(t("gameContext.alreadyRunning", { name: game.name }), "info");
       return;
     }
-    const exe =
-      selectedExecutable ||
-      selectedInstance.customExecutables[0]?.title ||
-      selectedInstance.customExecutables[0]?.path ||
-      game.path ||
-      "";
+
+    const selection = resolveMo2Selection([selectedInstance], {
+      instancePath: selectedInstance.instancePath,
+      profile: selectedProfile ?? undefined,
+      executable: selectedExecutable,
+      gamePath: game.path,
+      allowUnrelatedFallback: true,
+    });
+    const exe = selection?.executable || game.path || "";
 
     try {
       const res = await launchViaMo2(exe);
@@ -475,7 +552,15 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
   };
 
   // If no instance detected at all
-  if (instances.length === 0 && !loading) {
+  if (instances.length === 0) {
+    if (loading) {
+      return (
+        <Card className="mo2-empty-card">
+          <h3 className="mo2-empty-title">{t("mods.mo2.title")}</h3>
+        </Card>
+      );
+    }
+
     return (
       <Card className="mo2-empty-card">
         <div className="mo2-empty-content">
@@ -490,13 +575,22 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
             </svg>
           </div>
           <h3 className="mo2-empty-title">{t("mods.mo2.noInstanceFound")}</h3>
-          <p className="mo2-empty-desc">{t("mods.mo2.noInstanceHint")}</p>
-          <Button variant="primary" onClick={browseForMo2} className="mo2-browse-btn">
+          <p className="mo2-empty-desc">
+            {error
+              ? t("mods.mo2.detectionFailed", { error })
+              : t("mods.mo2.noInstanceHint")}
+          </p>
+          <Button variant="primary" onClick={() => void handleLocate()} className="mo2-browse-btn">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
             </svg>
             {t("mods.mo2.browse")}
           </Button>
+          {error && (
+            <Button variant="secondary" onClick={handleRetryDetect}>
+              {t("mods.mo2.retryDetect")}
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -588,8 +682,47 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
           </div>
         </div>
 
-        {/* Profile Selector & KPI bar */}
+        {/* Instance/Profile selectors & KPI bar */}
         <div className="mo2-header-meta">
+          {instances.length > 0 && (
+            <div className="mo2-instance-picker">
+              <span className="mo2-meta-label" title={t("mods.mo2.instanceHint")}>
+                {t("mods.mo2.instance")}:
+              </span>
+              <select
+                aria-label={t("mods.mo2.instance")}
+                value={selectedInstance?.instancePath ?? ""}
+                onChange={(e) => void handleInstanceSwitch(e.target.value)}
+                className="mo2-instance-switch"
+              >
+                {instances.map((inst) => (
+                  <option key={inst.instancePath} value={inst.instancePath}>
+                    {`${inst.name} (${
+                      inst.isPortable ? t("mods.mo2.portable") : t("mods.mo2.global")
+                    })${
+                      inst.relevance === 0 && inst.instancePath !== selectedInstance?.instancePath
+                        ? ` · ${t("mods.mo2.otherInstance")}`
+                        : ""
+                    }`}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="mo2-locate-btn"
+                onClick={() => void handleLocate()}
+                title={t("mods.mo2.locateInstance")}
+                aria-label={t("mods.mo2.locateInstance")}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  <line x1="12" y1="11" x2="12" y2="17" />
+                  <line x1="9" y1="14" x2="15" y2="14" />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <div className="mo2-profile-picker">
             <span className="mo2-meta-label">{t("mods.mo2.profile")}:</span>
             <select
@@ -631,41 +764,17 @@ export default function Mo2Manager({ game, onLaunchSuccess, onOpenPresets }: Mo2
                 <strong>{details?.activePluginCount ?? 0}</strong> / {details?.totalPluginCount ?? 0} {t("mods.mo2.tabPlugins")}
               </span>
             )}
-            {instances.length > 1 && (
-              <select
-                aria-label={t("mods.mo2.instance")}
-                value={selectedInstance?.id}
-                onChange={(e) => {
-                  const target = instances.find((i) => i.id === e.target.value);
-                  if (target) {
-                    setSelectedInstance(target);
-                    const prof = target.selectedProfile || target.profiles[0] || "Default";
-                    const exe = target.customExecutables[0]?.title || "";
-                    setSelectedExecutable(exe);
-                    void switchProfile(prof);
-                    saveGameMo2Config(game.id, {
-                      instancePath: target.instancePath,
-                      profile: prof,
-                      executable: exe,
-                    });
-                    updateGame(game.id, {
-                      mo2InstancePath: target.instancePath,
-                      mo2Profile: prof,
-                      mo2Executable: exe,
-                    });
-                  }
-                }}
-                className="mo2-instance-switch"
-              >
-                {instances.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name} ({inst.isPortable ? "Portable" : "Global"})
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
+
+        {error && (
+          <div className="mo2-inline-error" role="alert">
+            <span className="mo2-inline-error-text">{error}</span>
+            <Button variant="secondary" size="sm" onClick={handleRetryDetect}>
+              {t("mods.mo2.retryDetect")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabs & Controls */}

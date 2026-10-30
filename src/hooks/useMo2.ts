@@ -4,9 +4,26 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { Game } from "../types/game";
 import type { Mo2Instance, Mo2Mod, Mo2Plugin, Mo2ProfileDetails } from "../types/mo2";
 import { gameDisplayName } from "../types/game";
-import { getGameMo2Config, saveGameMo2Config } from "../utils/mo2Storage";
+import { getGameMo2Config } from "../utils/mo2Storage";
+import {
+  mergeMo2Instances,
+  resolveMo2Selection,
+  selectMo2Instance,
+} from "../utils/mo2Selection";
 
-export function useMo2(game: Game | null) {
+export interface Mo2SelectionPayload {
+  instancePath: string;
+  profile: string;
+  executable: string;
+}
+
+export interface UseMo2Options {
+  /** Called whenever the user commits a different instance/profile so the
+   *  caller can persist the choice on the game record. */
+  onSelectionChange?: (sel: Mo2SelectionPayload) => void;
+}
+
+export function useMo2(game: Game | null, options: UseMo2Options = {}) {
   const [instances, setInstances] = useState<Mo2Instance[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<Mo2Instance | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
@@ -18,110 +35,178 @@ export function useMo2(game: Game | null) {
   const gameIdRef = useRef<string | null>(null);
   gameIdRef.current = game?.id ?? null;
 
+  const onSelectionChangeRef = useRef(options.onSelectionChange);
+  onSelectionChangeRef.current = options.onSelectionChange;
+
+  const notifySelection = useCallback((sel: Mo2SelectionPayload) => {
+    try {
+      onSelectionChangeRef.current?.(sel);
+    } catch {
+      // Persistence is caller-owned; never let it break the switch flow.
+    }
+  }, []);
+
+  // Latest committed selection, so late-arriving detail responses can be
+  // discarded instead of overwriting the new instance's data.
+  const currentSelectionRef = useRef<{ instancePath: string; profile: string } | null>(null);
+  currentSelectionRef.current =
+    selectedInstance && selectedProfile
+      ? { instancePath: selectedInstance.instancePath, profile: selectedProfile }
+      : null;
+
+  const clearError = useCallback(() => setError(null), []);
+
+  // Detection scans the filesystem, so only run it when the identity of the
+  // game (id/path/name) changes — not on playtime or MO2 setting updates.
+  const detectionKey = game
+    ? `${game.id}\u0000${game.path ?? ""}\u0000${gameDisplayName(game)}`
+    : "";
+  const lastDetectionKeyRef = useRef<string | null>(null);
+
   // 1. Detect instances when game changes
-  const refreshInstances = useCallback(async () => {
+  const refreshInstances = useCallback(async (force = false) => {
     if (!game) {
       setInstances([]);
       setSelectedInstance(null);
       setSelectedProfile(null);
       setDetails(null);
+      setError(null);
       return;
     }
+    if (!force && lastDetectionKeyRef.current === detectionKey) return;
+    lastDetectionKeyRef.current = detectionKey;
 
+    const gameId = game.id;
     setLoading(true);
     setError(null);
     try {
-      const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+      const detected = await invoke<Mo2Instance[]>("mo2_detect_instances", {
         gamePath: game.path ?? "",
         gameName: gameDisplayName(game),
       });
 
-      const savedCfg = getGameMo2Config(game.id);
+      const savedCfg = getGameMo2Config(gameId);
       const preferredPath = game.mo2InstancePath || savedCfg?.instancePath;
 
-      let fullList = [...list];
-      if (preferredPath && !list.some((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase())) {
+      let fullList = mergeMo2Instances(detected);
+      const isKnown = (path: string) =>
+        fullList.some((i) => i.instancePath.toLowerCase() === path.toLowerCase());
+
+      if (preferredPath && !isKnown(preferredPath)) {
         try {
           const extra = await invoke<Mo2Instance[]>("mo2_detect_instances", {
             gamePath: preferredPath,
             gameName: gameDisplayName(game),
           });
-          if (extra && extra.length > 0) {
-            fullList = [...extra, ...fullList];
-          }
+          fullList = mergeMo2Instances(extra, fullList);
         } catch {
-          // Non-blocking
+          // Non-blocking: keep the game-based detection results.
         }
       }
 
-      if (gameIdRef.current === game.id) {
-        setInstances(fullList);
-        if (fullList.length > 0) {
-          setSelectedInstance((prev) => {
-            if (prev) {
-              const matched = fullList.find((i) => i.instancePath.toLowerCase() === prev.instancePath.toLowerCase());
-              if (matched) return matched;
-            }
-            if (preferredPath) {
-              const preferred = fullList.find((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase());
-              if (preferred) return preferred;
-            }
-            return fullList[0];
+      // A manually located instance may live outside MO2's well-known
+      // locations, so validate the saved path and keep it in the list.
+      if (preferredPath && !isKnown(preferredPath)) {
+        try {
+          const saved = await invoke<Mo2Instance>("mo2_resolve_instance", {
+            path: preferredPath,
           });
-          setSelectedProfile((prev) => {
-            if (prev && fullList.some((i) => i.profiles.some((p) => p.toLowerCase() === prev.toLowerCase()))) {
-              return prev;
-            }
-            const activeInst = (preferredPath ? fullList.find((i) => i.instancePath.toLowerCase() === preferredPath.toLowerCase()) : null) || fullList[0];
-            return (
-              game.mo2Profile ||
-              savedCfg?.profile ||
-              activeInst.selectedProfile ||
-              activeInst.profiles[0] ||
-              "Default"
-            );
-          });
-        } else {
-          setSelectedInstance(null);
-          setSelectedProfile(null);
-          setDetails(null);
+          if (saved?.instancePath) {
+            fullList = mergeMo2Instances([saved], fullList);
+          }
+        } catch {
+          // Non-blocking: the saved path is simply no longer usable.
         }
       }
+
+      if (gameIdRef.current !== gameId) return;
+
+      setInstances(fullList);
+
+      if (fullList.length === 0) {
+        setSelectedInstance(null);
+        setSelectedProfile(null);
+        setDetails(null);
+        return;
+      }
+
+      // An instance unrelated to this game is shown for inspection only and
+      // never persisted — the launch path refuses it.
+      const matched = selectMo2Instance(fullList, preferredPath);
+      const display = matched ?? fullList[0];
+
+      const resolved = resolveMo2Selection([display], {
+        instancePath: display.instancePath,
+        profile: game.mo2Profile || savedCfg?.profile,
+        executable: game.mo2Executable || savedCfg?.executable,
+        gamePath: game.path,
+        allowUnrelatedFallback: true,
+      });
+
+      setSelectedInstance(display);
+      setSelectedProfile(
+        resolved?.profile ??
+          display.selectedProfile ??
+          display.profiles[0] ??
+          "Default",
+      );
     } catch (e) {
-      if (gameIdRef.current === game.id) {
+      if (gameIdRef.current === gameId) {
+        setInstances([]);
+        setSelectedInstance(null);
+        setSelectedProfile(null);
+        setDetails(null);
         setError(String(e));
       }
     } finally {
-      if (gameIdRef.current === game.id) {
+      if (gameIdRef.current === gameId) {
         setLoading(false);
       }
     }
-  }, [game]);
+  }, [game, detectionKey]);
 
   useEffect(() => {
     void refreshInstances();
   }, [refreshInstances]);
 
-  // 2. Fetch profile details when instance or profile changes
+  // 2. Fetch profile details when instance or profile changes. Keyed on the
+  //    path/name rather than the instance object so a re-detect that returns
+  //    fresh objects does not refetch unchanged details.
+  const selectedInstancePath = selectedInstance?.instancePath ?? null;
+
   const refreshDetails = useCallback(async () => {
-    if (!selectedInstance || !selectedProfile) {
+    if (!selectedInstancePath || !selectedProfile) {
       setDetails(null);
       return;
     }
 
+    const instancePath = selectedInstancePath;
+    const profileName = selectedProfile;
+    const isStillCurrent = () => {
+      const current = currentSelectionRef.current;
+      return (
+        current !== null &&
+        current.instancePath.toLowerCase() === instancePath.toLowerCase() &&
+        current.profile === profileName
+      );
+    };
+
     setLoading(true);
     try {
       const d = await invoke<Mo2ProfileDetails>("mo2_get_profile_details", {
-        instancePath: selectedInstance.instancePath,
-        profileName: selectedProfile,
+        instancePath,
+        profileName,
       });
-      setDetails(d);
+      if (isStillCurrent()) setDetails(d);
     } catch (e) {
-      setError(String(e));
+      if (isStillCurrent()) {
+        setDetails(null);
+        setError(String(e));
+      }
     } finally {
-      setLoading(false);
+      if (isStillCurrent()) setLoading(false);
     }
-  }, [selectedInstance, selectedProfile]);
+  }, [selectedInstancePath, selectedProfile]);
 
   useEffect(() => {
     void refreshDetails();
@@ -302,48 +387,118 @@ export function useMo2(game: Game | null) {
     [selectedInstance, selectedProfile, refreshDetails]
   );
 
-  // 7. Switch active profile
-  const switchProfile = useCallback(
-    async (profileName: string) => {
-      if (!selectedInstance) return;
-      setSelectedProfile(profileName);
-      if (game) {
-        const prevCfg = getGameMo2Config(game.id);
-        saveGameMo2Config(game.id, {
-          enabled: prevCfg?.enabled ?? (game.mo2LaunchEnabled ?? false),
-          profile: profileName,
-          executable: prevCfg?.executable ?? (game.mo2Executable ?? ""),
-          instancePath: selectedInstance.instancePath,
-        });
-      }
+  // 7. Switch to another detected instance (or select a freshly located one).
+  //    The switch always targets the NEW instance path — never the previous
+  //    selection — and persists only after the backend accepted it.
+  const selectInstance = useCallback(
+    async (
+      instance: Mo2Instance,
+      opts: { profile?: string } = {}
+    ): Promise<Mo2SelectionPayload> => {
+      const savedCfg = game ? getGameMo2Config(game.id) : null;
+      const resolved = resolveMo2Selection([instance], {
+        instancePath: instance.instancePath,
+        profile: opts.profile ?? game?.mo2Profile ?? savedCfg?.profile,
+        gamePath: game?.path,
+        allowUnrelatedFallback: true,
+      });
+
+      const selection: Mo2SelectionPayload = {
+        instancePath: instance.instancePath,
+        profile:
+          resolved?.profile ??
+          instance.selectedProfile ??
+          instance.profiles[0] ??
+          "Default",
+        executable: resolved?.executable ?? "",
+      };
+
+      setSelectedInstance(instance);
+      setSelectedProfile(selection.profile);
+      setDetails(null);
+      setError(null);
+
       try {
         await invoke("mo2_switch_profile", {
-          instancePath: selectedInstance.instancePath,
-          profileName,
+          instancePath: selection.instancePath,
+          profileName: selection.profile,
         });
-      } catch {
-        // Non-blocking
+      } catch (e) {
+        // The instance choice is still valid even when MO2's active profile
+        // cannot be rewritten (read-only ini); launching passes the profile
+        // explicitly, so persist the selection and surface the warning.
+        setError(String(e));
       }
+
+      notifySelection(selection);
+      return selection;
     },
-    [selectedInstance, game]
+    [game, notifySelection]
   );
 
-  // 8. Create a new profile
+  // 8. Switch active profile on the current (or an explicitly named) instance
+  const switchProfile = useCallback(
+    async (profileName: string, instancePath?: string) => {
+      const targetPath = instancePath ?? selectedInstance?.instancePath;
+      if (!targetPath) return;
+
+      setSelectedProfile(profileName);
+      setDetails(null);
+
+      try {
+        await invoke("mo2_switch_profile", {
+          instancePath: targetPath,
+          profileName,
+        });
+      } catch (e) {
+        setError(String(e));
+        throw e;
+      }
+
+      const target =
+        instances.find(
+          (i) => i.instancePath.toLowerCase() === targetPath.toLowerCase()
+        ) ??
+        (selectedInstance &&
+        selectedInstance.instancePath.toLowerCase() === targetPath.toLowerCase()
+          ? selectedInstance
+          : null);
+
+      const persistedExecutable =
+        game?.mo2Executable || (game ? getGameMo2Config(game.id)?.executable : undefined);
+
+      const executable = target
+        ? resolveMo2Selection([target], {
+            instancePath: targetPath,
+            profile: profileName,
+            executable: persistedExecutable,
+            gamePath: game?.path,
+            allowUnrelatedFallback: true,
+          })?.executable ?? ""
+        : "";
+
+      notifySelection({ instancePath: targetPath, profile: profileName, executable });
+    },
+    [selectedInstance, instances, game, notifySelection]
+  );
+
+  // 9. Create a new profile
   const createProfile = useCallback(
     async (profileName: string, cloneFrom?: string) => {
       if (!selectedInstance) return;
+      const instancePath = selectedInstance.instancePath;
       await invoke("mo2_create_profile", {
-        instancePath: selectedInstance.instancePath,
+        instancePath,
         profileName,
         cloneFrom: cloneFrom || null,
       });
       await refreshInstances();
-      await switchProfile(profileName);
+      await switchProfile(profileName, instancePath);
     },
     [selectedInstance, refreshInstances, switchProfile]
   );
 
-  // 9. Delete a profile
+  // 10. Delete a profile
   const deleteProfile = useCallback(
     async (profileName: string) => {
       if (!selectedInstance) return;
@@ -356,7 +511,7 @@ export function useMo2(game: Game | null) {
     [selectedInstance, refreshInstances]
   );
 
-  // 10. Launch via MO2
+  // 11. Launch via MO2
   const launchViaMo2 = useCallback(
     async (executableTitleOrPath: string) => {
       if (!game || !selectedInstance || !selectedProfile) return;
@@ -368,6 +523,7 @@ export function useMo2(game: Game | null) {
           instancePath: selectedInstance.instancePath,
           profileName: selectedProfile,
           executable: executableTitleOrPath,
+          moExePath: selectedInstance.moExePath ?? null,
           runAsAdmin: game.runAsAdmin || false,
         });
         return msg;
@@ -378,42 +534,50 @@ export function useMo2(game: Game | null) {
     [game, selectedInstance, selectedProfile]
   );
 
-  // 11. Manually select an MO2 folder
-  const browseForMo2 = useCallback(async () => {
-    try {
-      const selected = await openDialog({
-        directory: true,
-        multiple: false,
-        title: "Select Mod Organizer 2 Folder",
-      });
-      if (typeof selected === "string" && selected) {
-        const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
-          gamePath: selected,
-          gameName: game ? gameDisplayName(game) : "",
-        });
-        if (list.length > 0) {
-          setInstances((prev) => {
-            const seen = new Set(prev.map((i) => i.instancePath.toLowerCase()));
-            const toAdd = list.filter((i) => !seen.has(i.instancePath.toLowerCase()));
-            return [...prev, ...toAdd];
-          });
-          const picked = list[0];
-          setSelectedInstance(picked);
-          const prof = picked.selectedProfile || picked.profiles[0] || "Default";
-          setSelectedProfile(prof);
-          if (game) {
-            saveGameMo2Config(game.id, {
-              instancePath: picked.instancePath,
-              profile: prof,
-              executable: picked.customExecutables[0]?.title || "",
-            });
-          }
-        }
+  // 12. Validate a user-picked folder/ini/exe path and make it the selection.
+  const addInstanceFromPath = useCallback(
+    async (path: string): Promise<Mo2Instance> => {
+      setError(null);
+
+      let picked: Mo2Instance;
+      try {
+        picked = await invoke<Mo2Instance>("mo2_resolve_instance", { path });
+      } catch (e) {
+        setError(String(e));
+        throw e;
       }
-    } catch {
-      // dialog cancelled
-    }
-  }, [game]);
+
+      if (!picked || !picked.instancePath) {
+        const message = "No Mod Organizer 2 instance found at that path.";
+        setError(message);
+        throw new Error(message);
+      }
+
+      setInstances((prev) => mergeMo2Instances(prev, [picked]));
+
+      try {
+        await selectInstance(picked);
+      } catch {
+        // The instance is valid; the profile switch failure is already in `error`.
+      }
+
+      return picked;
+    },
+    [selectInstance]
+  );
+
+  // 13. Manually locate an MO2 folder. Returns null when the dialog was
+  //     cancelled, and throws when the folder is not a valid instance so the
+  //     caller can surface `error`.
+  const browseForMo2 = useCallback(async (): Promise<Mo2Instance | null> => {
+    const selected = await openDialog({
+      directory: true,
+      multiple: false,
+      title: "Select Mod Organizer 2 Folder",
+    });
+    if (typeof selected !== "string" || !selected) return null;
+    return addInstanceFromPath(selected);
+  }, [addInstanceFromPath]);
 
   return {
     instances,
@@ -425,6 +589,7 @@ export function useMo2(game: Game | null) {
     loading,
     launching,
     error,
+    clearError,
     refreshInstances,
     refreshDetails,
     setModEnabled,
@@ -432,10 +597,12 @@ export function useMo2(game: Game | null) {
     reorderMods,
     setPluginEnabled,
     reorderPlugins,
+    selectInstance,
     switchProfile,
     createProfile,
     deleteProfile,
     launchViaMo2,
     browseForMo2,
+    addInstanceFromPath,
   };
 }

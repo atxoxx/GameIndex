@@ -222,6 +222,67 @@
   color: var(--text-secondary);
 }
 
+/* Instance picker + locate action */
+.mo2-instance-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mo2-instance-picker .mo2-instance-switch {
+  max-width: 280px;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.mo2-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mo2-locate-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.mo2-locate-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Compact detection/selection error row */
+.mo2-inline-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-xs) var(--space-md);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.mo2-inline-error-text {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .mo2-stats-chips {
   display: flex;
   align-items: center;

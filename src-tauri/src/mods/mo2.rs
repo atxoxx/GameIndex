@@ -43,6 +43,10 @@ pub struct Mo2Instance {
     pub selected_profile: String,
     pub profiles: Vec<String>,
     pub custom_executables: Vec<Mo2Executable>,
+    /// How well this instance matches the game the caller asked about.
+    /// 0 means "no signal"; higher is a better match.
+    #[serde(default)]
+    pub relevance: i32,
 }
 
 /// One managed mod inside an MO2 instance for a given profile.
@@ -152,6 +156,59 @@ fn normalize_path_str(p: &str) -> String {
     p.replace('\\', "/").trim_end_matches('/').to_lowercase()
 }
 
+/// True when two paths are equal or one is a directory ancestor of the other.
+/// Compares whole components only, so `c:/mo2` never matches `c:/mo2game`.
+fn path_is_ancestor_or_same(a: &str, b: &str) -> bool {
+    let a = normalize_path_str(a);
+    let b = normalize_path_str(b);
+    if a.is_empty() || b.is_empty() {
+        return false;
+    }
+    a == b || a.starts_with(&format!("{b}/")) || b.starts_with(&format!("{a}/"))
+}
+
+/// Read an INI value by key. MO2 writes its path options under `[Settings]`
+/// since 2.x; older and hand-written files keep them in `[General]`, so look
+/// there as a fallback. Keys are tried in order. Values are already cleaned by
+/// [`parse_ini`], so they are only trimmed here.
+fn ini_setting(ini: &IniMap, keys: &[&str]) -> Option<String> {
+    for section in ["Settings", "General"] {
+        let Some(values) = ini.get(section) else { continue };
+        for key in keys {
+            let Some(raw) = values.get(*key) else { continue };
+            let value = raw.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Same as [`ini_setting`] for path values, which sometimes keep stray quotes.
+fn ini_path_setting(ini: &IniMap, keys: &[&str]) -> String {
+    ini_setting(ini, keys)
+        .map(|v| v.trim().trim_matches('"').trim().to_string())
+        .unwrap_or_default()
+}
+
+/// The instance's data directory (`base_directory`), defaulting to the folder
+/// that holds `ModOrganizer.ini`. Tolerates a trailing separator and `%BASE_DIR%`.
+fn parse_base_dir(ini: &IniMap, instance_dir: &Path) -> PathBuf {
+    let raw = ini_path_setting(ini, &["base_directory"]);
+    let trimmed = raw.trim_end_matches(['\\', '/']);
+    if trimmed.is_empty() {
+        return instance_dir.to_path_buf();
+    }
+    let expanded = trimmed.replace("%BASE_DIR%", &instance_dir.to_string_lossy());
+    let path = PathBuf::from(&expanded);
+    if path.is_absolute() {
+        path
+    } else {
+        instance_dir.join(path)
+    }
+}
+
 fn resolve_mo2_dir(base_dir: &Path, raw: &str, fallback_sub: &str) -> PathBuf {
     let cleaned = clean_ini_val(raw);
     if cleaned.is_empty() {
@@ -188,6 +245,39 @@ pub fn resolve_profile_dir(profiles_dir: &str, profile_name: &str) -> Option<Pat
     None
 }
 
+/// Locate `ModOrganizer.exe` for an instance: the caller's hint when it is a
+/// real file, then the instance folder, then the usual install locations.
+fn find_mo_exe(instance_dir: &Path, hint: Option<PathBuf>) -> Option<String> {
+    if let Some(hint) = hint.filter(|p| p.is_file()) {
+        return Some(hint.to_string_lossy().to_string());
+    }
+    let same_dir = instance_dir.join("ModOrganizer.exe");
+    if same_dir.is_file() {
+        return Some(same_dir.to_string_lossy().to_string());
+    }
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for var in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"] {
+        let Ok(root) = std::env::var(var) else { continue };
+        let root = PathBuf::from(root);
+        let root = if var == "LOCALAPPDATA" {
+            root.join("Programs")
+        } else {
+            root
+        };
+        candidates.push(root.join("Mod Organizer 2").join("ModOrganizer.exe"));
+    }
+    candidates.push(PathBuf::from("C:\\Modding\\MO2\\ModOrganizer.exe"));
+    candidates.push(PathBuf::from("C:\\Mod Organizer 2\\ModOrganizer.exe"));
+    candidates.push(PathBuf::from("D:\\Modding\\MO2\\ModOrganizer.exe"));
+    candidates.push(PathBuf::from("D:\\Mod Organizer 2\\ModOrganizer.exe"));
+
+    candidates
+        .into_iter()
+        .find(|p| p.is_file())
+        .map(|p| p.to_string_lossy().to_string())
+}
+
 /// Parse a single ModOrganizer.ini and produce an Mo2Instance model if valid.
 pub fn parse_instance_at(ini_path: &Path, mo_exe_hint: Option<PathBuf>) -> Option<Mo2Instance> {
     if !ini_path.is_file() {
@@ -196,46 +286,42 @@ pub fn parse_instance_at(ini_path: &Path, mo_exe_hint: Option<PathBuf>) -> Optio
 
     let content = fs::read_to_string(ini_path).ok()?;
     let ini = parse_ini(&content);
-    let general = ini.get("General")?;
+    if ini.get("General").is_none() && ini.get("Settings").is_none() {
+        return None;
+    }
 
     let instance_dir = ini_path.parent()?;
-    let base_raw = general.get("base_directory").cloned().unwrap_or_default();
-    let base_dir = if base_raw.is_empty() {
-        instance_dir.to_path_buf()
-    } else {
-        PathBuf::from(&base_raw)
-    };
+    let base_dir = parse_base_dir(&ini, instance_dir);
 
-    let mods_dir = resolve_mo2_dir(&base_dir, general.get("mods_directory").map(|s| s.as_str()).unwrap_or(""), "mods");
-    let profiles_dir = resolve_mo2_dir(&base_dir, general.get("profiles_directory").map(|s| s.as_str()).unwrap_or(""), "profiles");
-    let overwrite_dir = resolve_mo2_dir(&base_dir, general.get("overwrite_directory").map(|s| s.as_str()).unwrap_or(""), "overwrite");
+    let mods_dir = resolve_mo2_dir(&base_dir, &ini_path_setting(&ini, &["mod_directory", "mods_directory"]), "mods");
+    let profiles_dir = resolve_mo2_dir(&base_dir, &ini_path_setting(&ini, &["profiles_directory"]), "profiles");
+    let overwrite_dir = resolve_mo2_dir(&base_dir, &ini_path_setting(&ini, &["overwrite_directory"]), "overwrite");
 
-    let game_name = general.get("gameName").cloned();
-    let game_path = general.get("gamePath").cloned();
-    let raw_selected = general.get("selected_profile").cloned().unwrap_or_else(|| "Default".to_string());
+    let general = ini.get("General");
+    let game_name = general
+        .and_then(|g| g.get("gameName"))
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let game_path = general
+        .and_then(|g| g.get("gamePath"))
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let raw_selected = general
+        .and_then(|g| g.get("selected_profile"))
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "Default".to_string());
 
-    // Locate ModOrganizer.exe: check candidate locations
-    let mo_exe_path = if let Some(hint) = mo_exe_hint.filter(|p| p.is_file()) {
-        Some(hint.to_string_lossy().to_string())
-    } else {
-        let same_dir = instance_dir.join("ModOrganizer.exe");
-        if same_dir.is_file() {
-            Some(same_dir.to_string_lossy().to_string())
-        } else {
-            // Check common locations
-            let candidates = [
-                PathBuf::from("C:\\Modding\\MO2\\ModOrganizer.exe"),
-                PathBuf::from("C:\\Mod Organizer 2\\ModOrganizer.exe"),
-                PathBuf::from("D:\\Modding\\MO2\\ModOrganizer.exe"),
-                PathBuf::from("D:\\Mod Organizer 2\\ModOrganizer.exe"),
-            ];
-            candidates.into_iter().find(|p| p.is_file()).map(|p| p.to_string_lossy().to_string())
-        }
-    };
+    let mo_exe_path = find_mo_exe(instance_dir, mo_exe_hint);
 
-    let is_portable = mo_exe_path.as_ref().map(|exe| {
-        Path::new(exe).parent() == Some(instance_dir)
-    }).unwrap_or(false);
+    let is_portable = mo_exe_path
+        .as_deref()
+        .and_then(|exe| Path::new(exe).parent())
+        .map(|parent| {
+            normalize_path_str(&parent.to_string_lossy())
+                == normalize_path_str(&instance_dir.to_string_lossy())
+        })
+        .unwrap_or(false);
 
     // List available profiles
     let mut profiles = Vec::new();
@@ -322,6 +408,79 @@ pub fn parse_instance_at(ini_path: &Path, mo_exe_hint: Option<PathBuf>) -> Optio
         selected_profile,
         profiles,
         custom_executables,
+        relevance: 0,
+    })
+}
+
+/// Resolve a user-picked folder or file to an MO2 instance.
+///
+/// Accepts the instance folder, its `ModOrganizer.ini`, `ModOrganizer.exe`, or
+/// a game executable/folder; for the latter the four parent folders are
+/// searched for `ModOrganizer.ini`. Machine-wide detection is never used as a
+/// fallback — a folder the user picked either resolves or fails.
+pub fn resolve_instance_at(path: &str) -> Result<Mo2Instance, String> {
+    let raw = path.trim().trim_matches('"').trim();
+    let not_found = || {
+        format!(
+            "No ModOrganizer.ini found in \"{raw}\" or its parent folders — pick the folder that contains ModOrganizer.ini"
+        )
+    };
+    if raw.is_empty() {
+        return Err(not_found());
+    }
+
+    let picked = Path::new(raw);
+    let is_named = |p: &Path, name: &str| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().eq_ignore_ascii_case(name))
+            .unwrap_or(false)
+    };
+
+    // A picked ModOrganizer.ini is used directly.
+    if picked.is_file() && is_named(picked, "ModOrganizer.ini") {
+        let hint = picked.parent().map(|p| p.join("ModOrganizer.exe"));
+        return instance_from_picked_ini(picked, hint);
+    }
+
+    // Otherwise start at the picked folder (or the parent of a picked file)
+    // and climb a few levels looking for ModOrganizer.ini.
+    let start = if picked.is_file() {
+        picked.parent().map(Path::to_path_buf)
+    } else if picked.is_dir() {
+        Some(picked.to_path_buf())
+    } else {
+        None
+    };
+    let Some(start) = start else { return Err(not_found()) };
+
+    let mut current = Some(start.as_path());
+    let mut depth = 0;
+    while let Some(dir) = current {
+        let ini = dir.join("ModOrganizer.ini");
+        if ini.is_file() {
+            let hint = if picked.is_file() && is_named(picked, "ModOrganizer.exe") {
+                picked.to_path_buf()
+            } else {
+                dir.join("ModOrganizer.exe")
+            };
+            return instance_from_picked_ini(&ini, Some(hint));
+        }
+        if depth >= 4 {
+            break;
+        }
+        current = dir.parent();
+        depth += 1;
+    }
+
+    Err(not_found())
+}
+
+fn instance_from_picked_ini(ini_path: &Path, hint: Option<PathBuf>) -> Result<Mo2Instance, String> {
+    parse_instance_at(ini_path, hint).ok_or_else(|| {
+        format!(
+            "Found \"{}\" but it could not be read as a Mod Organizer 2 instance",
+            ini_path.display()
+        )
     })
 }
 
@@ -423,11 +582,11 @@ pub fn detect_mo2_instances(game_path: &str, game_name: &str) -> Vec<Mo2Instance
     let mut seen = std::collections::HashSet::new();
     instances.retain(|inst| seen.insert(normalize_path_str(&inst.instance_path)));
 
-    // Filter and score match to the target game
-    if !norm_game_path.is_empty() || !norm_game_name.is_empty() {
-        let mut scored: Vec<(i32, Mo2Instance)> = Vec::new();
-
-        for inst in instances {
+    // Score every instance against the target game. Everything is returned,
+    // best match first: the UI lists them all and preselects the top one.
+    let mut scored: Vec<Mo2Instance> = instances
+        .into_iter()
+        .map(|mut inst| {
             let inst_game_path = inst.game_path.as_deref().map(normalize_path_str).unwrap_or_default();
             let inst_game_name = inst.game_name.as_deref().map(|s| s.to_lowercase()).unwrap_or_default();
             let inst_path_norm = normalize_path_str(&inst.instance_path);
@@ -437,17 +596,15 @@ pub fn detect_mo2_instances(game_path: &str, game_name: &str) -> Vec<Mo2Instance
             // Direct path matching
             if !norm_game_path.is_empty() {
                 // If instance directory is ancestor of game or vice-versa
-                if !inst_path_norm.is_empty() {
-                    if norm_game_path.starts_with(&inst_path_norm) || inst_path_norm.starts_with(&norm_game_path) {
-                        score += 80;
-                    }
+                if path_is_ancestor_or_same(&norm_game_path, &inst_path_norm) {
+                    score += 80;
                 }
 
                 // If instance's configured game_path matches
                 if !inst_game_path.is_empty() {
                     if norm_game_path == inst_game_path {
                         score += 100;
-                    } else if norm_game_path.starts_with(&inst_game_path) || inst_game_path.starts_with(&norm_game_path) {
+                    } else if path_is_ancestor_or_same(&norm_game_path, &inst_game_path) {
                         score += 75;
                     } else if norm_game_path.contains(&inst_game_path) || inst_game_path.contains(&norm_game_path) {
                         score += 50;
@@ -482,23 +639,25 @@ pub fn detect_mo2_instances(game_path: &str, game_name: &str) -> Vec<Mo2Instance
                 }
             }
 
-            if inst.is_portable {
-                score += 15;
+            // A portable install is only a nudge for a candidate that already
+            // matched on something; it must never make an unrelated one look relevant.
+            if inst.is_portable && score > 0 {
+                score += 5;
             }
 
-            scored.push((score, inst));
-        }
+            inst.relevance = score;
+            inst
+        })
+        .collect();
 
-        scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.sort_by(|a, b| {
+        b.relevance
+            .cmp(&a.relevance)
+            .then_with(|| a.instance_path.to_lowercase().cmp(&b.instance_path.to_lowercase()))
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
-        let positive: Vec<Mo2Instance> = scored.iter().filter(|(s, _)| *s > 0).map(|(_, i)| i.clone()).collect();
-        if !positive.is_empty() {
-            return positive;
-        }
-        return scored.into_iter().map(|(_, i)| i).collect();
-    }
-
-    instances
+    scored
 }
 
 // ─── Profile & Mod Details ───────────────────────────────────────────────────
@@ -978,7 +1137,11 @@ pub fn reorder_plugins(instance_path: &str, profile_name: &str, ordered_plugin_n
 pub fn switch_profile(instance_path: &str, profile_name: &str) -> Result<(), String> {
     let clean_profile = clean_ini_val(profile_name);
     let ini_path = Path::new(instance_path).join("ModOrganizer.ini");
-    let content = fs::read_to_string(&ini_path).map_err(|e| e.to_string())?;
+    if !ini_path.is_file() {
+        return Err(format!("ModOrganizer.ini not found at {instance_path}"));
+    }
+    let content = fs::read_to_string(&ini_path)
+        .map_err(|e| format!("Reading ModOrganizer.ini failed: {e}"))?;
 
     let mut new_lines = Vec::new();
     let mut in_general = false;
@@ -990,7 +1153,11 @@ pub fn switch_profile(instance_path: &str, profile_name: &str) -> Result<(), Str
             in_general = trimmed.eq_ignore_ascii_case("[General]");
         }
 
-        if in_general && trimmed.starts_with("selected_profile") {
+        let is_profile_key = trimmed
+            .split_once('=')
+            .map(|(k, _)| k.trim() == "selected_profile")
+            .unwrap_or(false);
+        if in_general && is_profile_key {
             new_lines.push(format!("selected_profile = {clean_profile}"));
             replaced = true;
         } else {
@@ -999,7 +1166,16 @@ pub fn switch_profile(instance_path: &str, profile_name: &str) -> Result<(), Str
     }
 
     if !replaced {
-        new_lines.push(format!("selected_profile = {clean_profile}"));
+        let header = new_lines
+            .iter()
+            .position(|l| l.trim().eq_ignore_ascii_case("[General]"));
+        match header {
+            Some(idx) => new_lines.insert(idx + 1, format!("selected_profile = {clean_profile}")),
+            None => return Err(format!(
+                "ModOrganizer.ini at {} has no [General] section",
+                ini_path.display()
+            )),
+        }
     }
 
     let out = new_lines.join("\r\n") + "\r\n";
@@ -1016,17 +1192,10 @@ fn get_instance_profiles_dir(instance_path: &str) -> Result<PathBuf, String> {
     }
     let content = fs::read_to_string(&ini_path).map_err(|e| e.to_string())?;
     let ini = parse_ini(&content);
-    let general = ini.get("General").cloned().unwrap_or_default();
-    let instance_dir = Path::new(instance_path);
-    let base_raw = general.get("base_directory").cloned().unwrap_or_default();
-    let base_dir = if base_raw.is_empty() {
-        instance_dir.to_path_buf()
-    } else {
-        PathBuf::from(&base_raw)
-    };
+    let base_dir = parse_base_dir(&ini, Path::new(instance_path));
     Ok(resolve_mo2_dir(
         &base_dir,
-        general.get("profiles_directory").map(|s| s.as_str()).unwrap_or(""),
+        &ini_path_setting(&ini, &["profiles_directory"]),
         "profiles",
     ))
 }
@@ -1111,6 +1280,56 @@ pub fn delete_profile(instance_path: &str, profile_name: &str) -> Result<(), Str
 
 // ─── Launching via MO2 (USVFS) ────────────────────────────────────────────────
 
+/// Command-line arguments for one `ModOrganizer.exe` launch.
+///
+/// A custom executable is addressed with `moshortcut://<instance>:<title>`, which
+/// already carries the instance, so nothing else is needed. A raw executable
+/// needs the profile; global installs additionally need `-i <instance name>`
+/// because the launcher cannot tell several of them apart otherwise.
+fn build_launch_args(
+    is_portable: bool,
+    instance_name: &str,
+    profile: &str,
+    target: &str,
+    is_shortcut: bool,
+) -> Vec<String> {
+    if is_shortcut {
+        return vec![target.to_string()];
+    }
+    let mut args = Vec::new();
+    if !is_portable {
+        args.push("-i".to_string());
+        args.push(instance_name.to_string());
+    }
+    args.push("-p".to_string());
+    args.push(profile.to_string());
+    args.push(target.to_string());
+    args
+}
+
+/// Quote one argument for the elevated spawn, which hands Windows a single
+/// command-line string. Arguments without whitespace stay untouched.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn quote_launch_arg(arg: &str) -> String {
+    if arg.is_empty() {
+        "\"\"".to_string()
+    } else if arg.contains([' ', '\t']) {
+        format!("\"{arg}\"")
+    } else {
+        arg.to_string()
+    }
+}
+
+/// Trim the caller-supplied executable/title and reject a blank one before it
+/// can turn into a dangling `moshortcut://<instance>:` stub.
+fn launch_target(raw: &str) -> Result<&str, String> {
+    let target = raw.trim();
+    if target.is_empty() {
+        return Err("No executable was selected for this MO2 launch".to_string());
+    }
+    Ok(target)
+}
+
 /// Launch a game through ModOrganizer.exe with the specified profile and executable.
 /// This utilizes MO2's USVFS hooks to virtualize all enabled mods at runtime.
 pub fn launch_with_mo2(
@@ -1120,6 +1339,7 @@ pub fn launch_with_mo2(
     instance_path: &str,
     profile_name: &str,
     executable_path_or_title: &str,
+    mo_exe_path: Option<String>,
     run_as_admin: bool,
 ) -> Result<String, String> {
     #[derive(Debug, Clone, serde::Serialize)]
@@ -1140,6 +1360,8 @@ pub fn launch_with_mo2(
         }
     }
 
+    let target = launch_target(executable_path_or_title)?;
+
     let _ = app.emit(
         "launch-progress",
         LaunchProgressPayload {
@@ -1152,11 +1374,28 @@ pub fn launch_with_mo2(
     let instance = parse_instance_at(&ini_path, None)
         .ok_or_else(|| format!("Invalid MO2 instance at {instance_path}"))?;
 
-    let mo_exe = instance.mo_exe_path.as_deref()
+    // A path the user picked wins over the instance's own detection, as long
+    // as it points at an existing file.
+    let mo_exe = mo_exe_path
+        .as_deref()
+        .map(|p| p.trim().trim_matches('"').trim().to_string())
+        .filter(|p| Path::new(p).is_file())
+        .or_else(|| instance.mo_exe_path.clone())
         .ok_or_else(|| "ModOrganizer.exe not found for this instance".to_string())?;
 
-    let mo_dir = Path::new(mo_exe).parent().unwrap_or_else(|| Path::new("."));
+    let mo_dir = Path::new(&mo_exe).parent().unwrap_or_else(|| Path::new("."));
     let clean_profile = clean_ini_val(profile_name);
+
+    if !instance.profiles.is_empty()
+        && !instance
+            .profiles
+            .iter()
+            .any(|p| p.eq_ignore_ascii_case(&clean_profile))
+    {
+        return Err(format!(
+            "Profile '{clean_profile}' does not exist in this Mod Organizer 2 instance"
+        ));
+    }
 
     // Make sure the active profile is written before launch
     let _ = switch_profile(instance_path, &clean_profile);
@@ -1170,9 +1409,9 @@ pub fn launch_with_mo2(
     );
 
     // If an executable path was passed, check if it matches any custom executable title configured in MO2
-    let matched_title = if executable_path_or_title.contains('\\') || executable_path_or_title.contains('/') {
-        let norm_target = normalize_path_str(executable_path_or_title);
-        let target_file_name = Path::new(executable_path_or_title)
+    let matched_title = if target.contains('\\') || target.contains('/') {
+        let norm_target = normalize_path_str(target);
+        let target_file_name = Path::new(target)
             .file_name()
             .map(|f| f.to_string_lossy().to_lowercase())
             .unwrap_or_default();
@@ -1185,19 +1424,27 @@ pub fn launch_with_mo2(
                 || (!target_file_name.is_empty() && norm_e.ends_with(&target_file_name))
         }).map(|e| e.title.clone())
     } else {
-        Some(executable_path_or_title.to_string())
+        Some(target.to_string())
     };
 
-    let (is_shortcut, shortcut_arg) = if let Some(title) = matched_title {
+    let (is_shortcut, mo_target) = if let Some(title) = matched_title {
         let instance_spec = if instance.is_portable {
-            "".to_string()
+            ""
         } else {
-            instance.name.clone()
+            instance.name.as_str()
         };
         (true, format!("moshortcut://{instance_spec}:{title}"))
     } else {
-        (false, executable_path_or_title.to_string())
+        (false, target.to_string())
     };
+
+    let launch_args = build_launch_args(
+        instance.is_portable,
+        &instance.name,
+        &clean_profile,
+        &mo_target,
+        is_shortcut,
+    );
 
     let (pid, _child) = if run_as_admin {
         #[cfg(windows)]
@@ -1210,16 +1457,16 @@ pub fn launch_with_mo2(
                 },
             );
 
-            let elevated_args = if is_shortcut {
-                format!("\"{shortcut_arg}\"")
-            } else {
-                format!("-p \"{clean_profile}\" \"{shortcut_arg}\"")
-            };
+            let elevated_args = launch_args
+                .iter()
+                .map(|arg| quote_launch_arg(arg))
+                .collect::<Vec<_>>()
+                .join(" ");
 
             let elevated_pid = crate::launcher::launch_elevated(
-                Path::new(mo_exe),
+                Path::new(&mo_exe),
                 mo_dir,
-                Some(&elevated_args),
+                Some(elevated_args.as_str()),
             )?.unwrap_or(0);
 
             (elevated_pid, None)
@@ -1229,25 +1476,21 @@ pub fn launch_with_mo2(
             return Err("Running as administrator is only supported on Windows".to_string());
         }
     } else {
-        let mut cmd = std::process::Command::new(mo_exe);
+        let mut cmd = std::process::Command::new(&mo_exe);
         cmd.current_dir(mo_dir);
-        if is_shortcut {
-            cmd.arg(shortcut_arg);
-        } else {
-            cmd.arg("-p").arg(&clean_profile).arg(shortcut_arg);
-        }
+        cmd.args(&launch_args);
         let child = cmd.spawn().map_err(|e| format!("Failed to spawn ModOrganizer.exe: {e}"))?;
         let child_pid = child.id();
         (child_pid, Some(child))
     };
 
     // Resolve the actual game executable path on disk for GameWatcher tracking
-    let real_exe_path: Option<String> = if executable_path_or_title.contains('\\') || executable_path_or_title.contains('/') {
-        Some(executable_path_or_title.to_string())
+    let real_exe_path: Option<String> = if target.contains('\\') || target.contains('/') {
+        Some(target.to_string())
     } else if let Some(exec) = instance.custom_executables.iter().find(|e| {
-        e.title.eq_ignore_ascii_case(executable_path_or_title)
-            || normalize_path_str(&e.title) == normalize_path_str(executable_path_or_title)
-            || normalize_path_str(&e.path) == normalize_path_str(executable_path_or_title)
+        e.title.eq_ignore_ascii_case(target)
+            || normalize_path_str(&e.title) == normalize_path_str(target)
+            || normalize_path_str(&e.path) == normalize_path_str(target)
     }) {
         Some(exec.path.clone())
     } else if let Some(g_path) = {
@@ -1338,7 +1581,7 @@ size=1
         fs::create_dir_all(&default_dir).unwrap();
 
         let ini_content = format!(
-            "[General]\r\ngameName=Skyrim\r\nprofiles_directory={}\r\nmods_directory={}\r\n",
+            "[General]\r\ngameName=Skyrim\r\nprofiles_directory={}\r\n\r\n[Settings]\r\nmod_directory={}\r\n",
             profiles_dir.to_str().unwrap().replace('\\', "/"),
             dir.path().join("mods").to_str().unwrap().replace('\\', "/"),
         );
@@ -1510,6 +1753,185 @@ size=1
             normalize_path_str(&inst.custom_executables[0].path),
             normalize_path_str(expected_path.to_str().unwrap())
         );
+    }
+
+    #[test]
+    fn test_settings_paths_resolve_with_base_dir_and_trailing_separator() {
+        let dir = tempfile::tempdir().unwrap();
+        let instance_dir = dir.path().join("Instance");
+        let base_dir = dir.path().join("Base");
+        let profiles_dir = base_dir.join("profiles");
+        fs::create_dir_all(profiles_dir.join("Default")).unwrap();
+        fs::create_dir_all(&instance_dir).unwrap();
+
+        let base_with_sep = format!(
+            "{}{}",
+            base_dir.to_str().unwrap().replace('\\', "/"),
+            std::path::MAIN_SEPARATOR
+        );
+        let ini_content = format!(
+            "[General]\r\ngameName=Skyrim\r\nselected_profile=Default\r\n\r\n[Settings]\r\nbase_directory={base_with_sep}\r\nmod_directory=%BASE_DIR%/mods\r\nprofiles_directory={}\r\noverwrite_directory=custom_overwrite\r\n",
+            profiles_dir.to_str().unwrap().replace('\\', "/"),
+        );
+        let ini_file = instance_dir.join("ModOrganizer.ini");
+        fs::write(&ini_file, ini_content).unwrap();
+
+        let inst = parse_instance_at(&ini_file, None).unwrap();
+        assert_eq!(
+            normalize_path_str(&inst.mods_dir),
+            normalize_path_str(&base_dir.join("mods").to_string_lossy())
+        );
+        assert_eq!(
+            normalize_path_str(&inst.profiles_dir),
+            normalize_path_str(&profiles_dir.to_string_lossy())
+        );
+        assert_eq!(
+            normalize_path_str(&inst.overwrite_dir),
+            normalize_path_str(&base_dir.join("custom_overwrite").to_string_lossy())
+        );
+        assert_eq!(inst.selected_profile, "Default");
+    }
+
+    #[test]
+    fn test_general_section_paths_still_resolve() {
+        let dir = tempfile::tempdir().unwrap();
+        let mods_dir = dir.path().join("legacy_mods");
+        let profiles_dir = dir.path().join("legacy_profiles");
+        fs::create_dir_all(profiles_dir.join("Default")).unwrap();
+
+        let ini_content = format!(
+            "[General]\r\ngameName=Fallout 4\r\nprofiles_directory={}\r\nmods_directory={}\r\n",
+            profiles_dir.to_str().unwrap().replace('\\', "/"),
+            mods_dir.to_str().unwrap().replace('\\', "/"),
+        );
+        let ini_file = dir.path().join("ModOrganizer.ini");
+        fs::write(&ini_file, ini_content).unwrap();
+
+        let inst = parse_instance_at(&ini_file, None).unwrap();
+        assert_eq!(
+            normalize_path_str(&inst.mods_dir),
+            normalize_path_str(&mods_dir.to_string_lossy())
+        );
+        assert_eq!(
+            normalize_path_str(&inst.profiles_dir),
+            normalize_path_str(&profiles_dir.to_string_lossy())
+        );
+        assert_eq!(inst.selected_profile, "Default");
+    }
+
+    #[test]
+    fn test_path_ancestor_check_is_component_aware() {
+        assert!(path_is_ancestor_or_same("C:\\MO2", "C:\\MO2\\mods"));
+        assert!(path_is_ancestor_or_same("C:\\Games\\Skyrim\\SkyrimSE.exe", "C:\\Games\\Skyrim"));
+        assert!(!path_is_ancestor_or_same("C:\\MO2", "C:\\MO2Game"));
+        assert!(!path_is_ancestor_or_same("C:\\MO2Game\\Data", "C:\\MO2"));
+    }
+
+    #[test]
+    fn test_relevance_orders_matching_instance_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_dir = dir.path().join("Game");
+        fs::create_dir_all(&game_dir).unwrap();
+        let game_exe = game_dir.join("game.exe");
+        fs::write(&game_exe, b"").unwrap();
+
+        // Global instance configured for this game.
+        let global_dir = dir.path().join("ModOrganizer");
+        fs::create_dir_all(&global_dir).unwrap();
+        fs::write(
+            global_dir.join("ModOrganizer.ini"),
+            format!(
+                "[General]\r\ngameName=Skyrim\r\ngamePath={}\r\n",
+                game_dir.to_str().unwrap().replace('\\', "/")
+            ),
+        )
+        .unwrap();
+
+        // Portable instance for a different game, sitting next to the first one.
+        let portable_dir = dir.path().join("MO2");
+        fs::create_dir_all(&portable_dir).unwrap();
+        fs::write(
+            portable_dir.join("ModOrganizer.ini"),
+            format!(
+                "[General]\r\ngameName=Other Game\r\ngamePath={}\r\n",
+                dir.path().join("Elsewhere").to_str().unwrap().replace('\\', "/")
+            ),
+        )
+        .unwrap();
+        fs::write(portable_dir.join("ModOrganizer.exe"), b"").unwrap();
+
+        let detected = detect_mo2_instances(game_exe.to_str().unwrap(), "");
+        assert!(!detected.is_empty());
+
+        let global = detected
+            .iter()
+            .find(|i| normalize_path_str(&i.instance_path) == normalize_path_str(global_dir.to_str().unwrap()))
+            .expect("global instance should be detected");
+        let portable = detected
+            .iter()
+            .find(|i| normalize_path_str(&i.instance_path) == normalize_path_str(portable_dir.to_str().unwrap()))
+            .expect("portable instance should be detected");
+
+        assert!(portable.is_portable);
+        assert_eq!(portable.relevance, 0, "an unrelated portable instance must stay irrelevant");
+        assert!(global.relevance > 0);
+        assert_eq!(
+            normalize_path_str(&detected[0].instance_path),
+            normalize_path_str(global_dir.to_str().unwrap()),
+            "the matching instance must sort first"
+        );
+    }
+
+    #[test]
+    fn test_resolve_instance_at_from_folder_ini_and_exe() {
+        let dir = tempfile::tempdir().unwrap();
+        let instance_dir = dir.path().join("MO2Instance");
+        let game_dir = instance_dir.join("Game");
+        fs::create_dir_all(&game_dir).unwrap();
+        let ini_file = instance_dir.join("ModOrganizer.ini");
+        fs::write(&ini_file, "[General]\r\ngameName=Skyrim\r\nselected_profile=Default\r\n").unwrap();
+        let mo_exe = instance_dir.join("ModOrganizer.exe");
+        fs::write(&mo_exe, b"").unwrap();
+        let game_exe = game_dir.join("SkyrimSE.exe");
+        fs::write(&game_exe, b"").unwrap();
+
+        let expected = normalize_path_str(instance_dir.to_str().unwrap());
+        let from_dir = resolve_instance_at(instance_dir.to_str().unwrap()).unwrap();
+        let from_ini = resolve_instance_at(ini_file.to_str().unwrap()).unwrap();
+        let from_mo_exe = resolve_instance_at(mo_exe.to_str().unwrap()).unwrap();
+        let from_game_exe = resolve_instance_at(game_exe.to_str().unwrap()).unwrap();
+        let quoted = resolve_instance_at(&format!("  \"{}\"  ", instance_dir.display())).unwrap();
+
+        for inst in [from_dir, from_ini, from_mo_exe, from_game_exe, quoted] {
+            assert_eq!(normalize_path_str(&inst.instance_path), expected);
+        }
+
+        let unrelated = dir.path().join("Nothing");
+        fs::create_dir_all(&unrelated).unwrap();
+        let err = resolve_instance_at(unrelated.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("No ModOrganizer.ini found"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_build_launch_args() {
+        let global = build_launch_args(false, "Skyrim MO2", "Default", "C:/Game/game.exe", false);
+        assert_eq!(global, vec!["-i", "Skyrim MO2", "-p", "Default", "C:/Game/game.exe"]);
+
+        let portable = build_launch_args(true, "Portable", "Default", "C:/Game/game.exe", false);
+        assert_eq!(portable, vec!["-p", "Default", "C:/Game/game.exe"]);
+        assert!(!portable.iter().any(|arg| arg.as_str() == "-i"));
+
+        let shortcut = build_launch_args(
+            false,
+            "Skyrim MO2",
+            "Default",
+            "moshortcut://Skyrim MO2:SKSE",
+            true,
+        );
+        assert_eq!(shortcut, vec!["moshortcut://Skyrim MO2:SKSE"]);
+
+        assert!(launch_target("   ").is_err());
+        assert_eq!(launch_target("  SkyrimSE.exe ").unwrap(), "SkyrimSE.exe");
     }
 }
 

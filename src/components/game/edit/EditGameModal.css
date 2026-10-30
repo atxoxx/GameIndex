@@ -677,6 +677,10 @@
   color: var(--color-text-muted);
 }
 
+.edit-field-error {
+  color: var(--color-danger);
+}
+
 .edit-path-hint {
   overflow: hidden;
   text-overflow: ellipsis;

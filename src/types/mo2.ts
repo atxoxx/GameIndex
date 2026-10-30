@@ -20,6 +20,9 @@ export interface Mo2Instance {
   selectedProfile: string;
   profiles: string[];
   customExecutables: Mo2Executable[];
+  /** How strongly this instance relates to the game being inspected
+   *  (0 = unrelated). Detection returns instances sorted by this desc. */
+  relevance: number;
 }
 
 export interface Mo2Mod {

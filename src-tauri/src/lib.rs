@@ -472,6 +472,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             mods::mods_check_updates,
             mods::mods_update_mod,
             mods::mo2_detect_instances,
+            mods::mo2_resolve_instance,
             mods::mo2_get_profile_details,
             mods::mo2_set_mod_enabled,
             mods::mo2_set_mods_enabled,

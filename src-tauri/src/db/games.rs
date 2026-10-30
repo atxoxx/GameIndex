@@ -159,6 +159,20 @@ pub struct GameRow {
     /// agnostic; the UI defaults to USD when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purchase_currency: Option<String>,
+    // ── Mod Organizer 2 launch settings (v17 migration) ──
+    /// Route the play button through MO2 instead of the raw executable.
+    /// `None` = never configured (behaves like disabled).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mo2_launch_enabled: Option<bool>,
+    /// MO2 profile to launch with (empty/NULL falls back to MO2's default).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mo2_profile: Option<String>,
+    /// Executable inside the MO2 instance that MO2 should run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mo2_executable: Option<String>,
+    /// Root of the MO2 instance (portable install) this game belongs to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mo2_instance_path: Option<String>,
     // ── Emulation linkage (v2 migration) ──
     /// Id of the owning emulator instance. Lets `delete_emulator`
     /// cascade-remove its ROMs.
@@ -393,7 +407,11 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                   is_vr,
                   extra_executables_json,
                   purchase_cost,
-                  purchase_currency
+                  purchase_currency,
+                  mo2_launch_enabled,
+                  mo2_profile,
+                  mo2_executable,
+                  mo2_instance_path
               ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -420,6 +438,7 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
                   ?77,?78,?79
                  ,?80
                  ,?81,?82
+                 ,?83,?84,?85,?86
               )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -526,6 +545,11 @@ pub fn upsert_batch(db: &Db, rows: &[GameRow], replace_all: bool) -> Result<Save
             // v16 purchase-cost columns (LAST in the column list).
             r.purchase_cost,
             r.purchase_currency,
+            // v17 MO2 launch columns (LAST in the column list).
+            r.mo2_launch_enabled.map(|b| b as i32),
+            r.mo2_profile,
+            r.mo2_executable,
+            r.mo2_instance_path,
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -598,7 +622,11 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             is_vr,
             extra_executables_json,
             purchase_cost,
-            purchase_currency
+            purchase_currency,
+            mo2_launch_enabled,
+            mo2_profile,
+            mo2_executable,
+            mo2_instance_path
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -625,6 +653,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?77,?78,?79
            ,?80
            ,?81,?82
+           ,?83,?84,?85,?86
         )",
         params![
             r.id,
@@ -713,6 +742,11 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             // v16 purchase-cost columns (LAST in the column list).
             r.purchase_cost,
             r.purchase_currency,
+            // v17 MO2 launch columns (LAST in the column list).
+            r.mo2_launch_enabled.map(|b| b as i32),
+            r.mo2_profile,
+            r.mo2_executable,
+            r.mo2_instance_path,
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -1109,7 +1143,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr, extra_executables_json, purchase_cost, purchase_currency FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile, version, collection_id, display_name, logo_source_url, is_vr, extra_executables_json, purchase_cost, purchase_currency, mo2_launch_enabled, mo2_profile, mo2_executable, mo2_instance_path FROM games";
 
 /// The heavy summary columns (multi-MB JSON), in their `games` column
 /// positions. Must stay in sync with `crate::games::HEAVY_GAME_FIELDS`.
@@ -1267,6 +1301,12 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // NULL rows (pre-v16) read back as `None` (cost unknown).
         purchase_cost: r.get(81)?,
         purchase_currency: r.get(82)?,
+        // v17 Mod Organizer 2 columns — read after purchase_currency.
+        // NULL rows (pre-v17) read back as `None` (MO2 not configured).
+        mo2_launch_enabled: r.get::<_, Option<i64>>(83)?.map(|n| n != 0),
+        mo2_profile: r.get(84)?,
+        mo2_executable: r.get(85)?,
+        mo2_instance_path: r.get(86)?,
         // Compatibility profile is isolated into compatibility.db
         compatibility_json: None,
     })
@@ -1351,6 +1391,10 @@ mod tests {
             "isVr": true,
             "purchaseCost": 59.99,
             "purchaseCurrency": "USD",
+            "mo2LaunchEnabled": true,
+            "mo2Profile": "Default",
+            "mo2Executable": "C:/Games/Skyrim/SKSE64.exe",
+            "mo2InstancePath": "C:/MO2",
         }))
         .unwrap()
     }
@@ -1393,6 +1437,39 @@ mod tests {
         assert_eq!(got.is_vr, Some(true));
         assert_eq!(got.purchase_cost, Some(59.99));
         assert_eq!(got.purchase_currency.as_deref(), Some("USD"));
+        assert_eq!(got.mo2_launch_enabled, Some(true));
+        assert_eq!(got.mo2_profile.as_deref(), Some("Default"));
+        assert_eq!(got.mo2_executable.as_deref(), Some("C:/Games/Skyrim/SKSE64.exe"));
+        assert_eq!(got.mo2_instance_path.as_deref(), Some("C:/MO2"));
+    }
+
+    /// MO2 settings are the newest columns, so a placeholder/order drift
+    /// would land them in the wrong field without failing the insert.
+    #[test]
+    fn mo2_settings_round_trip() {
+        let (_dir, db) = test_db();
+        let row = GameRow {
+            mo2_launch_enabled: Some(true),
+            mo2_profile: Some("Survival".into()),
+            mo2_executable: Some("C:/Games/Fallout4/f4se_loader.exe".into()),
+            mo2_instance_path: Some("D:/MO2".into()),
+            ..sample_row()
+        };
+        upsert_one(&db, &row).unwrap();
+
+        let got = get(&db, "g1").unwrap().expect("row should exist");
+        assert_eq!(got.mo2_launch_enabled, Some(true));
+        assert_eq!(got.mo2_profile.as_deref(), Some("Survival"));
+        assert_eq!(got.mo2_executable.as_deref(), Some("C:/Games/Fallout4/f4se_loader.exe"));
+        assert_eq!(got.mo2_instance_path.as_deref(), Some("D:/MO2"));
+
+        // Disabled must stay distinct from unset: the toggle reads the
+        // explicit flag, and `None` would look like "never configured".
+        let mut disabled = row;
+        disabled.mo2_launch_enabled = Some(false);
+        upsert_one(&db, &disabled).unwrap();
+        let got = get(&db, "g1").unwrap().unwrap();
+        assert_eq!(got.mo2_launch_enabled, Some(false));
     }
 
     /// Error path: a negative or non-finite cost must be rejected by the

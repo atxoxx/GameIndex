@@ -5,6 +5,7 @@ import type { Game, GameExecutable } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import type { Mo2Instance } from "../../types/mo2";
 import { getGameMo2Config } from "../../utils/mo2Storage";
+import { resolveMo2Selection } from "../../utils/mo2Selection";
 import type { RomLaunchPlan } from "../../types/emulator";
 import { isSplashEnabled } from "../SplashContext";
 import type { SplashContextType } from "../SplashContext";
@@ -195,57 +196,77 @@ export function useLaunch(options: {
     try {
       // ── Mod Organizer 2: launch with virtualized filesystem (USVFS) ──
       if (isMo2Enabled) {
-        let instancePath = game.mo2InstancePath || mo2Config?.instancePath;
-        let profileName = mo2Profile;
-        let executable = mo2Executable;
+        const preferredInstancePath = game.mo2InstancePath || mo2Config?.instancePath;
 
+        let list: Mo2Instance[] = [];
         try {
-          const list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
-            gamePath: instancePath || game.path || "",
+          list = await invoke<Mo2Instance[]>("mo2_detect_instances", {
+            gamePath: game.path ?? "",
             gameName: gameDisplayName(game),
           });
-          if (list && list.length > 0) {
-            const matchedInst = instancePath
-              ? list.find((i) => i.instancePath.toLowerCase() === instancePath?.toLowerCase()) || list[0]
-              : list[0];
-
-            if (!instancePath) {
-              instancePath = matchedInst.instancePath;
-            }
-            if (!profileName) {
-              profileName = matchedInst.selectedProfile || matchedInst.profiles[0] || "Default";
-            }
-            if (!executable && matchedInst.customExecutables && matchedInst.customExecutables.length > 0) {
-              const gPathLower = (game.path ?? "").toLowerCase();
-              const gFileName = gPathLower.split(/[/\\]/).pop() || "";
-              const matchByPath = matchedInst.customExecutables.find((e) => {
-                const eLower = e.path.toLowerCase();
-                return eLower === gPathLower || (gFileName.length > 0 && eLower.endsWith(gFileName));
-              });
-              executable = matchByPath ? matchByPath.title : matchedInst.customExecutables[0].title;
-            }
-          }
         } catch (e) {
-          console.warn("Failed to auto-detect MO2 instance during launch:", e);
+          console.warn("Failed to auto-detect MO2 instances during launch:", e);
+          list = [];
         }
 
-        if (instancePath) {
-          await invoke<string>("mo2_launch_game", {
-            gameId: game.id,
-            gameName: game.name,
-            instancePath,
-            profileName: profileName || "Default",
-            executable: executable || game.path || "",
-            runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
-          });
-          if (splashOn) armSplashFallback(game.id);
-          showToast(
-            t("gameContext.launchedMo2", { name: game.name, profile: profileName || "Default" }) ||
-              t("gameContext.launched", { name: game.name }),
-            "success"
+        // Detection only scans well-known locations; a manually located
+        // instance still has to be honoured for this launch.
+        if (
+          preferredInstancePath &&
+          !list.some(
+            (i) => i.instancePath.toLowerCase() === preferredInstancePath.toLowerCase()
+          )
+        ) {
+          try {
+            const resolved = await invoke<Mo2Instance>("mo2_resolve_instance", {
+              path: preferredInstancePath,
+            });
+            if (resolved?.instancePath) list = [resolved, ...list];
+          } catch (e) {
+            console.warn("Saved MO2 instance could not be resolved:", e);
+          }
+        }
+
+        const selection = resolveMo2Selection(list, {
+          instancePath: preferredInstancePath,
+          profile: mo2Profile,
+          executable: mo2Executable,
+          gamePath: game.path,
+          allowUnrelatedFallback: false,
+        });
+
+        // Never silently launch the vanilla game when MO2 was requested.
+        if (!selection) {
+          setRunningGameIds((prev) => prev.filter((id) => id !== game.id));
+          setGames((prev) =>
+            prev.map((g) =>
+              g.id === game.id ? { ...g, lastPlayed: previousLastPlayed } : g
+            )
           );
+          const message = t("mods.mo2.instanceMissing");
+          if (splashOn) splash.updateStatus("error", message);
+          showToast(message, "error");
           return;
         }
+
+        await invoke<string>("mo2_launch_game", {
+          gameId: game.id,
+          gameName: game.name,
+          instancePath: selection.instance.instancePath,
+          profileName: selection.profile || "Default",
+          executable: selection.executable || game.path || "",
+          moExePath: selection.instance.moExePath ?? null,
+          runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
+        });
+        if (splashOn) armSplashFallback(game.id);
+        showToast(
+          t("gameContext.launchedMo2", {
+            name: game.name,
+            profile: selection.profile || "Default",
+          }) || t("gameContext.launched", { name: game.name }),
+          "success"
+        );
+        return;
       }
 
       // ── Rockstar: launch through the Rockstar Games Launcher ──
