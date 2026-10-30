@@ -61,4 +61,19 @@ describe("WorkspaceHeader", () => {
     fireEvent.click(screen.getByRole("tab", { name: /mods.tab.conflicts/ }));
     expect(onTabChange).toHaveBeenCalledWith("conflicts");
   });
+
+  it("keeps the full-screen action on the identity row, above the tab strip", () => {
+    const { container } = render(
+      <WorkspaceHeader
+        {...props({ variant: "subtab", onOpenDiscoverFull: vi.fn() })}
+      />,
+    );
+    const top = container.querySelector(".mods-ws-top");
+    expect(top).not.toBeNull();
+    const action = screen.getByRole("button", {
+      name: "mods.discover.openFullScreen",
+    });
+    expect(top?.contains(action)).toBe(true);
+    expect(top?.contains(container.querySelector(".mods-ws-tabs"))).toBe(false);
+  });
 });
