@@ -2697,7 +2697,7 @@
 }
 
 .act-ttb__fill--story { background: var(--color-brand-blue, var(--color-accent)); }
-.act-ttb__fill--extra { background: var(--color-brand-purple, var(--color-accent)); }
+.act-ttb__fill--extra { background: var(--color-accent-2); }
 .act-ttb__fill--100 { background: var(--color-warning, var(--color-success)); }
 
 .act-ttb__empty {

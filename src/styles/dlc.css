@@ -187,7 +187,7 @@
   border-radius: var(--radius-xs);
   object-fit: cover;
   flex-shrink: 0;
-  background: var(--color-bg-dark, #121212);
+  background: var(--color-bg-tertiary);
 }
 
 .game-dlc-preview-title {
@@ -455,7 +455,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 460 / 215;
-  background: var(--color-bg-dark, #161616);
+  background: var(--color-bg-tertiary);
   overflow: hidden;
 }
 
@@ -694,7 +694,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 460 / 215;
-  background: var(--color-bg-dark, #121212);
+  background: var(--color-bg-tertiary);
   overflow: hidden;
 }
 

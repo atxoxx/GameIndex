@@ -1493,7 +1493,7 @@
 
 .bigscreen-activity .act-stat__sub {
   font-size: var(--bs-text-xs);
-  color: var(--bs-text-muted, var(--color-text-muted));
+  color: var(--bs-text-faint);
 }
 
 .bigscreen-activity__panel {
@@ -1508,7 +1508,7 @@
   font-size: var(--bs-title-sm);
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--bs-text-primary, var(--color-text-primary));
+  color: var(--bs-text);
 }
 
 .bigscreen-activity__list {
@@ -1531,7 +1531,7 @@
   gap: var(--bs-space-4);
   min-height: 3.25rem;
   padding: var(--bs-space-2) var(--bs-space-4);
-  color: var(--bs-text-secondary, var(--color-text-secondary));
+  color: var(--bs-text-dim);
   font-size: var(--bs-text-sm);
 }
 
@@ -1540,7 +1540,7 @@
 }
 
 .bigscreen-activity__date {
-  color: var(--bs-text-primary, var(--color-text-primary));
+  color: var(--bs-text);
   font-weight: 600;
 }
 
@@ -1549,12 +1549,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--bs-text-muted, var(--color-text-muted));
+  color: var(--bs-text-faint);
   font-variant-numeric: tabular-nums;
 }
 
 .bigscreen-activity__duration {
-  color: var(--bs-text-primary, var(--color-text-primary));
+  color: var(--bs-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1567,14 +1567,14 @@
   padding: var(--bs-space-6);
   border-radius: var(--bs-radius-lg, var(--radius-lg));
   background: var(--panel-tint);
-  color: var(--bs-text-muted, var(--color-text-muted));
+  color: var(--bs-text-faint);
   text-align: center;
 }
 
 .bigscreen-activity__empty h3 {
   margin: 0;
   font-size: var(--bs-title-sm);
-  color: var(--bs-text-primary, var(--color-text-primary));
+  color: var(--bs-text);
 }
 
 @media (max-width: 900px) {
