@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { PaletteItem, PaletteSecondaryAction } from "./commandPaletteTypes";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useSettings } from "../../context/SettingsContext";
 import { gameDisplayName } from "../../types/game";
 
@@ -227,9 +228,7 @@ export default function CommandPaletteActionDrawer({
           icon: <Globe size={15} />,
           badge: "Steam",
           onExecute: () => {
-            invoke("open_url", { url: `https://store.steampowered.com/app/${game.steamAppId}` }).catch(() => {
-              window.open(`https://store.steampowered.com/app/${game.steamAppId}`, "_blank");
-            });
+            void openUrl(`https://store.steampowered.com/app/${game.steamAppId}`);
           },
         });
 
@@ -240,9 +239,7 @@ export default function CommandPaletteActionDrawer({
           icon: <ExternalLink size={15} />,
           badge: "SteamDB",
           onExecute: () => {
-            invoke("open_url", { url: `https://steamdb.info/app/${game.steamAppId}` }).catch(() => {
-              window.open(`https://steamdb.info/app/${game.steamAppId}`, "_blank");
-            });
+            void openUrl(`https://steamdb.info/app/${game.steamAppId}`);
           },
         });
 
@@ -254,9 +251,7 @@ export default function CommandPaletteActionDrawer({
             icon: <ExternalLink size={15} />,
             badge: "ProtonDB",
             onExecute: () => {
-              invoke("open_url", { url: `https://www.protondb.com/app/${game.steamAppId}` }).catch(() => {
-                window.open(`https://www.protondb.com/app/${game.steamAppId}`, "_blank");
-              });
+              void openUrl(`https://www.protondb.com/app/${game.steamAppId}`);
             },
           });
         }
@@ -271,9 +266,7 @@ export default function CommandPaletteActionDrawer({
         badge: "PCGW",
         onExecute: () => {
           const url = `https://www.pcgamingwiki.com/w/index.php?search=${encodeURIComponent(game.name)}`;
-          invoke("open_url", { url }).catch(() => {
-            window.open(url, "_blank");
-          });
+          void openUrl(url);
         },
       });
 
@@ -286,9 +279,7 @@ export default function CommandPaletteActionDrawer({
         badge: "HLTB",
         onExecute: () => {
           const url = `https://howlongtobeat.com/?q=${encodeURIComponent(game.name)}`;
-          invoke("open_url", { url }).catch(() => {
-            window.open(url, "_blank");
-          });
+          void openUrl(url);
         },
       });
 
