@@ -302,7 +302,14 @@ vi.mock("../../components/PageWidget", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import SavesPage from "./SavesPage";
 
-const NOW = Date.now();
+// Anchored to midday: the page groups snapshots by calendar day, so a
+// `Date.now()` captured just after midnight would push the "5 minutes ago"
+// fixture into yesterday and flip the expected grouping.
+const NOW = (() => {
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  return noon.getTime();
+})();
 
 const LOCATIONS = [
   {
