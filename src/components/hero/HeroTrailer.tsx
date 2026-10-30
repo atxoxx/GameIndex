@@ -198,7 +198,7 @@ export default function HeroTrailer({
         <iframe
           className="hero-trailer__video"
           src={youtubeEmbed(parsed.id, true, shouldAutoplay)}
-          title={t("game.gameTrailer")}
+          title={t("game.trailer")}
           frameBorder={0}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen

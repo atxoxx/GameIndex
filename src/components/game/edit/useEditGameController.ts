@@ -603,7 +603,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       });
       showToast(t("gameEdit.compatibility.toolStarted", { tool }) || `Launched ${tool}`, "success");
     } catch (err) {
-      showToast(t("gameEdit.compatibility.toolError", { error: String(err) }) || `Failed to run ${tool}: ${err}`, "error");
+      showToast(t("gameEdit.compatibility.toolError", { tool, error: String(err) }) || `Failed to run ${tool}: ${err}`, "error");
     } finally {
       setRunningTool(null);
     }

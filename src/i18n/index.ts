@@ -155,16 +155,36 @@ export async function ensureDocsLoaded(lang: string): Promise<void> {
   }
 }
 
+/**
+ * Placeholders the English source uses as a bare plural suffix (`3 game{s}`).
+ * English injects "s"/"es" into them; every other locale pluralises its own
+ * way, so the injected English suffix must never reach a translated string —
+ * "3 game" + "s" dropped into "3 игра" would render "3 играs". Those variables
+ * therefore resolve to "" unless the rendered dictionary is the English one,
+ * which lets a translation place `{plural}` where an empty string reads
+ * naturally (usually at the end of the clause).
+ */
+const ENGLISH_PLURAL_SUFFIX_VARS = new Set(["plural", "s", "seedPlural"]);
+
 export function translate(
   key: string,
   lang: string,
   vars?: Record<string, unknown>,
 ): string {
-  const dict = DICTS[lang] ?? DICTS[DEFAULT_LANGUAGE];
-  let str = dict[key] ?? DICTS[DEFAULT_LANGUAGE][key] ?? key;
+  const requested = DICTS[lang];
+  // Resolve the dictionary entry itself, so a key that only exists in English
+  // is still treated as English even when the rest of the locale is loaded.
+  const localized = requested?.[key];
+  const englishValue = DICTS[DEFAULT_LANGUAGE][key];
+  let str = localized ?? englishValue ?? key;
   if (vars) {
+    // Unsupported/not-yet-loaded locales and per-key English fallbacks render
+    // English text, so the English suffix rule applies there too.
+    const english = lang === DEFAULT_LANGUAGE || localized === undefined;
     for (const [k, v] of Object.entries(vars)) {
-      str = str.split(`{${k}}`).join(String(v));
+      const value =
+        !english && ENGLISH_PLURAL_SUFFIX_VARS.has(k) ? "" : String(v);
+      str = str.split(`{${k}}`).join(value);
     }
   }
   return str;

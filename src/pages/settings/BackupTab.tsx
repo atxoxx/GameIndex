@@ -1235,7 +1235,7 @@ export default function BackupTab() {
               </span>
               <span className="backup-create-summary-sub">
                 {t("settings.backup.totalRecordsLabel", {
-                  records: createChoices
+                  count: createChoices
                     .reduce((acc, d) => acc + (d.itemCount ?? 0), 0)
                     .toLocaleString(),
                 })}

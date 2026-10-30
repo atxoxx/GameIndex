@@ -288,7 +288,7 @@ export default function GamesTab({
                     .filter(Boolean)
                     .join(" ")}
                 >
-                  <label className="saves-game__select" title={t("saves.rail.selectGame")}>
+                  <label className="saves-game__select" title={t("saves.rail.selectGame", { name: entry.name })}>
                     <input
                       type="checkbox"
                       checked={isChecked}

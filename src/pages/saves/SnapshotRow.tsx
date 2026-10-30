@@ -44,7 +44,7 @@ export default function SnapshotRow({
   return (
     <li className={["saves-snap", selected ? "is-selected" : ""].filter(Boolean).join(" ")}>
       {selectable && (
-        <label className="saves-snap__select" title={t("saves.snapshots.selectOne")}>
+        <label className="saves-snap__select" title={t("saves.snapshots.selectOne", { name: backup.gameName })}>
           <input
             type="checkbox"
             checked={selected}

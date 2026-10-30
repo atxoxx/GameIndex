@@ -267,7 +267,7 @@ function FilterDropdownOverlay({
       case "genre": return t("bigscreen.library.selectGenres");
       case "status": return t("bigscreen.library.filterByStatus");
       case "source": return t("bigscreen.library.filterBySource");
-      case "sort": return t("library.sortOrder");
+      case "sort": return t("library.sortLibrary");
       default: return "";
     }
   }, [type, t]);

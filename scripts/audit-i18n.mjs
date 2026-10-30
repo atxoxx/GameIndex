@@ -10,6 +10,9 @@
  *      must resolve to a key defined in en.ts -> UNRESOLVED (error).
  *   4. Placeholders used in en.ts values ({var}) should also appear in the
  *      translated value of the same key -> PLACEHOLDER (warn).
+ *   5. A `t("a.b.c", { vars })` call must pass every placeholder that en.ts
+ *      defines for the key -> MISSING VAR (error). Without this check a
+ *      missing variable silently renders the literal `{name}` in the UI.
  *
  * Locale files are plain TS modules exporting a flat object of
  * `"dotted.key": "value",` entries. The file format is:
@@ -210,6 +213,9 @@ function collectSourceFiles(dir, acc = []) {
 const T_CALL_RE =
   /\bt\(\s*(["'])([a-zA-Z0-9_.]+)\1\s*(?:,|\))/g;
 
+const T_CALL_VARS_RE =
+  /\bt\(\s*(["'])([a-zA-Z0-9_.]+)\1\s*,\s*\{([^{}]*)\}/g;
+
 /** Find static t("...") calls across all source files. */
 function scanSourceKeys() {
   const used = new Map(); // key -> [files]
@@ -225,6 +231,40 @@ function scanSourceKeys() {
     }
   }
   return used;
+}
+
+/**
+ * Find `t("key", { vars })` calls that omit a placeholder the English string
+ * still uses. Object spreads are skipped because their contents cannot be
+ * resolved statically.
+ */
+function scanCallPlaceholders() {
+  const problems = [];
+  for (const file of collectSourceFiles(SRC_DIR)) {
+    const text = readFileSync(file, "utf8");
+    let m;
+    while ((m = T_CALL_VARS_RE.exec(text)) !== null) {
+      const key = m[2];
+      const body = m[3];
+      if (body.includes("...")) continue;
+      const value = en.get(key);
+      if (!value) continue;
+      const needed = placeholders(value);
+      if (needed.size === 0) continue;
+
+      const provided = new Set();
+      for (const part of body.split(",")) {
+        const name = part.trim().split(":")[0].trim();
+        if (/^[A-Za-z_$][\w$]*$/.test(name)) provided.add(name);
+      }
+      for (const ph of needed) {
+        if (!provided.has(ph)) {
+          problems.push({ file: file.slice(ROOT.length + 1), key, ph });
+        }
+      }
+    }
+  }
+  return problems;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +312,13 @@ for (const [key, files] of used) {
   if (!en.has(key)) {
     errors.push(`UNRESOLVED t() key: ${key} (used in ${files.join(", ")} but missing from en.ts)`);
   }
+}
+
+// --- 5. Call-site placeholder coverage -------------------------------------
+for (const { file, key, ph } of scanCallPlaceholders()) {
+  errors.push(
+    `MISSING VAR: t("${key}") in ${file} does not pass {${ph}} (required by en.ts)`,
+  );
 }
 
 // ---------------------------------------------------------------------------

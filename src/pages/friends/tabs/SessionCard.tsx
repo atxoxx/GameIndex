@@ -216,7 +216,9 @@ export default function SessionCard({
 
           {session.scheduledAt && showTimeForViewer && (
             <div className="session-date-local">
-              {t("friendsPage.yourTime")} {formatDateTime(session.scheduledAt, viewerTimezone)} {tzAbbrev(session.scheduledAt, viewerTimezone)}
+              {t("friendsPage.yourTime", {
+                time: `${formatDateTime(session.scheduledAt, viewerTimezone)} ${tzAbbrev(session.scheduledAt, viewerTimezone)}`.trim(),
+              })}
             </div>
           )}
 

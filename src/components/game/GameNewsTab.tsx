@@ -593,6 +593,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
         />
       ) : state.view === "briefing" ? (
         <GameNewsBriefing
+          gameName={game.name}
           hero={briefing.hero}
           unread={briefing.unread}
           patchNotes={briefing.patchNotes}

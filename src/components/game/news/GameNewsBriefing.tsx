@@ -8,6 +8,7 @@ import GameNewsCard from "./GameNewsCard";
 import GameNewsBriefRow from "./GameNewsBriefRow";
 
 export interface GameNewsBriefingProps {
+  gameName: string;
   hero: NewsArticle | null;
   unread: NewsArticle[];
   patchNotes: NewsArticle[];
@@ -28,6 +29,7 @@ export interface GameNewsBriefingProps {
  * feed is one switch away.
  */
 export default function GameNewsBriefing({
+  gameName,
   hero,
   unread,
   patchNotes,
@@ -46,7 +48,7 @@ export default function GameNewsBriefing({
       <GameTabEmpty
         icon={<CheckCircle2 size={24} />}
         title={t("game.news.emptyTitle")}
-        description={t("game.news.emptySubtitle")}
+        description={t("game.news.emptySubtitle", { game: gameName })}
       />
     );
   }
