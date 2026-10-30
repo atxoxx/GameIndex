@@ -62,6 +62,20 @@ pub(crate) const STEAM_INSTALL_SCAN_INTERVAL: std::time::Duration = std::time::D
 /// another live process in the install dir) still runs first.
 pub(crate) const SESSION_LOST_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
 
+/// How long an app-launched session may stay pending (no process captured)
+/// before the main window hidden by minimize-on-launch is restored.
+///
+/// A tracked launch attaches within a poll or two. Past this point either
+/// the hand-off is invisible to the watcher — a Steam/Uplay protocol start,
+/// a batch/launcher script, a game spawned outside its install tree; those
+/// would keep the session pending for the full `PENDING_SESSION_TIMEOUT`
+/// (10 minutes) and emit no `game-exited` — or the launch is genuinely slow
+/// (user-gated Steam dialog, UAC prompt). Leaving the launcher hidden for
+/// minutes is worse than a background window in both cases, so the window
+/// comes back while the session keeps waiting for its process.
+pub(crate) const PENDING_LAUNCH_HIDE_LIMIT: std::time::Duration =
+    std::time::Duration::from_secs(45);
+
 /// How often the poll loop emits `game-progress` heartbeats and persists
 /// the durable in-progress `sessions` row. 30 s bounds crash-loss to half
 /// a minute while keeping DB writes negligible (a few rows per tick).
@@ -155,8 +169,20 @@ pub fn start_background_poll(
             Vec::new()
         };
 
+        // An app-launched session that still has no process after the hide
+        // budget will not report an exit any time soon (pending timeout is
+        // 10 min), so give the user their launcher back now. The session
+        // stays pending and keeps looking for the game process.
+        let untracked_launch = w.untracked_launch_expired(PENDING_LAUNCH_HIDE_LIMIT);
+
         let db = w.db_clone();
         drop(w);
+
+        if untracked_launch {
+            // Window ops from a worker thread are queued to the event loop,
+            // so this never blocks the poll cycle.
+            crate::launcher::restore_hidden_main_window(&app_handle);
+        }
 
         // Finalize ended sessions outside the watcher lock — mirrors the
         // force-close path (take_active_session → finalize).

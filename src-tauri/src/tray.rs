@@ -573,37 +573,45 @@ fn navigate(app: &AppHandle, path: &str) {
 
 /// Launch a game from the Recent Games submenu using the full launch
 /// data stored on its `GameRow`.
+///
+/// Runs off the menu-event thread: `launch_game` can block on a UAC prompt
+/// or a pre-launch script, and menu events are dispatched on the UI thread —
+/// blocking there freezes the whole window for the length of the launch.
 fn launch_recent(app: &AppHandle, game_id: &str) {
-    let db = app.state::<db::Db>();
-    let Ok(Some(row)) = db::games::get(&db, game_id) else {
-        return;
-    };
-    let companion_apps = row.companion_apps.as_ref().map(|apps| {
-        apps.iter()
-            .filter_map(|v| serde_json::from_value::<crate::CompanionApp>(v.clone()).ok())
-            .collect()
+    let handle = app.clone();
+    let game_id = game_id.to_string();
+    std::thread::spawn(move || {
+        let db = handle.state::<db::Db>();
+        let Ok(Some(row)) = db::games::get(&db, &game_id) else {
+            return;
+        };
+        let companion_apps = row.companion_apps.as_ref().map(|apps| {
+            apps.iter()
+                .filter_map(|v| serde_json::from_value::<crate::CompanionApp>(v.clone()).ok())
+                .collect()
+        });
+        if let Err(e) = crate::launch_game(
+            handle.clone(),
+            row.id,
+            row.name,
+            row.path,
+            row.platform,
+            row.steam_app_id,
+            None,
+            None,
+            None,
+            row.launch_arguments,
+            row.run_as_admin,
+            row.pre_launch_script,
+            row.pre_launch_admin,
+            row.post_exit_script,
+            row.post_exit_admin,
+            companion_apps,
+            row.show_steam_launch_selection,
+        ) {
+            eprintln!("[gameindex] tray recent-game launch failed: {e}");
+        }
     });
-    if let Err(e) = crate::launch_game(
-        app.clone(),
-        row.id,
-        row.name,
-        row.path,
-        row.platform,
-        row.steam_app_id,
-        None,
-        None,
-        None,
-        row.launch_arguments,
-        row.run_as_admin,
-        row.pre_launch_script,
-        row.pre_launch_admin,
-        row.post_exit_script,
-        row.post_exit_admin,
-        companion_apps,
-        row.show_steam_launch_selection,
-    ) {
-        eprintln!("[gameindex] tray recent-game launch failed: {e}");
-    }
 }
 
 /// Tray icon with a green dot painted in the bottom-right corner,

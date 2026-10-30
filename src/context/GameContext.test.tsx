@@ -205,6 +205,9 @@ describe("GameProvider launch flow", () => {
       "error",
     );
     expect(splashMock.updateStatus).toHaveBeenCalledWith("error", "Error: spawn failed");
+    // A failed launch registers no session, so no `game-exited` will ever
+    // arrive — the app must ask the backend to un-hide the window itself.
+    expect(mockedInvoke).toHaveBeenCalledWith("restore_main_window");
     expect(screen.getByTestId("running")).toHaveTextContent("");
     // A failed launch must not bump the game in the "Continue Playing" rail.
     expect(screen.getByTestId("last-played")).toHaveTextContent("1600000000000");

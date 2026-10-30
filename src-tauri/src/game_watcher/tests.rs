@@ -599,6 +599,42 @@ fn test_poll_interval_is_fast_for_pending_and_lost_sessions() {
     assert_eq!(watcher.current_poll_interval(), POLL_INTERVAL_STEADY);
 }
 
+#[test]
+fn untracked_launch_expired_only_flags_stale_pending_app_launches() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut watcher = GameWatcher::new(crate::db::Db::open(tmp.path()).unwrap());
+    let limit = PENDING_LAUNCH_HIDE_LIMIT;
+
+    // Nothing tracked: no launch is waiting, so nothing to un-hide.
+    assert!(!watcher.untracked_launch_expired(limit));
+
+    // A launch that is still inside its budget keeps the window hidden.
+    watcher
+        .active_sessions
+        .insert("g1".to_string(), make_session(0, false));
+    assert!(!watcher.untracked_launch_expired(limit));
+
+    // Same pending launch past the budget: the watcher will emit no exit for
+    // it for another ten minutes, so the hidden window must come back.
+    let mut stale = make_session(0, false);
+    stale.started_at = Instant::now() - limit - std::time::Duration::from_secs(1);
+    watcher.active_sessions.insert("g1".to_string(), stale);
+    assert!(watcher.untracked_launch_expired(limit));
+
+    // An attached session is tracked normally — its exit restores the window.
+    let mut attached = make_session(1234, false);
+    attached.started_at = Instant::now() - limit - std::time::Duration::from_secs(1);
+    watcher.active_sessions.insert("g1".to_string(), attached);
+    assert!(!watcher.untracked_launch_expired(limit));
+
+    // A game detected outside the app never hid the window.
+    let mut passive = make_session(0, false);
+    passive.launched_by_app = false;
+    passive.started_at = Instant::now() - limit - std::time::Duration::from_secs(1);
+    watcher.active_sessions.insert("g1".to_string(), passive);
+    assert!(!watcher.untracked_launch_expired(limit));
+}
+
 // ── MemoryScanFilter ─────────────────────────────────────────────
 
 #[test]

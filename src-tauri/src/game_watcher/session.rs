@@ -130,6 +130,13 @@ pub(crate) fn finalize_session(
     // quits never trigger the heal dialog.
     let attached = session.last_pid != 0;
     if elapsed < HEAL_SHORT_RUN_SECS {
+        // The heal dialog renders in the main window, which
+        // minimize-on-launch may still be hiding (a `.bat`/launcher
+        // hand-off the watcher could not follow ends the session seconds
+        // after the launch). Bring it back so the user actually sees the
+        // diagnosis; the `restore_on_exit` setting only governs clean
+        // exits, and nothing is running here.
+        crate::launcher::restore_hidden_main_window(app_handle);
         let _ = app_handle.emit(
             "game-failed",
             GameFailurePayload {

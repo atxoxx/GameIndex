@@ -356,6 +356,11 @@ export function useLaunch(options: {
           g.id === game.id ? { ...g, lastPlayed: previousLastPlayed } : g
         )
       );
+      // The backend hides the main window before spawning when
+      // minimize-on-launch is on, and a failed launch never registers a
+      // session — so no `game-exited` will ever arrive to bring the app
+      // back. Ask for it explicitly (a no-op when nothing was hidden).
+      void invoke("restore_main_window").catch(() => {});
       if (splashOn) splash.updateStatus("error", String(err));
       showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
     }

@@ -44,7 +44,7 @@ use crate::steam::launch_options::SteamLaunchOption;
 /// `recv_timeout` (now capped at 1 s — metrics are nice-to-have
 /// telemetry, not a UX blocker), SQLite writes, and the
 /// `game-exited` emit all run with the lock RELEASED.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn force_close_game(
     app: tauri::AppHandle,
     game_id: String,
@@ -397,6 +397,71 @@ const KV_STARTUP_SPLASH: &str = "launcher.startup_splash_enabled";
 pub(crate) static WINDOW_HIDDEN_ON_LAUNCH: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
+/// Re-show the main window after a launch hid it, and clear the
+/// hide-on-launch flag. Returns `false` when this launch didn't hide the
+/// window (nothing to do).
+///
+/// The flag is claimed atomically, so exactly one caller restores the
+/// window even when several overlap (the last-session `game-exited`
+/// listener, the failed-launch guard, the untracked-launch watchdog in the
+/// poll loop, and the frontend dismissing a splash before the game
+/// started). Showing an already-visible window is harmless, so the claim is
+/// about not re-showing a window the user hid on purpose afterwards.
+///
+/// The window is shown + unminimized but deliberately NOT focused: the
+/// untracked-launch watchdog can fire while a fullscreen game is in front,
+/// and stealing focus there would minimize an exclusive-fullscreen game.
+pub(crate) fn restore_hidden_main_window(app: &tauri::AppHandle) -> bool {
+    if !WINDOW_HIDDEN_ON_LAUNCH.swap(false, std::sync::atomic::Ordering::Relaxed) {
+        return false;
+    }
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.unminimize();
+    }
+    true
+}
+
+/// Re-show the main window after a launch that hid it. Exposed to the
+/// frontend so `useLaunch` can undo the hide when a launch fails (or is
+/// cancelled from the splash) *before* any session exists — a failed launch
+/// never emits `game-exited`, so without this the app would stay hidden.
+#[tauri::command]
+pub fn restore_main_window(app: tauri::AppHandle) {
+    restore_hidden_main_window(&app);
+}
+
+/// Undoes the minimize-on-launch hide when `launch_game` returns an error.
+///
+/// Every error return after the hide (missing exe, cancelled UAC prompt,
+/// blocked elevation, failed Steam protocol hand-off, pre-launch script
+/// failure, poisoned watcher lock, ...) happens before a session is
+/// registered, so no `game-exited` event will ever fire to restore the
+/// window. Dropping the guard armed restores it; `disarm` keeps the window
+/// hidden for a launch that did register a session.
+struct RestoreOnLaunchFailure {
+    app: tauri::AppHandle,
+    armed: bool,
+}
+
+impl RestoreOnLaunchFailure {
+    fn new(app: tauri::AppHandle) -> Self {
+        Self { app, armed: true }
+    }
+
+    fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for RestoreOnLaunchFailure {
+    fn drop(&mut self) {
+        if self.armed {
+            restore_hidden_main_window(&self.app);
+        }
+    }
+}
+
 /// L2: Get the current launcher settings. Read-only IPC; the frontend
 /// hydrates its UI forms from this on mount.
 #[tauri::command]
@@ -747,7 +812,14 @@ fn emit_launch_progress(app: &tauri::AppHandle, game_id: &str, step: &str) {
     );
 }
 
-#[tauri::command]
+/// Launch a game executable with unified process tracking.
+///
+/// Runs on the async thread pool (`command(async)`), never on the WebView2
+/// IPC thread: the body runs blocking work — a pre-launch script that waits
+/// for a console, a UAC prompt via `ShellExecuteExW`, process spawning, the
+/// watcher lock — and doing that on the UI thread froze the whole app
+/// ("GameIndex is not responding") whenever a launch had to wait.
+#[tauri::command(async)]
 pub fn launch_game(
     app: tauri::AppHandle,
     game_id: String,
@@ -821,6 +893,13 @@ pub fn launch_game(
             WINDOW_HIDDEN_ON_LAUNCH.store(true, std::sync::atomic::Ordering::Relaxed);
         }
     }
+
+    // Everything below this point can fail before a session exists (missing
+    // exe, cancelled UAC, blocked elevation, failed Steam/Uplay hand-off,
+    // pre-launch script error, ...). None of those failures emit
+    // `game-exited`, so this guard is what keeps the app from staying hidden
+    // forever; it is disarmed once the session is registered.
+    let restore_guard = RestoreOnLaunchFailure::new(app.clone());
 
     let mut initial_pid: u32 = 0;
     let exe_path: Option<String>;
@@ -1112,6 +1191,9 @@ pub fn launch_game(
     } else {
         format!("Launched: {}", game_path)
     };
+    // The launch is registered (or pending) with the watcher: the window
+    // stays hidden by design until the session ends.
+    restore_guard.disarm();
     Ok(msg)
 }
 

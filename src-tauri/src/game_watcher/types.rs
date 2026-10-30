@@ -73,10 +73,11 @@ pub struct ActiveSession {
     pub metrics_acc: Option<metrics_collector::MetricsAccumulator>,
     /// `true` if the session was started by `register_launched_session`
     /// (user clicked Launch); `false` if detected passively by
-    /// `start_passive_session`. Wired up so future telemetry and
-    /// Activity-page filters can distinguish manual launches from
-    /// games the user started outside the app.
-    #[allow(dead_code)]
+    /// `start_passive_session`. Drives the untracked-launch watchdog
+    /// (`GameWatcher::untracked_launch_expired`) that restores a window
+    /// hidden by minimize-on-launch when the launched process never shows
+    /// up, and is available to Activity filters that want to separate
+    /// manual launches from games started outside the app.
     pub launched_by_app: bool,
     pub matched_exe: String,
     /// Install directory used to re-attach the session when the initial

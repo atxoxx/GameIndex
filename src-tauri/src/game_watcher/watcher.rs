@@ -367,6 +367,21 @@ impl GameWatcher {
         !self.active_sessions.is_empty()
     }
 
+    /// `true` when a launch the app started is still waiting for its process
+    /// after `limit`. Nothing will emit `game-exited` for such a session
+    /// until the pending timeout expires (minutes), so the caller uses this
+    /// to un-hide a window hidden by minimize-on-launch instead of leaving
+    /// the launcher stranded: protocol hand-offs the watcher cannot see
+    /// (Steam/Uplay, scripts, launchers that spawn the game elsewhere) and
+    /// launches that silently went nowhere both land here.
+    pub(crate) fn untracked_launch_expired(&self, limit: std::time::Duration) -> bool {
+        self.active_sessions.values().any(|session| {
+            session.launched_by_app
+                && session.last_pid == 0
+                && session.started_at.elapsed() > limit
+        })
+    }
+
     /// Path/stem inputs that let the process snapshot decide which processes
     /// need a working-set read (see [`MemoryScanFilter`]). Empty when no
     /// session is active, which skips every per-process memory query.

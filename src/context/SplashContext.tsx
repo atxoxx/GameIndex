@@ -118,6 +118,10 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   // Identifies the launch whose window-open call is still in flight, so a
   // stale failure can't pull a newer launch back into the overlay.
   const activeStartedAtRef = useRef<number | null>(null);
+  // Latest record, readable from `close` without making it depend on the
+  // record and re-binding every render.
+  const recordRef = useRef<SplashRecord | null>(null);
+  recordRef.current = record;
 
   const open = useCallback(
     (payload: SplashPayload, actions?: { retry?: () => void }) => {
@@ -154,6 +158,15 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const close = useCallback(() => {
+    // Dismissing a launch that never reached "started" (Cancel/Escape, a
+    // failed launch, or the splash window being closed) must not leave the
+    // app stranded after minimize-on-launch hid it: there is no running
+    // session, so no `game-exited` will restore the window. A splash that
+    // closes after "started" keeps the window hidden on purpose.
+    const dismissed = recordRef.current;
+    if (dismissed && dismissed.status !== "started") {
+      void invoke("restore_main_window").catch(() => {});
+    }
     activeStartedAtRef.current = null;
     setRecord(null);
   }, []);
