@@ -694,6 +694,12 @@ fn detect_installed_epic_games_egl() -> Vec<EpicGame> {
 }
 
 /// Parse an Epic launcher .item manifest file (JSON format).
+///
+/// Epic writes a manifest at the *start* of an install and rewrites it as
+/// it goes, so the file's presence says nothing about whether the game is
+/// playable. `bIsIncompleteInstall` is the only honest signal: while it is
+/// true the install directory holds a partial download, and reporting it
+/// as installed would put a broken exe path in the library.
 fn parse_epic_manifest(content: &str) -> Option<EpicGame> {
     let json: Value = serde_json::from_str(content).ok()?;
 
@@ -701,6 +707,8 @@ fn parse_epic_manifest(content: &str) -> Option<EpicGame> {
     let catalog_item_id = json["CatalogItemId"].as_str()?.to_string();
     let app_name = json["AppName"].as_str()?.to_string();
     let title = json["DisplayName"].as_str()?.to_string();
+
+    let incomplete = json["bIsIncompleteInstall"].as_bool().unwrap_or(false);
 
     let install_path = json["InstallLocation"].as_str().map(|s| s.to_string());
     let launch_executable = json["LaunchExecutable"].as_str().map(|s| s.to_string());
@@ -723,13 +731,17 @@ fn parse_epic_manifest(content: &str) -> Option<EpicGame> {
         catalog_item_id: catalog_item_id.clone(),
         build_version: json["AppVersionString"].as_str().map(|s| s.to_string()),
         is_owned: true,
-        is_installed: true,
-        install_path: full_install_path,
+        is_installed: !incomplete,
+        install_path: if incomplete {
+            None
+        } else {
+            full_install_path
+        },
         // `install_path` (local var above) is the raw `InstallLocation`
         // from the manifest, i.e. the canonical install dir. We keep it
         // alongside the full exe path so the size-measurement step
         // can walk the whole install dir instead of the bin subfolder.
-        install_dir: install_path,
+        install_dir: if incomplete { None } else { install_path },
         launch_url: Some(format!(
             "com.epicgames.launcher://apps/{}-{}?action=launch&silent=true",
             namespace, catalog_item_id
