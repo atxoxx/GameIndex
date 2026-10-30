@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useDownloads } from "../../context/DownloadContext";
 import { formatBytesShort, isActiveStatus } from "../../types/download";
@@ -14,19 +14,25 @@ interface DiskUsageResult {
   mountPoint?: string;
 }
 
+/** How often the destination's free space is re-read while the band is on screen. */
+const DISK_REFRESH_MS = 15_000;
+
 export default function DriveSpaceWidget() {
   const { downloads, defaultDownloadPath } = useDownloads();
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
   const [diskStats, setDiskStats] = useState<DiskUsageResult | null>(null);
-  const [targetPath, setTargetPath] = useState<string>("");
+
+  // The download list gets a fresh identity on every 2 s progress tick, so the
+  // path — not the array — keys the disk probe. Only the destination string
+  // changing (or the widget mounting) re-runs `resolve_mounts`.
+  const targetPath = useMemo(() => {
+    if (defaultDownloadPath) return defaultDownloadPath;
+    return downloads.find((d) => d.savePath)?.savePath ?? "";
+  }, [downloads, defaultDownloadPath]);
 
   useEffect(() => {
-    const configured = defaultDownloadPath;
-    const activeWithSave = downloads.find((d) => d.savePath)?.savePath;
-    const path = configured || activeWithSave || "";
-    setTargetPath(path);
-    if (!path) {
+    if (!targetPath) {
       setDiskStats(null);
       return;
     }
@@ -34,26 +40,34 @@ export default function DriveSpaceWidget() {
     let cancelled = false;
     // `resolve_mounts` returns the real mount point, so the widget
     // labels the actual disk on Linux instead of guessing from a
-    // hardcoded drive letter.
-    invoke<MountUsage[]>("resolve_mounts", { paths: [path] })
-      .then((rows) => {
-        const row = rows[0];
-        if (cancelled || !row || row.total <= 0) return;
-        setDiskStats({
-          total: row.total,
-          free: row.free,
-          available: row.available,
-          mountPoint: row.mountPoint,
+    // hardcoded drive letter. The queue rewrites its rows every 2 s, which
+    // is far too often to stat the filesystem, so the probe runs on the
+    // destination changing and then on a slow refresh while the page is open.
+    const probe = () => {
+      invoke<MountUsage[]>("resolve_mounts", { paths: [targetPath] })
+        .then((rows) => {
+          const row = rows[0];
+          if (cancelled || !row || row.total <= 0) return;
+          setDiskStats({
+            total: row.total,
+            free: row.free,
+            available: row.available,
+            mountPoint: row.mountPoint,
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setDiskStats(null);
         });
-      })
-      .catch(() => {
-        if (!cancelled) setDiskStats(null);
-      });
+    };
+
+    probe();
+    const refresh = window.setInterval(probe, DISK_REFRESH_MS);
 
     return () => {
       cancelled = true;
+      window.clearInterval(refresh);
     };
-  }, [downloads, defaultDownloadPath]);
+  }, [targetPath]);
 
   // Compute total size required by active/queued downloads that are not finished
   const queueRequiredBytes = downloads.reduce((acc, d) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RotateCcw } from "lucide-react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
@@ -15,6 +15,13 @@ interface BandwidthHeroProps {
 }
 
 type BandBusy = "pause" | "resume" | "retry" | null;
+
+/**
+ * Longest gap between two speed samples that still counts as transfer time.
+ * The progress stream stops while the window is hidden or the queue is idle,
+ * so an uncapped gap would bill minutes of wall-clock to the last speed seen.
+ */
+const MAX_SAMPLE_GAP_MS = 5000;
 
 /**
  * The downloads control band: the live transfer rates, the destination disk
@@ -39,19 +46,24 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   const [sessionDown, setSessionDown] = useState(0);
   const [speedModalOpen, setSpeedModalOpen] = useState(false);
   const [busy, setBusy] = useState<BandBusy>(null);
+  const lastSampleAt = useRef(Date.now());
 
   useEffect(() => {
-    if (totalDownloadSpeed > peakDown) {
-      setPeakDown(totalDownloadSpeed);
-    }
-    if (totalUploadSpeed > peakUp) {
-      setPeakUp(totalUploadSpeed);
-    }
+    // The queue pushes progress on its own cadence, not once a second, so the
+    // session counter integrates speed over the real sample gap instead of
+    // billing every tick as one second. Idle stretches are capped so a paused
+    // window cannot attribute minutes of downtime to the last speed seen.
+    const now = Date.now();
+    const elapsedMs = Math.min(now - lastSampleAt.current, MAX_SAMPLE_GAP_MS);
+    lastSampleAt.current = now;
+
+    setPeakDown((prev) => (totalDownloadSpeed > prev ? totalDownloadSpeed : prev));
+    setPeakUp((prev) => (totalUploadSpeed > prev ? totalUploadSpeed : prev));
 
     if (totalDownloadSpeed > 0) {
-      setSessionDown((prev) => prev + totalDownloadSpeed);
+      setSessionDown((prev) => prev + totalDownloadSpeed * (elapsedMs / 1000));
     }
-  }, [totalDownloadSpeed, totalUploadSpeed, peakDown, peakUp]);
+  }, [totalDownloadSpeed, totalUploadSpeed]);
 
   const isDownloading = totalDownloadSpeed > 0;
   const isUploading = totalUploadSpeed > 0;
