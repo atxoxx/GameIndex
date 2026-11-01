@@ -1449,7 +1449,7 @@ fn collect_single_sample(
     _start: Instant,
 ) -> MetricsSample {
     // 1. Try to read from MSI Afterburner Shared Memory first (highly reliable)
-    let mahm = mahm_reader::read_mahm_metrics(gpu_idx, gpu_name);
+    let mahm = mahm_reader::read_mahm_metrics(gpu_name);
 
     let mut cpu_usage_val: f32 = 0.0;
     let mut gpu_usage_val: f32 = 0.0;
@@ -1479,7 +1479,24 @@ fn collect_single_sample(
     };
 
     if let Some(ref m) = mahm {
-        if m.cpu_usage.is_some() || m.gpu_usage.is_some() || m.cpu_temp.is_some() {
+        // Enter this branch when Afterburner produced *anything* we consume —
+        // not just usage/temperature. An Afterburner profile with usage and
+        // temperature sensors switched off still exposes power draw and clocks,
+        // and those used to be discarded because the old gate only looked at
+        // cpu/gpu usage and cpu temperature.
+        let has_reading = m.cpu_usage.is_some()
+            || m.gpu_usage.is_some()
+            || m.cpu_temp.is_some()
+            || m.gpu_temp.is_some()
+            || m.ram_usage.is_some()
+            || m.fps.is_some()
+            || m.frametime.is_some()
+            || m.vram_used_mb.is_some()
+            || m.gpu_power.is_some()
+            || m.cpu_power.is_some()
+            || m.gpu_core_clock.is_some()
+            || m.gpu_mem_clock.is_some();
+        if has_reading {
             used_mahm = true;
             cpu_usage_val = m.cpu_usage.unwrap_or(0.0);
             gpu_usage_val = m.gpu_usage.unwrap_or(0.0);

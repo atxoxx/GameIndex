@@ -25,31 +25,51 @@ pub struct MAHMSharedMemoryHeader {
     pub gpu_entry_size: u32,
 }
 
-#[cfg(windows)]
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct MAHMSharedMemoryGpu {
-    pub id: [u8; 260],
-    pub device: [u8; 260],
-    pub driver: [u8; 260],
-    pub bios: [u8; 260],
-    pub mem_amount: [u8; 260]
+/// One adapter from Afterburner's GPU list. The field names follow the MAHM
+/// SDK (`MAHM_SHARED_MEMORY_GPU`), not their position in the struct: Afterburner
+/// stores the PCI identity first, then the die codename, then the marketing
+/// name. Reading `device` where `family` lives (or `bios` where `memAmount`
+/// lives) silently matches the wrong adapter / parses the BIOS string as a
+/// VRAM amount, so the offsets below are load-bearing.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Default)]
+struct MahmGpuInfo {
+    /// `szFamily`, the die codename, e.g. `GB203-A`.
+    family: String,
+    /// `szDevice`, the marketing name, e.g. `NVIDIA GeForce RTX 5070 Ti`.
+    device: String,
+    /// `szDriver`, the driver version, e.g. `616.56`.
+    driver: String,
+    /// VRAM in megabytes when Afterburner reports it (often left at 0).
+    vram_mb: Option<f32>,
 }
 
-// The entry struct is large (5 × 260-byte strings + data fields).
-// We read fields manually to avoid alignment issues with different MAHM versions.
-// Reference (Playnite plugin MsiAfterburnerProvider.cs):
+// Both structs are large (arrays of 260-byte strings) and their layout differs
+// between MAHM versions, so every field is read by offset instead of casting to
+// a `#[repr(C)]` mirror. Reference: the MAHM SDK header, `MAHM_SHARED_MEMORY_ENTRY`
+// and `MAHM_SHARED_MEMORY_GPU`.
+//
+// Entry (modern layout):
 //   offset 0: szSrcName[260]
 //   offset 260: szSrcUnits[260]
-//   offset 520: szLocSrcName[260]  (modern layout)
+//   offset 520: szLocSrcName[260]
 //   offset 780: szLocSrcUnits[260]
 //   offset 1040: szRecommendedFormat[260]
 //   offset 1300: data (float, 4 bytes)
 //   offset 1304: minLimit (float, 4 bytes)
 //   offset 1308: maxLimit (float, 4 bytes)
 //   offset 1312: flags (u32, 4 bytes)
-//   offset 1316: dwGpu (u32, 4 bytes) — GPU index for this entry
+//   offset 1316: dwGpu (u32, 4 bytes) — GPU index for this entry, `u32::MAX`
+//                for CPU/system sensors (per-core entries carry the core index)
 //   offset 1320: dwSrcId (u32, 4 bytes) — source ID
+//
+// GPU record:
+//   offset 0: szGpuId[260]
+//   offset 260: szFamily[260]
+//   offset 520: szDevice[260]
+//   offset 780: szDriver[260]
+//   offset 1040: szBios[260]
+//   offset 1300: dwMemAmount (u32, megabytes; 0 when not populated)
 
 #[cfg(windows)]
 const ENTRY_NAME_OFFSET: usize = 0;
@@ -67,6 +87,16 @@ const MODERN_DATA_OFFSET: usize = 1300;
 const LEGACY_DATA_OFFSET: usize = 544;
 #[cfg(windows)]
 const LEGACY_ENTRY_SIZE_THRESHOLD: u32 = 640;
+
+// GPU record field offsets (see the layout comment above).
+#[cfg(windows)]
+const GPU_FAMILY_OFFSET: usize = 260;
+#[cfg(windows)]
+const GPU_DEVICE_OFFSET: usize = 520;
+#[cfg(windows)]
+const GPU_DRIVER_OFFSET: usize = 780;
+#[cfg(windows)]
+const GPU_MEM_AMOUNT_OFFSET: usize = 1300;
 
 #[cfg(windows)]
 #[derive(Debug, Clone)]
@@ -154,22 +184,58 @@ fn cstr_from_bytes(bytes: &[u8]) -> String {
 }
 
 /// Whether a GameIndex GPU name (`filter`, e.g. "NVIDIA GeForce RTX 5070 Ti")
-/// identifies the MAHM GPU described by its `device` (die codename, e.g.
-/// "GB203-A") or `driver` field. Afterburner stores the marketing name in
-/// `driver` on current builds even though the field is nominally the driver
-/// version, and older builds put it in `device` — so both are checked.
-/// Bidirectional containment tolerates the abbreviated variants Afterburner
-/// emits. Shared with tests.
+/// identifies the MAHM adapter described by its `device` (marketing name),
+/// `family` (die codename, e.g. "GB203-A") or `driver` field. Afterburner
+/// stores the marketing name in `device` on current builds and in `driver` on
+/// older ones, so all three are checked. Bidirectional containment tolerates
+/// the abbreviated variants Afterburner emits. Shared with tests.
 #[cfg(any(windows, test))]
-fn mahm_gpu_name_matches(filter: &str, device: &str, driver: &str) -> bool {
+fn mahm_gpu_name_matches(filter: &str, gpu: &MahmGpuInfo) -> bool {
     let filter = filter.trim().to_lowercase();
     if filter.is_empty() {
         return false;
     }
-    [device, driver].iter().any(|raw| {
+    [&gpu.device, &gpu.family, &gpu.driver].iter().any(|raw| {
         let cleaned = raw.trim().to_lowercase();
         !cleaned.is_empty() && (cleaned.contains(&filter) || filter.contains(&cleaned))
     })
+}
+
+/// Resolve which Afterburner adapter to sample.
+///
+/// The caller's adapter index comes from Windows' adapter enumeration, which
+/// does not match Afterburner's GPU list order: a desktop with an iGPU lists
+/// the iGPU first in MAHM ("GPU1") and the gaming card second, while Windows
+/// may list a virtual display adapter first. Using that index directly made
+/// the overlay report the *iGPU's* power draw — on AMD the IGP power sensor
+/// mirrors CPU package power, so the GPU tile ended up showing the CPU's
+/// wattage.
+///
+/// Resolution order:
+///   1. the adapter matching the explicit selection (Settings → Hardware);
+///   2. otherwise the adapter Afterburner monitors most (the most per-GPU
+///      sensors), which is the card its OSD is actually built around;
+///   3. otherwise index 0.
+#[cfg(any(windows, test))]
+fn resolve_gpu_index(
+    gpu_name: Option<&str>,
+    gpus: &[MahmGpuInfo],
+    per_gpu_sensor_counts: &[u32],
+) -> u32 {
+    if let Some(name) = gpu_name {
+        if let Some(pos) = gpus.iter().position(|gpu| mahm_gpu_name_matches(name, gpu)) {
+            return pos as u32;
+        }
+    }
+
+    // `Reverse` on the index keeps the lowest one on a tie.
+    per_gpu_sensor_counts
+        .iter()
+        .enumerate()
+        .max_by_key(|(idx, count)| (**count, std::cmp::Reverse(*idx)))
+        .filter(|(_, count)| **count > 0)
+        .map(|(idx, _)| idx as u32)
+        .unwrap_or(0)
 }
 
 /// Get the offset of the float `data` field within an entry,
@@ -270,18 +336,31 @@ fn matches_gpu_memory_used(name: &str) -> bool {
     dedicated && (n.contains("usage") || n.contains("used") || n.contains("allocated"))
 }
 
-/// GPU board power draw (e.g. "GPU power", "GPU1 power").
+/// GPU board power draw (e.g. "GPU power", "GPU1 power"). Power-*limit*
+/// entries ("GPU2 power limit") are percentages / raw flags with no unit, so
+/// they must not be reported as a wattage.
 #[cfg(any(windows, test))]
 fn matches_gpu_power(name: &str) -> bool {
     let n = name.to_lowercase();
-    n.contains("gpu") && n.contains("power")
+    n.contains("gpu") && n.contains("power") && !n.contains("limit")
 }
 
 /// CPU package power draw (e.g. "CPU package power", "CPU power").
 #[cfg(any(windows, test))]
 fn matches_cpu_power(name: &str) -> bool {
     let n = name.to_lowercase();
-    n.contains("cpu") && n.contains("power") && !n.contains("gpu")
+    n.contains("cpu") && n.contains("power") && !n.contains("gpu") && !n.contains("limit")
+}
+
+/// Whether a MAHM entry's unit field denotes watts. The value is meaningless
+/// without it: HWiNFO imports and per-GPU limit sensors surface as "%", "MHz",
+/// "V", "MB" or with no unit at all. Afterburner leaves the unit empty for some
+/// flag sensors, so an empty unit is accepted (the value range and the "limit"
+/// name guard weed those out).
+#[cfg(any(windows, test))]
+fn units_allow_watts(units: &str) -> bool {
+    let units = units.trim();
+    units.is_empty() || units.to_lowercase().starts_with('w')
 }
 
 /// GPU core clock (e.g. "GPU clock", "GPU1 core clock").
@@ -362,6 +441,111 @@ fn parse_mem_amount_mb(raw: &str) -> Option<f32> {
     Some(mb)
 }
 
+/// Parse Afterburner's GPU list into memory. Bounded against the mapped view
+/// the same way the sensor entries are: a corrupted header must not walk off
+/// the end of a shared-memory section.
+#[cfg(windows)]
+unsafe fn read_gpu_list(base: *const u8, header: &MAHMSharedMemoryHeader) -> Vec<MahmGpuInfo> {
+    let mut gpus = Vec::new();
+    // The name fields run through `szDriver`, so a record narrower than that is
+    // not a GPU record we can read at all.
+    if header.gpu_count == 0
+        || (header.gpu_entry_size as usize) < GPU_DRIVER_OFFSET + ENTRY_NAME_SIZE
+    {
+        return gpus;
+    }
+
+    let gpus_offset =
+        header.header_size as usize + header.entry_count as usize * header.entry_size as usize;
+    for i in 0..header.gpu_count as usize {
+        let rel = gpus_offset + i * header.gpu_entry_size as usize;
+        if rel + header.gpu_entry_size as usize > 0x40000 {
+            break;
+        }
+        let gpu = base.add(rel);
+
+        // Newer builds append `dwMemAmount` (megabytes) as a DWORD; the earliest
+        // v2.0 layout kept a 260-byte string there instead. Prefer the DWORD,
+        // fall back to the string form when the record is wide enough for it.
+        let vram_mb = if header.gpu_entry_size as usize
+            >= GPU_MEM_AMOUNT_OFFSET + ENTRY_NAME_SIZE
+        {
+            parse_mem_amount_mb(&cstr_from_bytes(std::slice::from_raw_parts(
+                gpu.add(GPU_MEM_AMOUNT_OFFSET),
+                ENTRY_NAME_SIZE,
+            )))
+        } else if header.gpu_entry_size as usize >= GPU_MEM_AMOUNT_OFFSET + 4 {
+            let mb = *(gpu.add(GPU_MEM_AMOUNT_OFFSET) as *const u32);
+            if mb > 0 && mb < 1_048_576 {
+                Some(mb as f32)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        gpus.push(MahmGpuInfo {
+            family: cstr_from_bytes(std::slice::from_raw_parts(
+                gpu.add(GPU_FAMILY_OFFSET),
+                ENTRY_NAME_SIZE,
+            )),
+            device: cstr_from_bytes(std::slice::from_raw_parts(
+                gpu.add(GPU_DEVICE_OFFSET),
+                ENTRY_NAME_SIZE,
+            )),
+            driver: cstr_from_bytes(std::slice::from_raw_parts(
+                gpu.add(GPU_DRIVER_OFFSET),
+                ENTRY_NAME_SIZE,
+            )),
+            vram_mb,
+        });
+    }
+    gpus
+}
+
+/// Count the per-GPU sensors Afterburner exposes for each adapter. Used to pick
+/// a sane adapter when no GPU is selected in Settings: the card Afterburner
+/// monitors in depth (temperature, usage, clocks, power) is the one its OSD
+/// tracks, whereas the iGPU/virtual adapters only expose a couple of entries.
+#[cfg(windows)]
+unsafe fn count_gpu_sensors(
+    base: *const u8,
+    header: &MAHMSharedMemoryHeader,
+    data_offset: usize,
+    has_dw_gpu: bool,
+    gpu_count: usize,
+) -> Vec<u32> {
+    let mut counts = vec![0u32; gpu_count];
+    if !has_dw_gpu || gpu_count == 0 {
+        return counts;
+    }
+    let entries_base = base.add(header.header_size as usize);
+    for i in 0..header.entry_count as usize {
+        // Same view bound as the main entry loop: a corrupt header must not
+        // walk past the mapped section.
+        let entry_offset = header.header_size as usize + i * header.entry_size as usize;
+        if entry_offset + data_offset + 4 > 0x200000 {
+            break;
+        }
+        let entry = entries_base.add(i * header.entry_size as usize);
+        let name = read_str_at(entry.add(ENTRY_NAME_OFFSET), ENTRY_NAME_SIZE);
+        if name.is_empty() || !name.to_lowercase().contains("gpu") {
+            continue;
+        }
+        let dw_gpu = *(entry.add(data_offset + 16) as *const u32);
+        // `u32::MAX` marks a system-wide entry; per-core CPU sensors carry the
+        // core index instead, so restricting the match to "gpu" in the name is
+        // what keeps them out of these counts.
+        if dw_gpu != u32::MAX {
+            if let Some(slot) = counts.get_mut(dw_gpu as usize) {
+                *slot += 1;
+            }
+        }
+    }
+    counts
+}
+
 /// Parse MSI Afterburner Shared Memory metrics.
 ///
 /// Uses **exact sensor name matching** following the reference Playnite GameActivity plugin:
@@ -372,8 +556,13 @@ fn parse_mem_amount_mb(raw: &str) -> Option<f32> {
 ///
 /// These are the standard English names that MSI Afterburner uses in its shared memory.
 /// The matching is case-insensitive.
+///
+/// `gpu_name` is the adapter selected in Settings → Hardware; it is resolved
+/// against Afterburner's own GPU list. When it is `None` (automatic selection)
+/// or does not match an Afterburner entry, the most-monitored adapter is used
+/// instead of blindly taking index 0 — see [`resolve_gpu_index`].
 #[cfg(windows)]
-pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMetrics> {
+pub fn read_mahm_metrics(gpu_name: Option<&str>) -> Option<MahmMetrics> {
     unsafe {
         let handle_raw = try_open_mahm()?;
         let map_handle = HANDLE(handle_raw as *mut std::ffi::c_void);
@@ -412,32 +601,22 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
 
         let data_offset = get_data_offset(header.entry_size);
 
-        // Resolve which GPU index to use in Afterburner by looking up the GPU
-        // list in shared memory. Afterburner's `device` field is the die
-        // codename (e.g. "GB203-A") while GameIndex/Windows report the
-        // marketing name (e.g. "NVIDIA GeForce RTX 5070 Ti"), so matching only
-        // `device` never resolves a real GPU. Check both `device` and
-        // `driver`, where current builds keep the marketing name.
-        let mut resolved_gpu_idx = gpu_idx;
-        let mut vram_total_mb: Option<f32> = None;
-        if let Some(name_filter) = gpu_name {
-            let gpus_offset = header.header_size + header.entry_count * header.entry_size;
-            let gpu_base = base.add(gpus_offset as usize);
+        // The modern entry layout carries the owning GPU index (`dwGpu`) right
+        // after the min/max/flags fields; the legacy layout has no such field.
+        let has_dw_gpu = header.entry_size >= LEGACY_ENTRY_SIZE_THRESHOLD;
 
-            for i in 0..header.gpu_count {
-                if gpus_offset + (i + 1) * header.gpu_entry_size > 0x40000 {
-                    break;
-                }
-                let gpu_ptr = gpu_base.add((i * header.gpu_entry_size) as usize) as *const MAHMSharedMemoryGpu;
-                let device = cstr_from_bytes(&(*gpu_ptr).device);
-                let driver = cstr_from_bytes(&(*gpu_ptr).driver);
-                if mahm_gpu_name_matches(name_filter, &device, &driver) {
-                    resolved_gpu_idx = i;
-                    vram_total_mb = parse_mem_amount_mb(&cstr_from_bytes(&(*gpu_ptr).mem_amount));
-                    break;
-                }
-            }
-        }
+        let gpus = read_gpu_list(base as *const u8, &header);
+        let sensor_counts = count_gpu_sensors(
+            base as *const u8,
+            &header,
+            data_offset,
+            has_dw_gpu,
+            gpus.len(),
+        );
+        let resolved_gpu_idx = resolve_gpu_index(gpu_name, &gpus, &sensor_counts);
+        let vram_total_mb = gpus
+            .get(resolved_gpu_idx as usize)
+            .and_then(|gpu| gpu.vram_mb);
 
         let target_gpu_num = resolved_gpu_idx + 1;
         let expected_gpu_usage_1 = format!("gpu{} usage", target_gpu_num);
@@ -461,10 +640,6 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
         let mut gpu_mem_clock: Option<f32> = None;
 
         let entries_base = (base as *const u8).add(header.header_size as usize);
-
-        // The modern entry layout carries the owning GPU index (`dwGpu`) right
-        // after the min/max/flags fields; the legacy layout has no such field.
-        let has_dw_gpu = header.entry_size >= LEGACY_ENTRY_SIZE_THRESHOLD;
 
         for i in 0..header.entry_count {
             // Bound each entry against a generous fixed cap so a corrupt
@@ -541,12 +716,16 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
                     vram_used_mb = Some(data);
                 }
             } else if gpu_power.is_none() && on_selected_gpu && matches_gpu_power(&name) {
-                if data.is_finite() && data > 0.0 && data <= 2000.0 {
+                // Watts only: a "power limit" percentage or an HWiNFO import in
+                // another unit must never be rendered as a wattage.
+                let units = read_str_at(entry.add(ENTRY_UNITS_OFFSET), ENTRY_UNITS_SIZE);
+                if units_allow_watts(&units) && data.is_finite() && data > 0.0 && data <= 2000.0 {
                     gpu_power = Some(data);
                 }
             } else if matches_cpu_power(&name) {
                 // Prefer the package/aggregate reading over a single core's.
-                if data.is_finite() && data > 0.0 && data <= 2000.0 {
+                let units = read_str_at(entry.add(ENTRY_UNITS_OFFSET), ENTRY_UNITS_SIZE);
+                if units_allow_watts(&units) && data.is_finite() && data > 0.0 && data <= 2000.0 {
                     let is_package = cpu_power_entry_is_package(&name, entry_dw_gpu);
                     if cpu_power.is_none() || (is_package && !cpu_power_is_package) {
                         cpu_power = Some(data);
@@ -743,36 +922,49 @@ mod tests {
         assert_eq!(parse_mem_amount_mb("0 MB"), None);
     }
 
-    #[test]
-    fn gpu_name_matches_marketing_name_in_driver_field() {
-        // Real report: GameIndex/Windows say the marketing name while MAHM's
-        // `device` holds the die codename and `driver` holds the marketing name.
-        assert!(mahm_gpu_name_matches(
-            "NVIDIA GeForce RTX 5070 Ti",
-            "GB203-A",
-            "NVIDIA GeForce RTX 5070 Ti",
-        ));
+    /// A MAHM adapter record as the reader builds it.
+    fn gpu(family: &str, device: &str, driver: &str) -> MahmGpuInfo {
+        MahmGpuInfo {
+            family: family.to_string(),
+            device: device.to_string(),
+            driver: driver.to_string(),
+            vram_mb: None,
+        }
     }
 
     #[test]
     fn gpu_name_matches_marketing_name_in_device_field() {
-        // Older builds keep the marketing name in `device` (the prior behaviour).
+        assert!(mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 5070 Ti",
+            &gpu("GB203-A", "NVIDIA GeForce RTX 5070 Ti", "616.56"),
+        ));
+    }
+
+    #[test]
+    fn gpu_name_matches_marketing_name_in_driver_field() {
+        // Older builds keep the marketing name in `driver`.
         assert!(mahm_gpu_name_matches(
             "NVIDIA GeForce RTX 3080",
-            "NVIDIA GeForce RTX 3080",
-            "31.0.15.3699",
+            &gpu("GA102", "", "NVIDIA GeForce RTX 3080"),
         ));
+    }
+
+    #[test]
+    fn gpu_name_matches_die_codename() {
+        assert!(mahm_gpu_name_matches("GB203-A", &gpu("GB203-A", "", "")));
     }
 
     #[test]
     fn gpu_name_matches_is_case_insensitive_and_empty_safe() {
         assert!(mahm_gpu_name_matches(
             "amd radeon(tm) graphics",
-            "AMD Radeon(TM) Graphics",
-            "",
+            &gpu("", "AMD Radeon(TM) Graphics", ""),
         ));
-        assert!(!mahm_gpu_name_matches("", "GB203-A", "NVIDIA"));
-        assert!(!mahm_gpu_name_matches("NVIDIA GeForce RTX 5070 Ti", "", ""));
+        assert!(!mahm_gpu_name_matches("", &gpu("GB203-A", "NVIDIA", "")));
+        assert!(!mahm_gpu_name_matches(
+            "NVIDIA GeForce RTX 5070 Ti",
+            &gpu("", "", ""),
+        ));
     }
 
     #[test]
@@ -780,14 +972,83 @@ mod tests {
         // The 5070 Ti must never resolve to the TU106 (RTX 2070) entry.
         assert!(!mahm_gpu_name_matches(
             "NVIDIA GeForce RTX 5070 Ti",
-            "TU106-A",
-            "NVIDIA GeForce RTX 2070",
+            &gpu("TU106-A", "NVIDIA GeForce RTX 2070", "616.56"),
         ));
         assert!(!mahm_gpu_name_matches(
             "NVIDIA GeForce RTX 5070 Ti",
-            "GB203-A",
-            "616.56",
+            &gpu("GB203-A", "", "616.56"),
         ));
+    }
+
+    #[test]
+    fn explicit_selection_wins_over_sensor_counts() {
+        let gpus = vec![
+            gpu("", "AMD Radeon(TM) Graphics", ""),
+            gpu("GB203-A", "NVIDIA GeForce RTX 5070 Ti", "616.56"),
+            gpu("TU106-A", "NVIDIA GeForce RTX 2070", "616.56"),
+        ];
+        let counts = [5, 18, 15];
+        assert_eq!(
+            resolve_gpu_index(Some("NVIDIA GeForce RTX 5070 Ti"), &gpus, &counts),
+            1
+        );
+        assert_eq!(
+            resolve_gpu_index(Some("NVIDIA GeForce RTX 2070"), &gpus, &counts),
+            2
+        );
+    }
+
+    #[test]
+    fn unresolved_or_missing_selection_picks_the_monitored_adapter() {
+        // The real desktop this was written against: Afterburner lists the iGPU
+        // first, so a hardcoded index 0 reported the iGPU's power draw (which
+        // mirrors CPU package power) instead of the gaming card's.
+        let gpus = vec![
+            gpu("", "AMD Radeon(TM) Graphics", "AMD Software"),
+            gpu("GB203-A", "NVIDIA GeForce RTX 5070 Ti", "616.56"),
+            gpu("TU106-A", "NVIDIA GeForce RTX 2070", "616.56"),
+        ];
+        let counts = [5, 18, 15];
+        assert_eq!(resolve_gpu_index(None, &gpus, &counts), 1);
+        // A selection Afterburner does not list (e.g. a virtual display
+        // adapter) must not fall back to index 0 either.
+        assert_eq!(
+            resolve_gpu_index(Some("Parsec Virtual Display Adapter"), &gpus, &counts),
+            1
+        );
+    }
+
+    #[test]
+    fn auto_resolution_handles_absent_and_tied_sensor_data() {
+        let gpus = vec![gpu("", "GPU A", ""), gpu("", "GPU B", "")];
+        // No sensors at all: keep the first adapter rather than panicking.
+        assert_eq!(resolve_gpu_index(None, &gpus, &[]), 0);
+        assert_eq!(resolve_gpu_index(None, &gpus, &[0, 0]), 0);
+        // Ties prefer the lowest index.
+        assert_eq!(resolve_gpu_index(None, &gpus, &[4, 4]), 0);
+        assert_eq!(resolve_gpu_index(None, &gpus, &[0, 1]), 1);
+    }
+
+    #[test]
+    fn power_sensors_reject_limit_and_non_watt_units() {
+        // "GPU2 power limit" is a percentage / raw flag, not a wattage.
+        assert!(matches_gpu_power("GPU2 power"));
+        assert!(!matches_gpu_power("GPU2 power limit"));
+        assert!(!matches_gpu_power("Power limit"));
+
+        assert!(matches_cpu_power("CPU Package Power"));
+        assert!(!matches_cpu_power("CPU power limit"));
+        assert!(!matches_cpu_power("GPU power"));
+
+        assert!(units_allow_watts(""));
+        assert!(units_allow_watts("W"));
+        assert!(units_allow_watts(" w "));
+        assert!(units_allow_watts("Watts"));
+        assert!(!units_allow_watts("%"));
+        assert!(!units_allow_watts("MHz"));
+        assert!(!units_allow_watts("°C"));
+        assert!(!units_allow_watts("V"));
+        assert!(!units_allow_watts("MB"));
     }
 
     #[test]
