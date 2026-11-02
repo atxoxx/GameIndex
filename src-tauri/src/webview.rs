@@ -99,13 +99,84 @@ const WEBVIEW_CONSENT_SCRIPT: &str = include_str!("weblinks_consent.js");
 // to the main thread and blocks, which would deadlock a sync command.
 #[cfg(target_os = "linux")]
 thread_local! {
-    static OVERLAY_STATE: std::cell::RefCell<Option<LinuxOverlayState>> = const { std::cell::RefCell::new(None) };
+    /// Per-host-window preview handoff state, keyed by window label. Both
+    /// `main` (WebLinks / News / Map previews) and `overlay` (the in-game
+    /// Guides browser) host child webviews, and each needs its own GtkFixed
+    /// layer; a single global state would misroute hand-off and reposition
+    /// calls to whichever window was patched first.
+    static PREVIEW_LINUX_STATE:
+        std::cell::RefCell<std::collections::HashMap<String, LinuxPreviewLayer>> =
+        const { std::cell::RefCell::new(std::collections::HashMap::new()) };
 }
 
 #[cfg(target_os = "linux")]
-struct LinuxOverlayState {
+struct LinuxPreviewLayer {
     fixed: gtk::Fixed,
     widgets: std::collections::HashMap<String, gtk::Widget>,
+}
+
+/// Attach the preview GtkFixed layer to a host window, wrapping its shell
+/// vbox in an gtk::Overlay. Used for any host window (`main`, `overlay`, ...)
+/// that hasn't been wrapped yet. Returns `None` when the window's structure
+/// is not the expected vbox layout (nothing was attached).
+#[cfg(target_os = "linux")]
+fn ensure_preview_layer(gtk_win: &gtk::Window) -> Option<LinuxPreviewLayer> {
+    use gtk::prelude::*;
+
+    // Only the untouched default layout (a plain vbox child of the window)
+    // gets wrapped here. An already-wrapped window must not gain a second
+    // overlay layer — its state entry always exists in that case.
+    let vbox = gtk_win.child()?.downcast::<gtk::Box>().ok()?;
+
+    let overlay = gtk::Overlay::new();
+    let fixed = gtk::Fixed::new();
+    fixed.show();
+    overlay.add(&vbox);
+    overlay.add_overlay(&fixed);
+    // The fixed layer fills the whole window and gets its own full-size
+    // GdkWindow on top of the main webview. Without pass-through it swallows
+    // every input event outside the embedded preview webview, freezing the
+    // rest of the UI.
+    overlay.set_overlay_pass_through(&fixed, true);
+    overlay.show();
+    gtk_win.remove(&vbox);
+    gtk_win.add(&overlay);
+
+    Some(LinuxPreviewLayer {
+        fixed,
+        widgets: std::collections::HashMap::new(),
+    })
+}
+
+/// Run `f` on the GtkFixed layer and preview widget registered under
+/// `label`, searching every host window's layer (the caller doesn't know
+/// which window hosts it).
+#[cfg(target_os = "linux")]
+fn with_preview_widget<R>(
+    label: &str,
+    f: impl FnOnce(&gtk::Fixed, &gtk::Widget) -> R,
+) -> Option<R> {
+    PREVIEW_LINUX_STATE.with(|state_cell| {
+        let states = state_cell.borrow();
+        states
+            .values()
+            .find_map(|state| state.widgets.get(label).map(|w| (&state.fixed, w)))
+            .map(|(fixed, widget)| f(fixed, widget))
+    })
+}
+
+/// Remove a preview widget from its host layer (used by the destroy path).
+/// Returns the widget if it was found, so the caller can drop it explicitly.
+#[cfg(target_os = "linux")]
+fn detach_preview_widget(label: &str) -> Option<gtk::Widget> {
+    PREVIEW_LINUX_STATE.with(|state_cell| {
+        let mut states = state_cell.borrow_mut();
+        states.values_mut().find_map(|state| {
+            state.widgets.remove(label).inspect(|widget| {
+                state.fixed.remove(widget);
+            })
+        })
+    })
 }
 
 /// Upper bound on simultaneously live preview child webviews (WebLinks /
@@ -160,15 +231,11 @@ fn destroy_preview_webview(app: &tauri::AppHandle, label: &str) {
     {
         use gtk::prelude::*;
 
-        let label_clone = label.to_string();
+        let label_ = label.to_string();
         let _ = app.run_on_main_thread(move || {
-            OVERLAY_STATE.with(|state_cell| {
-                if let Some(state) = state_cell.borrow_mut().as_mut() {
-                    if let Some(widget) = state.widgets.remove(&label_clone) {
-                        state.fixed.remove(&widget);
-                    }
-                }
-            });
+            // Unparents the widget from the fixed layer; the webview's
+            // render surface itself is torn down by `webview.close()` below.
+            let _ = detach_preview_widget(&label_);
         });
     }
 
@@ -239,61 +306,52 @@ pub async fn create_preview_webview(
         .map_err(|e| e.to_string())?;
 
         let label_clone = label.clone();
+        let window_label = window_label.clone();
         let app_handle = app.clone();
         app.run_on_main_thread(move || {
-            let Some(main_win) = app_handle.get_window("main") else {
+            let Some(host_win) = app_handle.get_window(&window_label) else {
                 return;
             };
-            let Ok(gtk_win) = main_win.gtk_window() else {
+            let Ok(gtk_win) = host_win.gtk_window() else {
                 return;
             };
 
-            OVERLAY_STATE.with(|state_cell| {
-                let mut state_opt = state_cell.borrow_mut();
-                if state_opt.is_none() {
-                    if let Some(child) = gtk_win.child() {
-                        if let Ok(vbox) = child.downcast::<gtk::Box>() {
-                            gtk_win.remove(&vbox);
-                            let overlay = gtk::Overlay::new();
-                            let fixed = gtk::Fixed::new();
-                            fixed.show();
-                            overlay.add(&vbox);
-                            overlay.add_overlay(&fixed);
-                            // The fixed layer fills the whole window and gets its own
-                            // full-size GdkWindow on top of the main webview. Without
-                            // pass-through it swallows every input event outside the
-                            // embedded preview webview, freezing the rest of the UI.
-                            overlay.set_overlay_pass_through(&fixed, true);
-                            overlay.show();
-                            gtk_win.add(&overlay);
-
-                            *state_opt = Some(LinuxOverlayState {
-                                fixed,
-                                widgets: std::collections::HashMap::new(),
-                            });
-                        }
+            PREVIEW_LINUX_STATE.with(|state_cell| {
+                let mut states = state_cell.borrow_mut();
+                if !states.contains_key(&window_label) {
+                    if let Some(layer) = ensure_preview_layer(&gtk_win) {
+                        states.insert(window_label.clone(), layer);
                     }
                 }
+                let Some(state) = states.get_mut(&window_label) else {
+                    return;
+                };
 
-                if let Some(state) = state_opt.as_mut() {
-                    if let Some(overlay_widget) = gtk_win.child() {
-                        if let Ok(overlay) = overlay_widget.downcast::<gtk::Overlay>() {
-                            if let Some(vbox_widget) = overlay.child() {
-                                if let Ok(vbox) = vbox_widget.downcast::<gtk::Box>() {
-                                    let children = vbox.children();
-                                    if children.len() > 1 {
-                                        if let Some(preview_widget) = children.last() {
-                                            let widget = preview_widget.clone();
-                                            vbox.remove(&widget);
-                                            state.fixed.put(&widget, x as i32, y as i32);
-                                            widget.set_size_request(width as i32, height as i32);
-                                            widget.show_all();
-                                            state.widgets.insert(label_clone, widget);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                // Hand-off: the newest webview hosted in the guest window's
+                // shell vbox moves on top of the GtkFixed layer. The GTK main
+                // loop runs these closures FIFO, so the last vbox child is
+                // always the webview this closure was queued for.
+                let Some(overlay_widget) = gtk_win.child() else {
+                    return;
+                };
+                let Ok(overlay) = overlay_widget.downcast::<gtk::Overlay>() else {
+                    return;
+                };
+                let Some(vbox_widget) = overlay.child() else {
+                    return;
+                };
+                let Ok(vbox) = vbox_widget.downcast::<gtk::Box>() else {
+                    return;
+                };
+                let children = vbox.children();
+                if children.len() > 1 {
+                    if let Some(preview_widget) = children.last() {
+                        let widget = preview_widget.clone();
+                        vbox.remove(&widget);
+                        state.fixed.put(&widget, x as i32, y as i32);
+                        widget.set_size_request(width as i32, height as i32);
+                        widget.show_all();
+                        state.widgets.insert(label_clone, widget);
                     }
                 }
             });
@@ -342,14 +400,10 @@ pub fn reposition_preview_webview(
         use gtk::prelude::*;
 
         app.run_on_main_thread(move || {
-            OVERLAY_STATE.with(|state_cell| {
-                if let Some(state) = state_cell.borrow_mut().as_mut() {
-                    if let Some(widget) = state.widgets.get(&label) {
-                        state.fixed.move_(widget, x as i32, y as i32);
-                        widget.set_size_request(width as i32, height as i32);
-                        widget.queue_resize();
-                    }
-                }
+            with_preview_widget(&label, |fixed, widget| {
+                fixed.move_(widget, x as i32, y as i32);
+                widget.set_size_request(width as i32, height as i32);
+                widget.queue_resize();
             });
         })
         .map_err(|e| e.to_string())
@@ -376,15 +430,11 @@ pub fn set_preview_webview_visible(
         use gtk::prelude::*;
 
         app.run_on_main_thread(move || {
-            OVERLAY_STATE.with(|state_cell| {
-                if let Some(state) = state_cell.borrow_mut().as_mut() {
-                    if let Some(widget) = state.widgets.get(&label) {
-                        if visible {
-                            widget.show();
-                        } else {
-                            widget.hide();
-                        }
-                    }
+            with_preview_widget(&label, |_fixed, widget| {
+                if visible {
+                    widget.show();
+                } else {
+                    widget.hide();
                 }
             });
         })
