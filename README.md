@@ -75,7 +75,7 @@ Head to the [latest release](https://github.com/atxoxx/GameIndex/releases/latest
 
 <p>
   <img src="Screenshots/Game%20page/1.png" width="49%" loading="lazy" alt="Game page hero" />
-  <img src="Screenshots/Game%20page/2.png" width="49%" loading="lazy" alt="Game page details" />
+  <img src="Screenshots/Game%20page/2.png" width="49%" loading="lazy" alt="Game page media showcase" />
 </p>
 
 **Store and deals** — browse a catalogue, compare prices, and catch free games and wishlist sales.
@@ -88,7 +88,7 @@ Head to the [latest release](https://github.com/atxoxx/GameIndex/releases/latest
 **Activity and stats** — sessions with FPS and frametime charts, plus a personal stats dashboard.
 
 <p>
-  <img src="Screenshots/Activity/1.png" width="49%" loading="lazy" alt="Activity timeline" />
+  <img src="Screenshots/Activity/1.png" width="49%" loading="lazy" alt="Activity overview" />
   <img src="Screenshots/Stats/1.png" width="49%" loading="lazy" alt="Stats overview" />
 </p>
 
