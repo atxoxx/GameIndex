@@ -140,7 +140,7 @@ export function buildSettingsCatalog(
         {
           id: "interface-studio",
           labelKey: "settings.interface.studioTitle",
-          keywords: "layout studio preview drag rearrange reorder hide show navbar tabs buttons sidebar sections widgets hero detail tabs card badges now playing scale zoom",
+          keywords: "layout studio preview drag rearrange reorder hide show navbar tabs buttons sidebar sections widgets hero detail tabs card badges now playing scale zoom search inspector switch undo guide preset",
         },
         {
           id: "interface-defaults-layout",

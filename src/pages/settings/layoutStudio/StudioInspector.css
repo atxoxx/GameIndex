@@ -1,0 +1,426 @@
+/* =============================================================================
+ * StudioInspector — the labelled right-hand list of every element on the
+ * current Layout Studio page. One row per element: a switch, optional reorder
+ * arrows, and a hover link back to the preview.
+ *
+ * Lives beside the preview inside `.studio-body`; owns its own scroll.
+ * ========================================================================== */
+
+.studio-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: var(--space-md) var(--space-md) var(--space-xl);
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border))
+    transparent;
+}
+
+.studio-inspector::-webkit-scrollbar {
+  width: 6px;
+}
+
+.studio-inspector::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-inspector::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast, 150ms);
+}
+
+.studio-inspector::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* ── Heading ─────────────────────────────────────────────────────────────── */
+
+.studio-inspector__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+}
+
+.studio-inspector__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.studio-inspector__intro {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-height-relaxed, 1.5);
+  color: var(--color-text-muted);
+}
+
+/* ── Groups ──────────────────────────────────────────────────────────────── */
+
+.studio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+  min-width: 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.studio-group:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.studio-group__head {
+  margin: 0;
+  padding: var(--space-2xs) 0 0;
+  min-width: 0;
+}
+
+.studio-group__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms);
+}
+
+.studio-group__toggle:hover .studio-group__title {
+  color: var(--color-text-primary);
+}
+
+.studio-group__toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.studio-group__title {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast, 150ms);
+}
+
+.studio-group__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast, 150ms),
+    color var(--transition-fast, 150ms);
+}
+
+.studio-group__chevron.is-open {
+  transform: rotate(90deg);
+  color: var(--color-accent);
+}
+
+.studio-group__desc {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: var(--line-height-relaxed, 1.45);
+  color: var(--color-text-muted);
+}
+
+.studio-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
+  min-width: 0;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+.studio-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 88%, transparent);
+  transition: background var(--transition-fast, 150ms),
+    border-color var(--transition-fast, 150ms),
+    box-shadow var(--transition-fast, 150ms);
+}
+
+.studio-row:hover,
+.studio-row:focus-within {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.studio-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  transition: color var(--transition-fast, 150ms),
+    background var(--transition-fast, 150ms);
+}
+
+.studio-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-row__label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-row__kind {
+  font-size: var(--text-2xs);
+  line-height: 1.2;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hidden elements stay in the list (dimmed + struck through) so they can be
+   switched back on from the same row. The switch itself stays fully legible. */
+.studio-row.is-off {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.studio-row.is-off .studio-row__icon {
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-muted);
+}
+
+.studio-row.is-off .studio-row__label {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+/* Same accent ring the preview draws around the live element. LayoutStudio.css
+   pulses every `.is-preview-lit`; a static ring reads better in a list. */
+.studio-row.is-preview-lit {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary));
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  animation: none !important;
+}
+
+/* ── Switch ──────────────────────────────────────────────────────────────── */
+
+.studio-row__switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition-fast, 150ms),
+    border-color var(--transition-fast, 150ms);
+}
+
+.studio-row__switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  transition: transform var(--transition-fast, 150ms),
+    background var(--transition-fast, 150ms);
+}
+
+.studio-row__switch.is-on {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.studio-row__switch.is-on::after {
+  transform: translateX(14px);
+  background: var(--color-accent-contrast);
+}
+
+.studio-row__switch:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+}
+
+.studio-row__switch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.studio-row__switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.studio-row__always {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Reorder arrows ──────────────────────────────────────────────────────── */
+
+.studio-row__move {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  flex-shrink: 0;
+}
+
+.studio-row__move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms),
+    background var(--transition-fast, 150ms),
+    border-color var(--transition-fast, 150ms);
+}
+
+.studio-row__move-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  color: var(--color-accent);
+}
+
+.studio-row__move-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.studio-row__move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Segmented control (sidebar side) ────────────────────────────────────── */
+
+.studio-inspector__segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  align-self: flex-start;
+  padding: var(--space-3xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.studio-inspector__segment {
+  padding: var(--space-3xs) var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--transition-fast, 150ms),
+    background var(--transition-fast, 150ms),
+    border-color var(--transition-fast, 150ms);
+}
+
+.studio-inspector__segment:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.studio-inspector__segment[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-inspector__segment:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.studio-inspector__empty {
+  margin: 0;
+  padding: var(--space-md) var(--space-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* ── Narrow widths: the inspector takes the full width, so its left divider
+   becomes a top divider. ──────────────────────────────────────────────────── */
+
+@container studio (max-width: 1000px) {
+  .studio-inspector {
+    width: 100%;
+    padding: var(--space-md) var(--space-md);
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+}

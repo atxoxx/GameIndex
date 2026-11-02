@@ -1,0 +1,442 @@
+/* =============================================================================
+ * Layout Studio — left navigation rail.
+ *
+ * Groups every editable place by area, and doubles as the studio's search
+ * surface while a query is active. At narrow widths the rail collapses into a
+ * horizontal strip above the preview so the preview keeps the height.
+ * ========================================================================== */
+
+.studio-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-md);
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 55%, var(--color-bg-secondary));
+  border-right: 1px solid var(--color-border);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-border-light) 75%, var(--color-border)) transparent;
+}
+
+.studio-rail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.studio-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.studio-rail::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-light) 75%, var(--color-border));
+  border-radius: var(--radius-full);
+}
+
+.studio-rail::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+.studio-rail__top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+/* ── Head ─────────────────────────────────────────────────────────────── */
+
+.studio-rail__head {
+  min-width: 0;
+}
+
+.studio-rail__title {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.studio-rail__hint {
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* ── Search ───────────────────────────────────────────────────────────── */
+
+.studio-rail__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.studio-rail__search:focus-within {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.studio-rail__search-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.studio-rail__input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-xs) 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  outline: none;
+}
+
+.studio-rail__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.studio-rail__input::-webkit-search-cancel-button,
+.studio-rail__input::-webkit-search-decoration {
+  appearance: none;
+}
+
+.studio-rail__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.studio-rail__clear:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+}
+
+/* ── Groups ───────────────────────────────────────────────────────────── */
+
+.studio-rail__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+}
+
+.studio-rail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.studio-rail__group-title {
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Items ────────────────────────────────────────────────────────────── */
+
+.studio-rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.studio-rail__item:hover {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-rail__item.is-active {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-rail__item-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.studio-rail__item.is-active .studio-rail__item-icon {
+  opacity: 1;
+}
+
+.studio-rail__item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-rail__count {
+  flex-shrink: 0;
+  min-width: 16px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.studio-rail__item.is-active .studio-rail__count {
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+.studio-rail__star {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+/* ── Search results ───────────────────────────────────────────────────── */
+
+.studio-rail__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 0;
+}
+
+.studio-rail__results-count {
+  margin: 0;
+  padding: 0 var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-rail__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.studio-rail__result:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.studio-rail__result-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
+
+.studio-rail__result-hint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-rail__empty {
+  margin: 0;
+  padding: var(--space-md) var(--space-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────── */
+
+.studio-rail__item:focus-visible,
+.studio-rail__result:focus-visible,
+.studio-rail__clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.studio-rail__input:focus-visible {
+  outline: none;
+}
+
+/* ── Narrow layout: rail becomes a strip above the preview ────────────── */
+
+@container studio (max-width: 1320px) {
+  .studio-rail {
+    position: relative;
+    gap: var(--space-sm);
+    height: auto;
+    padding: var(--space-xs) var(--space-md);
+    overflow: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .studio-rail__top {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-md);
+    flex-shrink: 0;
+  }
+
+  .studio-rail__head {
+    flex-shrink: 0;
+  }
+
+  .studio-rail__title {
+    white-space: nowrap;
+  }
+
+  .studio-rail__hint {
+    display: none;
+  }
+
+  .studio-rail__search {
+    flex: 0 1 260px;
+    min-width: 180px;
+  }
+
+  /* The page strip scrolls on its own, so the rail itself stays unclipped and
+   * the search results can open as a panel over the preview. */
+  .studio-rail__groups {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+    min-height: auto;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .studio-rail__results {
+    position: absolute;
+    inset-inline: var(--space-md);
+    top: calc(100% - var(--space-2xs));
+    flex-direction: column;
+    align-items: stretch;
+    width: auto;
+    max-height: min(340px, 55vh);
+    overflow-y: auto;
+    padding: var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    box-shadow: var(--elevation-3);
+    z-index: 40;
+  }
+
+  .studio-rail__group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2xs);
+    flex-shrink: 0;
+  }
+
+  /* A hairline between areas, so a 15-chip strip still reads as groups. */
+  .studio-rail__group:not(:last-child)::after {
+    content: "";
+    align-self: stretch;
+    width: 1px;
+    margin-inline: var(--space-xs);
+    background: var(--color-border);
+  }
+
+  .studio-rail__group-title {
+    display: none;
+  }
+
+  /* Inside the results panel the groups go back to stacked rows: a strip of
+   * chip-sized hits would be unreadable. */
+  .studio-rail__results .studio-rail__group {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .studio-rail__results .studio-rail__group-title {
+    display: block;
+  }
+
+  .studio-rail__results .studio-rail__result {
+    width: 100%;
+    max-width: none;
+  }
+
+  .studio-rail__item {
+    width: auto;
+    border-color: var(--color-border);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+  }
+
+  .studio-rail__item-label {
+    flex: 0 0 auto;
+    max-width: 160px;
+  }
+}
+
+@container studio (max-width: 1000px) {
+  .studio-rail__top {
+    flex-wrap: wrap;
+    row-gap: var(--space-xs);
+  }
+
+  .studio-rail__search {
+    flex: 1 1 180px;
+  }
+}

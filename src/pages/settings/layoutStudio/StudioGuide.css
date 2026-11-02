@@ -1,0 +1,302 @@
+/* =============================================================================
+ * Layout Studio — first-run guide
+ *
+ * Sits above the three-pane workspace and explains the rail → preview →
+ * inspector loop before the user meets eighteen page tabs. Everything it
+ * offers is also reachable from the workspace itself, so dismissing it costs
+ * the user nothing.
+ * ========================================================================== */
+
+.studio-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  /* The studio is a fixed-height flex column; the guide must keep its height. */
+  flex-shrink: 0;
+  padding: var(--space-lg) var(--space-xl);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+
+.studio-guide__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.studio-guide__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-guide__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-guide__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.studio-guide__intro {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+}
+
+.studio-guide__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.studio-guide__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+}
+
+.studio-guide__close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* ── Three steps ──────────────────────────────────────────────────────── */
+
+.studio-guide__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-guide__step {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border: 1px solid var(--color-border-faint);
+  min-width: 0;
+}
+
+.studio-guide__step > svg {
+  margin-top: var(--space-3xs);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-guide__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.studio-guide__step-title {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.studio-guide__step-desc {
+  display: block;
+  margin-top: var(--space-3xs);
+  font-size: var(--text-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+}
+
+/* ── Built-in presets ─────────────────────────────────────────────────── */
+
+.studio-guide__presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-guide__presets-title {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-guide__preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.studio-guide__preset {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon name"
+    "desc desc";
+  align-items: start;
+  gap: var(--space-2xs) var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.studio-guide__preset:hover {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.studio-guide__preset:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.studio-guide__preset-icon {
+  grid-area: icon;
+  color: var(--color-accent);
+}
+
+.studio-guide__preset-name {
+  grid-area: name;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+.studio-guide__preset-desc {
+  grid-area: desc;
+  font-size: var(--text-2xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+/* ── Footer actions ───────────────────────────────────────────────────── */
+
+.studio-guide__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.studio-guide__actions > button {
+  padding: var(--space-xs) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.studio-guide__actions > button:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-highlight);
+  color: var(--color-text-primary);
+}
+
+.studio-guide__actions > button.is-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.studio-guide__actions > button.is-primary:hover {
+  background: color-mix(in srgb, var(--color-accent) 86%, var(--color-text-primary));
+  border-color: color-mix(in srgb, var(--color-accent) 86%, var(--color-text-primary));
+  color: var(--color-accent-contrast);
+}
+
+.studio-guide__actions > button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Narrow panes ─────────────────────────────────────────────────────── */
+
+@container studio (max-width: 1000px) {
+  .studio-guide {
+    padding: var(--space-md) var(--space-lg);
+    gap: var(--space-md);
+  }
+
+  .studio-guide__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-guide__preset-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container studio (max-width: 700px) {
+  .studio-guide__preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-guide__actions > button {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}

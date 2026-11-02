@@ -1,52 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity,
-  ChevronLeft,
-  ChevronRight,
+  CircleHelp,
   Crosshair,
-  Download,
-  FileText,
-  GalleryHorizontal,
-  Gamepad2,
-  Globe,
-  HardDrive,
-  Heart,
-  Home,
   Laptop,
-  LayoutDashboard,
-  LayoutGrid,
   LayoutTemplate,
-  List,
-  Map as MapIcon,
-  type LucideIcon,
-  MessageSquare,
   Monitor,
-  MonitorPlay,
-  Newspaper,
-  PlayCircle,
-  Puzzle,
   RotateCcw,
-  Rss,
-  Save,
   Smartphone,
-  Star,
-  Store,
-  Tag,
-  Tags,
-  Trophy,
   Tv,
-  Type,
-  UserCheck,
-  Users,
-  Wallpaper,
-  Wrench,
+  Undo2,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useShelves } from "../../../context/ShelfContext";
+import { useToast } from "../../../context/ToastContext";
 import { usePersistedState } from "../../../hooks/usePersistedState";
 import {
-  DEFAULT_NAVBAR_BUTTON_ORDER,
-  DEFAULT_NAVBAR_TAB_ORDER,
   useLayoutSettings,
   useSettings,
   type DetailSectionKey,
@@ -91,9 +59,20 @@ import {
 } from "../interfaceItems";
 import { playActionSound } from "../../../utils/soundEffects";
 import { StudioPresetsBar } from "./StudioPresetsBar";
+import { StudioRail } from "./StudioRail";
+import { StudioInspector } from "./StudioInspector";
+import { StudioGuide } from "./StudioGuide";
+import { STUDIO_DETAIL_TAB_ICON, STUDIO_HERO_ELEMENT_ICON } from "./studioIcons";
 import { WIDGET_ICON } from "./widgetIcons";
 import { StudioPreview } from "./StudioPreview";
 import { getDefaultLayoutSnapshot, isItemModifiedFromDefault } from "./layoutPresets";
+import { countLayoutChanges } from "./layoutDiff";
+import { useLayoutHistory } from "./useLayoutHistory";
+import {
+  buildStudioSearchIndex,
+  studioScopeLabel,
+  type StudioSearchEntry,
+} from "./studioScopes";
 import type {
   LayoutPreset,
   LayoutSnapshot,
@@ -101,27 +80,9 @@ import type {
   ViewportPreset,
 } from "./types";
 import "../LayoutStudio.css";
+import "./StudioWorkspace.css";
 
-const PAGE_ICONS: Record<InterfacePageKey, LucideIcon> = {
-  global: LayoutTemplate,
-  home: Home,
-  library: Gamepad2,
-  game: MonitorPlay,
-  store: Store,
-  storeGame: Store,
-  wishlist: Heart,
-  deals: Tag,
-  news: Rss,
-  activity: Activity,
-  achievements: Trophy,
-  downloads: Download,
-  storage: HardDrive,
-  community: Users,
-  friends: UserCheck,
-  emulators: Monitor,
-  mods: Puzzle,
-  saves: Save,
-};
+const GUIDE_DISMISSED_KEY = "gamelib.settings.layout_studio.guide_dismissed_v1";
 
 const DETAIL_SCOPES: DetailTabScope[] = ["game", "store"];
 
@@ -136,32 +97,17 @@ function detailScopeForPage(page: InterfacePageKey): DetailTabScope | null {
   return null;
 }
 
-const DETAIL_TAB_ICON: Record<DetailTabKey, LucideIcon> = {
-  overview: LayoutDashboard,
-  reviews: MessageSquare,
-  activity: Activity,
-  notes: FileText,
-  achievements: Trophy,
-  mods: Wrench,
-  saves: Save,
-  weblinks: Globe,
-  news: Newspaper,
-  dlc: Puzzle,
-  map: MapIcon,
-};
-
-const HERO_ELEMENT_ICON: Record<HeroElementKey, LucideIcon> = {
-  background: Wallpaper,
-  poster: GalleryHorizontal,
-  title: Type,
-  meta: List,
-  genres: Tags,
-  kpis: LayoutGrid,
-  actions: PlayCircle,
-};
+function readGuideDismissed(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export default function LayoutStudio() {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const {
     navbarTabOrder,
     setNavbarTabOrder,
@@ -221,68 +167,49 @@ export default function LayoutStudio() {
   } = useSettings();
   const { enabled: shelvesEnabled, setEnabled: setShelvesEnabled } = useShelves();
 
-  const [activePage, setActivePage] = useState<InterfacePageKey>("global");
+  const [activePage, setActivePage] = usePersistedState<InterfacePageKey>(
+    "gamelib.settings.layout_studio.page_v1",
+    "global",
+    INTERFACE_PAGES.map((page) => page.key),
+  );
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  /** The element a search hit or an inspect click sent the user to. Unlike the
+   *  transient flash, it keeps the inspector row lit and its group open until
+   *  the user moves to another place. */
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(
+    null,
+  );
+  const [guideDismissed, setGuideDismissed] = useState(readGuideDismissed);
   const [viewport, setViewport] = usePersistedState<ViewportPreset>(
     "gamelib.settings.layout_studio.viewport_v1",
     "desktop",
     ["desktop", "handheld", "ultrawide", "compact"],
   );
   const [inspectMode, setInspectMode] = useState(false);
-  const pagesNavRef = useRef<HTMLElement>(null);
-  const [canScrollPagesLeft, setCanScrollPagesLeft] = useState(false);
-  const [canScrollPagesRight, setCanScrollPagesRight] = useState(false);
-
-  const updatePagesScrollButtons = useCallback(() => {
-    const el = pagesNavRef.current;
-    if (!el) return;
-    setCanScrollPagesLeft(el.scrollLeft > 4);
-    setCanScrollPagesRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
-  }, []);
-
-  useEffect(() => {
-    const el = pagesNavRef.current;
-    if (!el) return;
-    updatePagesScrollButtons();
-    el.addEventListener("scroll", updatePagesScrollButtons, { passive: true });
-    window.addEventListener("resize", updatePagesScrollButtons);
-    return () => {
-      el.removeEventListener("scroll", updatePagesScrollButtons);
-      window.removeEventListener("resize", updatePagesScrollButtons);
-    };
-  }, [updatePagesScrollButtons]);
-
-  useEffect(() => {
-    const el = pagesNavRef.current;
-    if (!el) return;
-    const activeTab = el.querySelector<HTMLElement>(".studio-pages__tab.is-active");
-    if (activeTab) {
-      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-    }
-    updatePagesScrollButtons();
-  }, [activePage, updatePagesScrollButtons]);
-
-  const handlePagesWheel = useCallback((e: React.WheelEvent<HTMLElement>) => {
-    if (e.deltaY === 0) return;
-    const el = pagesNavRef.current;
-    if (!el) return;
-    e.preventDefault();
-    el.scrollLeft += e.deltaY;
-  }, []);
-
-  const scrollPages = useCallback((direction: "left" | "right") => {
-    const el = pagesNavRef.current;
-    if (!el) return;
-    const amount = 240;
-    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
-  }, []);
+  const highlightTimer = useRef<number | null>(null);
 
   const playSound = useCallback(() => {
     if (uiSoundEnabled) playActionSound();
   }, [uiSoundEnabled]);
 
-  const defaultSnapshot = useMemo(() => getDefaultLayoutSnapshot(), []);
+  /** Flash one element in both the list and the preview. */
+  const flashHighlight = useCallback((id: string) => {
+    setHighlightedId(id);
+    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
+    highlightTimer.current = window.setTimeout(() => setHighlightedId(null), 2600);
+  }, []);
 
+  useEffect(
+    () => () => {
+      if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
+    },
+    [],
+  );
+
+  const defaultSnapshot = useMemo(() => getDefaultLayoutSnapshot(), []);
   const pageDef = interfacePageDef(activePage);
 
   // ── Global lists ──────────────────────────────────────────────────────────
@@ -332,7 +259,7 @@ export default function LayoutStudio() {
       return {
         id: key,
         label: t(DETAIL_TAB_LABEL_KEY[key]),
-        icon: DETAIL_TAB_ICON[key],
+        icon: STUDIO_DETAIL_TAB_ICON[key],
         hidden,
         isModified: hidden,
       };
@@ -345,7 +272,7 @@ export default function LayoutStudio() {
     return resolveHeroElementOrder(heroElementOrder, activeDetailScope).map((key) => ({
       id: key,
       label: t(HERO_ELEMENT_LABEL_KEY[key]),
-      icon: HERO_ELEMENT_ICON[key],
+      icon: STUDIO_HERO_ELEMENT_ICON[key],
       hidden: hiddenMap[key] === false,
       isModified: hiddenMap[key] === false,
     }));
@@ -455,6 +382,16 @@ export default function LayoutStudio() {
     ],
   );
 
+  const changeCount = useMemo(
+    () => countLayoutChanges(currentSnapshot, defaultSnapshot),
+    [currentSnapshot, defaultSnapshot],
+  );
+
+  const searchIndex = useMemo(
+    () => buildStudioSearchIndex({ t, showDeckVerified, showFullLinuxUi }),
+    [t, showDeckVerified, showFullLinuxUi],
+  );
+
   // ── Reorder Handlers ──────────────────────────────────────────────────────
   const handleReorderNavTabs = useCallback(
     (from: number, to: number) => {
@@ -489,11 +426,7 @@ export default function LayoutStudio() {
       if (activePage === "global") return;
       setPageItemOrder(
         activePage,
-        moveKey(
-          pageItems.map((item) => item.id) as PageWidgetKey[],
-          from,
-          to,
-        ),
+        moveKey(pageItems.map((item) => item.id) as PageWidgetKey[], from, to),
       );
       playSound();
     },
@@ -505,11 +438,7 @@ export default function LayoutStudio() {
       if (!activeDetailScope) return;
       setDetailTabOrder(
         activeDetailScope,
-        moveKey(
-          detailTabItems.map((item) => item.id) as DetailTabKey[],
-          from,
-          to,
-        ),
+        moveKey(detailTabItems.map((item) => item.id) as DetailTabKey[], from, to),
       );
       playSound();
     },
@@ -521,11 +450,7 @@ export default function LayoutStudio() {
       if (!activeDetailScope) return;
       setHeroElementOrder(
         activeDetailScope,
-        moveKey(
-          heroElementItems.map((item) => item.id) as HeroElementKey[],
-          from,
-          to,
-        ),
+        moveKey(heroElementItems.map((item) => item.id) as HeroElementKey[], from, to),
       );
       playSound();
     },
@@ -535,7 +460,7 @@ export default function LayoutStudio() {
   const handleReorderDetailTopBar = useCallback(
     (from: number, to: number) => {
       if (!activeDetailScope) return;
-      // The mock only renders available keys, so translate its indices back
+      // The list only renders available keys, so translate its indices back
       // into the *full* order before moving. That keeps a gated key (Wine Logs
       // on Windows) exactly where the user left it instead of letting the
       // append-only normalizer shuffle it to the end.
@@ -549,13 +474,7 @@ export default function LayoutStudio() {
       );
       playSound();
     },
-    [
-      activeDetailScope,
-      detailTopBarItems,
-      detailTopBarOrder,
-      setDetailTopBarOrder,
-      playSound,
-    ],
+    [activeDetailScope, detailTopBarItems, detailTopBarOrder, setDetailTopBarOrder, playSound],
   );
 
   // ── Toggle Handlers ───────────────────────────────────────────────────────
@@ -618,8 +537,8 @@ export default function LayoutStudio() {
     [sidebarSectionVisible, setSidebarSectionVisible, playSound],
   );
 
-  // Cards, header and sidebar are edited directly in the preview now, so the
-  // studio owns these three masters as well.
+  // Cards, header and sidebar are edited directly in the preview and in the
+  // inspector, so the studio owns these three masters as well.
   const handleToggleCardBadgesMaster = useCallback(() => {
     setShowCardBadges(!showCardBadges);
     playSound();
@@ -724,6 +643,44 @@ export default function LayoutStudio() {
           else resetHeroGridLayout(scope);
         }
       }
+      // Per-page order is part of the layout, so presets, imports and undo must
+      // restore it too - but only when the snapshot actually names it, so a
+      // partial preset never wipes a hand-ordered page. A page absent from the
+      // field falls back to the shipped order (the app treats "no entry" and
+      // "shipped order" alike).
+      if (snapshot.pageItemOrder) {
+        for (const page of INTERFACE_PAGES) {
+          if (page.key === "global") continue;
+          const next = snapshot.pageItemOrder[page.key] ?? DEFAULT_PAGE_ITEM_ORDER[page.key] ?? [];
+          const current = pageItemOrder[page.key] ?? DEFAULT_PAGE_ITEM_ORDER[page.key] ?? [];
+          if (JSON.stringify(next) !== JSON.stringify(current)) {
+            setPageItemOrder(page.key, next);
+          }
+        }
+      }
+      // Page visibility is stored OFF-only, so a snapshot without an entry
+      // means "visible". Walk the union of current and target entries: a plain
+      // loop over the snapshot alone could never switch a hidden block back on.
+      // Only an explicit field is treated as authoritative, so a partial preset
+      // keeps whatever the user hid by hand.
+      if (snapshot.pageItemVisible) {
+        const pages = new Set<string>([
+          ...Object.keys(pageItemVisible),
+          ...Object.keys(snapshot.pageItemVisible),
+        ]);
+        for (const page of pages) {
+          const target = snapshot.pageItemVisible[page as InterfacePageKey] ?? {};
+          const current = pageItemVisible[page as InterfacePageKey] ?? {};
+          const keys = new Set<string>([...Object.keys(current), ...Object.keys(target)]);
+          for (const key of keys) {
+            const shouldShow = target[key as PageWidgetKey] !== false;
+            const isHidden = current[key as PageWidgetKey] === false;
+            if (isHidden !== !shouldShow) {
+              setPageItemVisible(page as InterfacePageKey, key as PageWidgetKey, shouldShow);
+            }
+          }
+        }
+      }
       if (snapshot.uiScale) setUiScale(snapshot.uiScale);
       playSound();
     },
@@ -739,6 +696,9 @@ export default function LayoutStudio() {
       setShowGameArtBackdrop,
       setShowCardBadges,
       setShowNavbarNowPlaying,
+      setShowHeroTilt,
+      setShowHeroBackdropControls,
+      setShowHeroInteractiveControls,
       setDetailSectionVisible,
       setDetailTabOrder,
       setDetailTopBarOrder,
@@ -747,35 +707,46 @@ export default function LayoutStudio() {
       setHeroElementVisible,
       setHeroGridLayout,
       resetHeroGridLayout,
+      pageItemVisible,
+      setPageItemVisible,
+      pageItemOrder,
+      setPageItemOrder,
       setUiScale,
       playSound,
     ],
   );
 
+  const history = useLayoutHistory(currentSnapshot, applySnapshot);
+
+  const dismissGuide = useCallback(() => {
+    setGuideDismissed(true);
+    try {
+      localStorage.setItem(GUIDE_DISMISSED_KEY, "1");
+    } catch {
+      // A blocked storage write only costs the dismissal across restarts.
+    }
+  }, []);
+
   const handleApplyPreset = useCallback(
     (preset: LayoutPreset) => {
       applySnapshot(preset.snapshot);
+      const name = preset.customName || t(preset.nameKey);
+      showToast(t("settings.studio.presetAppliedToast", { name }), "success");
+      dismissGuide();
     },
-    [applySnapshot],
+    [applySnapshot, dismissGuide, showToast, t],
   );
 
-  // ── Resets ────────────────────────────────────────────────────────────────
-  const resetGlobal = useCallback(() => {
-    setNavbarTabOrder(DEFAULT_NAVBAR_TAB_ORDER);
-    setNavbarButtonOrder(DEFAULT_NAVBAR_BUTTON_ORDER);
-    setSidebarPosition("left");
-    for (const section of SIDEBAR_SECTIONS) {
-      setSidebarSectionVisible(section.key, true);
+  const handleUndo = useCallback(() => {
+    if (!history.undo()) {
+      showToast(t("settings.studio.undoEmpty"), "info");
+      return;
     }
     playSound();
-  }, [
-    setNavbarTabOrder,
-    setNavbarButtonOrder,
-    setSidebarPosition,
-    setSidebarSectionVisible,
-    playSound,
-  ]);
+    showToast(t("settings.studio.undoToast"), "info");
+  }, [history, playSound, showToast, t]);
 
+  // ── Resets ────────────────────────────────────────────────────────────────
   const resetPage = useCallback(
     (page: InterfacePageKey) => {
       if (page === "global") return;
@@ -800,6 +771,7 @@ export default function LayoutStudio() {
         setShowHeroInteractiveControls(true);
       }
       playSound();
+      showToast(t("settings.studio.pageResetToast"), "info");
     },
     [
       setPageItemVisible,
@@ -811,79 +783,69 @@ export default function LayoutStudio() {
       setHeroElementVisible,
       resetHeroGridLayout,
       setDetailSectionVisible,
+      setShowHeroTilt,
+      setShowHeroBackdropControls,
+      setShowHeroInteractiveControls,
       availableDetailSectionKeys,
       playSound,
+      showToast,
+      t,
     ],
   );
 
   const resetEverything = useCallback(() => {
-    resetGlobal();
-    for (const page of INTERFACE_PAGES) resetPage(page.key);
-    for (const item of [
-      ...NAV_TAB_ITEMS,
-      ...NAV_BUTTON_ITEMS,
-      ...BADGE_ITEMS,
-      ...WIDGET_ITEMS,
-    ]) {
-      setInterfaceVisibility(item.key, true);
-    }
-    setShowCardBadges(true);
-    setShowNavbarNowPlaying(true);
-    setShowHeroTilt(true);
-    setShowHeroBackdropControls(true);
-    setShowHeroInteractiveControls(true);
+    // The shipped snapshot carries every key, including the OFF-only maps, so
+    // one apply restores the whole layout — and now honours the real default
+    // for nav items (the Downloads tab is hidden out of the box) instead of
+    // switching everything on.
+    applySnapshot(defaultSnapshot);
     setShelvesEnabled(true);
-    for (const key of availableDetailSectionKeys) {
-      setDetailSectionVisible(key, true);
-    }
-    for (const scope of DETAIL_SCOPES) {
-      setDetailTabOrder(scope, DEFAULT_DETAIL_TAB_ORDER[scope]);
-      setDetailTopBarOrder(scope, DEFAULT_DETAIL_TOP_BAR_ORDER[scope]);
-      for (const key of DETAIL_TOP_BAR[scope]) setDetailTopBarVisible(scope, key, true);
-      setHeroElementOrder(scope, HERO_ELEMENTS);
-      for (const key of HERO_ELEMENTS) setHeroElementVisible(scope, key, true);
-      resetHeroGridLayout(scope);
-    }
-    setUiDensityMode("complete");
-    setNavbarMode("full");
-    setCommandPaletteMode("full");
-    setShowGameArtBackdrop(true);
-    setUiScale("auto");
-    playSound();
-  }, [
-    resetGlobal,
-    resetPage,
-    setInterfaceVisibility,
-    setShowCardBadges,
-    setShowNavbarNowPlaying,
-    setDetailSectionVisible,
-    availableDetailSectionKeys,
-    setDetailTabOrder,
-    setDetailTopBarOrder,
-    setDetailTopBarVisible,
-    setHeroElementOrder,
-    setHeroElementVisible,
-    resetHeroGridLayout,
-    setUiDensityMode,
-    setNavbarMode,
-    setCommandPaletteMode,
-    setShowGameArtBackdrop,
-    setUiScale,
-    setShelvesEnabled,
-    playSound,
-  ]);
+    showToast(t("settings.studio.allResetToast"), "info");
+  }, [applySnapshot, defaultSnapshot, setShelvesEnabled, showToast, t]);
 
-  // ── Inspection scroll helper ──────────────────────────────────────────────
-  const handleInspectElement = useCallback((id: string) => {
-    setHighlightedId(id);
-    const target = document.getElementById(`studio-item-${id}`);
-    if (target) {
-      target.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
-    setTimeout(() => {
-      setHighlightedId(null);
-    }, 2500);
+  // ── Navigation & inspection ───────────────────────────────────────────────
+  const handleSelectPage = useCallback((page: InterfacePageKey) => {
+    setActivePage(page);
+    setHoveredId(null);
+    setFocusId(null);
+    setSearchQuery("");
   }, []);
+
+  const handleSelectSearchResult = useCallback((entry: StudioSearchEntry) => {
+    setActivePage(entry.scope);
+    setSearchQuery("");
+    setFocusId(entry.id);
+    setFocusRequest({ id: entry.id, nonce: Date.now() });
+    setHoveredId(null);
+  }, []);
+
+  // Scroll the matching inspector row into view after the page has switched.
+  // The row can live in a collapsed group that opens in response to the same
+  // highlight, so the lookup waits one frame for that render.
+  useEffect(() => {
+    if (!focusRequest) return;
+    flashHighlight(focusRequest.id);
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`studio-row-${focusRequest.id}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [focusRequest, flashHighlight]);
+
+  /** Preview → list: click an element to reveal its row. */
+  const handleInspectElement = useCallback(
+    (id: string) => {
+      setFocusId(id);
+      flashHighlight(id);
+      window.setTimeout(() => {
+        document
+          .getElementById(`studio-row-${id}`)
+          ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 80);
+    },
+    [flashHighlight],
+  );
 
   const hiddenCountForPage = (page: InterfacePageKey) => {
     if (page === "global") {
@@ -899,7 +861,9 @@ export default function LayoutStudio() {
       return hiddenItems + hiddenSidebar;
     }
     const entry = pageItemVisible[page];
-    const pageHidden = entry ? Object.values(entry).filter((visible) => visible === false).length : 0;
+    const pageHidden = entry
+      ? Object.values(entry).filter((visible) => visible === false).length
+      : 0;
     if (detailScopeForPage(page)) {
       // Both detail pages share the global section-visibility map, so each
       // page tab reports the same hidden sections its preview shows.
@@ -911,8 +875,15 @@ export default function LayoutStudio() {
     return pageHidden;
   };
 
+  const scopeLabel = studioScopeLabel(activePage, t);
+  const effectiveHighlight = highlightedId ?? hoveredId;
+
   return (
-    <section className="studio" id="interface-studio" aria-labelledby="layout-studio-title">
+    <section
+      className={`studio${!guideDismissed ? " studio--guided" : ""}`}
+      id="interface-studio"
+      aria-labelledby="layout-studio-title"
+    >
       {/* Studio Header */}
       <div className="studio-header">
         <span className="studio-header__icon">
@@ -926,100 +897,82 @@ export default function LayoutStudio() {
             {t("settings.interface.studioSubtitle")}
           </p>
         </div>
-        <button
-          type="button"
-          className="studio-reset"
-          onClick={resetEverything}
-          title={t("settings.interface.studioResetAll")}
-        >
-          <RotateCcw size={13} aria-hidden="true" />
-          {t("settings.interface.studioResetAll")}
-        </button>
+
+        <div className="studio-header__meta">
+          <span
+            className={`studio-changes${changeCount > 0 ? " is-dirty" : ""}`}
+            title={t("settings.studio.changesTooltip")}
+          >
+            {changeCount === 0
+              ? t("settings.studio.changesDefault")
+              : t("settings.studio.changesCount", { count: changeCount })}
+          </span>
+        </div>
+
+        <div className="studio-header__actions">
+          <button
+            type="button"
+            className="studio-tool-btn"
+            onClick={handleUndo}
+            disabled={!history.canUndo}
+            title={history.canUndo ? t("settings.studio.undo") : t("settings.studio.undoEmpty")}
+          >
+            <Undo2 size={13} aria-hidden="true" />
+            {t("settings.studio.undo")}
+          </button>
+          <button
+            type="button"
+            className="studio-tool-btn studio-tool-btn--icon"
+            onClick={() => setGuideDismissed(false)}
+            title={t("settings.studio.guideReopen")}
+            aria-label={t("settings.studio.guideReopen")}
+          >
+            <CircleHelp size={15} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="studio-reset"
+            onClick={resetEverything}
+            title={t("settings.interface.studioResetAll")}
+          >
+            <RotateCcw size={13} aria-hidden="true" />
+            {t("settings.interface.studioResetAll")}
+          </button>
+        </div>
       </div>
 
-      {/* Presets & Profile Management Bar */}
+      {/* Presets, save, export & import */}
       <StudioPresetsBar
         currentSnapshot={currentSnapshot}
         onApplyPreset={handleApplyPreset}
         onImportSnapshot={applySnapshot}
       />
 
-      {/* Page Tabs */}
-      <div className="studio-pages-bar">
-        {canScrollPagesLeft && (
-          <button
-            type="button"
-            className="studio-pages-scroll-btn studio-pages-scroll-btn--left"
-            onClick={() => scrollPages("left")}
-            aria-label={t("settings.interface.scrollPagesLeft")}
-            title={t("settings.interface.scrollPagesLeft")}
-          >
-            <ChevronLeft size={16} aria-hidden="true" />
-          </button>
-        )}
-        <nav
-          ref={pagesNavRef}
-          className="studio-pages"
-          role="tablist"
-          aria-label={t("settings.interface.studioPages")}
-          onWheel={handlePagesWheel}
-        >
-          {INTERFACE_PAGES.map((p) => {
-            const hiddenCount = hiddenCountForPage(p.key);
-            const isActive = p.key === activePage;
-            const isLanding = landingPage === p.key;
-            const PageIcon = PAGE_ICONS[p.key] ?? LayoutTemplate;
-            return (
-              <button
-                key={p.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`studio-pages__tab${isActive ? " is-active" : ""}`}
-                onClick={() => setActivePage(p.key)}
-              >
-                <PageIcon size={14} aria-hidden="true" className="studio-pages__tab-icon" />
-                <span>{t(p.labelKey)}</span>
-                {isLanding && (
-                  <span title={t("settings.interface.isLandingPage")}>
-                    <Star
-                      size={10}
-                      className="studio-pages__landing-star"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    />
-                  </span>
-                )}
-                {hiddenCount > 0 && (
-                  <span className="studio-pages__count">{hiddenCount}</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-        {canScrollPagesRight && (
-          <button
-            type="button"
-            className="studio-pages-scroll-btn studio-pages-scroll-btn--right"
-            onClick={() => scrollPages("right")}
-            aria-label={t("settings.interface.scrollPagesRight")}
-            title={t("settings.interface.scrollPagesRight")}
-          >
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      {/* First-run guide: what the three panes do, and the built-in presets */}
+      {!guideDismissed && (
+        <StudioGuide onApplyPreset={handleApplyPreset} onDismiss={dismissGuide} />
+      )}
 
-      {/* Studio Body */}
-      <div className="studio-body">
-        {/* Interactive Live Preview */}
+      <div className="studio-workspace">
+        {/* Left: where to edit */}
+        <StudioRail
+          activePage={activePage}
+          hiddenCountForPage={hiddenCountForPage}
+          landingPage={landingPage}
+          searchIndex={searchIndex}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          onSelectPage={handleSelectPage}
+          onSelectSearchResult={handleSelectSearchResult}
+        />
+
+        {/* Centre: live preview */}
         <section className="studio-pane studio-pane--preview">
           <div className="studio-preview-pane-head">
             <h3 className="studio-pane__title">
               {t("settings.interface.studioPreview")}
             </h3>
 
-            {/* Viewport ratios & Inspect mode toggle outside of preview */}
             <div className="studio-preview-toolbar">
               <div className="studio-preview-toolbar__viewports">
                 <button
@@ -1070,19 +1023,19 @@ export default function LayoutStudio() {
                 <Crosshair size={13} aria-hidden="true" />
                 <span>{t("settings.interface.inspectMode")}</span>
               </button>
-            </div>
 
-            {activePage !== "global" && (
-              <button
-                type="button"
-                className="studio-reset"
-                onClick={() => resetPage(activePage)}
-                title={t("settings.interface.studioResetPage")}
-              >
-                <RotateCcw size={13} aria-hidden="true" />
-                {t("settings.interface.studioResetPage")}
-              </button>
-            )}
+              {activePage !== "global" && (
+                <button
+                  type="button"
+                  className="studio-reset"
+                  onClick={() => resetPage(activePage)}
+                  title={t("settings.interface.studioResetPage")}
+                >
+                  <RotateCcw size={13} aria-hidden="true" />
+                  {t("settings.interface.studioResetPage")}
+                </button>
+              )}
+            </div>
           </div>
 
           <StudioPreview
@@ -1101,7 +1054,7 @@ export default function LayoutStudio() {
             globalVisibility={interfaceVisibility}
             showNowPlaying={showNavbarNowPlaying}
             showCardBadgesMaster={showCardBadges}
-            highlightedId={highlightedId}
+            highlightedId={effectiveHighlight}
             onReorderNavTabs={handleReorderNavTabs}
             onReorderNavButtons={handleReorderNavButtons}
             onReorderPageItems={handleReorderPageItems}
@@ -1140,9 +1093,61 @@ export default function LayoutStudio() {
           />
 
           <p className="studio-pane__hint">
-            {t("settings.interface.studioPreviewHint")}
+            {t("settings.studio.previewToolbarHint")} {t("settings.interface.studioPreviewHint")}
           </p>
         </section>
+
+        {/* Right: every element as a labelled switch */}
+        <aside className="studio-side">
+          <StudioInspector
+            key={activePage}
+            page={activePage}
+            scopeLabel={scopeLabel}
+            highlightedId={effectiveHighlight ?? focusId}
+            onHoverElement={setHoveredId}
+            navTabItems={navTabItems}
+            navButtonItems={navButtonItems}
+            showNowPlaying={showNavbarNowPlaying}
+            onToggleNowPlaying={handleToggleNowPlaying}
+            sidebarPosition={sidebarPosition}
+            onSetSidebarPosition={handleSetSidebarPosition}
+            sidebarSectionVisible={sidebarSectionVisible}
+            onToggleSidebarSection={toggleSidebarSectionById}
+            showSmartShelves={shelvesEnabled}
+            onToggleSmartShelves={handleToggleSmartShelves}
+            globalVisibility={interfaceVisibility}
+            showCardBadges={showCardBadges}
+            onToggleCardBadgesMaster={handleToggleCardBadgesMaster}
+            onToggleGlobalItem={toggleInterfaceItemById}
+            showHeroTilt={showHeroTilt}
+            onToggleHeroTilt={() => {
+              setShowHeroTilt(!showHeroTilt);
+              playSound();
+            }}
+            showHeroBackdropControls={showHeroBackdropControls}
+            onToggleHeroBackdropControls={() => {
+              setShowHeroBackdropControls(!showHeroBackdropControls);
+              playSound();
+            }}
+            showHeroInteractiveControls={showHeroInteractiveControls}
+            onToggleHeroInteractiveControls={() => {
+              setShowHeroInteractiveControls(!showHeroInteractiveControls);
+              playSound();
+            }}
+            pageItems={pageItems}
+            onTogglePageItem={togglePageItemById}
+            onMovePageItem={handleReorderPageItems}
+            detailTabItems={detailTabItems}
+            onToggleDetailTab={toggleDetailTab}
+            onMoveDetailTab={handleReorderDetailTabs}
+            heroElementItems={heroElementItems}
+            onToggleHeroElement={toggleHeroElement}
+            onMoveHeroElement={handleReorderHeroElements}
+            detailTopBarItems={detailTopBarItems}
+            onToggleDetailTopBar={toggleDetailTopBar}
+            onMoveDetailTopBar={handleReorderDetailTopBar}
+          />
+        </aside>
       </div>
     </section>
   );

@@ -34,7 +34,7 @@ export function getDefaultLayoutSnapshot(): LayoutSnapshot {
     pageItemVisible: {},
     pageItemOrder: { ...DEFAULT_PAGE_ITEM_ORDER },
     uiDensityMode: "complete",
-    navbarMode: "full",
+    navbarMode: "compact",
     commandPaletteMode: "full",
     showGameArtBackdrop: true,
     showCardBadges: true,
