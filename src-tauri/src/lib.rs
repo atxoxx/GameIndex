@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 use futures::FutureExt;
 use tauri::{Listener, Manager, WebviewWindowBuilder, WindowEvent};
 use tokio::sync::Mutex;
@@ -1012,7 +1011,7 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             {
                 let tray_handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_millis(800));
+                    std::thread::sleep(std::time::Duration::from_millis(800));
                     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         tray::build_tray(&tray_handle)
                     }));

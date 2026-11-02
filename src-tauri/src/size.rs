@@ -203,11 +203,19 @@ fn scan_dir_entries(
         } else if ftype.is_file() {
             // Saturating add (CAS loop) so a maliciously huge total can't
             // overflow even on a misbehaving FS.
-            total
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |t| {
-                    Some(t.saturating_add(meta.len()))
-                })
-                .ok();
+            let mut seen = total.load(Ordering::Relaxed);
+            loop {
+                let next = seen.saturating_add(meta.len());
+                match total.compare_exchange_weak(
+                    seen,
+                    next,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                ) {
+                    Ok(_) => break,
+                    Err(current) => seen = current,
+                }
+            }
         }
         // Other file kinds (sockets, FIFOs, block devices on Linux) are
         // ignored — they have no meaningful file size.
