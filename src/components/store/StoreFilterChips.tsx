@@ -1,7 +1,13 @@
 import { Plus, SlidersHorizontal, X } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
-export type StoreFilterChipType = "genre" | "platform" | "year" | "rating";
+export type StoreFilterChipType =
+  | "genre"
+  | "platform"
+  | "year"
+  | "rating"
+  | "sources"
+  | "plugins";
 
 interface StoreFilterChipsProps {
   genres: string[];
@@ -9,6 +15,10 @@ interface StoreFilterChipsProps {
   yearMin: number | null;
   yearMax: number | null;
   ratingMin: number | null;
+  /** Selected download sources, shown as one group chip. */
+  sourceCount?: number;
+  /** Selected plugins, shown as one group chip. */
+  pluginCount?: number;
   onRemove: (type: StoreFilterChipType, value?: string) => void;
   onClearAll: () => void;
   onOpenFilters: () => void;
@@ -25,6 +35,8 @@ export default function StoreFilterChips({
   yearMin,
   yearMax,
   ratingMin,
+  sourceCount = 0,
+  pluginCount = 0,
   onRemove,
   onClearAll,
   onOpenFilters,
@@ -58,7 +70,9 @@ export default function StoreFilterChips({
     genres.length > 0 ||
     platforms.length > 0 ||
     yearLabel != null ||
-    (ratingMin != null && ratingMin > 0);
+    (ratingMin != null && ratingMin > 0) ||
+    sourceCount > 0 ||
+    pluginCount > 0;
 
   return (
     <div className="store-chips" role="group" aria-label={t("store.chips.label")}>
@@ -73,6 +87,10 @@ export default function StoreFilterChips({
           {yearLabel && chip(yearLabel, "year")}
           {ratingMin != null && ratingMin > 0 &&
             chip(t("store.chips.rating", { rating: ratingMin }), "rating")}
+          {sourceCount > 0 &&
+            chip(t("store.chips.sources", { count: sourceCount }), "sources")}
+          {pluginCount > 0 &&
+            chip(t("store.chips.plugins", { count: pluginCount }), "plugins")}
         </div>
       ) : (
         <span className="store-chips-empty">{t("store.chips.empty")}</span>

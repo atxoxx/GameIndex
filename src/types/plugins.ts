@@ -95,6 +95,21 @@ export interface PluginBulkToggleResult {
 }
 
 /**
+ * One plugin's answer to `plugins_check_availability`, the batched probe
+ * behind the Store's plugin filter. `matches` counts results at or above
+ * the download modal's match floor; `error` is set when the plugin could
+ * not be checked at all (unconfigured, timed out, site unreachable), which
+ * is different from a successful search that found nothing.
+ */
+export interface PluginAvailabilityHit {
+  pluginId: string;
+  name: string;
+  platformCategory: string;
+  matches: number;
+  error: string | null;
+}
+
+/**
  * One raw torrent result returned by a plugin's `search()` — the payload
  * of `plugins_test_search`. Mirrors the Rust `PluginRawResult`; every
  * field is optional because plugins are third-party and tolerant

@@ -67,6 +67,20 @@ vi.mock("./useSourceAvailabilityCache", () => ({
   }),
 }));
 
+vi.mock("./usePluginAvailabilityCache", () => ({
+  usePluginAvailabilityCache: (games: StoreGameSummary[]) => ({
+    plugins: [],
+    visibleGames: games,
+    pending: 0,
+    isFilterActive: false,
+    pluginCounts: {},
+    pluginErrors: {},
+    uncheckedPlugins: 0,
+    probeError: null,
+    availableSlugs: new Map(),
+  }),
+}));
+
 import { sortSearchResults } from "./useStoreCatalogue";
 
 function game(overrides: Partial<StoreGameSummary> & { name: string }): StoreGameSummary {

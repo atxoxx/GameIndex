@@ -2148,6 +2148,108 @@
   margin-top: var(--space-3xs);
 }
 
+/* ── Availability facet (download sources + plugins) ─────────────────── */
+.store-filter-section--availability .store-filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2xs);
+}
+
+.store-availability-spinner {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+
+.store-availability-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  margin-top: var(--space-sm);
+}
+
+.store-availability-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.store-availability-group-head h5 {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.store-availability-mode {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.store-availability-mode button {
+  padding: var(--space-4xs) var(--space-xs);
+  border: 0;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.store-availability-mode button + button {
+  border-left: 1px solid var(--color-border);
+}
+
+.store-availability-mode button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.store-availability-mode button[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.store-availability-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Card: plugin availability badge ─────────────────────────────────── */
+.store-card-plugin {
+  position: absolute;
+  right: var(--space-sm);
+  bottom: var(--space-sm);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+.store-game-card-list .store-card-plugin {
+  position: static;
+  right: auto;
+  bottom: auto;
+}
+
 /* Responsive List Table Columns */
 @media (max-width: 1280px) {
   .store-list-table-header {

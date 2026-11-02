@@ -189,15 +189,28 @@ const ANCHOR_GAP = 8;
           yearMin={c.yearMin}
           yearMax={c.yearMax}
           ratingMin={c.ratingMin}
-          selectedSourceIds={c.selectedSourceIds}
           onGenresChange={c.setSelectedGenres}
           onPlatformsChange={c.setSelectedPlatforms}
           onYearRangeChange={c.setYearRange}
           onRatingMinChange={c.setRatingMin}
-          onSourcesChange={c.setSelectedSourceIds}
-          sourceCounts={c.sourceCounts}
-          sourceMatchMode={c.sourceMatchMode}
-          onSourceMatchModeChange={c.setSourceMatchMode}
+          availability={{
+            sources: c.sources,
+            selectedSourceIds: c.selectedSourceIds,
+            sourceCounts: c.sourceCounts,
+            sourceMatchMode: c.sourceMatchMode,
+            onSourcesChange: c.setSelectedSourceIds,
+            onSourceMatchModeChange: c.setSourceMatchMode,
+            plugins: c.plugins,
+            selectedPluginIds: c.selectedPluginIds,
+            pluginCounts: c.pluginCounts,
+            pluginErrors: c.pluginErrors,
+            pluginMatchMode: c.pluginMatchMode,
+            onPluginsChange: c.setSelectedPluginIds,
+            onPluginMatchModeChange: c.setPluginMatchMode,
+            checking: c.isAvailabilityCheckPending,
+            uncheckedPlugins: c.pluginsUnchecked,
+            probeError: c.pluginProbeError,
+          }}
           countSource={c.displayedGames}
           onReset={c.resetFilters}
         />

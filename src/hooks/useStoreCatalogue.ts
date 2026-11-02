@@ -5,6 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useStoreGames } from "./useStoreGames";
 import { useIgdbPlatforms } from "./useIgdbPlatforms";
 import { useSourceAvailabilityCache } from "./useSourceAvailabilityCache";
+import { usePluginAvailabilityCache } from "./usePluginAvailabilityCache";
 import { useDensityContext } from "../context/DensityContext";
 import { useSources } from "../context/SourceContext";
 import { useWishlistContext } from "../context/WishlistContext";
@@ -14,7 +15,9 @@ import { useLibraryIndex } from "./useLibraryIndex";
 import { useHiddenGames } from "./useHiddenGames";
 import { useRecentlyViewed } from "./useRecentlyViewed";
 import { useRecentSearches } from "./useRecentSearches";
-import { STORE_SOURCE_FILTER_KEY } from "../types/game";
+import { STORE_SOURCE_FILTER_KEY, STORE_PLUGIN_FILTER_KEY } from "../types/game";
+import type { PluginInfo } from "../types/plugins";
+import type { SourceLink } from "../types/source";
 import type {
   GameMetadataResult,
   StoreGameSummary,
@@ -262,6 +265,36 @@ function loadStoredSourceFilter(): {
   }
 }
 
+/**
+ * Read the persisted plugin-availability filter selection
+ * (`{ pluginIds: string[], matchMode: "all" | "any" }`). Returns `null` when
+ * nothing is stored or the payload is unparsable.
+ */
+function loadStoredPluginFilter(): {
+  pluginIds: string[];
+  matchMode: "all" | "any";
+} | null {
+  try {
+    const raw = localStorage.getItem(STORE_PLUGIN_FILTER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      pluginIds?: unknown;
+      matchMode?: unknown;
+    };
+    return {
+      pluginIds: Array.isArray(parsed.pluginIds)
+        ? parsed.pluginIds.filter((s): s is string => typeof s === "string")
+        : [],
+      matchMode:
+        parsed.matchMode === "all" || parsed.matchMode === "any"
+          ? parsed.matchMode
+          : "all",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface StoreCatalogue {
   // ── Data ───────────────────────────────────────────────────────────
   games: StoreGameSummary[];
@@ -304,6 +337,32 @@ export interface StoreCatalogue {
   setSourceMatchMode: (m: "all" | "any") => void;
   /** Real per-source match counts from `useSourceAvailabilityCache`. */
   sourceCounts: Record<string, { checked: number; available: number }>;
+
+  // ── Plugin availability ────────────────────────────────────────────
+  /** Enabled plugins, ordered PC → hybrid → console. */
+  plugins: PluginInfo[];
+  /** Download sources for the availability facet (enabled ones render). */
+  sources: SourceLink[];
+  selectedPluginIds: string[];
+  setSelectedPluginIds: (ids: string[]) => void;
+  /** Match semantics for the plugin filter: "all" (AND) or "any" (OR). */
+  pluginMatchMode: "all" | "any";
+  setPluginMatchMode: (m: "all" | "any") => void;
+  /** Real per-plugin match counts from `usePluginAvailabilityCache`. */
+  pluginCounts: Record<string, { checked: number; available: number }>;
+  /** Plugin id → last probe error (plugins that could not be checked). */
+  pluginErrors: Record<string, string>;
+  /** Enabled plugins currently reporting a probe error. */
+  pluginsUnchecked: number;
+  /** Probe-level failure, if the last availability call itself failed. */
+  pluginProbeError: string | null;
+  /** Games with at least one enabled plugin hit, with the hit count. */
+  pluginAvailableSlugs: Map<string, number>;
+  pluginChecksPending: number;
+  isPluginFilterActive: boolean;
+  isAvailabilityFilterActive: boolean;
+  isAvailabilityCheckPending: boolean;
+
   resetFilters: () => void;
   activeFilterCount: number;
   filtersOpen: boolean;
@@ -475,6 +534,15 @@ export function useStoreCatalogue(): StoreCatalogue {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
+  // Plugin-availability filter, persisted like the source one.
+  const storedPluginFilter = useMemo(() => loadStoredPluginFilter(), []);
+  const [selectedPluginIds, setSelectedPluginIds] = useState<string[]>(
+    () => storedPluginFilter?.pluginIds ?? []
+  );
+  const [pluginMatchMode, setPluginMatchMode] = useState<"all" | "any">(
+    () => storedPluginFilter?.matchMode ?? "all"
+  );
+
   const enabledSourceIds = useMemo(
     () => new Set(sources.filter((s) => s.enabled).map((s) => s.id)),
     [sources]
@@ -514,17 +582,58 @@ export function useStoreCatalogue(): StoreCatalogue {
     sourceMatchMode
   );
 
+  const {
+    plugins,
+    visibleGames: pluginFilteredGames,
+    pending: pluginChecksPending,
+    isFilterActive: isPluginFilterActive,
+    pluginCounts,
+    pluginErrors,
+    uncheckedPlugins: pluginsUnchecked,
+    probeError: pluginProbeError,
+    availableSlugs: pluginAvailableSlugs,
+  } = usePluginAvailabilityCache(
+    visibleGames,
+    selectedPluginIds,
+    pluginMatchMode
+  );
+
+  // Drop selections for plugins that were uninstalled or disabled since the
+  // last session. The plugin list starts empty, so skip the first pass.
+  useEffect(() => {
+    if (plugins.length === 0) return;
+    const known = new Set(plugins.map((p) => p.id));
+    setSelectedPluginIds((prev) => {
+      const filtered = prev.filter((id) => known.has(id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [plugins]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORE_PLUGIN_FILTER_KEY,
+        JSON.stringify({
+          pluginIds: selectedPluginIds,
+          matchMode: pluginMatchMode,
+        })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [selectedPluginIds, pluginMatchMode]);
+
   const displayedGames = useMemo(() => {
     // During a live search the IGDB endpoint ignores sort clauses, so a
     // non-default sort re-orders the merged results locally via tier-first sort.
     const base =
       isSearching
-        ? sortSearchResults(visibleGames, sort)
-        : visibleGames;
+        ? sortSearchResults(pluginFilteredGames, sort)
+        : pluginFilteredGames;
     if (showHidden || hiddenGames.count === 0) return base;
     return base.filter((g) => !hiddenGames.hiddenSet.has(g.slug));
   }, [
-    visibleGames,
+    pluginFilteredGames,
     isSearching,
     sort,
     searchQuery,
@@ -533,6 +642,11 @@ export function useStoreCatalogue(): StoreCatalogue {
     hiddenGames.count,
   ]);
 
+  const isAvailabilityFilterActive =
+    isSourceFilterActive || isPluginFilterActive;
+  const isAvailabilityCheckPending =
+    sourceChecksPending > 0 || pluginChecksPending > 0;
+
   const activeFilterCount = useMemo(
     () =>
       selectedGenres.length +
@@ -540,33 +654,50 @@ export function useStoreCatalogue(): StoreCatalogue {
       (yearMin != null ? 1 : 0) +
       (yearMax != null ? 1 : 0) +
       (ratingMin != null ? 1 : 0) +
-      selectedSourceIds.length,
-    [selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin, selectedSourceIds]
+      selectedSourceIds.length +
+      selectedPluginIds.length,
+    [
+      selectedGenres,
+      selectedPlatforms,
+      yearMin,
+      yearMax,
+      ratingMin,
+      selectedSourceIds,
+      selectedPluginIds,
+    ]
   );
 
-  // ── Empty-page auto-load guard (source filter narrowing) ─────────────
+  // ── Empty-page auto-load guard (availability filter narrowing) ───────
   const autoEmptyFetchesRef = useRef(0);
   const autoEmptyDispatchedRef = useRef(false);
   useEffect(() => {
-    if (visibleGames.length > 0) {
+    if (pluginFilteredGames.length > 0) {
       autoEmptyFetchesRef.current = 0;
       autoEmptyDispatchedRef.current = false;
       return;
     }
-    if (!isSourceFilterActive) return;
+    if (!isAvailabilityFilterActive) return;
     if (!hasMore || loading) return;
     if (games.length === 0) return;
     // Don't auto-load while availability checks are still narrowing the
     // list — "empty so far" during a cold cache is transient, not a real
     // no-match state, and each loadMore here is a wasted catalogue fetch.
-    if (sourceChecksPending > 0) return;
+    if (isAvailabilityCheckPending) return;
     if (autoEmptyFetchesRef.current >= MAX_AUTO_EMPTY_FETCHES) return;
     if (autoEmptyDispatchedRef.current) return;
 
     autoEmptyDispatchedRef.current = true;
     autoEmptyFetchesRef.current += 1;
     loadMore();
-  }, [isSourceFilterActive, visibleGames.length, hasMore, loading, games.length, sourceChecksPending, loadMore]);
+  }, [
+    isAvailabilityFilterActive,
+    pluginFilteredGames.length,
+    hasMore,
+    loading,
+    games.length,
+    isAvailabilityCheckPending,
+    loadMore,
+  ]);
 
   const lastRecordedRef = useRef<string>("");
 
@@ -780,6 +911,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     // preference (like sort) that stays inert with 0 sources selected
     // and re-applies once >=2 sources are chosen again.
     setSelectedSourceIds([]);
+    setSelectedPluginIds([]);
     autoEmptyFetchesRef.current = 0;
     resetFiltersRaw();
   }, [clearSearch, resetFiltersRaw]);
@@ -961,6 +1093,21 @@ export function useStoreCatalogue(): StoreCatalogue {
     sourceMatchMode,
     setSourceMatchMode,
     sourceCounts,
+    plugins,
+    sources,
+    selectedPluginIds,
+    setSelectedPluginIds,
+    pluginMatchMode,
+    setPluginMatchMode,
+    pluginCounts,
+    pluginErrors,
+    pluginsUnchecked,
+    pluginProbeError,
+    pluginAvailableSlugs,
+    pluginChecksPending,
+    isPluginFilterActive,
+    isAvailabilityFilterActive,
+    isAvailabilityCheckPending,
     resetFilters,
     activeFilterCount,
     filtersOpen,

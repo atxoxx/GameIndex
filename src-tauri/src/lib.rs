@@ -236,6 +236,9 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             plugins::plugins_clear_config,
             plugins::plugins_config_status,
             plugins::plugins_test_search,
+            plugins::plugins_check_availability,
+            plugins::save_plugin_availability_cache,
+            plugins::load_plugin_availability_cache,
             plugins::search_downloads,
             // Backup & restore of the local domain databases (Settings → Backup).
             backup::backup_get_status,

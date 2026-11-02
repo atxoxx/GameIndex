@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
+import StoreAvailabilityFilter, {
+  type StoreAvailabilityFilterProps,
+} from "./StoreAvailabilityFilter";
 import MultiSelectDropdown from "../ui/MultiSelectDropdown";
 
 // The canonical genre set of the IGDB `/genres` endpoint, listed in the
@@ -101,16 +104,17 @@ interface StoreFilterSidebarProps {
   yearMin: number | null;
   yearMax: number | null;
   ratingMin: number | null;
-  selectedSourceIds?: string[];
   onGenresChange: (genres: string[]) => void;
   onPlatformsChange: (platforms: string[]) => void;
   onYearRangeChange: (min: number | null, max: number | null) => void;
   onRatingMinChange: (rating: number | null) => void;
-  onSourcesChange?: (sourceIds: string[]) => void;
+  /**
+   * Download availability (sources + plugins). Omitted in isolated renders
+   * (e.g. the layout-studio preview) where the availability caches are not
+   * running.
+   */
+  availability?: StoreAvailabilityFilterProps;
   onReset: () => void;
-  sourceCounts?: Record<string, { checked: number; available: number }>;
-  sourceMatchMode?: "all" | "any";
-  onSourceMatchModeChange?: (m: "all" | "any") => void;
   /**
    * The game list the live per-option match counts are computed against
    * (e.g. the currently displayed results). When omitted, no counts render.
@@ -130,6 +134,7 @@ export default function StoreFilterSidebar({
   onYearRangeChange,
   onRatingMinChange,
   onReset,
+  availability,
   countSource = [],
 }: StoreFilterSidebarProps) {
   const { t } = useLanguage();
@@ -265,12 +270,13 @@ export default function StoreFilterSidebar({
         </div>
       </div>
 
+      {availability && <StoreAvailabilityFilter {...availability} />}
+
       {/* Genres Section */}
       <div className="store-filter-section">
         <div className="store-filter-section-header">
           <h4 className="store-filter-heading">
-            {t("store.filter.genres")}
-            {selectedGenres.length > 0 && (
+            {t("store.filter.genres")}            {selectedGenres.length > 0 && (
               <span className="store-filter-count-badge">{selectedGenres.length}</span>
             )}
           </h4>

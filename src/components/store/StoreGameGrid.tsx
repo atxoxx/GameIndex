@@ -24,6 +24,10 @@ interface StoreGameGridProps {
   onCardClick: (game: StoreGameSummary) => void;
   isSourceFilterActive?: boolean;
   isSourceCheckPending?: boolean;
+  isPluginFilterActive?: boolean;
+  isPluginCheckPending?: boolean;
+  /** Slug → number of plugins with a hit, for the card badge. */
+  pluginAvailableSlugs?: Map<string, number>;
   isInLibrary?: (game: StoreGameSummary) => boolean;
   onHide?: (game: StoreGameSummary) => void;
   onCompare?: (game: StoreGameSummary) => void;
@@ -130,6 +134,9 @@ export default function StoreGameGrid({
   onCardClick,
   isSourceFilterActive = false,
   isSourceCheckPending = false,
+  isPluginFilterActive = false,
+  isPluginCheckPending = false,
+  pluginAvailableSlugs,
   isInLibrary,
   onHide,
   onCompare,
@@ -465,7 +472,8 @@ export default function StoreGameGrid({
         </div>
       );
     }
-    if (isSourceFilterActive) {
+    if (isSourceFilterActive || isPluginFilterActive) {
+      const availabilityPending = isSourceCheckPending || isPluginCheckPending;
       return (
         <div className="store-empty">
           <div className="store-empty-icon" aria-hidden="true">
@@ -475,11 +483,17 @@ export default function StoreGameGrid({
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
           </div>
-          <h3>{t("store.noSourceMatch")}</h3>
+          <h3>
+            {isPluginFilterActive && !isSourceFilterActive
+              ? t("store.noPluginMatch")
+              : t("store.noSourceMatch")}
+          </h3>
           <p>
-            {isSourceCheckPending
+            {availabilityPending
               ? t("store.noSourceMatchHint")
-              : t("store.noSourceMatchHintStrict")}
+              : isPluginFilterActive && !isSourceFilterActive
+                ? t("store.noPluginMatchHintStrict")
+                : t("store.noSourceMatchHintStrict")}
           </p>
           {onClearFilters && (
             <button type="button" className="store-empty-action" onClick={onClearFilters}>
@@ -552,11 +566,12 @@ export default function StoreGameGrid({
 
   return (
     <div className="store-game-grid-container">
-      {/* Subtle source-availability pending cue — shown while useSourceAvailabilityCache
-          is still checking the current page against the selected download sources.
-          Placed above the grid so it reads as a toolbar-adjacent status line rather than
-          a card, and hidden when no source filter is active. */}
-      {isSourceFilterActive && isSourceCheckPending && (
+      {/* Subtle availability pending cue — shown while the source or plugin
+          cache is still checking the current page. Placed above the grid so
+          it reads as a toolbar-adjacent status line rather than a card, and
+          hidden when no availability filter is active. */}
+      {(isSourceFilterActive && isSourceCheckPending) ||
+      (isPluginFilterActive && isPluginCheckPending) ? (
         <div
           className="store-source-pending"
           role="status"
@@ -575,9 +590,13 @@ export default function StoreGameGrid({
             aria-hidden="true"
             style={{ width: "14px", height: "14px", borderWidth: "2px" }}
           />
-          <span>{t("store.filteringBySources")}</span>
+          <span>
+            {isPluginFilterActive && isPluginCheckPending
+              ? t("store.filteringByPlugins")
+              : t("store.filteringBySources")}
+          </span>
         </div>
-      )}
+      ) : null}
 
       {/* Table list header row when in list density */}
       {isList && (
@@ -628,6 +647,11 @@ export default function StoreGameGrid({
                 onHide={onHide}
                 onCompare={onCompare}
                 inCompare={compareSlugs ? compareSlugs.has(game.slug) : false}
+                pluginsAvailable={
+                  isPluginFilterActive
+                    ? pluginAvailableSlugs?.get(game.slug)
+                    : undefined
+                }
                 selectable={bulkMode}
                 selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
                 onToggleSelect={onToggleSelect}

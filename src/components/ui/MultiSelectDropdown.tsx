@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,14 +10,36 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+/**
+ * One dropdown entry. Plain strings are accepted for the common
+ * value-equals-label case; the object form lets callers keep ids stable
+ * (plugins, sources) and opt into section headers / a warning marker.
+ */
+export interface MultiSelectOption {
+  value: string;
+  label: string;
+  /** Section header rendered before this entry; repeats are collapsed. */
+  group?: string;
+  /** Warning text shown as an icon + tooltip (e.g. "could not be checked"). */
+  warning?: string;
+}
+
+type MultiSelectOptionInput = string | MultiSelectOption;
+
+function normalizeOptions(
+  options: readonly MultiSelectOptionInput[]
+): MultiSelectOption[] {
+  return options.map((o) => (typeof o === "string" ? { value: o, label: o } : o));
+}
+
 interface MultiSelectDropdownProps {
   /** Localized facet name (e.g. "Genres") — read out by screen readers. */
   label: string;
   /** Shown in the trigger when nothing is selected (e.g. "All"). */
   placeholder: string;
   /** Full ordered option list (display order is preserved). */
-  options: readonly string[];
-  /** Currently selected options. */
+  options: readonly MultiSelectOptionInput[];
+  /** Currently selected option values. */
   selected: readonly string[];
   /** Called with the whole next selection on every toggle. */
   onChange: (next: string[]) => void;
@@ -63,6 +86,14 @@ const SearchIcon = (
   </svg>
 );
 
+const WarningIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
 /**
  * MultiSelectDropdown — a compact multi-select facet control for filter
  * sidebars (replaces sprawling pill rows for Genres / Platforms).
@@ -100,6 +131,8 @@ export default function MultiSelectDropdown({
   const rafRef = useRef<number | null>(null);
 
   const showSearch = showSearchProp ?? (options.length > 0);
+
+  const items = useMemo(() => normalizeOptions(options), [options]);
 
   const recompute = useCallback(() => {
     const btn = triggerRef.current;
@@ -203,16 +236,24 @@ export default function MultiSelectDropdown({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [...options];
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, query]);
+    if (!q) return items;
+    return items.filter((item) => item.label.toLowerCase().includes(q));
+  }, [items, query]);
+
+  const selectedLabels = useMemo(
+    () =>
+      selected.map(
+        (value) => items.find((item) => item.value === value)?.label ?? value
+      ),
+    [selected, items]
+  );
 
   const summary =
     selected.length === 0
       ? placeholder
       : selected.length === 1
-        ? selected[0]
-        : `${selected[0]} +${selected.length - 1}`;
+        ? selectedLabels[0]
+        : `${selectedLabels[0]} +${selected.length - 1}`;
 
   return (
     <div className="msd">
@@ -284,26 +325,44 @@ export default function MultiSelectDropdown({
             )}
 
             <div className="msd__list">
-              {filtered.map((option) => {
-                const active = selected.includes(option);
-                const count = counts ? counts[option] : undefined;
+              {filtered.map((item, index) => {
+                const active = selected.includes(item.value);
+                const count = counts ? counts[item.value] : undefined;
+                const showGroup =
+                  item.group != null && item.group !== filtered[index - 1]?.group;
                 return (
-                  <button
-                    key={option}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    className={`msd__option${active ? " active" : ""}`}
-                    onClick={() => toggle(option)}
-                  >
-                    <span className={`msd__check${active ? " checked" : ""}`} aria-hidden="true">
-                      {active && CheckIcon}
-                    </span>
-                    <span className="msd__option-label">{option}</span>
-                    {count != null && count > 0 && (
-                      <span className="msd__option-count">{count}</span>
+                  <Fragment key={item.value}>
+                    {showGroup && (
+                      <div className="msd__group" role="presentation">
+                        {item.group}
+                      </div>
                     )}
-                  </button>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      className={`msd__option${active ? " active" : ""}`}
+                      onClick={() => toggle(item.value)}
+                    >
+                      <span className={`msd__check${active ? " checked" : ""}`} aria-hidden="true">
+                        {active && CheckIcon}
+                      </span>
+                      <span className="msd__option-label">{item.label}</span>
+                      {item.warning && (
+                        <span
+                          className="msd__warning"
+                          role="img"
+                          aria-label={item.warning}
+                          title={item.warning}
+                        >
+                          {WarningIcon}
+                        </span>
+                      )}
+                      {count != null && count > 0 && (
+                        <span className="msd__option-count">{count}</span>
+                      )}
+                    </button>
+                  </Fragment>
                 );
               })}
               {filtered.length === 0 && (

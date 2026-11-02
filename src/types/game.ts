@@ -1744,6 +1744,12 @@ export const STORE_HIDDEN_KEY = "gamelib_store_hidden_v1";
  */
 export const STORE_SOURCE_FILTER_KEY = "gamelib_store_source_filter_v1";
 
+/**
+ * localStorage key for the persisted plugin-availability filter selection
+ * (`{ pluginIds: string[], matchMode: "all" | "any" }`).
+ */
+export const STORE_PLUGIN_FILTER_KEY = "gamelib_store_plugin_filter_v1";
+
 // ─── Store: Price (CheapShark) ───────────────────────────────────────────────
 
 /** Resolved current price for a game (mirrors the Rust `GamePrice`). */

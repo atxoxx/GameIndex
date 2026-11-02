@@ -1,5 +1,5 @@
 import { Fragment, useContext, useState, useEffect, useRef, memo, type MouseEvent } from "react";
-import { BarChart3, Copy, Eye, EyeOff, Heart, AppWindow } from "lucide-react";
+import { BarChart3, Copy, Eye, EyeOff, Heart, AppWindow, Plug } from "lucide-react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -33,6 +33,12 @@ interface StoreGameCardProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: (game: StoreGameSummary, event: MouseEvent) => void;
+  /**
+   * Number of enabled plugins with a download hit for this game. Only set
+   * while the plugin availability filter is active, so the badge doubles as
+   * the reason the card survived the filter.
+   */
+  pluginsAvailable?: number;
   /** Reports pointer enter/leave so callers can pause ambient media (e.g. the spotlight trailer). */
   onHoverChange?: (hovering: boolean) => void;
 }
@@ -65,6 +71,7 @@ function StoreGameCardBase({
   selectable = false,
   selected = false,
   onToggleSelect,
+  pluginsAvailable,
   onHoverChange,
 }: StoreGameCardProps) {
   const wishlistStatus = useWishlistStatus();
@@ -353,6 +360,18 @@ function StoreGameCardBase({
             <span className="store-card-empty-dash">–</span>
           )}
 
+          {pluginsAvailable ? (
+            <span
+              className="store-card-plugin"
+              title={t("store.gameCard.pluginAvailable", {
+                count: pluginsAvailable,
+              })}
+            >
+              <Plug size={10} aria-hidden="true" />
+              {pluginsAvailable}
+            </span>
+          ) : null}
+
           {showCrack && crackStatus && (
             <span
               className={`store-card-cw-badge${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
@@ -535,6 +554,18 @@ function StoreGameCardBase({
             {Math.round(game.rating)}%
           </span>
         )}
+
+        {pluginsAvailable ? (
+          <span
+            className="store-card-plugin"
+            title={t("store.gameCard.pluginAvailable", {
+              count: pluginsAvailable,
+            })}
+          >
+            <Plug size={10} aria-hidden="true" />
+            {pluginsAvailable}
+          </span>
+        ) : null}
 
         {showCrack && crackStatus && (
           <span
@@ -737,6 +768,7 @@ const StoreGameCard = memo(StoreGameCardBase, (prev, next) => {
     prev.onCompare === next.onCompare &&
     prev.selectable === next.selectable &&
     prev.selected === next.selected &&
+    prev.pluginsAvailable === next.pluginsAvailable &&
     prev.onHoverChange === next.onHoverChange
   );
 });

@@ -40,6 +40,15 @@
 //! A malicious or buggy plugin can at worst stall its own thread until
 //! the timeout fires — it cannot hang the app, read files, or touch
 //! the network outside the scheme-checked `httpGet` proxy.
+//!
+//! ## Availability probes
+//!
+//! `plugins_check_availability` runs the same per-plugin search for one
+//! game and reports per-plugin hit counts instead of a merged list, so the
+//! Store's availability filter can ask "does any of my plugins have this?"
+//! It skips the built-in sources and duplicate collapsing, and results are
+//! persisted by the frontend (`plugin_availability_cache.json`) so a revisit
+//! does not re-probe every game.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -160,6 +169,20 @@ pub struct PluginCandidate {
 pub struct PluginBulkToggleResult {
     pub changed: usize,
     pub failed: Vec<String>,
+}
+
+/// One plugin's answer to a Store availability probe. `matches` counts
+/// results at or above the download modal's match floor, so the value is
+/// comparable across plugins; `error` is set when the plugin could not be
+/// checked at all (unconfigured, timed out, site unreachable).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginAvailabilityHit {
+    pub plugin_id: String,
+    pub name: String,
+    pub platform_category: String,
+    pub matches: usize,
+    pub error: Option<String>,
 }
 
 /// One row of the merged download search returned to the frontend.
@@ -915,6 +938,142 @@ pub async fn plugins_test_search(
             Err(e)
         }
     }
+}
+
+/// Probe every enabled plugin for one game and report per-plugin hit
+/// counts for the Store's availability filter.
+///
+/// This is the batched counterpart of `search_downloads`: it skips the
+/// built-in sources and the duplicate-collapsing pass (which would hide
+/// plugin provenance behind an equal-or-better source hit) and returns one
+/// row per enabled plugin, including the ones that returned nothing.
+///
+/// Unlike a user-facing search it does not fail as a whole: a plugin that
+/// errors is reported in its own row so the filter can disclose how many
+/// plugins could not be checked.
+#[tauri::command]
+pub async fn plugins_check_availability(
+    app: tauri::AppHandle,
+    query: String,
+    release_year: Option<i32>,
+    aliases: Option<Vec<String>>,
+) -> Result<Vec<PluginAvailabilityHit>, String> {
+    let alias_list: Vec<String> = aliases
+        .unwrap_or_default()
+        .into_iter()
+        .map(|a| a.trim().to_string())
+        .filter(|a| !a.is_empty() && a != &query)
+        .take(8)
+        .collect();
+
+    let manager = app.state::<Arc<PluginManager>>();
+    manager.ensure_loaded();
+
+    let plugin_rows = db::plugins::list_plugins(&manager.db)?;
+    let enabled: Vec<(db::plugins::PluginRow, String)> = {
+        let sources = manager
+            .sources
+            .lock()
+            .map_err(|e| format!("plugin sources lock: {e}"))?;
+        plugin_rows
+            .into_iter()
+            .filter(|r| r.enabled)
+            .filter_map(|r| sources.get(&r.id).cloned().map(|s| (r, s)))
+            .collect()
+    };
+
+    // One task per plugin: hosts differ, so the per-host rate limiter in
+    // the sandbox decides the real pacing without serialising everything.
+    let mut tasks = Vec::with_capacity(enabled.len());
+    for (row, source) in enabled {
+        let pm = Arc::clone(manager.inner());
+        let query = query.clone();
+        let aliases = alias_list.clone();
+        tasks.push(tokio::spawn(async move {
+            probe_plugin_availability(&pm, &row, &source, &query, &aliases, release_year).await
+        }));
+    }
+
+    let mut out = Vec::with_capacity(tasks.len());
+    for task in tasks {
+        match task.await {
+            Ok(hit) => out.push(hit),
+            Err(e) => eprintln!("[plugins] availability probe task failed: {e}"),
+        }
+    }
+    Ok(out)
+}
+
+/// Search one plugin for `query` and count the results the download modal
+/// would show. Falls back to the cleaned short query when the full title
+/// produced nothing usable, mirroring `search_downloads_stream`.
+async fn probe_plugin_availability(
+    pm: &PluginManager,
+    row: &db::plugins::PluginRow,
+    source: &str,
+    query: &str,
+    aliases: &[String],
+    release_year: Option<i32>,
+) -> PluginAvailabilityHit {
+    let count = |q: &str, raws: &[PluginRawResult]| -> usize {
+        raws.iter()
+            .filter(|raw| {
+                raw_to_download_search_result(row, raw, q, aliases, release_year).is_some()
+            })
+            .count()
+    };
+
+    let hit = |matches: usize, error: Option<String>| PluginAvailabilityHit {
+        plugin_id: row.id.clone(),
+        name: row.name.clone(),
+        platform_category: normalize_platform_category(&row.platform_category),
+        matches,
+        error,
+    };
+
+    match pm.search_plugin(row, source, query).await {
+        Ok(raws) => {
+            let mut matches = count(query, &raws);
+            if matches == 0 {
+                if let Some(cleaned) = source_manager::clean_search_query(query) {
+                    if cleaned != query {
+                        if let Ok(retry) = pm.search_plugin(row, source, &cleaned).await {
+                            matches = count(&cleaned, &retry);
+                        }
+                    }
+                }
+            }
+            hit(matches, None)
+        }
+        Err(e) => {
+            eprintln!("[plugins] availability {} failed: {e}", row.id);
+            let _ = db::plugins::set_plugin_error(&pm.db, &row.id, Some(&e));
+            hit(0, Some(e))
+        }
+    }
+}
+
+/// Persist the Store's per-(game, plugin) availability map to disk so the
+/// plugin filter survives a restart without re-probing every game. The
+/// frontend owns the in-memory map and writes the whole
+/// `{ savedAt, games: Record<slug, Record<pluginId, boolean>> }` blob.
+#[tauri::command]
+pub fn save_plugin_availability_cache(app: tauri::AppHandle, data: String) -> Result<(), String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("plugin_availability_cache.json");
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}
+
+/// Load the persisted plugin-availability map (empty string if none yet).
+#[tauri::command]
+pub fn load_plugin_availability_cache(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let path = dir.join("plugin_availability_cache.json");
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 /// Merged download search: built-in sources first, then every enabled

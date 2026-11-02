@@ -88,6 +88,20 @@ vi.mock("./useSourceAvailabilityCache", () => ({
   }),
 }));
 
+vi.mock("./usePluginAvailabilityCache", () => ({
+  usePluginAvailabilityCache: (games: StoreGameSummary[]) => ({
+    plugins: [],
+    visibleGames: games,
+    pending: 0,
+    isFilterActive: false,
+    pluginCounts: {},
+    pluginErrors: {},
+    uncheckedPlugins: 0,
+    probeError: null,
+    availableSlugs: new Map(),
+  }),
+}));
+
 import { useStoreCatalogue } from "./useStoreCatalogue";
 
 function game(slug: string): StoreGameSummary {

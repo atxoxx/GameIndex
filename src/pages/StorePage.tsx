@@ -219,6 +219,10 @@ export default function StorePage() {
         c.setYearRange(null, null);
       } else if (type === "rating") {
         c.setRatingMin(null);
+      } else if (type === "sources") {
+        c.setSelectedSourceIds([]);
+      } else if (type === "plugins") {
+        c.setSelectedPluginIds([]);
       }
     },
     [c]
@@ -281,6 +285,8 @@ export default function StorePage() {
           yearMin={c.yearMin}
           yearMax={c.yearMax}
           ratingMin={c.ratingMin}
+          sourceCount={c.selectedSourceIds.length}
+          pluginCount={c.selectedPluginIds.length}
           onRemove={removeFilter}
           onClearAll={c.resetFilters}
           onOpenFilters={() => c.setFiltersOpen(true)}
@@ -297,6 +303,9 @@ export default function StorePage() {
               onCardClick={c.onCardClick}
               isSourceFilterActive={c.isSourceFilterActive}
               isSourceCheckPending={c.sourceChecksPending > 0}
+              isPluginFilterActive={c.isPluginFilterActive}
+              isPluginCheckPending={c.pluginChecksPending > 0}
+              pluginAvailableSlugs={c.pluginAvailableSlugs}
               isInLibrary={c.isInLibrary}
               onHide={c.onHide}
               onCompare={c.toggleCompare}

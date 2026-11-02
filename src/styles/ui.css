@@ -1292,6 +1292,29 @@
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
+/* Section header inside a grouped option list (plugins by platform class). */
+.msd__group {
+  padding: var(--space-2xs) var(--space-sm) var(--space-3xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.msd__warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--color-warning);
+}
+
+.msd__warning svg {
+  width: 12px;
+  height: 12px;
+}
+
 .msd__empty {
   padding: var(--space-lg) var(--space-md);
   color: var(--color-text-muted);
