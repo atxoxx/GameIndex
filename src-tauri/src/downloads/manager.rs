@@ -457,9 +457,38 @@ impl DownloadManager {
         if self.direct_reset_partial.remove(old_id) {
             self.direct_reset_partial.insert(new_id.to_string());
         }
+        // The tick bookkeeping maps are keyed by id too; without moving them
+        // a torrent's cooldown/stall state effectively resets (the timing
+        // recoveries would restart from scratch for the real infohash).
+        if let Some(v) = self.direct_last_calc.remove(old_id) {
+            self.direct_last_calc.insert(new_id.to_string(), v);
+        }
+        if let Some(v) = self.last_reannounce.remove(old_id) {
+            self.last_reannounce.insert(new_id.to_string(), v);
+        }
+        if let Some(v) = self.last_recovery.remove(old_id) {
+            self.last_recovery.insert(new_id.to_string(), v);
+        }
+        if let Some(v) = self.stall_since.remove(old_id) {
+            self.stall_since.insert(new_id.to_string(), v);
+        }
         // A re-add of a previously removed torrent cancels its tombstone.
         self.removed_torrents.remove(new_id);
         self.mark_dirty();
+    }
+
+    /// Drop every per-id bookkeeping entry for `id` (stall timers, cooldown
+    /// timestamps, direct-download speed diffs). Called on removal — these
+    /// maps had no removal path before, so one entry per ever-deleted
+    /// download lingered for the whole session.
+    pub fn forget_download(&mut self, id: &str) {
+        self.direct_counters.remove(id);
+        self.direct_generations.remove(id);
+        self.direct_locks.remove(id);
+        self.direct_last_calc.remove(id);
+        self.last_reannounce.remove(id);
+        self.last_recovery.remove(id);
+        self.stall_since.remove(id);
     }
 
     // ── Initialisation ─────────────────────────────────────────────────

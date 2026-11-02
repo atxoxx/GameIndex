@@ -1204,6 +1204,22 @@ static GAMEMAPSCOM_CACHE: OnceLock<Mutex<Option<CachedIndex>>> = OnceLock::new()
 static WAND_SUBMAP_CACHE: OnceLock<Mutex<HashMap<String, (Instant, Arc<Vec<MapSourceMap>>)>>> =
     OnceLock::new();
 
+/// Upper bound on the per-game Wand sub-map cache. Each entry holds the parsed
+/// sub-map list for one Wand game page and was previously retained for the
+/// whole app session — one entry per distinct game ever looked up through the
+/// Maps feature, with no pruning unless that exact page was visited again.
+const WAND_SUBMAP_MAX_ENTRIES: usize = 128;
+
+/// Drop expired Wand sub-map entries and cap the cache. Expired entries for
+/// pages the user never revisits would otherwise linger until restart: the
+/// per-key TTL check only refreshes the key it is called with.
+fn prune_wand_submaps(
+    map: &mut HashMap<String, (Instant, Arc<Vec<MapSourceMap>>)>,
+) {
+    map.retain(|_, (fetched_at, _)| *fetched_at + CACHE_TTL > Instant::now());
+    crate::game_scraper::prune_metadata_cache(map, WAND_SUBMAP_MAX_ENTRIES);
+}
+
 async fn resolve_mapgenie(
     db: &Db,
     client: &reqwest::Client,
@@ -1267,7 +1283,8 @@ async fn cached_wand_submaps(
     let cache = WAND_SUBMAP_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
     {
-        let guard = cache.lock().await;
+        let mut guard = cache.lock().await;
+        prune_wand_submaps(&mut guard);
         if let Some((fetched_at, maps)) = guard.get(game_url) {
             if fetched_at.elapsed() < CACHE_TTL {
                 return maps.clone();
@@ -1291,10 +1308,9 @@ async fn cached_wand_submaps(
 
     let maps = Arc::new(maps);
     if !maps.is_empty() {
-        cache
-            .lock()
-            .await
-            .insert(game_url.to_string(), (Instant::now(), maps.clone()));
+        let mut guard = cache.lock().await;
+        prune_wand_submaps(&mut guard);
+        guard.insert(game_url.to_string(), (Instant::now(), maps.clone()));
     }
     maps
 }

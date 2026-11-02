@@ -1209,10 +1209,11 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         let session = guard.session().cloned();
         guard.debrid_params.remove(&id);
         guard.debrid_files.remove(&id);
-        guard.direct_counters.remove(&id);
-        guard.direct_generations.remove(&id);
-        guard.direct_locks.remove(&id);
         guard.direct_reset_partial.remove(&id);
+        // Drops the per-download bookkeeping (stall timer, re-announce and
+        // recovery cooldowns, direct speed diffs) — these entries had no
+        // removal path before, so every deleted download left one behind.
+        guard.forget_download(&id);
         // Snapshot the record BEFORE the remove so a non-completed
         // removal lands in the download-history ledger as `Removed`.
         let history_clone = guard.downloads_mut().get(&id).cloned();
