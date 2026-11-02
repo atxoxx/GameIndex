@@ -556,20 +556,22 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "home",
     labelKey: "nav.home",
     routes: ["/home"],
+    // Shipped DOM order: hero and stats, then the dashboard's left column,
+    // then its main column (Shelves sits between Recently Added and Downloads).
     items: [
       "hero",
       "homeQuickStats",
-      "homeContinuePlaying",
-      "homeRecentlyAdded",
       "homeQuickLaunch",
       "homeActivity",
       "homeAchievements",
       "homeFriends",
+      "homeContinuePlaying",
+      "homeRecentlyAdded",
+      "homeShelves",
       "homeDownloads",
       "homeWishlist",
       "homeDeals",
       "homeNews",
-      "homeShelves",
     ],
   },
   {
@@ -582,24 +584,26 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "game",
     labelKey: "settings.interface.studioPageGame",
     routes: ["/library/"],
+    // Shipped DOM order: the page head, the main column (Media opens it), then
+    // the rail cards in `GAME_RAIL_GROUPS` order.
     items: [
       "gameHero",
       "gameTabs",
       "gameQuickStats",
+      "gameMedia",
       "gameAbout",
       "gameStoryline",
-      "gameMedia",
       "gameSysReq",
       "gameRelations",
       "gamePulse",
+      "gameSaveBackup",
       "gameInfoKpi",
       "gameDlcCard",
-      "gameSteamFeatures",
       "gameValue",
-      "gameSaveBackup",
+      "gameSpecsCard",
+      "gameSteamFeatures",
       "gameRatings",
       "gameTimeToBeat",
-      "gameSpecsCard",
       "gameProtonDb",
       "gameCrackwatch",
       "gameReleases",
@@ -610,11 +614,13 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "store",
     labelKey: "nav.store",
     routes: ["/store"],
+    // `filters` is the toolbar's filter trigger (the facet panel itself is a
+    // popover inside `storeFilters`, not a page section).
     items: [
       "storeHeader",
       "hero",
-      "storeFilters",
       "storeToolbar",
+      "filters",
       "storeGrid",
     ],
   },
@@ -622,25 +628,27 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "storeGame",
     labelKey: "settings.interface.studioPageStoreGame",
     routes: ["/store/"],
+    // Store detail mirrors the library detail's head and main column, then the
+    // rail cards in `STORE_RAIL_GROUPS` order (no pulse, no save backup, no value).
     items: [
       "gameHero",
       "gameTabs",
       "gameQuickStats",
+      "gameMedia",
       "gameAbout",
       "gameStoryline",
-      "gameMedia",
       "gameSysReq",
       "gameRelations",
       "gameInfoKpi",
-      "gameDlcCard",
-      "gameSteamFeatures",
       "gameRatings",
       "gameTimeToBeat",
-      "gameSpecsCard",
-      "gameProtonDb",
-      "gameCrackwatch",
+      "gameDlcCard",
+      "gameSteamFeatures",
       "gameReleases",
       "gameLanguages",
+      "gameProtonDb",
+      "gameCrackwatch",
+      "gameSpecsCard",
     ],
   },
   {
@@ -658,12 +666,9 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "deals",
     labelKey: "nav.deals",
     routes: ["/deals"],
-    items: [
-      "dealsHeader",
-      "hero",
-      "subtabs",
-      "dealsGrid",
-    ],
+    // The page has no hero widget: header, the sticky tab band (`subtabs`) and
+    // the results panel.
+    items: ["dealsHeader", "subtabs", "dealsGrid"],
   },
   {
     key: "news",
@@ -680,6 +685,8 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
     key: "activity",
     labelKey: "nav.activity",
     routes: ["/activity"],
+    // Shipped DOM order: KPIs, chart, insights, records, then the persona /
+    // value and backlog pair, then the breakdown panels.
     items: [
       "activityHeader",
       "activityToolbar",
@@ -845,7 +852,10 @@ const RETIRED_PAGE_WIDGET_EXPANSION: Partial<
 const NEW_PAGE_WIDGET_ANCHORS: Partial<
   Record<InterfacePageKey, Record<string, PageWidgetKey>>
 > = {
-  game: { gameValue: "gameSteamFeatures", gameSaveBackup: "gameValue" },
+  game: { gameValue: "gameDlcCard", gameSaveBackup: "gamePulse" },
+  // The store's filter trigger lives inside the sticky command bar, so a saved
+  // layout that predates the key should gain it there, not at the tail.
+  store: { filters: "storeToolbar" },
 };
 
 /** Normalize a persisted per-page order: drop unknown/duplicates, migrate

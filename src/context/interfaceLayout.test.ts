@@ -84,9 +84,11 @@ describe("normalizePageItemOrder", () => {
   });
 
   it("drops keys the page does not render", () => {
-    const result = normalizePageItemOrder("deals", ["unknownKey", "hero"]);
-    expect(result[0]).toBe("hero");
+    // `hero` is a real widget elsewhere but not on the deals page any more.
+    const result = normalizePageItemOrder("deals", ["dealsGrid", "unknownKey", "hero"]);
+    expect(result[0]).toBe("dealsGrid");
     expect(result.includes("unknownKey" as any)).toBe(false);
+    expect((result as string[]).includes("hero")).toBe(false);
     expect(new Set(result)).toEqual(
       new Set(interfacePageDef("deals")?.items ?? []),
     );
@@ -495,14 +497,14 @@ describe("detail side-card order migration", () => {
     expect(result).toHaveLength(saved.length + 1);
   });
 
-  it("anchors the value card between Steam Features and Save Backups", () => {
+  it("anchors the value card after the DLC card", () => {
     const saved = (interfacePageDef("game")?.items ?? []).filter(
       (key) => key !== "gameValue",
     );
     const result = normalizePageItemOrder("game", saved);
     const index = result.indexOf("gameValue");
-    expect(result[index - 1]).toBe("gameSteamFeatures");
-    expect(result[index + 1]).toBe("gameSaveBackup");
+    expect(result[index - 1]).toBe("gameDlcCard");
+    expect(result[index + 1]).toBe("gameSpecsCard");
   });
 
   it("expands the retired specs group into the five spec cards", () => {
@@ -542,12 +544,20 @@ describe("detail side-card order migration", () => {
     expect(DEFAULT_PAGE_ITEM_ORDER.storeGame).toEqual(items);
   });
 
-  it("ships the DLC card between the Info and Steam Features cards", () => {
-    for (const page of ["game", "storeGame"] as const) {
-      const items = interfacePageDef(page)?.items ?? [];
-      expect(items.indexOf("gameDlcCard")).toBe(items.indexOf("gameInfoKpi") + 1);
-      expect(items[items.indexOf("gameDlcCard") + 1]).toBe("gameSteamFeatures");
-    }
+  it("ships the DLC card with its rail neighbours on each detail page", () => {
+    const gameItems = interfacePageDef("game")?.items ?? [];
+    expect(gameItems.indexOf("gameDlcCard")).toBe(
+      gameItems.indexOf("gameInfoKpi") + 1,
+    );
+    expect(gameItems[gameItems.indexOf("gameDlcCard") + 1]).toBe("gameValue");
+
+    const storeItems = interfacePageDef("storeGame")?.items ?? [];
+    expect(storeItems[storeItems.indexOf("gameDlcCard") - 1]).toBe(
+      "gameTimeToBeat",
+    );
+    expect(storeItems[storeItems.indexOf("gameDlcCard") + 1]).toBe(
+      "gameSteamFeatures",
+    );
   });
 });
 
