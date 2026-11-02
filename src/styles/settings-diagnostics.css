@@ -1,8 +1,11 @@
 /* Settings → Diagnostics: crash-log metadata, report list, and previews. */
 
+/* Metadata reads as one compact block: the folder takes its own line, the
+ * two numbers sit beside each other instead of stacking three full rows. */
 .diag-meta {
-  display: grid;
-  gap: var(--space-xs);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-xl);
   margin-bottom: var(--space-md);
 }
 
@@ -11,6 +14,10 @@
   align-items: baseline;
   gap: var(--space-sm);
   min-width: 0;
+}
+
+.diag-meta-row--path {
+  flex: 1 1 100%;
 }
 
 .diag-meta-label {
@@ -37,8 +44,15 @@
 
 .diag-reports {
   display: grid;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   margin-bottom: var(--space-md);
+}
+
+.diag-reports-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
 }
 
 .diag-reports-title {
@@ -47,53 +61,121 @@
   color: var(--color-text-secondary);
 }
 
+/* One row per report, capped height: 33 reports scroll instead of turning
+ * the page into a wall of chips. Newest is first (the tab sorts them). */
 .diag-report-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.diag-report-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3xs);
-}
-
-.diag-report-chip {
-  padding: var(--space-2xs) var(--space-sm);
-  border-radius: var(--radius-full);
+  flex-direction: column;
+  max-height: 224px;
+  overflow-y: auto;
   border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.diag-report-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.diag-report-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.diag-report-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.diag-report-row:last-child {
+  border-bottom: none;
+}
+
+.diag-report-open {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(132px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary);
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: var(--text-xs);
+  text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.diag-report-chip:hover {
-  border-color: var(--color-border-highlight);
+.diag-report-open:hover {
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
-.diag-report-chip.active {
-  border-color: var(--color-accent-border);
-  background: var(--color-accent-soft);
+.diag-report-open[aria-selected="true"] {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--color-accent);
   color: var(--color-text-primary);
+}
+
+.diag-report-when,
+.diag-report-size {
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diag-report-open[aria-selected="true"] .diag-report-when {
+  color: var(--color-accent);
+}
+
+.diag-report-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.diag-report-label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.diag-report-row--rolling .diag-report-name {
+  color: var(--color-text-secondary);
 }
 
 .diag-report-delete {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-2xs);
   border: none;
   background: transparent;
-  color: var(--color-text-tertiary);
-  font-size: var(--text-md);
-  line-height: 1;
-  padding: var(--space-3xs) var(--space-2xs);
-  cursor: pointer;
+  color: var(--color-text-muted);
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
 }
 
-.diag-report-delete:hover {
+.diag-report-delete:hover,
+.diag-report-delete:focus-visible {
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 12%, transparent);
 }
@@ -126,4 +208,16 @@
 
 .diag-preview--system {
   min-height: 140px;
+}
+
+/* Narrower windows: drop the weekday-free date column to one line and let
+ * the filename own the remaining space. */
+@media (max-width: 760px) {
+  .diag-report-open {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .diag-report-open .diag-report-name {
+    display: none;
+  }
 }

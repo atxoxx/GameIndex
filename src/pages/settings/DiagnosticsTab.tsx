@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
+import { Trash2 } from "lucide-react";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
@@ -58,6 +59,18 @@ function formatWhen(seconds: number): string {
   return new Date(seconds * 1000).toLocaleString();
 }
 
+/** Compact row timestamp: "02 Nov 2026, 06:26" (locale-aware). */
+function formatReportWhen(seconds: number): string {
+  if (!seconds) return "—";
+  return new Date(seconds * 1000).toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /**
  * DiagnosticsTab — user-facing crash log + system report surface.
  *
@@ -108,7 +121,10 @@ export default function DiagnosticsTab() {
       const stillThere = prev
         ? next.reports.some((r) => r.name === prev)
         : true;
-      const target = stillThere ? prev : (next.reports[0]?.name ?? null);
+      const newest = [...next.reports].sort(
+        (a, b) => b.modifiedAt - a.modifiedAt,
+      )[0];
+      const target = stillThere ? prev : (newest?.name ?? null);
       selectedRef.current = target;
       setSelected(target);
       await loadContent(target);
@@ -236,6 +252,13 @@ export default function DiagnosticsTab() {
     [t, appVersion, status, systemInfo],
   );
 
+  // Newest first: the report people actually want is at the top of the list.
+  const reports = useMemo(
+    () =>
+      [...(status?.reports ?? [])].sort((a, b) => b.modifiedAt - a.modifiedAt),
+    [status],
+  );
+
   const handleCopySystem = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(systemReport);
@@ -270,11 +293,13 @@ export default function DiagnosticsTab() {
         }
       >
         <div className="diag-meta">
-          <div className="diag-meta-row">
+          <div className="diag-meta-row diag-meta-row--path">
             <span className="diag-meta-label">
               {t("settings.diagnostics.path")}
             </span>
-            <code className="diag-meta-value">{status?.dir ?? "—"}</code>
+            <code className="diag-meta-value" title={status?.dir}>
+              {status?.dir ?? "—"}
+            </code>
           </div>
           <div className="diag-meta-row">
             <span className="diag-meta-label">
@@ -323,37 +348,57 @@ export default function DiagnosticsTab() {
           </Button>
         </div>
 
-        {status && status.reports.length > 0 && (
+        {reports.length > 0 && (
           <div className="diag-reports">
-            <span className="diag-reports-title">
-              {t("settings.diagnostics.reports", {
-                count: status.reports.length,
+            <div className="diag-reports-head">
+              <span className="diag-reports-title">
+                {t("settings.diagnostics.reports", {
+                  count: reports.length,
+                })}
+              </span>
+            </div>
+            <div
+              className="diag-report-list"
+              role="listbox"
+              aria-label={t("settings.diagnostics.reports", {
+                count: reports.length,
               })}
-            </span>
-            <div className="diag-report-list">
-              <button
-                type="button"
-                className={
-                  "diag-report-chip" + (selected === null ? " active" : "")
-                }
-                onClick={() => select(null)}
-              >
-                {t("settings.diagnostics.rollingLog")}
-              </button>
-              {status.reports.map((report) => (
-                <span key={report.name} className="diag-report-item">
+            >
+              <div className="diag-report-row diag-report-row--rolling">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selected === null}
+                  className="diag-report-open"
+                  onClick={() => select(null)}
+                >
+                  <span className="diag-report-label">
+                    {t("settings.diagnostics.rollingLog")}
+                  </span>
+                  <span className="diag-report-name">crash.log</span>
+                  <span className="diag-report-size">
+                    {formatReportWhen(status?.logModifiedAt ?? 0)}
+                  </span>
+                </button>
+              </div>
+
+              {reports.map((report) => (
+                <div key={report.name} className="diag-report-row">
                   <button
                     type="button"
-                    className={
-                      "diag-report-chip" +
-                      (selected === report.name ? " active" : "")
-                    }
-                    title={`${formatBytes(report.sizeBytes)} · ${formatWhen(
-                      report.modifiedAt,
-                    )}`}
+                    role="option"
+                    aria-selected={selected === report.name}
+                    className="diag-report-open"
+                    title={report.name}
                     onClick={() => select(report.name)}
                   >
-                    {report.name}
+                    <span className="diag-report-when">
+                      {formatReportWhen(report.modifiedAt)}
+                    </span>
+                    <span className="diag-report-name">{report.name}</span>
+                    <span className="diag-report-size">
+                      {formatBytes(report.sizeBytes)}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -362,9 +407,9 @@ export default function DiagnosticsTab() {
                     title={t("settings.diagnostics.deleteReport")}
                     onClick={() => void handleDeleteReport(report.name)}
                   >
-                    ×
+                    <Trash2 size={13} aria-hidden />
                   </button>
-                </span>
+                </div>
               ))}
             </div>
           </div>
