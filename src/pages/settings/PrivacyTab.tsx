@@ -3,8 +3,9 @@ import { Button, ConfirmModal } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSettings } from "../../context/SettingsContext";
+import SettingsRow from "./SettingsRow";
 import SettingsSection from "./SettingsSection";
-import SettingsToggleCard from "./SettingsToggleCard";
+import SettingsSwitch from "./SettingsSwitch";
 import { BellIcon, ShieldIcon, TrashIcon } from "./settingsIcons";
 
 function formatStorageBytes(bytes: number): string {
@@ -20,9 +21,11 @@ function formatStorageBytes(bytes: number): string {
 }
 
 /**
- * PrivacyTab — review everything GameIndex keeps in localStorage and
- * wipe individual keys or everything at once. Confirmation goes through
- * the shared ConfirmModal, matching the rest of the app.
+ * PrivacyTab — friends privacy, in-app browsing protection and the local
+ * storage browser. Everything GameIndex remembers about preferences lives
+ * in localStorage, so this is where you review it and wipe individual keys
+ * or everything at once. Confirmation goes through the shared ConfirmModal,
+ * matching the rest of the app.
  */
 export default function PrivacyTab() {
   const { t } = useLanguage();
@@ -83,55 +86,69 @@ export default function PrivacyTab() {
 
   return (
     <>
-    <SettingsSection
-      id="privacy-friends"
-      icon={<BellIcon />}
-      title={t("settings.section.friends")}
-      desc={t("settings.friends.desc")}
-    >
-      <div className="settings-friends-toggles">
-        <SettingsToggleCard
+      <SettingsSection
+        id="privacy-friends"
+        icon={<BellIcon />}
+        title={t("settings.section.friends")}
+        desc={t("settings.friends.desc")}
+      >
+        <SettingsRow
           title={t("settings.friends.notifications")}
           desc={t("settings.friends.notifications.desc")}
-          checked={friendsNotifications}
-          onChange={(on) => {
-            setFriendsNotifications(on);
-            if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
-              void Notification.requestPermission();
-            }
-          }}
+          control={
+            <SettingsSwitch
+              label={t("settings.friends.notifications")}
+              checked={friendsNotifications}
+              onChange={(on) => {
+                setFriendsNotifications(on);
+                if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
+                  void Notification.requestPermission();
+                }
+              }}
+            />
+          }
         />
-        <SettingsToggleCard
+
+        <SettingsRow
           title={t("settings.friends.readReceipts")}
           desc={t("settings.friends.readReceipts.desc")}
-          checked={dmReadReceipts}
-          onChange={setDmReadReceipts}
+          control={
+            <SettingsSwitch
+              label={t("settings.friends.readReceipts")}
+              checked={dmReadReceipts}
+              onChange={setDmReadReceipts}
+            />
+          }
         />
-      </div>
-    </SettingsSection>
+      </SettingsSection>
 
-    <SettingsSection
-      id="privacy-browsing"
-      icon={<ShieldIcon />}
-      title={t("settings.section.browsing")}
-      desc={t("settings.webviewFilter.desc")}
-    >
-      <SettingsToggleCard
-        title={t("settings.webviewFilter.title")}
-        desc={t("settings.webviewFilter.toggleDesc")}
-        checked={webviewContentFilter}
-        onChange={setWebviewContentFilter}
-      />
-    </SettingsSection>
+      <SettingsSection
+        id="privacy-browsing"
+        icon={<ShieldIcon />}
+        title={t("settings.section.browsing")}
+        desc={t("settings.webviewFilter.desc")}
+        advanced
+      >
+        <SettingsRow
+          title={t("settings.webviewFilter.title")}
+          desc={t("settings.webviewFilter.toggleDesc")}
+          control={
+            <SettingsSwitch
+              label={t("settings.webviewFilter.title")}
+              checked={webviewContentFilter}
+              onChange={setWebviewContentFilter}
+            />
+          }
+        />
+      </SettingsSection>
 
-    <SettingsSection
-      id="privacy-storage"
-      icon={<TrashIcon />}
-      title={t("settings.section.wipeData")}
-      desc={t("settings.wipe.desc")}
-    >
-      <div className="settings-wipe-toolbar">
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", flexWrap: "wrap" }}>
+      <SettingsSection
+        id="privacy-storage"
+        icon={<TrashIcon />}
+        title={t("settings.section.wipeData")}
+        desc={t("settings.wipe.desc")}
+      >
+        <div className="settings-wipe-toolbar">
           <span className="settings-wipe-count">
             {t("settings.wipe.itemCount", { count: items.length })} ({formatStorageBytes(totalSize)})
           </span>
@@ -139,89 +156,88 @@ export default function PrivacyTab() {
             <input
               type="text"
               className="settings-input"
-              style={{ width: "200px", padding: "var(--space-2xs) var(--space-sm)", fontSize: "var(--text-xs)", height: "28px" }}
-              placeholder="Filter keys..."
+              placeholder={t("common.search")}
+              aria-label={t("common.search")}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
             />
           )}
+          <div className="settings-wipe-actions">
+            <Button variant="ghost" size="sm" onClick={refresh}>
+              {t("settings.wipe.refresh")}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setWipeAllOpen(true)}
+              disabled={items.length === 0}
+            >
+              {t("settings.wipe.wipeAll")}
+            </Button>
+          </div>
         </div>
-        <div className="settings-wipe-actions">
-          <Button variant="ghost" size="sm" onClick={refresh}>
-            {t("settings.wipe.refresh")}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setWipeAllOpen(true)}
-            disabled={items.length === 0}
-          >
-            {t("settings.wipe.wipeAll")}
-          </Button>
-        </div>
-      </div>
 
-      {items.length === 0 ? (
-        <div className="settings-wipe-empty">
-          <span className="settings-wipe-empty-icon">
-            <TrashIcon />
-          </span>
-          <p>{t("settings.wipe.empty")}</p>
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="settings-wipe-empty">
-          <p>No keys matching &ldquo;{searchFilter}&rdquo;</p>
-        </div>
-      ) : (
-        <ul className="settings-wipe-list">
-          {filteredItems.map((item) => {
-            const preview = item.value.length > 160
-              ? `${item.value.slice(0, 160)}…`
-              : item.value || t("settings.wipe.noValue");
-            return (
-              <li className="settings-wipe-item" key={item.key}>
-                <div className="settings-wipe-item-info">
-                  <code className="settings-wipe-key">{item.key}</code>
-                  <span className="settings-wipe-size">
-                    {t("settings.wipe.size", { size: formatStorageBytes(item.size) })}
-                  </span>
-                  <pre className="settings-wipe-value" title={item.value}>{preview}</pre>
-                </div>
-                <div className="settings-wipe-item-action">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setWipeKeyOpen(item.key)}
-                  >
-                    {t("settings.wipe.remove")}
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+        {items.length === 0 ? (
+          <div className="settings-wipe-empty">
+            <span className="settings-wipe-empty-icon">
+              <TrashIcon />
+            </span>
+            <p>{t("settings.wipe.empty")}</p>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="settings-wipe-empty">
+            <p>{t("common.noResults")}</p>
+          </div>
+        ) : (
+          <ul className="settings-wipe-list">
+            {filteredItems.map((item) => {
+              const preview = item.value.length > 160
+                ? `${item.value.slice(0, 160)}…`
+                : item.value || t("settings.wipe.noValue");
+              return (
+                <li className="settings-wipe-item" key={item.key}>
+                  <div className="settings-wipe-item-info">
+                    <code className="settings-wipe-key">{item.key}</code>
+                    <span className="settings-wipe-size">
+                      {t("settings.wipe.size", { size: formatStorageBytes(item.size) })}
+                    </span>
+                    <pre className="settings-wipe-value" title={item.value}>{preview}</pre>
+                  </div>
+                  <div className="settings-wipe-item-action">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setWipeKeyOpen(item.key)}
+                    >
+                      {t("settings.wipe.remove")}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
-      <ConfirmModal
-        open={wipeAllOpen}
-        title={t("settings.wipe.wipeAll")}
-        message={t("settings.wipe.wipeAllConfirm", { count: items.length })}
-        confirmLabel={t("settings.wipe.wipeAllConfirmBtn")}
-        cancelLabel={t("settings.wipe.cancel")}
-        onConfirm={wipeAll}
-        onCancel={() => setWipeAllOpen(false)}
-      />
+        <ConfirmModal
+          open={wipeAllOpen}
+          title={t("settings.wipe.wipeAll")}
+          message={t("settings.wipe.wipeAllConfirm", { count: items.length })}
+          confirmLabel={t("settings.wipe.wipeAllConfirmBtn")}
+          cancelLabel={t("settings.wipe.cancel")}
+          onConfirm={wipeAll}
+          onCancel={() => setWipeAllOpen(false)}
+        />
 
-      <ConfirmModal
-        open={wipeKeyOpen !== null}
-        title={t("settings.wipe.remove")}
-        message={t("settings.wipe.removeConfirm")}
-        confirmLabel={t("settings.wipe.remove")}
-        cancelLabel={t("settings.wipe.cancel")}
-        onConfirm={() => wipeKeyOpen !== null && wipeKey(wipeKeyOpen)}
-        onCancel={() => setWipeKeyOpen(null)}
-      />
-    </SettingsSection>
+        <ConfirmModal
+          open={wipeKeyOpen !== null}
+          title={t("settings.wipe.remove")}
+          message={t("settings.wipe.removeConfirm")}
+          confirmLabel={t("settings.wipe.remove")}
+          cancelLabel={t("settings.wipe.cancel")}
+          onConfirm={() => wipeKeyOpen !== null && wipeKey(wipeKeyOpen)}
+          onCancel={() => setWipeKeyOpen(null)}
+        />
+      </SettingsSection>
     </>
   );
 }

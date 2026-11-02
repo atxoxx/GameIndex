@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronDownIcon } from "./settingsIcons";
+import { useSettingsUi } from "./SettingsUiContext";
 
 interface SettingsCategoryProps {
   /** Optional anchor id so a category can be deep-linked via `?section=`. */
@@ -10,6 +11,8 @@ interface SettingsCategoryProps {
   /** Whether the category body is expanded. Categories start collapsed. */
   open: boolean;
   onToggle: () => void;
+  /** Expert-only category: hidden while the Essentials filter is on. */
+  advanced?: boolean;
   /** Screen-reader labels for the header toggle. */
   expandLabel?: string;
   collapseLabel?: string;
@@ -32,10 +35,14 @@ export default function SettingsCategory({
   desc,
   open,
   onToggle,
+  advanced,
   expandLabel,
   collapseLabel,
   children,
 }: SettingsCategoryProps) {
+  const { showAdvanced } = useSettingsUi();
+  if (advanced && !showAdvanced) return null;
+
   return (
     <section className={`settings-category${open ? " is-open" : ""}`} id={id}>
       <button

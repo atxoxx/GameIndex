@@ -732,6 +732,7 @@ export default function OverlayTab() {
 
       <SettingsSection
         id="overlay-accessibility"
+        advanced
         icon={<Accessibility />}
         title={t("overlay.settings.accessibility")}
         desc={t("settings.overlay.desc")}
@@ -768,6 +769,7 @@ export default function OverlayTab() {
 
       <SettingsSection
         id="overlay-capture"
+        advanced
         icon={<Camera />}
         title={t("settings.overlay.sectionCapture")}
         desc={t("settings.overlay.captureDesc")}
@@ -1218,6 +1220,7 @@ export default function OverlayTab() {
 
       <SettingsSection
         id="overlay-widgets"
+        advanced
         icon={<OverlayIcon />}
         title={t("settings.overlay.sectionWidgets")}
         desc={t("settings.overlay.desc")}

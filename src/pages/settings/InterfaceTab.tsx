@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useSettingsUi } from "./SettingsUiContext";
 import LayoutStudio from "./LayoutStudio";
 import InterfaceDefaults from "./InterfaceDefaults";
 import "./InterfaceTab.css";
@@ -21,6 +22,7 @@ import "./InterfaceTab.css";
 export default function InterfaceTab() {
   const { t } = useLanguage();
   const { isSimpleUi } = useSettings();
+  const { showAdvanced } = useSettingsUi();
 
   return (
     <>
@@ -28,28 +30,19 @@ export default function InterfaceTab() {
         {/* Only worth showing while Simple UI strips every marked element: it
          *  explains the dimmed preview and where to turn the mode off. */}
         {isSimpleUi && (
-          <div
-            className="settings-behavior-card"
-            style={{
-              display: "flex",
-              gap: "var(--space-md)",
-              alignItems: "flex-start",
-              padding: "var(--space-md) var(--space-lg)",
-              borderLeft: "3px solid var(--color-accent)",
-            }}
-          >
-            <Info
-              size={16}
-              className="settings-section-icon"
-              style={{ marginTop: 2, flexShrink: 0 }}
-            />
-            <span className="settings-checkbox-desc" style={{ margin: 0 }}>
-              {t("settings.interface.masterNoteSimple")}
-            </span>
+          <div className="settings-behavior-card interface-tab-note">
+            <Info size={16} aria-hidden />
+            <span>{t("settings.interface.masterNoteSimple")}</span>
           </div>
         )}
 
-        <LayoutStudio />
+        {showAdvanced ? (
+          <LayoutStudio />
+        ) : (
+          <p className="interface-tab-note-hint">
+            {t("settings.interface.studioHiddenHint")}
+          </p>
+        )}
       </div>
 
       {/* App-wide display modes and the overview detail sections — the only

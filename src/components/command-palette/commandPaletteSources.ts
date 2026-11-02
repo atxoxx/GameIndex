@@ -10,7 +10,7 @@ export interface SettingsPaletteEntry {
   id: string;
   tab: string;
   sectionId?: string;
-  kind: "tab" | "section";
+  kind: "tab" | "section" | "setting";
   title: string;
   crumb: string;
   keywords: string;
@@ -29,7 +29,7 @@ export function buildSettingsEntries(
   return searchIndex.map((entry) => ({
     id: entry.id,
     tab: entry.tab,
-    sectionId: entry.kind === "section" ? entry.id : undefined,
+    sectionId: entry.sectionId,
     kind: entry.kind,
     title: entry.label,
     crumb: entry.crumb,

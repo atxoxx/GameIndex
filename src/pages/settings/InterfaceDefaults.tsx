@@ -82,7 +82,10 @@ export default function InterfaceDefaults() {
         desc={t("settings.interface.globalAppearanceDesc")}
       >
         <div className="interface-defaults-layout">
-          <div className="settings-control interface-defaults-control">
+          <div
+            className="settings-control interface-defaults-control"
+            id="setting-ui-scale"
+          >
             <label className="settings-label" htmlFor="interface-ui-scale">
               {t("settings.appearance.uiScaleTitle")}
             </label>
@@ -104,12 +107,14 @@ export default function InterfaceDefaults() {
           </div>
 
           <div className="interface-defaults-grid">
-            <SettingsToggleCard
-              title={t("settings.appearance.simpleUiTitle")}
-              desc={t("settings.appearance.simpleUiDesc")}
-              checked={uiDensityMode === "simple"}
-              onChange={(checked) => setUiDensityMode(checked ? "simple" : "complete")}
-            />
+            <div id="setting-simple-ui">
+              <SettingsToggleCard
+                title={t("settings.appearance.simpleUiTitle")}
+                desc={t("settings.appearance.simpleUiDesc")}
+                checked={uiDensityMode === "simple"}
+                onChange={(checked) => setUiDensityMode(checked ? "simple" : "complete")}
+              />
+            </div>
             <SettingsToggleCard
               title={t("settings.appearance.navbarCompactTitle")}
               desc={t("settings.appearance.navbarCompactDesc")}
@@ -161,6 +166,7 @@ export default function InterfaceDefaults() {
       {/* ── Game & store detail sections (overview only) ───────── */}
       <SettingsSection
         id="interface-defaults-detail-sections"
+        advanced
         icon={<List size={18} />}
         title={t("settings.detailSections.title")}
         desc={t("settings.detailSections.desc")}

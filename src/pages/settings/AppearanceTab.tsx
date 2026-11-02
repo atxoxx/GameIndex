@@ -3,12 +3,14 @@ import { useTheme, UI_STYLES, type ThemeConfig, type ThemeDescriptor, type UiSty
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, LayoutTemplate, Gamepad2 } from "lucide-react";
+import { Volume2, Zap, Pencil, Plus, Download, Upload, MonitorPlay, LayoutTemplate, Gamepad2, Lock } from "lucide-react";
 import { Button, ConfirmModal } from "../../components/ui";
 import PresetPicker from "../../components/bigscreen/shell/PresetPicker";
 import { useBigScreenPrefs } from "../../context/BigScreenPrefsContext";
 import type { NavVisibility } from "../../bigscreen/presets";
 import SettingsSection from "./SettingsSection";
+import SettingsRow from "./SettingsRow";
+import SettingsSwitch from "./SettingsSwitch";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
 import ThemeCreatorModal from "./ThemeCreatorModal";
@@ -25,6 +27,7 @@ import {
   type ThemeImportIssue,
 } from "../../utils/customTheme";
 import { getThemePreviewColors } from "../../utils/themePreview";
+import { cssColorStringToHex } from "../../utils/color";
 import "../../styles/theme-creator.css";
 
 /** Curated preset accent colors exposed on the Appearance tab. `key` is a
@@ -56,6 +59,19 @@ const ACCENT_PRESETS: { key: string; value: string }[] = [
 const PRESET_VALUE_SET: Set<string> = new Set(
   ACCENT_PRESETS.map((p) => p.value.toLowerCase()),
 );
+
+/**
+ * Seed colour for the custom-colour input, which only accepts `#rrggbb`.
+ * With no override set we read the theme's resolved accent token rather than
+ * repeating a palette literal, so the picker opens on the colour on screen.
+ */
+function resolveAccentToken(): string {
+  if (typeof document === "undefined") return "";
+  const root = document.documentElement;
+  const inline = root.style.getPropertyValue("--color-accent").trim();
+  const token = inline || getComputedStyle(root).getPropertyValue("--color-accent").trim();
+  return cssColorStringToHex(token) ?? "";
+}
 
 /** Section-navigation visibility options for the Big Screen layout card. */
 const BIGSCREEN_NAV_OPTIONS: { id: NavVisibility; labelKey: string }[] = [
@@ -333,6 +349,7 @@ export default function AppearanceTab() {
         icon={<Gamepad2 size={18} />}
         title={t("bigscreen.system.layoutStyle")}
         desc={t("bigscreen.system.layoutStyleDesc")}
+        advanced
       >
         <div className="settings-bigscreen">
           <PresetPicker value={prefs.preset} onChange={setPreset} />
@@ -517,104 +534,103 @@ export default function AppearanceTab() {
         </div>
 
         {/* System theme sync */}
-        <label className="settings-checkbox-label theme-sync">
-          <input
-            type="checkbox"
-            checked={systemSync}
-            onChange={(e) => setSystemSync(e.target.checked)}
-          />
-          <span>{t("settings.label.syncSystemTheme")}</span>
-        </label>
+        <SettingsRow
+          title={t("settings.label.syncSystemTheme")}
+          control={
+            <SettingsSwitch
+              checked={systemSync}
+              onChange={setSystemSync}
+              label={t("settings.label.syncSystemTheme")}
+            />
+          }
+        />
 
         {/* Auto game palette accent override */}
-        <label className="settings-checkbox-label auto-game-accent">
-          <input
-            type="checkbox"
-            checked={autoGameAccent}
-            onChange={(e) => setAutoGameAccent(e.target.checked)}
-          />
-          <span>{t("settings.label.autoGameAccent")}</span>
-        </label>
+        <SettingsRow
+          title={t("settings.label.autoGameAccent")}
+          control={
+            <SettingsSwitch
+              checked={autoGameAccent}
+              onChange={setAutoGameAccent}
+              label={t("settings.label.autoGameAccent")}
+            />
+          }
+        />
 
         {/* Per-theme accent color override */}
-        <div id="appearance-accent" className="settings-row settings-row--accent">
-          <div className="settings-control">
-            <label className="settings-label">{t("settings.label.accent")}</label>
-            <p className="settings-helper-lead">
-              {t("settings.accent.desc")}
+        <SettingsRow
+          id="appearance-accent"
+          layout="stacked"
+          title={t("settings.label.accent")}
+          desc={t("settings.accent.desc")}
+        >
+          {autoGameAccent && (
+            <p className="settings-helper-text accent-locked-notice">
+              <Lock size={14} aria-hidden />{" "}
+              {t("settings.accent.lockedByAuto")}
             </p>
-            {autoGameAccent && (
-              <p className="settings-helper-lead accent-locked-notice" style={{ color: "var(--color-text-secondary)", marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                {t("settings.accent.lockedByAuto")}
-              </p>
-            )}
-            <div
-              className={`accent-picker${autoGameAccent ? " accent-picker--locked" : ""}`}
-              role="group"
-              aria-label={t("settings.aria.presetAccentColors")}
-              style={autoGameAccent ? { opacity: 0.5, pointerEvents: "none" } : undefined}
-            >
-              {accentSwatches.map((swatch) => {
-                const isActive = accentColor?.toLowerCase() === swatch.value;
-                return (
-                  <button
-                    key={swatch.value}
-                    type="button"
-                    className={`accent-swatch${isActive ? " active" : ""}`}
-                    style={{ backgroundColor: swatch.value }}
-                    disabled={autoGameAccent}
-                    onClick={() => {
-                      setAccentColor(isActive ? null : swatch.value);
-                    }}
-                    aria-label={t("settings.accent.useSwatch", { name: swatch.name })}
-                    aria-pressed={isActive}
-                    title={swatch.name}
-                  />
-                );
-              })}
-              <label
-                className={`accent-swatch accent-swatch--custom${
-                  accentColor && !PRESET_VALUE_SET.has(accentColor.toLowerCase())
-                    ? " active"
-                    : ""
-                }`}
-                style={accentColor ? { backgroundColor: accentColor } : undefined}
-                title={t("settings.customColor")}
-              >
-                <input
-                  type="color"
-                  value={
-                    accentColor && /^#[0-9a-fA-F]{6}$/.test(accentColor)
-                      ? accentColor
-                      : "#7c66ff"
-                  }
+          )}
+          <div
+            className={`accent-picker${autoGameAccent ? " accent-picker--locked" : ""}`}
+            role="group"
+            aria-label={t("settings.aria.presetAccentColors")}
+          >
+            {accentSwatches.map((swatch) => {
+              const isActive = accentColor?.toLowerCase() === swatch.value;
+              return (
+                <button
+                  key={swatch.value}
+                  type="button"
+                  className={`accent-swatch${isActive ? " active" : ""}`}
+                  style={{ backgroundColor: swatch.value }}
                   disabled={autoGameAccent}
-                  onChange={(e) => setAccentColor(e.target.value)}
-                  aria-label={t("settings.aria.customAccent")}
+                  onClick={() => {
+                    setAccentColor(isActive ? null : swatch.value);
+                  }}
+                  aria-label={t("settings.accent.useSwatch", { name: swatch.name })}
+                  aria-pressed={isActive}
+                  title={swatch.name}
                 />
-                <span aria-hidden>🎨</span>
-              </label>
-              {accentColor && (
-                 <button
-                   type="button"
-                   className="accent-clear"
-                   disabled={autoGameAccent}
-                   onClick={() => setAccentColor(null)}
-                 >
-                   {t("common.reset")}
-                 </button>
-              )}
-            </div>
-
-            {/* Live preview of the accent family — shows the chosen preset,
-                custom pick, or the active game's palette under auto mode. */}
-            <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
+              );
+            })}
+            <label
+              className={`accent-swatch accent-swatch--custom${
+                accentColor && !PRESET_VALUE_SET.has(accentColor.toLowerCase())
+                  ? " active"
+                  : ""
+              }`}
+              style={accentColor ? { backgroundColor: accentColor } : undefined}
+              title={t("settings.customColor")}
+            >
+              <input
+                type="color"
+                value={
+                  accentColor && /^#[0-9a-fA-F]{6}$/.test(accentColor)
+                    ? accentColor
+                    : resolveAccentToken()
+                }
+                disabled={autoGameAccent}
+                onChange={(e) => setAccentColor(e.target.value)}
+                aria-label={t("settings.aria.customAccent")}
+              />
+              <span aria-hidden>🎨</span>
+            </label>
+            {accentColor && (
+              <button
+                type="button"
+                className="accent-clear"
+                disabled={autoGameAccent}
+                onClick={() => setAccentColor(null)}
+              >
+                {t("common.reset")}
+              </button>
+            )}
           </div>
-        </div>
+
+          {/* Live preview of the accent family — shows the chosen preset,
+              custom pick, or the active game's palette under auto mode. */}
+          <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection
@@ -622,8 +638,9 @@ export default function AppearanceTab() {
         icon={<Zap className="settings-section-icon" />}
         title={t("settings.appearance.motionTitle")}
         desc={t("settings.appearance.motionDesc")}
+        advanced
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        <div className="settings-row">
           {/* Reduce Motion */}
           <SettingsToggleCard
             title={t("settings.appearance.reduceMotionTitle")}
@@ -652,8 +669,9 @@ export default function AppearanceTab() {
         icon={<Volume2 className="settings-section-icon" />}
         title={t("settings.sound.sectionTitle")}
         desc={t("settings.sound.sectionDesc")}
+        advanced
       >
-        <div className="settings-sound-container" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        <div className="settings-row">
           <SettingsToggleCard
             title={t("settings.sound.enableTitle")}
             desc={t("settings.sound.enableDesc")}
@@ -665,18 +683,11 @@ export default function AppearanceTab() {
           />
 
           {uiSoundEnabled && (
-            <div
-              className="settings-behavior-card"
-              style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", padding: "var(--space-md) var(--space-lg)" }}
+            <SettingsRow
+              layout="stacked"
+              title={t("settings.sound.volumeTitle")}
+              badge={`${uiSoundVolume}%`}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="settings-checkbox-title" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
-                  {t("settings.sound.volumeTitle")}
-                </span>
-                <span style={{ fontSize: "var(--text-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
-                  {uiSoundVolume}%
-                </span>
-              </div>
               <input
                 type="range"
                 min="0"
@@ -691,7 +702,7 @@ export default function AppearanceTab() {
                 className="filter-slider"
                 aria-label={t("settings.sound.volumeTitle")}
               />
-            </div>
+            </SettingsRow>
           )}
         </div>
       </SettingsSection>
@@ -701,8 +712,9 @@ export default function AppearanceTab() {
         icon={<MonitorPlay className="settings-section-icon" />}
         title={t("settings.section.appearanceSplash")}
         desc={t("settings.splash.sectionDesc")}
+        advanced
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        <div className="settings-row">
           <SettingsToggleCard
             title={t("settings.splash.launchTitle")}
             desc={t("settings.splash.launchDesc")}

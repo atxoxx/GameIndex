@@ -268,8 +268,8 @@ export default function IntegrationsTab({
       <SettingsSection
         id="section-integrations"
         icon={<IntegrationsIcon />}
-        title={t("settings.tab.integrations")}
-        desc={t("settings.integrations.desc")}
+        title={t("settings.overview.storesTitle")}
+        desc={t("settings.overview.storesDesc")}
       >
         {/* ── Status overview — one chip per store, connected state at a glance ── */}
         <div className="integration-overview" role="list" aria-label={t("settings.tab.integrations")}>
@@ -1086,6 +1086,7 @@ export default function IntegrationsTab({
         {/* ── Mods & community — mod site API keys ── */}
         <SettingsCategory
           id="section-mods"
+          advanced
           icon={<ModsIcon />}
           title={t("settings.mods.title")}
           desc={t("settings.mods.desc")}
@@ -1100,6 +1101,7 @@ export default function IntegrationsTab({
         {/* ── Achievements — emulated / local game achievements ── */}
         <SettingsCategory
           id="section-retro"
+          advanced
           icon={<RetroIcon />}
           title={t("settings.retro.title")}
           desc={t("settings.retro.desc")}
@@ -1278,6 +1280,7 @@ export default function IntegrationsTab({
         {/* ── Sync & data preferences (across vendors) ── */}
         <SettingsCategory
           id="section-datasync"
+          advanced
           icon={<IntegrationsIcon />}
           title={t("settings.section.dataSync")}
           desc={t("settings.dataSync.desc")}

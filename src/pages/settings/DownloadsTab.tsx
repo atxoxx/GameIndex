@@ -11,12 +11,19 @@ import type { SpeedUnit } from "../../types/game";
 import { MAX_SEGMENT_COUNT } from "../../types/download";
 import PostActionEditor from "../../components/downloads/PostActionEditor";
 import SettingsSection from "./SettingsSection";
+import SettingsRow from "./SettingsRow";
+import SettingsSwitch from "./SettingsSwitch";
 import { BellIcon, CloudIcon, DownloadIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settingsIcons";
 
 /**
  * DownloadsTab — download preferences: default save location,
  * completion notifications, bandwidth limits + seeding, blocked
  * domains, and debrid integration.
+ *
+ * Every row states one decision with its consequence; expert-only
+ * sections (engine, blocked domains, debrid) are marked `advanced` so the
+ * Essentials filter can keep first-run setup down to the location and
+ * notification choices.
  */
 export default function DownloadsTab() {
   const { showToast } = useToast();
@@ -111,26 +118,17 @@ export default function DownloadsTab() {
           </>
         }
       >
-        <div className="settings-card">
-          <div className="dl-save-path">
-            <svg
-              className="dl-save-path-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
+        <SettingsRow
+          id="setting-download-path"
+          title={
             <span
               className={`dl-save-path-text${defaultDownloadPath ? "" : " placeholder"}`}
               title={defaultDownloadPath}
             >
               {defaultDownloadPath || t("settings.downloads.noFolderPrompt")}
             </span>
+          }
+          control={
             <div className="dl-save-path-actions">
               <Button variant="secondary" size="sm" onClick={handlePickDefaultPath}>
                 {defaultDownloadPath ? t("common.change") : t("settings.downloads.choose")}
@@ -148,20 +146,24 @@ export default function DownloadsTab() {
                 </Button>
               )}
             </div>
-          </div>
+          }
+        />
 
-          <label className="settings-checkbox-label settings-checkbox-label--inline">
-            <input
-              type="checkbox"
+        <SettingsRow
+          id="setting-always-ask-path"
+          title={t("settings.downloads.askSaveLocation")}
+          disabledHint={
+            !defaultDownloadPath ? t("settings.downloads.noFolderPrompt") : undefined
+          }
+          control={
+            <SettingsSwitch
               checked={alwaysAskPath}
               disabled={!defaultDownloadPath}
-              onChange={(e) => {
-                setAlwaysAskPath(e.target.checked);
-              }}
+              onChange={setAlwaysAskPath}
+              label={t("settings.downloads.askSaveLocation")}
             />
-            <span>{t("settings.downloads.askSaveLocation")}</span>
-          </label>
-        </div>
+          }
+        />
       </SettingsSection>
 
       <SettingsSection
@@ -171,34 +173,35 @@ export default function DownloadsTab() {
         title={t("settings.section.notifications")}
         desc={t("settings.downloads.notifyDesc")}
       >
-        <div className="settings-card">
-          <label className="settings-checkbox-label settings-checkbox-label--inline">
-            <input
-              type="checkbox"
+        <SettingsRow
+          id="setting-notify-complete"
+          title={t("settings.downloads.showToast")}
+          control={
+            <SettingsSwitch
               checked={notifyComplete}
-              onChange={(e) => {
-                setNotifyComplete(e.target.checked);
-              }}
+              onChange={setNotifyComplete}
+              label={t("settings.downloads.showToast")}
             />
-            <span>{t("settings.downloads.showToast")}</span>
-          </label>
+          }
+        />
 
-          <label className="settings-checkbox-label settings-checkbox-label--inline">
-            <input
-              type="checkbox"
+        <SettingsRow
+          title={t("settings.downloads.desktopNotification")}
+          disabledHint={!notifyComplete ? t("settings.downloads.notifyDesc") : undefined}
+          control={
+            <SettingsSwitch
               checked={notifyOs}
               disabled={!notifyComplete}
-              onChange={(e) => {
-                const on = e.target.checked;
+              onChange={(on) => {
                 setNotifyOs(on);
                 if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
                   void Notification.requestPermission();
                 }
               }}
+              label={t("settings.downloads.desktopNotification")}
             />
-            <span>{t("settings.downloads.desktopNotification")}</span>
-          </label>
-        </div>
+          }
+        />
       </SettingsSection>
 
       <SettingsSection
@@ -208,226 +211,196 @@ export default function DownloadsTab() {
         title={t("settings.section.bandwidth")}
         desc={t("settings.downloads.bandwidthDesc")}
       >
-        <div className="settings-bandwidth-limits">
-          <div className="settings-limit-row settings-limit-row--unit">
-            <label className="settings-checkbox-label settings-checkbox-label--fixed">
-              <span>{t("settings.label.speedUnit")}</span>
-            </label>
-            <div className="settings-limit-value" style={{ minWidth: "220px" }}>
-              <select
-                className="settings-select"
-                value={speedUnit}
+        <SettingsRow
+          title={t("settings.label.speedUnit")}
+          control={
+            <select
+              className="settings-select"
+              value={speedUnit}
+              onChange={(e) => {
+                const next = e.target.value as SpeedUnit;
+                setSpeedUnit(next);
+                showToast(
+                  next === "bytes"
+                    ? t("settings.downloads.speedNowBytes")
+                    : next === "bits"
+                    ? t("settings.downloads.speedNowBits")
+                    : t("settings.downloads.speedNowBinary"),
+                  "success",
+                );
+              }}
+              aria-label={t("settings.label.speedUnit")}
+            >
+              <option value="bytes">{t("settingsPage.speedBytesDecimal")}</option>
+              <option value="bits">{t("settingsPage.speedBits")}</option>
+              <option value="binary">{t("settingsPage.speedBytesBinary")}</option>
+            </select>
+          }
+        />
+
+        <SettingsRow
+          id="setting-download-limit"
+          title={t("settings.downloads.limitDownload")}
+          control={
+            <SettingsSwitch
+              checked={speedLimits.downloadEnabled}
+              onChange={(checked) => {
+                void setSpeedLimits({ ...speedLimits, downloadEnabled: checked });
+              }}
+              label={t("settings.downloads.limitDownload")}
+            />
+          }
+        >
+          {speedLimits.downloadEnabled && (
+            <div className="settings-limit-value">
+              <input
+                type="number"
+                className="settings-limit-input"
+                min="1"
+                value={speedLimits.downloadValue || ""}
                 onChange={(e) => {
-                  const next = e.target.value as SpeedUnit;
-                  setSpeedUnit(next);
-                  showToast(
-                    next === "bytes"
-                      ? t("settings.downloads.speedNowBytes")
-                      : next === "bits"
-                      ? t("settings.downloads.speedNowBits")
-                      : t("settings.downloads.speedNowBinary"),
-                    "success",
-                  );
+                  const val = parseInt(e.target.value, 10) || 0;
+                  void setSpeedLimits({ ...speedLimits, downloadValue: val });
                 }}
-                aria-label={t("settings.label.speedUnit")}
-              >
-                <option value="bytes">{t("settingsPage.speedBytesDecimal")}</option>
-                <option value="bits">{t("settingsPage.speedBits")}</option>
-                <option value="binary">{t("settingsPage.speedBytesBinary")}</option>
-              </select>
+                placeholder={t("settings.downloads.speedPlaceholder")}
+              />
+              <span className="settings-limit-unit">{t("settings.downloads.kbps")}</span>
+            </div>
+          )}
+        </SettingsRow>
+
+        <SettingsRow
+          id="setting-upload-limit"
+          title={t("settings.downloads.limitUpload")}
+          disabledHint={speedLimits.disableUpload ? t("settings.downloads.disableUpload") : undefined}
+          control={
+            <SettingsSwitch
+              checked={speedLimits.uploadEnabled}
+              disabled={speedLimits.disableUpload}
+              onChange={(checked) => {
+                void setSpeedLimits({ ...speedLimits, uploadEnabled: checked });
+              }}
+              label={t("settings.downloads.limitUpload")}
+            />
+          }
+        >
+          {speedLimits.uploadEnabled && !speedLimits.disableUpload && (
+            <div className="settings-limit-value">
+              <input
+                type="number"
+                className="settings-limit-input"
+                min="1"
+                value={speedLimits.uploadValue || ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 0;
+                  void setSpeedLimits({ ...speedLimits, uploadValue: val });
+                }}
+                placeholder={t("settings.downloads.speedPlaceholder")}
+              />
+              <span className="settings-limit-unit">{t("settings.downloads.kbps")}</span>
+            </div>
+          )}
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("settings.downloads.disableUpload")}
+          desc={t("settings.downloads.disableUploadHint")}
+          control={
+            <SettingsSwitch
+              checked={speedLimits.disableUpload}
+              onChange={(checked) => {
+                void setSpeedLimits({ ...speedLimits, disableUpload: checked });
+              }}
+              label={t("settings.downloads.disableUpload")}
+            />
+          }
+        >
+          {speedLimits.disableUpload && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const cap = speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024;
+                void setSpeedLimits({
+                  ...speedLimits,
+                  uploadEnabled: true,
+                  uploadValue: cap,
+                  disableUpload: false,
+                });
+                showToast(
+                  t("settings.downloads.disableUploadCapApplied", { v: cap }),
+                  "success",
+                );
+              }}
+            >
+              {t("settings.downloads.disableUploadUseCap", {
+                v: speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024,
+              })}
+            </Button>
+          )}
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("settings.downloads.seedAfterComplete")}
+          desc={t("settings.downloads.seedAfterCompleteDesc")}
+          control={
+            <SettingsSwitch
+              checked={seedAfterComplete}
+              onChange={(checked) => {
+                void setSeedConfig(checked);
+              }}
+              label={t("settings.downloads.seedAfterComplete")}
+            />
+          }
+        >
+          <div className="settings-limit-row">
+            <label className="settings-checkbox-label settings-checkbox-label--fixed">
+              <span>{t("settings.downloads.seedRatioLimit")}</span>
+            </label>
+            <div className="settings-limit-value">
+              <input
+                type="number"
+                className="settings-limit-input"
+                min="0"
+                step="0.1"
+                value={seedLimits.ratio || ""}
+                disabled={!seedAfterComplete}
+                onChange={(e) =>
+                  void setSeedLimits({
+                    ...seedLimits,
+                    ratio: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+                placeholder={t("settings.downloads.seedUnlimited")}
+              />
+              <span className="settings-limit-unit">×</span>
             </div>
           </div>
 
           <div className="settings-limit-row">
             <label className="settings-checkbox-label settings-checkbox-label--fixed">
-              <input
-                type="checkbox"
-                checked={speedLimits.downloadEnabled}
-                onChange={(e) => {
-                  void setSpeedLimits({
-                    downloadEnabled: e.target.checked,
-                    downloadValue: speedLimits.downloadValue,
-                    uploadEnabled: speedLimits.uploadEnabled,
-                    uploadValue: speedLimits.uploadValue,
-                    disableUpload: speedLimits.disableUpload,
-                  });
-                }}
-              />
-              <span>{t("settings.downloads.limitDownload")}</span>
+              <span>{t("settings.downloads.seedTimeLimit")}</span>
             </label>
-            {speedLimits.downloadEnabled && (
-              <div className="settings-limit-value">
-                <input
-                  type="number"
-                  className="settings-limit-input"
-                  min="1"
-                  value={speedLimits.downloadValue || ""}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10) || 0;
-                    void setSpeedLimits({
-                      downloadEnabled: speedLimits.downloadEnabled,
-                      downloadValue: val,
-                      uploadEnabled: speedLimits.uploadEnabled,
-                      uploadValue: speedLimits.uploadValue,
-                      disableUpload: speedLimits.disableUpload,
-                    });
-                  }}
-                  placeholder={t("settings.downloads.speedPlaceholder")}
-                />
-                <span className="settings-limit-unit">{t("settings.downloads.kbps")}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-limit-row">
-            <label className="settings-checkbox-label settings-checkbox-label--fixed">
+            <div className="settings-limit-value">
               <input
-                type="checkbox"
-                checked={speedLimits.uploadEnabled}
-                disabled={speedLimits.disableUpload}
-                onChange={(e) => {
-                  void setSpeedLimits({
-                    downloadEnabled: speedLimits.downloadEnabled,
-                    downloadValue: speedLimits.downloadValue,
-                    uploadEnabled: e.target.checked,
-                    uploadValue: speedLimits.uploadValue,
-                    disableUpload: speedLimits.disableUpload,
-                  });
-                }}
+                type="number"
+                className="settings-limit-input"
+                min="0"
+                value={seedLimits.minutes || ""}
+                disabled={!seedAfterComplete}
+                onChange={(e) =>
+                  void setSeedLimits({
+                    ...seedLimits,
+                    minutes: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+                placeholder={t("settings.downloads.seedUnlimited")}
               />
-              <span>{t("settings.downloads.limitUpload")}</span>
-            </label>
-            {speedLimits.uploadEnabled && !speedLimits.disableUpload && (
-              <div className="settings-limit-value">
-                <input
-                  type="number"
-                  className="settings-limit-input"
-                  min="1"
-                  value={speedLimits.uploadValue || ""}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10) || 0;
-                    void setSpeedLimits({
-                      downloadEnabled: speedLimits.downloadEnabled,
-                      downloadValue: speedLimits.downloadValue,
-                      uploadEnabled: speedLimits.uploadEnabled,
-                      uploadValue: val,
-                      disableUpload: speedLimits.disableUpload,
-                    });
-                  }}
-                  placeholder={t("settings.downloads.speedPlaceholder")}
-                />
-                <span className="settings-limit-unit">{t("settings.downloads.kbps")}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-limit-row">
-            <label className="settings-checkbox-label settings-checkbox-label--inline">
-              <input
-                type="checkbox"
-                checked={speedLimits.disableUpload}
-                onChange={(e) => {
-                  void setSpeedLimits({
-                    downloadEnabled: speedLimits.downloadEnabled,
-                    downloadValue: speedLimits.downloadValue,
-                    uploadEnabled: speedLimits.uploadEnabled,
-                    uploadValue: speedLimits.uploadValue,
-                    disableUpload: e.target.checked,
-                  });
-                }}
-              />
-              <span>{t("settings.downloads.disableUpload")}</span>
-            </label>
-            <p className="settings-helper-text">
-              {t("settings.downloads.disableUploadHint")}
-            </p>
-            {speedLimits.disableUpload && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const cap = speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024;
-                  void setSpeedLimits({
-                    ...speedLimits,
-                    uploadEnabled: true,
-                    uploadValue: cap,
-                    disableUpload: false,
-                  });
-                  showToast(
-                    t("settings.downloads.disableUploadCapApplied", { v: cap }),
-                    "success",
-                  );
-                }}
-              >
-                {t("settings.downloads.disableUploadUseCap", {
-                  v: speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 1024,
-                })}
-              </Button>
-            )}
-          </div>
-
-          <div className="settings-limit-row settings-limit-row--seed">
-            <label className="settings-checkbox-label settings-checkbox-label--inline">
-              <input
-                type="checkbox"
-                checked={seedAfterComplete}
-                onChange={(e) => {
-                  void setSeedConfig(e.target.checked);
-                }}
-              />
-              <span>{t("settings.downloads.seedAfterComplete")}</span>
-            </label>
-            <p className="settings-helper-text">{t("settings.downloads.seedAfterCompleteDesc")}</p>
-
-            <div className="settings-limit-row">
-              <label className="settings-checkbox-label settings-checkbox-label--fixed">
-                <span>{t("settings.downloads.seedRatioLimit")}</span>
-              </label>
-              <div className="settings-limit-value">
-                <input
-                  type="number"
-                  className="settings-limit-input"
-                  min="0"
-                  step="0.1"
-                  value={seedLimits.ratio || ""}
-                  disabled={!seedAfterComplete}
-                  onChange={(e) =>
-                    void setSeedLimits({
-                      ...seedLimits,
-                      ratio: Math.max(0, Number(e.target.value) || 0),
-                    })
-                  }
-                  placeholder={t("settings.downloads.seedUnlimited")}
-                />
-                <span className="settings-limit-unit">×</span>
-              </div>
+              <span className="settings-limit-unit">{t("settings.downloads.minutes")}</span>
             </div>
-
-            <div className="settings-limit-row">
-              <label className="settings-checkbox-label settings-checkbox-label--fixed">
-                <span>{t("settings.downloads.seedTimeLimit")}</span>
-              </label>
-              <div className="settings-limit-value">
-                <input
-                  type="number"
-                  className="settings-limit-input"
-                  min="0"
-                  value={seedLimits.minutes || ""}
-                  disabled={!seedAfterComplete}
-                  onChange={(e) =>
-                    void setSeedLimits({
-                      ...seedLimits,
-                      minutes: Math.max(0, Number(e.target.value) || 0),
-                    })
-                  }
-                  placeholder={t("settings.downloads.seedUnlimited")}
-                />
-                <span className="settings-limit-unit">{t("settings.downloads.minutes")}</span>
-              </div>
-            </div>
-            <p className="settings-helper-text">{t("settings.downloads.seedLimitsHint")}</p>
           </div>
-        </div>
+          <p className="settings-helper-text">{t("settings.downloads.seedLimitsHint")}</p>
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection
@@ -435,68 +408,69 @@ export default function DownloadsTab() {
         icon={<DownloadIcon />}
         title={t("settings.section.downloadEngine")}
         desc={t("settings.downloads.engineDesc")}
+        advanced
       >
-        <div className="settings-card">
-          <div className="settings-limit-row settings-limit-row--seed">
-            <label className="settings-checkbox-label settings-checkbox-label--inline">
-              <input
-                type="checkbox"
-                checked={downloadSettings.multiConnection}
-                onChange={(e) => updateSettings({ multiConnection: e.target.checked })}
-              />
-              <span>{t("settings.downloads.multiConnection")}</span>
-            </label>
-            <div className="settings-limit-row">
-              <label className="settings-checkbox-label settings-checkbox-label--fixed">
-                <span>{t("settings.downloads.segmentCount")}</span>
-              </label>
-              <div className="settings-limit-value">
-                <input
-                  type="number"
-                  className="settings-limit-input"
-                  min="1"
-                  max={MAX_SEGMENT_COUNT}
-                  value={downloadSettings.segmentCount}
-                  disabled={!downloadSettings.multiConnection}
-                  onChange={(e) => {
-                    const val = Math.min(
-                      MAX_SEGMENT_COUNT,
-                      Math.max(1, parseInt(e.target.value, 10) || 1),
-                    );
-                    updateSettings({ segmentCount: val });
-                  }}
-                />
-                <span className="settings-limit-unit">
-                  {t("settings.downloads.connections")}
-                </span>
-              </div>
-            </div>
-            <p className="settings-helper-text">{t("settings.downloads.multiConnectionDesc")}</p>
-          </div>
-
-          <div className="settings-limit-row settings-limit-row--stack">
-            <label className="settings-checkbox-label settings-checkbox-label--inline">
-              <input
-                type="checkbox"
-                checked={downloadSettings.installerOptIn}
-                onChange={(e) => updateSettings({ installerOptIn: e.target.checked })}
-              />
-              <span>{t("settings.downloads.allowInstallers")}</span>
-            </label>
-            <p className="settings-helper-text">{t("settings.downloads.allowInstallersDesc")}</p>
-          </div>
-
-          <div className="settings-limit-row settings-limit-row--stack">
-            <label className="settings-label settings-label--sm">
-              {t("settings.downloads.postActions")}
-            </label>
-            <p className="settings-helper-text">{t("settings.downloads.postActionsDesc")}</p>
-            <PostActionEditor
-              actions={downloadSettings.postActions}
-              onChange={(next) => updateSettings({ postActions: next })}
+        <SettingsRow
+          id="setting-multi-connection"
+          title={t("settings.downloads.multiConnection")}
+          desc={t("settings.downloads.multiConnectionDesc")}
+          control={
+            <SettingsSwitch
+              checked={downloadSettings.multiConnection}
+              onChange={(checked) => updateSettings({ multiConnection: checked })}
+              label={t("settings.downloads.multiConnection")}
             />
+          }
+        >
+          <div className="settings-limit-row">
+            <label className="settings-checkbox-label settings-checkbox-label--fixed">
+              <span>{t("settings.downloads.segmentCount")}</span>
+            </label>
+            <div className="settings-limit-value">
+              <input
+                type="number"
+                className="settings-limit-input"
+                min="1"
+                max={MAX_SEGMENT_COUNT}
+                value={downloadSettings.segmentCount}
+                disabled={!downloadSettings.multiConnection}
+                onChange={(e) => {
+                  const val = Math.min(
+                    MAX_SEGMENT_COUNT,
+                    Math.max(1, parseInt(e.target.value, 10) || 1),
+                  );
+                  updateSettings({ segmentCount: val });
+                }}
+              />
+              <span className="settings-limit-unit">
+                {t("settings.downloads.connections")}
+              </span>
+            </div>
           </div>
-        </div>
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("settings.downloads.allowInstallers")}
+          desc={t("settings.downloads.allowInstallersDesc")}
+          control={
+            <SettingsSwitch
+              checked={downloadSettings.installerOptIn}
+              onChange={(checked) => updateSettings({ installerOptIn: checked })}
+              label={t("settings.downloads.allowInstallers")}
+            />
+          }
+        />
+
+        <SettingsRow
+          layout="stacked"
+          title={t("settings.downloads.postActions")}
+          desc={t("settings.downloads.postActionsDesc")}
+        >
+          <PostActionEditor
+            actions={downloadSettings.postActions}
+            onChange={(next) => updateSettings({ postActions: next })}
+          />
+        </SettingsRow>
       </SettingsSection>
 
       <SettingsSection
@@ -505,104 +479,107 @@ export default function DownloadsTab() {
         icon={<ShieldIcon />}
         title={t("settings.section.blockedDomains")}
         desc={t("settings.downloads.blockedDesc")}
+        advanced
       >
-        <div className="settings-control settings-control--narrow">
-          <textarea
-            className="settings-input settings-textarea-mono"
-            rows={5}
-            placeholder={t("settings.blockedDomainsPlaceholder")}
-            value={blockedSourceDomains.join("\n")}
-            onChange={(e) => {
-              setBlockedSourceDomains(
-                e.target.value.split(/\r?\n/).map((line) => line.trim()),
-              );
-            }}
-            spellCheck={false}
-          />
-          <p className="settings-helper-text">
-            {blockedSourceDomains.length === 0
+        <SettingsRow
+          layout="stacked"
+          title={
+            blockedSourceDomains.length === 0
               ? t("settings.downloads.blockedNone")
               : t("settings.downloads.blockedCount", {
                   count: blockedSourceDomains.length,
                   s: blockedSourceDomains.length === 1 ? "" : "s",
-                })}
-          </p>
-        </div>
+                })
+          }
+          desc={t("settingsPage.blockedDomains")}
+        >
+          <div className="settings-control settings-control--narrow">
+            <textarea
+              className="settings-input settings-textarea-mono"
+              rows={5}
+              placeholder={t("settings.blockedDomainsPlaceholder")}
+              value={blockedSourceDomains.join("\n")}
+              onChange={(e) => {
+                setBlockedSourceDomains(
+                  e.target.value.split(/\r?\n/).map((line) => line.trim()),
+                );
+              }}
+              spellCheck={false}
+            />
+          </div>
+        </SettingsRow>
       </SettingsSection>
-
 
       <SettingsSection
         id="downloads-debrid"
         icon={<CloudIcon />}
         title={t("settings.section.debrid")}
         desc={t("settings.downloads.debridDesc")}
+        advanced
       >
-        <div className="settings-card">
-          <div className="settings-limit-row settings-limit-row--stack">
-            <label className="settings-label settings-label--sm">
-              {t("settings.debrid.provider")}
-            </label>
+        <SettingsRow
+          title={t("settings.debrid.provider")}
+          control={
             <select
               value={debridProvider}
               onChange={(e) => {
                 setDebridProvider(e.target.value);
               }}
               className="settings-select settings-select--debrid"
+              aria-label={t("settings.debrid.provider")}
             >
               <option value="none">{t("settings.debrid.disabled")}</option>
               <option value="alldebrid">{t("settings.debrid.allDebrid")}</option>
               <option value="realdebrid">{t("settings.debrid.realDebrid")}</option>
               <option value="torbox">{t("settings.debrid.torBox")}</option>
             </select>
-          </div>
+          }
+        />
 
-          {debridProvider !== "none" && (
-            <>
-              <div className="settings-limit-row settings-limit-row--stack">
-                <label className="settings-label settings-label--sm">
-                  {t("settings.debrid.apiKeyToken")}
-                </label>
-                <div className="settings-debrid-row">
-                  <input
-                    type="password"
-                    value={debridApiKey}
-                    onChange={(e) => {
-                      setDebridApiKey(e.target.value);
-                    }}
-                    placeholder={t("settings.debrid.apiKeyPlaceholder")}
-                    className="settings-input"
-                  />
-                  <Button
-                    variant="primary"
-                    onClick={handleTestDebrid}
-                    disabled={testingDebrid || !debridApiKey}
-                  >
-                    {testingDebrid ? t("settings.debrid.testing") : t("settings.debrid.testConnection")}
-                  </Button>
-                </div>
+        {debridProvider !== "none" && (
+          <>
+            <SettingsRow layout="stacked" title={t("settings.debrid.apiKeyToken")}>
+              <div className="settings-debrid-row">
+                <input
+                  type="password"
+                  value={debridApiKey}
+                  onChange={(e) => {
+                    setDebridApiKey(e.target.value);
+                  }}
+                  placeholder={t("settings.debrid.apiKeyPlaceholder")}
+                  className="settings-input"
+                  aria-label={t("settings.debrid.apiKeyToken")}
+                />
+                <Button
+                  variant="primary"
+                  onClick={handleTestDebrid}
+                  disabled={testingDebrid || !debridApiKey}
+                >
+                  {testingDebrid ? t("settings.debrid.testing") : t("settings.debrid.testConnection")}
+                </Button>
               </div>
+            </SettingsRow>
 
-              {debridProvider === "alldebrid" && (
-                 <div className="settings-limit-row settings-limit-row--stack">
-                   <Button
-                     variant="secondary"
-                     size="sm"
-                     onClick={handleCleanupProbes}
-                     disabled={cleaningProbes || !debridApiKey}
-                   >
-                     {cleaningProbes
-                       ? t("settings.debrid.testing")
-                       : t("settings.debrid.cleanupProbes")}
-                   </Button>
-                 </div>
-               )}
+            {debridProvider === "alldebrid" && (
+              <div className="settings-limit-row settings-limit-row--stack">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCleanupProbes}
+                  disabled={cleaningProbes || !debridApiKey}
+                >
+                  {cleaningProbes
+                    ? t("settings.debrid.testing")
+                    : t("settings.debrid.cleanupProbes")}
+                </Button>
+              </div>
+            )}
 
-               <p className="settings-helper-text settings-helper-text--debrid">
-                 {t("settingsPage.debridUsage")}
-              </p>
-            </>
-          )}
-        </div>
+            <p className="settings-helper-text settings-helper-text--debrid">
+              {t("settingsPage.debridUsage")}
+            </p>
+          </>
+        )}
       </SettingsSection>
     </>
   );
