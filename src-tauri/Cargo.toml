@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["protocol-asset", "unstable", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2"
 # Global hotkeys for the in-game overlay toggle (registered from Rust, not
 # JS). Version 2 matches the rest of the plugin set.
@@ -125,8 +125,11 @@ sha1 = "0.10"
 # ZIP extraction for RetroAchievements ROM-hash matching (the RA client
 # hashes the first file inside a `.zip` ROM, skipping archives >20 MB).
 # `default-features = false` + `deflate` keeps the direct dependency
-# minimal; the crate is already in the lock graph transitively.
-zip = { version = "4", default-features = false, features = ["deflate"] }
+# minimal; the crate is already in the lock graph transitively via
+# `tauri-plugin-updater`, which also requires `zip` 9.
+# Pinned to major 9: 4.x preserves SUID/SGID bits and follows symlink
+# targets outside the destination on extract (RUSTSEC-2026-0367/0368/0369).
+zip = { version = "9", default-features = false, features = ["deflate"] }
 # 7z extraction for ROM archives (`roms::extract_rom_archive`). Migrated off
 # `sevenz-rust`, which is abandoned and has an unpatched path traversal
 # (RUSTSEC-2026-0245); `sevenz-rust2` rejects escaping entry names in
@@ -145,8 +148,9 @@ unrar-ng = "0.7"
 # option (`steam://launch/<appid>/dialog`). Pure-Rust, no binary deps.
 steam-vdf-parser = "0.1"
 # minisign verification for the portable-update path (updater.rs).
-# Already in the tree via tauri-plugin-updater — zero new resolution.
-minisign-verify = "0.2"
+# Matches the version `tauri-plugin-updater` resolves, so only one copy
+# of the crate is linked.
+minisign-verify = "0.3"
 # Rockstar uninstall-string parsing (mirrors Playnite's
 # `Regex.Match(UninstallString, @"(?:Launcher|uninstall)\.exe.+uninstall=(.+)$")`).
 regex = "1"

@@ -1781,7 +1781,10 @@ pub fn extract_rom_archive(
         let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("archive read: {e}"))?;
         for i in 0..zip.len() {
             let mut entry = zip.by_index(i).map_err(|e| format!("archive entry: {e}"))?;
-            let name = entry.name().replace('\\', "/");
+            let name = entry
+                .name()
+                .map_err(|e| format!("archive entry name: {e}"))?
+                .replace('\\', "/");
             if !archive_entry_is_safe(&name) {
                 return Err("unsafe_archive: archive contains a path traversal entry".into());
             }

@@ -194,7 +194,10 @@ pub(crate) fn install_zip_archive(archive: &Path, destination: &Path) -> Result<
     let mut created: Vec<PathBuf> = Vec::new();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).map_err(|e| format!("archive entry: {e}"))?;
-        let name = entry.name().replace('\\', "/");
+        let name = entry
+            .name()
+            .map_err(|e| format!("archive entry name: {e}"))?
+            .replace('\\', "/");
         if !archive_entry_is_safe(&name) { return Err("unsafe_archive: archive contains a path traversal entry".into()); }
         let target = destination.join(&name);
         if entry.is_dir() { fs::create_dir_all(&target).map_err(|e| format!("install directory: {e}"))?; continue; }

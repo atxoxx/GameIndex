@@ -566,7 +566,11 @@ fn extract_first_zip_entry(
         if entry.is_dir() {
             continue;
         }
-        chosen = Some((i, entry.name().to_string()));
+        let name = entry
+            .name()
+            .map_err(|e| format!("RA zip entry name: {e}"))?
+            .to_string();
+        chosen = Some((i, name));
         break;
     }
     let (idx, name) = chosen.ok_or_else(|| "RA zip has no files".to_string())?;

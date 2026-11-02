@@ -1053,11 +1053,13 @@ where
     // Unpack physical assets if any exist in the archive
     for i in 0..archive.len() {
         let (name, is_file) = {
-            if let Ok(entry) = archive.by_index(i) {
-                (entry.name().to_string(), entry.is_file())
-            } else {
+            let Ok(entry) = archive.by_index(i) else {
                 continue;
-            }
+            };
+            let Ok(name) = entry.name() else {
+                continue;
+            };
+            (name.to_string(), entry.is_file())
         };
 
         if !is_file {
