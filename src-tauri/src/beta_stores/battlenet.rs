@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
-use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::types::BetaSyncedGame;
 
@@ -190,6 +190,11 @@ pub async fn capture_library(app: &AppHandle) -> Result<Value, String> {
         })
         .build()
         .map_err(|e| format!("Failed to open Battle.net session window: {e}"))?;
+    // Same WebKitGTK memory settings as the other login windows (Linux only;
+    // no-op elsewhere).
+    if let Some(login_webview) = app.get_webview(WINDOW_LABEL) {
+        crate::webkit_memory::tune_embedded_webview(&login_webview);
+    }
 
     let result = tokio::task::spawn_blocking(move || {
         rx.recv_timeout(Duration::from_secs(CAPTURE_TIMEOUT_SECS))

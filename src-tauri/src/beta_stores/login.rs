@@ -120,6 +120,11 @@ pub async fn run_login(
         })
         .build()
         .map_err(|e| format!("Failed to open login window: {e}"))?;
+    // Same WebKitGTK memory settings as the other login windows (Linux only;
+    // no-op elsewhere).
+    if let Some(login_webview) = app.get_webview(spec.window_label) {
+        crate::webkit_memory::tune_embedded_webview(&login_webview);
+    }
 
     let callback_url = match tokio::task::spawn_blocking(move || {
         rx.recv_timeout(Duration::from_secs(LOGIN_TIMEOUT_SECS))

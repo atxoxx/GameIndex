@@ -80,6 +80,13 @@ pub async fn epic_start_login(app: AppHandle) -> Result<String, String> {
     })
     .build()
     .map_err(|e| format!("Failed to create login window: {e}"))?;
+    // Same WebKitGTK memory settings as the app shell: login windows render
+    // full storefront pages and are usually closed right away by the user,
+    // but a login left open or retried several times should not pile up
+    // cached pages/decoded imagery (Linux only; no-op elsewhere).
+    if let Some(login_webview) = app.get_webview("epic-login") {
+        crate::webkit_memory::tune_embedded_webview(&login_webview);
+    }
 
     let result = tokio::task::spawn_blocking(move || {
         match rx.recv_timeout(std::time::Duration::from_secs(300)) {

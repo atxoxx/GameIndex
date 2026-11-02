@@ -393,6 +393,11 @@ async fn open_oauth_webview(app: &AppHandle) -> Result<String, String> {
     })
     .build()
     .map_err(|e| format!("Failed to create GOG login window: {e}"))?;
+    // Same WebKitGTK memory settings as the other login windows (Linux only;
+    // no-op elsewhere).
+    if let Some(login_webview) = app.get_webview("gog-login") {
+        crate::webkit_memory::tune_embedded_webview(&login_webview);
+    }
 
     let auth_code = match tokio::task::spawn_blocking(move || {
         rx.recv_timeout(std::time::Duration::from_secs(LOGIN_TIMEOUT_SECS))
