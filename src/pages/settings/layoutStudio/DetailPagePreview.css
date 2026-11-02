@@ -1,0 +1,557 @@
+/* =============================================================================
+ * DetailPagePreview — parity layer for the Game / Store detail schematics.
+ *
+ * `.studio-hero-mock` / `.studio-detail-*` primitives live in LayoutStudio.css,
+ * which the page imports *after* this module, so every rule here that has to
+ * beat a shared primitive is written with two classes. Only the shapes the real
+ * pages have and the preview previously lacked are added.
+ * ========================================================================== */
+
+/* ── Top bar: the contiguous edit-shortcut group ─────────────────────────── */
+
+/* The live bar chunks adjacent edit-modal shortcuts into one divided group.
+ * Two-class selectors so the group's own box survives the button resets. */
+.studio-detail-topbar .studio-detail-topbar__group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 1px solid var(--color-border-light);
+}
+
+.studio-detail-topbar .studio-detail-topbar__group:first-child {
+  padding-inline-start: 0;
+  border-inline-start: none;
+}
+
+/* ── Detail tabs: active tab, counts, map status dot ────────────────────── */
+
+.studio-subtab-bar .studio-subtab.is-active {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+
+.studio-subtab-bar .studio-subtab.is-active .studio-preview__tab-icon {
+  color: var(--color-accent);
+}
+
+.studio-subtab-bar .studio-subtab__count {
+  flex-shrink: 0;
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.studio-subtab-bar .studio-subtab__status {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+/* ── Hero: meta row, genres + friends strip, hairline stats ─────────────── */
+
+.studio-hero-visual.studio-hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  padding-top: var(--space-4xs);
+}
+
+.studio-hero-visual.studio-hero-meta i {
+  height: 4px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+}
+
+.studio-hero-visual.studio-hero-meta i:first-child {
+  width: min(38%, 96px);
+}
+
+.studio-hero-visual.studio-hero-meta i:last-child {
+  width: min(26%, 68px);
+}
+
+.studio-hero-meta__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text-muted) 65%, transparent);
+}
+
+.studio-hero-visual.studio-hero-genres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-hero-genres__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.studio-hero-genres__chips i {
+  width: 30px;
+  height: 13px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, transparent);
+}
+
+/* Friends-playing strip below the genre chips (library hero only). */
+.studio-hero-genres__friends {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-hero-genres__friend {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 30%, var(--color-bg-primary));
+}
+
+.studio-hero-genres__friends i {
+  width: 46px;
+  height: 4px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-secondary) 45%, transparent);
+}
+
+/* Hairline stat row — icon · value · label, divided like `.game-hero__stats`. */
+.studio-hero-visual.studio-hero-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--space-2xs);
+}
+
+.studio-hero-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0 var(--space-sm);
+}
+
+.studio-hero-stat:first-child {
+  padding-inline-start: 0;
+}
+
+.studio-hero-stat + .studio-hero-stat {
+  border-inline-start: 1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent);
+}
+
+.studio-hero-stat__icon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--color-text-secondary) 70%, transparent);
+}
+
+.studio-hero-stat__value {
+  width: 18px;
+  height: 6px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 78%, transparent);
+}
+
+.studio-hero-stat__label {
+  width: 14px;
+  height: 3px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-muted) 65%, transparent);
+}
+
+/* Store hero runs the shorter, compact banner profile. */
+.studio-hero-mock.studio-hero-mock--store {
+  height: clamp(120px, 21vh, 190px);
+}
+
+/* Artwork rail: the real controls are prev · counter · next · divider ·
+ * inspect · copy, with the preview's hide toggle appended. */
+.studio-hero-mock__ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  color: inherit;
+}
+
+.studio-hero-mock__ctrl-divider {
+  width: 1px;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--color-border-light) 70%, transparent);
+}
+
+/* Tilt spotlight — the radial sheen the real hero paints over the art. */
+.studio-hero-mock__spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    55% 70% at 50% 32%,
+    color-mix(in srgb, var(--color-accent) 20%, transparent),
+    transparent 70%
+  );
+}
+
+/* ── Card bodies: the anatomy the real cards carry ──────────────────────── */
+
+/* Media spotlight header: counter on the start, arrows + inspect on the end. */
+.studio-detail-media__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.studio-detail-media__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-muted);
+}
+
+/* Icon + line note row (DRM notice, executable path, save timestamp). */
+.studio-detail-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-detail-note svg {
+  flex-shrink: 0;
+}
+
+.studio-detail-note .studio-detail-line {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Value card: the $/hour headline with its verdict pill. */
+.studio-detail-rate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.studio-detail-rate__value {
+  flex: 0 1 auto;
+  width: 42%;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+}
+
+/* DLC preview rows: thumbnail, title bar, status chip. */
+.studio-detail-feature--dlc .studio-detail-tag {
+  margin-inline-start: auto;
+}
+
+.studio-detail-feature__thumb {
+  flex-shrink: 0;
+  width: 22px;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* Tag variants: status chip, muted chip, the selected toggle option. */
+.studio-detail-tag.studio-detail-tag--status {
+  width: 26px;
+  height: 10px;
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+.studio-detail-tag.studio-detail-tag--muted {
+  border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+}
+
+.studio-detail-tag.studio-detail-tag--on {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 34%, transparent);
+}
+
+/* Footer link row ("Manage →", "View all DLCs", "Read more"). */
+.studio-detail-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  min-width: 0;
+  color: var(--color-accent);
+}
+
+.studio-detail-link .studio-detail-line {
+  background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.studio-detail-link.studio-detail-link--end {
+  justify-content: flex-end;
+}
+
+/* Save card action row: the primary backup button beside the restore button. */
+.studio-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.studio-detail-btn {
+  display: block;
+  width: 46%;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+}
+
+.studio-detail-btn.studio-detail-btn--primary {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent) 70%, transparent);
+}
+
+/* Ratings: the segmented critic split and its legend. */
+.studio-detail-track.studio-detail-track--split {
+  display: flex;
+  gap: var(--space-4xs);
+}
+
+.studio-detail-seg {
+  height: 100%;
+  border-radius: 0;
+}
+
+.studio-detail-seg--positive {
+  background: color-mix(in srgb, var(--color-success) 70%, transparent);
+}
+
+.studio-detail-seg--mixed {
+  background: color-mix(in srgb, var(--color-warning) 70%, transparent);
+}
+
+.studio-detail-seg--negative {
+  background: color-mix(in srgb, var(--color-danger) 70%, transparent);
+}
+
+.studio-detail-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-detail-legend__row {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 34%) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.studio-detail-legend__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text-muted) 40%, transparent);
+}
+
+.studio-detail-legend__dot--positive {
+  background: var(--color-success);
+}
+
+.studio-detail-legend__dot--mixed {
+  background: var(--color-warning);
+}
+
+.studio-detail-legend__dot--negative {
+  background: var(--color-danger);
+}
+
+/* Headline rows inside a body (breakdown title, playtime summary). */
+.studio-detail-row.studio-detail-row--flush {
+  padding-block: 0;
+  border-bottom: none;
+}
+
+/* Languages: the search field above the table and its head row. */
+.studio-detail-search {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 45%, transparent);
+}
+
+.studio-detail-lang__row.studio-detail-lang__head {
+  opacity: 0.55;
+}
+
+/* Relations: the group header above its card row. */
+.studio-detail-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+/* Activity pulse: the two stat boxes of the real card. */
+.studio-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.studio-detail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 40%, transparent);
+}
+
+.studio-detail-stat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-detail-stat__head .studio-detail-line {
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-detail-stat__value {
+  width: 46%;
+  height: 10px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 72%, transparent);
+}
+
+/* Storyline: the quoted blurb. */
+.studio-detail-quote {
+  display: block;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+/* ── Quick stats: reception + metric cards ─────────────────────────────── */
+
+.studio-detail .studio-detail-qstats {
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+/* One `.quick-stat-card`: a tonal panel with the icon + label head, the value
+ * and its detail line. Equal-ish cards that wrap, like the real centred row. */
+.studio-detail .studio-qstat {
+  flex: 1 1 84px;
+  gap: var(--space-2xs);
+  min-width: 72px;
+  padding: var(--space-sm);
+  border-radius: var(--radius-xl);
+  background: var(--panel-tint);
+}
+
+.studio-qstat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  align-self: stretch;
+  min-width: 0;
+}
+
+.studio-detail .studio-qstat .studio-detail-qstat__icon {
+  color: var(--color-accent);
+}
+
+.studio-qstat__label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-qstat__source {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-qstat__value {
+  width: 58%;
+  height: 10px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 74%, transparent);
+}
+
+.studio-qstat__detail {
+  width: 40%;
+  height: 4px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+}
+
+/* Reception leads the row: the score, its /100 unit and the sentiment bar. */
+.studio-qstat__score {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3xs);
+}
+
+.studio-qstat__score-value {
+  width: 34px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 82%, transparent);
+}
+
+/* The reception card carries the tone on its headline score. */
+.studio-detail .studio-qstat--reception .studio-qstat__score-value {
+  background: color-mix(in srgb, var(--color-success) 70%, transparent);
+}
+
+.studio-qstat__score-unit {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-qstat__sentiment {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+}
+
+.studio-qstat__sentiment-positive {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success) 70%, transparent);
+}

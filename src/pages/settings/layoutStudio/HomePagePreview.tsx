@@ -1,10 +1,13 @@
 import { useMemo } from "react";
 import {
-  Activity,
+  ChevronRight,
+  ChevronUp,
+  Clock,
   Download,
-  Gamepad2,
   HardDrive,
+  Library,
   Pause,
+  Settings2,
   Trophy,
   Users,
 } from "lucide-react";
@@ -19,20 +22,37 @@ import {
   Track,
 } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
+import "./HomePagePreview.css";
 
 export interface HomePagePreviewProps {
   widgetItems: OrderListItem[];
   inspectMode?: boolean;
   highlightedId?: string | null;
+  /** Simple UI mode swaps the hero for the first-run welcome header. */
+  simpleUi?: boolean;
   onReorderWidgets: (from: number, to: number) => void;
   onToggleWidget: (id: string) => void;
   onInspectElement?: (id: string) => void;
 }
 
+/** The pinned shelves the home ShelfRails widget draws, one rail per shelf. */
+const SAMPLE_SHELVES = [
+  { nameKey: "game.status.backlog", count: 24 },
+  { nameKey: "game.status.completed", count: 18 },
+];
+
+/** Rows HomeAchievements draws: recent unlock, game name, rarity share. */
+const SAMPLE_ACHIEVEMENTS = [
+  { name: 58, rarity: "4.2%" },
+  { name: 46, rarity: "12.8%" },
+  { name: 70, rarity: "31.5%" },
+];
+
 export function HomePagePreview({
   widgetItems,
   inspectMode = false,
   highlightedId,
+  simpleUi = false,
   onReorderWidgets,
   onToggleWidget,
   onInspectElement,
@@ -78,6 +98,23 @@ export function HomePagePreview({
     );
   };
 
+  // HomeSection widgets carry a "View all" link; the library rails
+  // (Continue Playing, Recently Added) carry a collapse chevron instead.
+  const railAction = (kind: "viewAll" | "collapse") => (
+    <div className="studio-home-rail-head">
+      {kind === "viewAll" ? (
+        <span className="studio-home-rail-viewall">
+          {t("home.viewAll")}
+          <ChevronRight size={8} aria-hidden="true" />
+        </span>
+      ) : (
+        <span className="studio-home-rail-collapse">
+          <ChevronUp size={9} aria-hidden="true" />
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div
       className="studio-page-preview studio-page-preview--home"
@@ -85,6 +122,25 @@ export function HomePagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
+      {/* First-run Simple UI header: HomePage renders it instead of the hero,
+          outside every PageWidget. Kept as static chrome so the hero widget
+          stays reorderable. */}
+      {simpleUi && (
+        <div className="studio-home-simple-header">
+          <span className="studio-home-simple-tag">{t("settings.appearance.simpleUiTitle")}</span>
+          <div className="studio-home-simple-text">
+            <span className="studio-home-simple-title">{t("home.simple.title")}</span>
+            <span className="studio-home-simple-subtitle">{t("home.simple.subtitle")}</span>
+          </div>
+          <div className="studio-home-simple-actions">
+            <span className="studio-home-simple-btn is-primary">
+              {t("home.simple.browseStore")}
+            </span>
+            <span className="studio-home-simple-btn">{t("home.simple.yourLibrary")}</span>
+          </div>
+        </div>
+      )}
+
       {/* 1. Spotlight Hero Banner */}
       <div className="studio-page-full">
         {renderCard("hero", "slot", <SchematicHero variant="home" />)}
@@ -96,15 +152,61 @@ export function HomePagePreview({
           "homeQuickStats",
           "slot",
           <div className="studio-home-stats-strip">
-            <MiniTile label="Games" value="148" icon={Gamepad2} />
-            <MiniTile label="Time" value="428h" icon={Activity} />
-            <MiniTile label="Storage" value="3.2 TB" icon={HardDrive} />
-            <MiniTile label="Trophies" value="84%" icon={Trophy} />
+            <MiniTile
+              label={t("home.stats.library")}
+              value="148"
+              icon={Library}
+              footer={
+                <span className="studio-home-kpi-detail">
+                  {t("home.stats.installed", { count: 148 })}
+                </span>
+              }
+            />
+            <MiniTile
+              label={t("home.stats.weekPlaytime")}
+              value="6h 30m"
+              icon={Clock}
+              footer={
+                <span className="studio-home-kpi-detail">
+                  {t("home.stats.sessions", { count: 14 })}
+                </span>
+              }
+            />
+            <MiniTile
+              label={t("home.stats.achievements")}
+              value="84%"
+              icon={Trophy}
+              footer={
+                <span className="studio-home-kpi-detail">
+                  {t("home.stats.unlocked", { count: 84 })}
+                </span>
+              }
+            />
+            <MiniTile
+              label={t("home.stats.storage")}
+              value="3.2 TB"
+              icon={HardDrive}
+              footer={
+                <span className="studio-home-kpi-detail">
+                  {t("home.stats.sized", { count: 120 })}
+                </span>
+              }
+            />
           </div>,
         )}
       </div>
 
-      {/* 3. Two-Column Player Dashboard */}
+      {/* 3. Dashboard Header with the Customize trigger. Rendered outside
+             PageWidget on the real page, so it stays put here too. */}
+      <div className="studio-home-dashboard-header">
+        <span className="studio-home-dashboard-title">{t("stats.tab.overview")}</span>
+        <span className="studio-home-customize-btn">
+          <Settings2 size={10} aria-hidden="true" />
+          <span>{t("home.customize.title")}</span>
+        </span>
+      </div>
+
+      {/* 4. Two-Column Player Dashboard */}
       <div className="studio-home-dashboard">
         {/* Left Sidebar */}
         <aside className="studio-home-sidebar">
@@ -112,14 +214,17 @@ export function HomePagePreview({
           {renderCard(
             "homeQuickLaunch",
             "card",
-            <div className="studio-home-quicklaunch">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="studio-home-quicklaunch-tile">
-                  <span className="studio-home-quicklaunch-dot" />
-                  <Line w={60} />
-                </div>
-              ))}
-            </div>,
+            <>
+              {railAction("viewAll")}
+              <div className="studio-home-quicklaunch">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div key={i} className="studio-home-quicklaunch-tile">
+                    <span className="studio-home-quicklaunch-dot" />
+                    <Line w={60} />
+                  </div>
+                ))}
+              </div>
+            </>,
           )}
 
           {/* Activity Recap */}
@@ -127,29 +232,60 @@ export function HomePagePreview({
             "homeActivity",
             "card",
             <div className="studio-home-activity-body">
+              {railAction("viewAll")}
+              <div className="studio-home-activity-cells">
+                <span className="studio-home-activity-cell">
+                  <span className="studio-home-activity-cell-value">6h 30m</span>
+                  <span className="studio-home-activity-cell-label">
+                    {t("activityDash.totalPlaytime")}
+                  </span>
+                </span>
+                <span className="studio-home-activity-cell">
+                  <span className="studio-home-activity-cell-value">14</span>
+                  <span className="studio-home-activity-cell-label">
+                    {t("activityDash.sessions")}
+                  </span>
+                </span>
+                <span className="studio-home-activity-cell">
+                  <span className="studio-home-activity-cell-value">5</span>
+                  <span className="studio-home-activity-cell-label">
+                    {t("home.activity.gamesPlayed")}
+                  </span>
+                </span>
+              </div>
+              <div className="studio-home-activity-footer">
+                <span className="studio-home-activity-mostlabel">
+                  {t("home.activity.mostPlayed")}
+                </span>
+                <Line w={38} />
+                <span className="studio-home-activity-hours">6h 12m</span>
+              </div>
               <div className="studio-home-sparkline" aria-hidden="true">
                 {[30, 65, 45, 90, 60, 100, 75].map((h, i) => (
                   <i key={i} style={{ height: `${h}%` }} />
                 ))}
               </div>
-              <div className="studio-home-activity-footer">
-                <Line w={45} />
-                <span className="studio-home-activity-hours">18.4 hrs</span>
-              </div>
             </div>,
           )}
 
-          {/* Achievements Showcase */}
+          {/* Achievements Showcase: a list of recent unlocks with rarity share */}
           {renderCard(
             "homeAchievements",
             "card",
             <div className="studio-home-achievements-body">
-              <div className="studio-home-achievements-header">
-                <Trophy size={11} className="studio-home-trophy" />
-                <Line w={50} />
-                <span className="studio-home-trophy-count">12 / 15</span>
-              </div>
-              <Track value={80} />
+              {railAction("viewAll")}
+              {SAMPLE_ACHIEVEMENTS.map((row) => (
+                <div key={row.rarity} className="studio-home-ach-row">
+                  <span className="studio-home-ach-icon">
+                    <Trophy size={8} aria-hidden="true" />
+                  </span>
+                  <span className="studio-home-ach-meta">
+                    <Line w={row.name} />
+                    <Line w={34} />
+                  </span>
+                  <span className="studio-home-ach-rarity">{row.rarity}</span>
+                </div>
+              ))}
             </div>,
           )}
 
@@ -158,6 +294,7 @@ export function HomePagePreview({
             "homeFriends",
             "card",
             <div className="studio-home-friends-body">
+              {railAction("viewAll")}
               {[0, 1, 2].map((i) => (
                 <div key={i} className="studio-home-friend-row">
                   <span className="studio-home-friend-avatar">
@@ -182,14 +319,43 @@ export function HomePagePreview({
           {renderCard(
             "homeContinuePlaying",
             "card",
-            <SchematicCardRail variant="progress" count={3} />,
+            <>
+              {railAction("collapse")}
+              <SchematicCardRail variant="progress" count={3} />
+            </>,
           )}
 
           {/* Recently Added */}
           {renderCard(
             "homeRecentlyAdded",
             "card",
-            <SchematicCardRail variant="standard" count={3} />,
+            <>
+              {railAction("collapse")}
+              <SchematicCardRail variant="standard" count={3} />
+            </>,
+          )}
+
+          {/* Pinned shelves: one rail per shelf, each with its own collapse toggle */}
+          {renderCard(
+            "homeShelves",
+            "card",
+            <div className="studio-home-shelves">
+              {SAMPLE_SHELVES.map((shelf) => (
+                <div key={shelf.nameKey} className="studio-home-shelf-row">
+                  <div className="studio-home-shelf-head">
+                    <span className="studio-home-shelf-dot" aria-hidden="true" />
+                    <span className="studio-home-shelf-name">{t(shelf.nameKey)}</span>
+                    <span className="studio-home-shelf-count">
+                      {t("shelves.rail.subtitle", { count: shelf.count })}
+                    </span>
+                    <span className="studio-home-shelf-collapse" aria-hidden="true">
+                      <ChevronUp size={9} />
+                    </span>
+                  </div>
+                  <SchematicCardRail variant="standard" count={3} />
+                </div>
+              ))}
+            </div>,
           )}
 
           {/* Active Downloads */}
@@ -197,6 +363,7 @@ export function HomePagePreview({
             "homeDownloads",
             "card",
             <div className="studio-home-download-card">
+              {railAction("viewAll")}
               <div className="studio-home-download-row">
                 <Download size={11} className="studio-home-download-icon" />
                 <div className="studio-home-download-text">
@@ -215,21 +382,30 @@ export function HomePagePreview({
           {renderCard(
             "homeWishlist",
             "card",
-            <SchematicCardRail variant="standard" count={3} />,
+            <>
+              {railAction("viewAll")}
+              <SchematicCardRail variant="standard" count={3} />
+            </>,
           )}
 
           {/* Deals Rail */}
           {renderCard(
             "homeDeals",
             "card",
-            <SchematicCardRail variant="sale" count={3} />,
+            <>
+              {railAction("viewAll")}
+              <SchematicCardRail variant="sale" count={3} />
+            </>,
           )}
 
           {/* News Rail */}
           {renderCard(
             "homeNews",
             "card",
-            <SchematicCardRail variant="news" count={3} />,
+            <>
+              {railAction("viewAll")}
+              <SchematicCardRail variant="news" count={3} />
+            </>,
           )}
         </div>
       </div>

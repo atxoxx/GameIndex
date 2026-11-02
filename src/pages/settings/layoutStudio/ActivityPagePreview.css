@@ -1,0 +1,516 @@
+/* =============================================================================
+ * ActivityPagePreview — layout for the Activity page schematic in the Layout
+ * Studio. The page was rebuilt around one stat band, the playtime chart with
+ * its game rail, three insight panels, records + milestones, the persona /
+ * value / backlog row and three breakdown panels; these classes place those
+ * bands and their internal rows. Shared `.studio-act-*` base styles stay in
+ * LayoutStudio.css.
+ * ========================================================================== */
+
+/* ── Header band ─────────────────────────────────────────────────────────── */
+
+.studio-act-header-eyebrow {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.studio-act-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.studio-act-btn--primary {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-act-btn--icon {
+  padding: var(--space-3xs);
+}
+
+/* ── Tabs + scope band ───────────────────────────────────────────────────── */
+
+.studio-act-toolbar-mock--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2xs);
+}
+
+.studio-act-pill__count {
+  margin-left: var(--space-2xs);
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+.studio-act-pill--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-act-scope-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+/* ── Stat band + weekly goal ─────────────────────────────────────────────── */
+
+.studio-act-kpi-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.studio-act-kpi-row .studio-detail-kpi-tiles {
+  flex: 1 1 240px;
+}
+
+.studio-act-goal-mock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
+}
+
+.studio-act-goal-ring {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: conic-gradient(
+    var(--color-accent) 0 64%,
+    color-mix(in srgb, var(--color-border) 80%, transparent) 64% 100%
+  );
+  flex-shrink: 0;
+}
+
+.studio-act-goal-ring > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-act-goal-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-act-goal-label {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-act-goal-value {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-act-goal-hint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Playtime chart + game rail ──────────────────────────────────────────── */
+
+.studio-act-chart-total {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-act-chart-sub {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-chart-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.studio-act-tool-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding-right: var(--space-2xs);
+  border-right: 1px solid var(--color-border);
+}
+
+.studio-act-tool-group:last-child {
+  padding-right: 0;
+  border-right: none;
+}
+
+.studio-act-mode-btn--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3xs);
+}
+
+.studio-act-rail-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3xs) var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-act-rail-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.studio-act-rail-head-count {
+  margin-left: auto;
+  font-weight: var(--font-weight-normal);
+  text-transform: none;
+}
+
+.studio-act-rail-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+}
+
+.studio-act-rail-row.is-active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.studio-act-rail-cover {
+  width: 12px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.studio-act-rail-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-act-rail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-act-rail-menu {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Panel grids (insights, records, breakdown) ──────────────────────────── */
+
+.studio-act-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--space-sm);
+}
+
+.studio-act-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 40%, transparent);
+}
+
+.studio-act-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-act-panel-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+/* ── Day-of-week rhythm ──────────────────────────────────────────────────── */
+
+.studio-act-dow-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: var(--space-3xs);
+}
+
+.studio-act-dow-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-act-dow-track {
+  display: flex;
+  align-items: flex-end;
+  height: 40px;
+}
+
+.studio-act-dow-bar {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: color-mix(in srgb, var(--color-accent) 65%, transparent);
+}
+
+.studio-act-dow-col.is-weekend .studio-act-dow-bar {
+  background: var(--color-accent);
+}
+
+.studio-act-dow-label {
+  font-size: var(--text-2xs);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* ── Records + milestones ────────────────────────────────────────────────── */
+
+.studio-act-records-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-act-milestones-mock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-act-milestones-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-act-milestones-count {
+  margin-left: auto;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+}
+
+.studio-act-milestones-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.studio-act-milestone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+/* ── Persona / value / backlog row ───────────────────────────────────────── */
+
+.studio-act-lower-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+.studio-act-lower-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.studio-act-persona-eyebrow {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+}
+
+.studio-act-persona-highlight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.studio-act-persona-highlight-label {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-persona-highlight-val {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-act-value-mock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+}
+
+.studio-act-value-fig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-act-value-label {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-act-value-num {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-act-value-hint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-backlog-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2xs);
+}
+
+.studio-act-backlog-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+}
+
+.studio-act-backlog-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-act-backlog-cover {
+  width: 12px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.studio-act-backlog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-act-backlog-sub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-backlog-play {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-act-backlog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-backlog-badge {
+  color: var(--color-info);
+}
+
+/* ── Heatmap legend ──────────────────────────────────────────────────────── */
+
+.studio-act-heat-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-heat-stats strong {
+  color: var(--color-text-primary);
+}
+
+.studio-act-heat-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-act-heat-legend .studio-act-heat-cell {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}

@@ -1,0 +1,803 @@
+/* Friends (/friends) preview — schematic mirror of the hub: FriendsCockpit,
+ * FriendsHeroBand (stat band + presence rail) and the hub panel (SubTabs,
+ * roster aside, friend detail pane). */
+
+/* ── Shared bits ────────────────────────────────────────────────────────── */
+
+.studio-fhub-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.studio-fhub-muted {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-avatar.is-xl {
+  width: 32px;
+  height: 32px;
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+  color: var(--color-accent);
+}
+
+.studio-fhub-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--color-surface);
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.studio-fhub-dot.is-online {
+  background: var(--color-info);
+}
+
+.studio-fhub-dot.is-playing {
+  background: var(--color-success);
+}
+
+.studio-fhub-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-fhub-btn.is-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.studio-fhub-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.studio-fhub-action-btn {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+}
+
+.studio-fhub-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+}
+
+/* ── FriendsCockpit ─────────────────────────────────────────────────────── */
+
+.studio-fhub-cockpit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.studio-fhub-cockpit__identity {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 190px;
+}
+
+.studio-fhub-cockpit__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-cockpit__name {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-cockpit__status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.studio-fhub-live {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+}
+
+.studio-fhub-region {
+  padding-left: var(--space-2xs);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-fhub-pulse strong {
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-pulse__icon {
+  display: grid;
+  place-items: center;
+  color: var(--color-accent);
+}
+
+.studio-fhub-pulse__sep {
+  width: 1px;
+  height: 11px;
+  background: var(--color-border);
+}
+
+.studio-fhub-cockpit__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-shrink: 0;
+}
+
+.studio-fhub-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-fhub-sync__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+}
+
+/* ── FriendsHeroBand ────────────────────────────────────────────────────── */
+
+.studio-fhub-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-fhub-statband {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.studio-fhub-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-stat__value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-tone--success {
+  color: var(--color-success);
+}
+
+.studio-fhub-tone--accent {
+  color: var(--color-accent);
+}
+
+.studio-fhub-tone--warning {
+  color: var(--color-warning);
+}
+
+.studio-fhub-tone--info {
+  color: var(--color-info);
+}
+
+.studio-fhub-presence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-presence__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.studio-fhub-presence__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-presence__hint {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-presence__rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-presence__card {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.studio-fhub-presence__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-presence__game {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Hub panel ──────────────────────────────────────────────────────────── */
+
+.studio-fhub-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-fhub-subtabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding-bottom: var(--space-3xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.studio-fhub-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding-bottom: var(--space-3xs);
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-fhub-subtab.is-active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-count {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-style: normal;
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-count.is-unread {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.studio-fhub-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  gap: var(--space-xs);
+}
+
+/* ── Roster aside ───────────────────────────────────────────────────────── */
+
+.studio-fhub-roster,
+.studio-fhub-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  min-width: 0;
+}
+
+.studio-fhub-roster__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.studio-fhub-roster__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-roster__count {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-style: normal;
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-invites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.studio-fhub-invites__head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-fhub-invite {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-invite__meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-chip.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-chip i {
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-density {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+}
+
+.studio-fhub-density > span {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-density > span.is-active {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-circles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-circle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-circle > i {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+}
+
+.studio-fhub-circle.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-circle.is-ghost {
+  border-style: dashed;
+}
+
+.studio-fhub-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+}
+
+.studio-fhub-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+}
+
+.studio-fhub-row.is-selected {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+}
+
+.studio-fhub-row.is-playing .studio-fhub-muted {
+  color: var(--color-success);
+}
+
+.studio-fhub-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-row__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.studio-fhub-row__badge {
+  display: grid;
+  place-items: center;
+  color: var(--color-accent);
+}
+
+/* ── Detail pane ────────────────────────────────────────────────────────── */
+
+.studio-fhub-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-fhub-detail__hero {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-2xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.studio-fhub-detail__identity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-detail__name {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-detail__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-fhub-detail__meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+}
+
+.studio-fhub-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  padding: var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  min-width: 0;
+}
+
+.studio-fhub-fact strong {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-detail__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-detail__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.studio-fhub-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.studio-fhub-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-section__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-fhub-section__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-fhub-games {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-game {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.studio-fhub-game__mark {
+  width: 16px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-primary));
+}
+
+.studio-fhub-game__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-fhub-next-session {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  padding: var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+}
+
+.studio-fhub-next-session strong {
+  font-size: var(--text-2xs);
+  color: var(--color-text-primary);
+}
+
+.studio-fhub-dl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-fhub-dl > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+}
+
+.studio-fhub-dl strong {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 1100px) {
+  .studio-fhub-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-fhub-detail__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-fhub-statband {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

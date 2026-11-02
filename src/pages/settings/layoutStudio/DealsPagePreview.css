@@ -1,0 +1,146 @@
+/* Layout-studio mock for the deals page.
+ *
+ * Only classes this preview introduces live here; the shared preview chrome
+ * and the older deals mocks (pill, subtab, header) stay in LayoutStudio.css,
+ * which loads after this file.
+ */
+
+.studio-deals-band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 65%, transparent);
+}
+
+.studio-deals-toolbar-mock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.studio-deals-toolbar-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.studio-deals-pill-value {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-deals-density {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+}
+
+.studio-deals-density span {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3xs);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+}
+
+.studio-deals-density span.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+/* Results widget: Overview stat band + rails ----------------------------- */
+
+.studio-deals-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-deals-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.studio-deals-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-deals-stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-deals-stat__label svg {
+  color: var(--color-accent);
+}
+
+.studio-deals-stat__value {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-deals-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.studio-deals-rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.studio-deals-rail__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-deals-rail__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-accent);
+}
+
+.studio-deals-rail__count {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-deals-rail__more {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-accent);
+}

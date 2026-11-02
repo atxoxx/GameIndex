@@ -49,6 +49,7 @@ import { CommunityPagePreview } from "./CommunityPagePreview";
 import { FriendsPagePreview } from "./FriendsPagePreview";
 import { EmulatorsPagePreview } from "./EmulatorsPagePreview";
 import { ModsPagePreview } from "./ModsPagePreview";
+import { SavesPagePreview } from "./SavesPagePreview";
 import { WIDGET_ICON, WIDGET_KEY_BY_ITEM } from "./widgetIcons";
 import type { OrderListItem, ViewportPreset } from "./types";
 
@@ -177,6 +178,8 @@ export interface StudioPreviewProps {
   /** Smart Shelves feature master — off hides the sidebar section and Home rails. */
   showSmartShelves?: boolean;
   onToggleSmartShelves?: () => void;
+  /** Simple UI mode — swaps the Home hero for the first-run welcome header. */
+  simpleUi?: boolean;
 }
 
 export function StudioPreview({
@@ -222,6 +225,7 @@ export function StudioPreview({
   onToggleHeroInteractiveControls,
   showSmartShelves = true,
   onToggleSmartShelves,
+  simpleUi = false,
 }: StudioPreviewProps) {
   const { t } = useLanguage();
   const isGlobal = page === "global";
@@ -815,6 +819,7 @@ export function StudioPreview({
                     widgetItems={pageItems}
                     inspectMode={inspectMode}
                     highlightedId={highlightedId}
+                    simpleUi={simpleUi}
                     onReorderWidgets={onReorderPageItems}
                     onToggleWidget={onTogglePageItem}
                     onInspectElement={onInspectElement}
@@ -955,6 +960,17 @@ export function StudioPreview({
               ) : page === "mods" ? (
                 <div className="studio-detail-scroll">
                   <ModsPagePreview
+                    widgetItems={pageItems}
+                    inspectMode={inspectMode}
+                    highlightedId={highlightedId}
+                    onReorderWidgets={onReorderPageItems}
+                    onToggleWidget={onTogglePageItem}
+                    onInspectElement={onInspectElement}
+                  />
+                </div>
+              ) : page === "saves" ? (
+                <div className="studio-detail-scroll">
+                  <SavesPagePreview
                     widgetItems={pageItems}
                     inspectMode={inspectMode}
                     highlightedId={highlightedId}

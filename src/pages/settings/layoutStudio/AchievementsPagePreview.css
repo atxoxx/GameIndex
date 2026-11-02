@@ -1,0 +1,497 @@
+/* =============================================================================
+ * AchievementsPagePreview — layout for the Achievements page schematic in the
+ * Layout Studio. The real page renders a header, the gamercore summary hero,
+ * then one `dashboard` PageWidget that groups the rarity/activity charts, the
+ * source breakdown and the Almost Done / Recent Unlocks shelves, and finally
+ * the games catalog. These classes place that structure and the panels inside
+ * it; shared `.studio-ach-*` base styles stay in LayoutStudio.css.
+ * ========================================================================== */
+
+/* ── Header band ─────────────────────────────────────────────────────────── */
+
+.studio-ach-header-eyebrow {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+/* ── Gamerscore summary hero ─────────────────────────────────────────────── */
+
+.studio-ach-hero-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-ach-score-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+}
+
+.studio-ach-score-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.studio-ach-score-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-warning) 22%, transparent);
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.studio-ach-score-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-ach-score-eyebrow {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.studio-ach-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.studio-ach-score-earned {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-ach-score-divider,
+.studio-ach-score-total {
+  color: var(--color-text-muted);
+}
+
+.studio-ach-score-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.studio-ach-score-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-score-pct {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-ach-kpi-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.studio-ach-kpi-grid .studio-detail-kpi {
+  flex: 1 1 88px;
+  min-width: 0;
+}
+
+/* ── The `dashboard` widget group ────────────────────────────────────────── */
+
+.studio-ach-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+.studio-ach-dashboard-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+/* ── Panels used by the charts, source breakdown and shelves ─────────────── */
+
+.studio-ach-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 40%, transparent);
+}
+
+.studio-ach-panel-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-ach-panel-icon {
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.studio-ach-panel-sub {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+}
+
+/* Rarity: stacked distribution bar + one card per tier. */
+.studio-ach-rarity-bar {
+  display: flex;
+  height: 7px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.studio-ach-rarity-seg {
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.studio-ach-rarity-seg--ultra {
+  background: var(--color-warning);
+}
+
+.studio-ach-rarity-seg--rare {
+  background: var(--color-accent);
+}
+
+.studio-ach-rarity-seg--uncommon {
+  background: var(--color-info);
+}
+
+.studio-ach-rarity-seg--common {
+  background: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+}
+
+.studio-ach-rarity-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  gap: var(--space-3xs);
+}
+
+.studio-ach-rarity-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-ach-rarity-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.studio-ach-rarity-card-pct {
+  margin-left: auto;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-ach-activity-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* Source breakdown legend doubles as the source filter on the real page. */
+.studio-ach-source-bar > span {
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.studio-ach-legend-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+}
+
+.studio-ach-legend-tag.is-active {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Shelves: Almost Done rail above the Recent Unlocks feed ─────────────── */
+
+.studio-ach-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.studio-ach-shelf-sub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-shelf-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-ach-source-tag {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  padding: var(--space-4xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.studio-ach-shelf-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: var(--space-3xs);
+}
+
+.studio-ach-recent-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+}
+
+.studio-ach-recent-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.studio-ach-recent-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.studio-ach-recent-pill {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.studio-ach-recent-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Games catalog: header row, toolbar and the card grid ────────────────── */
+
+.studio-ach-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.studio-ach-list-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-ach-list-count {
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-ach-view-btn {
+  display: grid;
+  place-items: center;
+  padding: var(--space-3xs);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-view-btn.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-ach-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.studio-ach-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.studio-ach-toolbar .studio-schematic-search {
+  flex: 1 1 120px;
+}
+
+.studio-ach-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-xs);
+}
+
+.studio-ach-game-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+  padding: var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-ach-game-card.is-perfect {
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+}
+
+.studio-ach-card-cover {
+  position: relative;
+  height: 34px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.studio-ach-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-ach-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-card-rarity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-ach-card-rarity > i {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.studio-ach-card-rarity > i:nth-child(1) {
+  background: var(--color-warning);
+}
+
+.studio-ach-card-rarity > i:nth-child(2) {
+  background: var(--color-accent);
+}
+
+.studio-ach-card-rarity > i:nth-child(3) {
+  background: var(--color-info);
+}

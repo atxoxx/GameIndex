@@ -1,0 +1,262 @@
+/* Home Page Preview — chrome and body details that the shared schematic
+ * primitives don't cover. Only layout and tokens from LayoutStudio.css are
+ * used here; the real page's markup lives in pages/HomePage.tsx. */
+
+/* ── First-run Simple UI header (outside every PageWidget) ───────────────── */
+.studio-home-simple-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+}
+
+.studio-home-simple-tag {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-radius: var(--radius-full);
+  padding: var(--space-4xs) var(--space-2xs);
+}
+
+.studio-home-simple-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-home-simple-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-home-simple-subtitle {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-home-simple-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-left: auto;
+}
+
+.studio-home-simple-btn {
+  font-size: var(--text-2xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.studio-home-simple-btn.is-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--font-weight-bold);
+}
+
+.studio-home-kpi-detail {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Dashboard header + Customize trigger (outside every PageWidget) ─────── */
+.studio-home-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.studio-home-dashboard-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.studio-home-customize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+/* ── Rail header actions ─────────────────────────────────────────────────── */
+.studio-home-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3xs);
+}
+
+.studio-home-rail-viewall {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-home-rail-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+/* ── Activity recap: three stat cells over the most-played row ───────────── */
+.studio-home-activity-cells {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2xs);
+}
+
+.studio-home-activity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-bg-primary) 50%, transparent);
+  min-width: 0;
+}
+
+.studio-home-activity-cell-value {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-home-activity-cell-label {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-home-activity-mostlabel {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Recent unlocks: list rows with a rarity share ───────────────────────── */
+.studio-home-ach-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+}
+
+.studio-home-ach-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-warning);
+  flex-shrink: 0;
+}
+
+.studio-home-ach-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-home-ach-rarity {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-3xs);
+  flex-shrink: 0;
+}
+
+/* ── Pinned shelf rails ──────────────────────────────────────────────────── */
+.studio-home-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.studio-home-shelf-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-home-shelf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.studio-home-shelf-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-home-shelf-name {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-home-shelf-count {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-home-shelf-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}

@@ -1,0 +1,197 @@
+/* Layout-studio mock for the news page.
+ *
+ * Only classes this preview introduces live here; the shared preview chrome
+ * and the older news mocks (header, buttons, card, briefing, rails) stay in
+ * LayoutStudio.css, which loads after this file — the selectors below that
+ * touch those classes are scoped under the preview modifier so they win on
+ * specificity instead of order.
+ */
+
+.studio-page-preview--news .studio-news-toolbar-mock {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+}
+
+.studio-page-preview--news .studio-news-toolbar-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.studio-page-preview--news .studio-news-cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-news-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.studio-news-cat-count {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-news-density {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+}
+
+.studio-news-density span {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3xs);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+}
+
+.studio-news-density span.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+/* Topic row — the quiet filter strip the Feed adds to the band. */
+.studio-news-topics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.studio-news-topic {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+}
+
+.studio-news-topic.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-news-topic-count {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Briefing --------------------------------------------------------------- */
+
+.studio-page-preview--news .studio-news-briefing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-news-briefing-hint {
+  max-width: 34ch;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-news-briefing-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4xs);
+  align-self: flex-start;
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rail heading: title + optional hint, with the see-all jump at the end. */
+.studio-news-rail-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-news-rail-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.studio-news-rail-sub {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-news-rail-seeall {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-accent);
+}
+
+/* Grid ------------------------------------------------------------------- */
+
+.studio-news-grid-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-news-grid-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* The grid renders cards or this panel, never both: shown side by side here
+ * so the empty-state composition stays visible in the layout map. */
+.studio-news-empty-mock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.studio-news-empty-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-news-empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-news-empty-text strong {
+  font-size: var(--text-2xs);
+  color: var(--color-text-primary);
+}
+
+.studio-news-empty-text span {
+  font-size: var(--text-2xs);
+}
+
+.studio-news-empty-mock .studio-news-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}

@@ -1,0 +1,1040 @@
+/* =============================================================================
+ * Layout Studio — `/downloads` preview
+ *
+ * Schematic-only styles for the download page mock. Every colour comes from a
+ * theme token so the preview follows the active theme, and every class is
+ * namespaced `studio-dlp-` because LayoutStudio.css is loaded afterwards and
+ * would win any shared selector.
+ * ========================================================================== */
+
+/* ── Page header ─────────────────────────────────────────────────────────── */
+
+.studio-dlp-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+/* ── Bandwidth band ─────────────────────────────────────────────────────── */
+
+.studio-dlp-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-rate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 78px;
+}
+
+.studio-dlp-rate-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.studio-dlp-rate-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-dlp-rate-dot--up {
+  background: var(--color-success);
+}
+
+.studio-dlp-rate-value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-rate-sub {
+  display: flex;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-vsep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 22px;
+  background: var(--color-border);
+}
+
+.studio-dlp-drive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex: 1 1 130px;
+  min-width: 120px;
+  max-width: 210px;
+}
+
+.studio-dlp-drive-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.studio-dlp-drive-name {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.studio-dlp-drive-free {
+  color: var(--color-text-secondary);
+}
+
+.studio-dlp-drive-total {
+  margin-left: auto;
+}
+
+.studio-dlp-drive-required {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-left: auto;
+}
+
+.studio-dlp-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.studio-dlp-icon-btn--counted {
+  width: auto;
+  gap: var(--space-4xs);
+  padding: 0 var(--space-3xs);
+}
+
+.studio-dlp-count {
+  min-width: 11px;
+  height: 11px;
+  padding: 0 var(--space-4xs);
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-2xs);
+  line-height: 11px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+/* ── Tab switcher ───────────────────────────────────────────────────────── */
+
+.studio-dlp-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-tab.is-active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+.studio-dlp-tab-count {
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-tab-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  flex-shrink: 0;
+}
+
+/* ── Network telemetry ──────────────────────────────────────────────────── */
+
+.studio-dlp-spark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-spark-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.studio-dlp-spark-titles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.studio-dlp-spark-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.studio-dlp-toggles {
+  display: inline-flex;
+  gap: var(--space-4xs);
+}
+
+.studio-dlp-toggle {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.studio-dlp-toggle.is-active {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  color: var(--color-accent);
+}
+
+.studio-dlp-spark-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-legend-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.studio-dlp-legend-dot--up {
+  background: var(--color-success);
+}
+
+.studio-dlp-peak {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.studio-dlp-chev {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+
+.studio-dlp-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.studio-dlp-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+.studio-dlp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-chip.is-active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: var(--color-text-primary);
+}
+
+.studio-dlp-chip-count {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-search {
+  display: flex;
+  width: 150px;
+  min-width: 110px;
+}
+
+.studio-dlp-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-views {
+  display: inline-flex;
+  gap: var(--space-4xs);
+  padding: var(--space-4xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-view.is-active {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  color: var(--color-accent);
+}
+
+/* ── Queue ──────────────────────────────────────────────────────────────── */
+
+.studio-dlp-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.studio-dlp-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-dlp-section-count {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-selectall {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-row.is-error {
+  border-color: color-mix(in srgb, var(--color-danger) 38%, var(--color-border));
+}
+
+.studio-dlp-check {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.studio-dlp-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.studio-dlp-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-dlp-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.studio-dlp-status {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-status.is-downloading,
+.studio-dlp-status.is-open {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+}
+
+.studio-dlp-status.is-paused {
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-status.is-error {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}
+
+.studio-dlp-status.is-completed {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.studio-dlp-source {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.studio-dlp-progress-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-progress {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  overflow: hidden;
+}
+
+.studio-dlp-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+}
+
+.studio-dlp-row.is-error .studio-dlp-progress-fill {
+  background: var(--color-danger);
+}
+
+.studio-dlp-pct {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-size {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.studio-dlp-error {
+  font-size: var(--text-2xs);
+  color: var(--color-danger);
+}
+
+.studio-dlp-swarm {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--space-4xs);
+}
+
+.studio-dlp-swarm i {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-success);
+}
+
+.studio-dlp-swarm i:nth-child(1) {
+  height: 4px;
+  opacity: 0.4;
+}
+
+.studio-dlp-swarm i:nth-child(2) {
+  height: 6px;
+  opacity: 0.55;
+}
+
+.studio-dlp-swarm i:nth-child(3) {
+  height: 8px;
+  opacity: 0.75;
+}
+
+.studio-dlp-swarm i:nth-child(4) {
+  height: 10px;
+}
+
+.studio-dlp-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-shrink: 0;
+}
+
+.studio-dlp-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  height: 17px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-primary.is-pause,
+.studio-dlp-primary.is-resume {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  color: var(--color-accent);
+}
+
+.studio-dlp-primary.is-retry {
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
+  color: var(--color-warning);
+}
+
+/* ── Scheduler ──────────────────────────────────────────────────────────── */
+
+.studio-dlp-sched {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.studio-dlp-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.studio-dlp-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.studio-dlp-sched-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-window-badge {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: var(--space-xs);
+  align-items: start;
+}
+
+.studio-dlp-week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-dlp-week-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-week-day {
+  width: 26px;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.studio-dlp-week-track {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+}
+
+.studio-dlp-week-band {
+  position: absolute;
+  left: 8%;
+  width: 25%;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+.studio-dlp-fields {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.studio-dlp-field {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-field b {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-field--days {
+  margin-left: auto;
+}
+
+.studio-dlp-day-chips {
+  display: inline-flex;
+  gap: var(--space-3xs);
+}
+
+.studio-dlp-day-chips i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--color-surface-hover);
+}
+
+.studio-dlp-day-chips i.is-on {
+  background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.studio-dlp-hint {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-rule-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-dlp-rule-remove {
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-rule-fields {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-2xs) var(--space-md);
+}
+
+.studio-dlp-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.studio-dlp-setting-label {
+  min-width: 0;
+}
+
+.studio-dlp-number {
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-switch {
+  position: relative;
+  width: 18px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.studio-dlp-switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.studio-dlp-switch.is-on {
+  background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.studio-dlp-switch.is-on::after {
+  left: auto;
+  right: 1px;
+  background: var(--color-accent-contrast);
+}
+
+.studio-dlp-queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-3xs) 0;
+}
+
+.studio-dlp-queue-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-dlp-queue-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-queue-size {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-queue-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-stepper-value {
+  font-size: var(--text-2xs);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-dlp-queue-when {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── History ────────────────────────────────────────────────────────────── */
+
+.studio-dlp-hist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-hist-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex-wrap: wrap;
+}
+
+.studio-dlp-hist-count {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.studio-dlp-hist-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.studio-dlp-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-dlp-group-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.studio-dlp-group-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.studio-dlp-hist-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.studio-dlp-hist-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.studio-dlp-hist-tile.is-magnet {
+  color: var(--color-info);
+}
+
+.studio-dlp-hist-tile.is-zap {
+  color: var(--color-accent);
+}
+
+.studio-dlp-hist-tile.is-globe {
+  color: var(--color-success);
+}
+
+.studio-dlp-hist-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-dlp-hist-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+.studio-dlp-hist-path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-dlp-hist-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  flex-shrink: 0;
+}

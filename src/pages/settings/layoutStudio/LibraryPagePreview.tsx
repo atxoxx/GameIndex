@@ -1,23 +1,26 @@
 import { useMemo } from "react";
 import {
   ArrowDownToLine,
+  Bookmark,
   CheckSquare,
+  ChevronDown,
   Grid3x3,
+  Layers,
   LayoutGrid,
+  List,
   Plus,
   SlidersHorizontal,
   Store,
-  Table2,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useOrderDrag } from "../useOrderDrag";
 import { StudioPageWidgetCard } from "./StudioPageWidgetCard";
 import {
-  SchematicFilterChips,
   SchematicGameGrid,
   SchematicSearchBar,
 } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
+import "./LibraryPagePreview.css";
 
 export interface LibraryPagePreviewProps {
   widgetItems: OrderListItem[];
@@ -27,6 +30,15 @@ export interface LibraryPagePreviewProps {
   onToggleWidget: (id: string) => void;
   onInspectElement?: (id: string) => void;
 }
+
+/** LibraryScopeBar's scope ribbon, in shipped order. */
+const SCOPES: { id: string; labelKey: string; count: number; dot?: string }[] = [
+  { id: "all", labelKey: "common.all", count: 312 },
+  { id: "playing", labelKey: "game.status.playing", count: 12, dot: "playing" },
+  { id: "backlog", labelKey: "game.status.backlog", count: 180, dot: "backlog" },
+  { id: "completed", labelKey: "game.status.completed", count: 41, dot: "completed" },
+  { id: "installed", labelKey: "filter.installed", count: 210, dot: "installed" },
+];
 
 /**
  * Layout Studio preview for the Library page.
@@ -91,29 +103,32 @@ export function LibraryPagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
-      {/* 1. Page header */}
+      {/* 1. Page header: eyebrow, title + owned count, page actions */}
       <div className="studio-page-full">
         {renderCard(
           "libHeader",
           "slot",
           <div className="studio-lib-header-mock">
             <div className="studio-lib-header-text">
-              <span className="studio-lib-eyebrow">Collection</span>
-              <span className="studio-lib-title">Library</span>
+              <span className="studio-lib-eyebrow">{t("library.header.eyebrow")}</span>
+              <span className="studio-lib-title-row">
+                <span className="studio-lib-title">{t("nav.library")}</span>
+                <span className="studio-lib-count">312</span>
+              </span>
             </div>
             <div className="studio-lib-header-actions">
-              <span className="studio-lib-btn studio-lib-btn--primary">
+              <span className="studio-lib-btn studio-lib-btn--primary" title={t("lib.hero.importGames")}>
                 <Plus size={9} />
-                <span>Import</span>
+                <span>{t("lib.hero.importGames")}</span>
               </span>
-              <span className="studio-lib-btn">
+              <span className="studio-lib-btn" title={t("lib.hero.browseStore")}>
                 <Store size={9} />
-                <span>Store</span>
+                <span>{t("lib.hero.browseStore")}</span>
               </span>
-              <span className="studio-lib-icon-btn">
+              <span className="studio-lib-icon-btn" title={t("libraryExport.export")}>
                 <ArrowDownToLine size={10} />
               </span>
-              <span className="studio-lib-icon-btn">
+              <span className="studio-lib-icon-btn" title={t("storeToolbar.selectMultiple")}>
                 <CheckSquare size={10} />
               </span>
             </div>
@@ -121,23 +136,31 @@ export function LibraryPagePreview({
         )}
       </div>
 
-      {/* 2. Library stats */}
+      {/* 2. Library stats: total, installed (percentage detail), playtime, this week */}
       <div className="studio-page-full">
         {renderCard(
           "libKpis",
           "card",
           <div className="studio-lib-stats-mock">
-            {[
-              { value: "312", label: "Games" },
-              { value: "210", label: "Installed" },
-              { value: "1,284h", label: "Played" },
-              { value: "+7", label: "This week" },
-            ].map((stat) => (
-              <span key={stat.label} className="studio-lib-stat">
-                <span className="studio-lib-stat-value">{stat.value}</span>
-                <span className="studio-lib-stat-label">{stat.label}</span>
+            <span className="studio-lib-stat">
+              <span className="studio-lib-stat-value">312</span>
+              <span className="studio-lib-stat-label">{t("lib.hero.stat.total")}</span>
+            </span>
+            <span className="studio-lib-stat">
+              <span className="studio-lib-stat-value">210</span>
+              <span className="studio-lib-stat-label">{t("lib.hero.stat.installed")}</span>
+              <span className="studio-lib-stat-detail">
+                {t("lib.hero.stat.pctOfLibrary", { count: 67 })}
               </span>
-            ))}
+            </span>
+            <span className="studio-lib-stat">
+              <span className="studio-lib-stat-value">1284h</span>
+              <span className="studio-lib-stat-label">{t("lib.hero.stat.playtime")}</span>
+            </span>
+            <span className="studio-lib-stat">
+              <span className="studio-lib-stat-value">7</span>
+              <span className="studio-lib-stat-label">{t("lib.hero.stat.addedWeek")}</span>
+            </span>
           </div>,
         )}
       </div>
@@ -148,7 +171,15 @@ export function LibraryPagePreview({
           "libResume",
           "card",
           <div className="studio-lib-resume-mock">
-            <span className="studio-lib-resume-title">Jump back in</span>
+            <div className="studio-lib-resume-head">
+              <span className="studio-lib-resume-dot" aria-hidden="true" />
+              <div className="studio-lib-resume-heading">
+                <span className="studio-lib-resume-title">{t("library.hero.jumpBackIn")}</span>
+                <span className="studio-lib-resume-subtitle">
+                  {t("lib.rail.continue.subtitle")}
+                </span>
+              </div>
+            </div>
             <div className="studio-lib-resume-track">
               {[0, 1, 2].map((i) => (
                 <span key={i} className="studio-lib-resume-card">
@@ -161,37 +192,47 @@ export function LibraryPagePreview({
         )}
       </div>
 
-      {/* 4. Sticky command bar */}
+      {/* 4. Sticky command bar: scope ribbon, then search + filters/sort/group/density */}
       <div className="studio-page-full">
         {renderCard(
           "libToolbar",
           "slot",
           <div className="studio-lib-command-mock">
             <div className="studio-lib-scope-row">
-              {["All 312", "Playing 12", "Backlog 180", "Completed 41", "Installed 210", "Shelves"].map(
-                (scope, i) => (
-                  <span
-                    key={scope}
-                    className={`studio-lib-scope${i === 0 ? " is-active" : ""}`}
-                  >
-                    {scope}
-                  </span>
-                ),
-              )}
+              {SCOPES.map((scope, i) => (
+                <span
+                  key={scope.id}
+                  className={`studio-lib-scope${i === 0 ? " is-active" : ""}`}
+                >
+                  {scope.dot && (
+                    <i
+                      className={`studio-lib-scope-dot studio-lib-scope-dot--${scope.dot}`}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="studio-lib-scope-label">{t(scope.labelKey)}</span>
+                  <span className="studio-lib-scope-count">{scope.count}</span>
+                </span>
+              ))}
+              <span className="studio-lib-scope studio-lib-scope--shelves">
+                <Layers size={9} aria-hidden="true" />
+                <span className="studio-lib-scope-label">{t("shelves.title")}</span>
+                <ChevronDown size={9} className="studio-lib-scope-chevron" aria-hidden="true" />
+              </span>
             </div>
             <div className="studio-lib-command-row">
-              <SchematicSearchBar placeholder="Search your library..." />
+              <SchematicSearchBar placeholder={t("page.library.searchPlaceholder")} />
               <div className="studio-lib-toolbar-actions">
                 <span className="studio-lib-filter-trigger">
-                  <SlidersHorizontal size={9} />
-                  <span>Filters</span>
+                  <SlidersHorizontal size={9} aria-hidden="true" />
+                  <span>{t("store.filters")}</span>
                 </span>
-                <span className="studio-lib-pill">Sort</span>
-                <span className="studio-lib-pill">Group</span>
+                <span className="studio-lib-pill">{t("library.sort.alphabetical")}</span>
+                <span className="studio-lib-pill">{t("library.groupBy.none")}</span>
                 <span className="studio-lib-density-icons">
-                  <LayoutGrid size={10} />
-                  <Grid3x3 size={10} />
-                  <Table2 size={10} />
+                  <Grid3x3 size={10} aria-hidden="true" />
+                  <LayoutGrid size={10} aria-hidden="true" />
+                  <List size={10} aria-hidden="true" />
                 </span>
               </div>
             </div>
@@ -199,12 +240,35 @@ export function LibraryPagePreview({
         )}
       </div>
 
-      {/* 5. Active filter chips */}
+      {/* 5. Active filter chips: result count, removable facets, save/clear actions */}
       <div className="studio-page-full">
         {renderCard(
           "libFilterChips",
           "card",
-          <SchematicFilterChips chips={["Shelf: Backlog", "Action", "Steam"]} />,
+          <div className="studio-lib-chips">
+            <span className="studio-lib-chips-count">
+              {t("storage.gamesCount", { count: 96, plural: "s" })}
+            </span>
+            <div className="studio-lib-chips-list">
+              {[
+                t("library.chips.shelf", { name: t("game.status.backlog") }),
+                "Action",
+                "Steam",
+              ].map((chip) => (
+                <span key={chip} className="studio-schematic-chip">
+                  <span>{chip}</span>
+                  <i className="studio-schematic-chip__x">×</i>
+                </span>
+              ))}
+            </div>
+            <div className="studio-lib-chips-actions">
+              <span className="studio-lib-chips-action">
+                <Bookmark size={9} aria-hidden="true" />
+                <span>{t("library.chips.saveAsShelf")}</span>
+              </span>
+              <span className="studio-lib-chips-action">{t("page.library.clearFilters")}</span>
+            </div>
+          </div>,
         )}
       </div>
 

@@ -164,6 +164,7 @@ export default function LayoutStudio() {
     showFullLinuxUi,
     showDeckVerified,
     landingPage,
+    isSimpleUi,
   } = useSettings();
   const { enabled: shelvesEnabled, setEnabled: setShelvesEnabled } = useShelves();
 
@@ -1090,6 +1091,7 @@ export default function LayoutStudio() {
             }}
             showSmartShelves={shelvesEnabled}
             onToggleSmartShelves={handleToggleSmartShelves}
+            simpleUi={isSimpleUi}
           />
 
           <p className="studio-pane__hint">

@@ -1,0 +1,161 @@
+/* Library Page Preview — the scope ribbon, resume header and filter-chip row
+ * need more than the shared schematic primitives provide. Rules that refine
+ * an existing LayoutStudio.css class are scoped to `.studio-page-preview` so
+ * they win regardless of stylesheet order. */
+
+.studio-page-preview .studio-lib-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.studio-lib-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 16px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-lib-stat-detail {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Resume strip header ─────────────────────────────────────────────────── */
+.studio-lib-resume-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.studio-lib-resume-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 18%, transparent);
+  flex-shrink: 0;
+}
+
+.studio-lib-resume-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xs);
+  min-width: 0;
+}
+
+.studio-lib-resume-subtitle {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Scope ribbon ────────────────────────────────────────────────────────── */
+.studio-page-preview .studio-lib-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.studio-lib-scope-label {
+  white-space: nowrap;
+}
+
+.studio-lib-scope-count {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-lib-scope-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.studio-lib-scope-dot--playing {
+  background: var(--color-success);
+}
+
+.studio-lib-scope-dot--backlog {
+  background: var(--color-text-tertiary);
+}
+
+.studio-lib-scope-dot--completed {
+  background: var(--color-info);
+}
+
+.studio-lib-scope-dot--installed {
+  background: var(--color-warning);
+}
+
+.studio-lib-scope--shelves {
+  gap: var(--space-3xs);
+}
+
+.studio-lib-scope-chevron {
+  color: var(--color-text-muted);
+}
+
+/* The command row carries long, real sort/group labels; let them wrap in the
+ * preview's narrow frame instead of overflowing. */
+.studio-page-preview .studio-lib-command-row {
+  flex-wrap: wrap;
+}
+
+.studio-page-preview .studio-lib-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.studio-page-preview .studio-lib-pill {
+  white-space: nowrap;
+}
+
+/* ── Active filter chips ─────────────────────────────────────────────────── */
+.studio-lib-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.studio-lib-chips-count {
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.studio-lib-chips-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-lib-chips-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+}
+
+.studio-lib-chips-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

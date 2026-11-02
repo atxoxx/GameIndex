@@ -1,8 +1,11 @@
 import { useMemo } from "react";
 import {
   ArrowUpDown,
-  Filter,
+  CalendarDays,
+  Check,
   Heart,
+  Pencil,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -14,6 +17,7 @@ import {
   SchematicSearchBar,
 } from "./StudioSchematics";
 import type { OrderListItem } from "./types";
+import "./WishlistPagePreview.css";
 
 export interface WishlistPagePreviewProps {
   widgetItems: OrderListItem[];
@@ -24,6 +28,15 @@ export interface WishlistPagePreviewProps {
   onInspectElement?: (id: string) => void;
 }
 
+/**
+ * Layout-studio preview for the wishlist page.
+ *
+ * Mirrors the current page: the header (PageHeader + four-item stat band), one
+ * toolbar that carries the search field, the nested filters widget, the sort
+ * select and the status tabs, and the card grid. Filters are a PageWidget
+ * nested inside the toolbar, not a sibling row, so they are drawn inside the
+ * toolbar card and their pointer events are kept from starting the parent drag.
+ */
 export function WishlistPagePreview({
   widgetItems,
   inspectMode = false,
@@ -38,6 +51,30 @@ export function WishlistPagePreview({
   const byId = useMemo(
     () => new Map(widgetItems.map((item, index) => [item.id, { item, index }])),
     [widgetItems],
+  );
+
+  const stats = useMemo(
+    () => [
+      { id: "saved", label: t("wishlist.stats.saved"), value: 24, icon: Heart },
+      { id: "out", label: t("wishlist.stats.outNow"), value: 18, icon: Check },
+      {
+        id: "soon",
+        label: t("wishlist.stats.comingSoon"),
+        value: 6,
+        icon: CalendarDays,
+      },
+      { id: "notes", label: t("wishlist.stats.withNotes"), value: 3, icon: Pencil },
+    ],
+    [t],
+  );
+
+  const groups = useMemo(
+    () => [
+      { id: "all", label: t("wishlist.all"), count: 24 },
+      { id: "released", label: t("wishlist.outNow"), count: 18 },
+      { id: "coming_soon", label: t("wishlist.comingSoon"), count: 6 },
+    ],
+    [t],
   );
 
   const renderCard = (id: string, variant: "card" | "slot" = "card", children?: React.ReactNode) => {
@@ -73,6 +110,58 @@ export function WishlistPagePreview({
     );
   };
 
+  const renderFilters = () => (
+    <div className="studio-wishlist-filter-stack">
+      <div className="studio-wishlist-filter-btn is-active">
+        <SlidersHorizontal size={9} />
+        <span>{t("wishlist.filters")}</span>
+        <span className="studio-wishlist-filter-count">2</span>
+      </div>
+      <div className="studio-wishlist-popover">
+        <div className="studio-wishlist-popover-section">
+          <span className="studio-wishlist-popover-title">{t("wishlist.genres")}</span>
+          <div className="studio-wishlist-popover-options">
+            {[
+              { name: "RPG", count: 9 },
+              { name: "Action", count: 6 },
+              { name: "Indie", count: 4 },
+            ].map((facet) => (
+              <span
+                key={facet.name}
+                className={`studio-wishlist-option${
+                  facet.name === "RPG" ? " is-active" : ""
+                }`}
+              >
+                <span>{facet.name}</span>
+                <span className="studio-wishlist-option-count">{facet.count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="studio-wishlist-popover-section">
+          <span className="studio-wishlist-popover-title">{t("wishlist.platforms")}</span>
+          <div className="studio-wishlist-popover-options">
+            {[
+              { name: "Windows", count: 18 },
+              { name: "macOS", count: 4 },
+            ].map((facet) => (
+              <span
+                key={facet.name}
+                className={`studio-wishlist-option${
+                  facet.name === "Windows" ? " is-active" : ""
+                }`}
+              >
+                <span>{facet.name}</span>
+                <span className="studio-wishlist-option-count">{facet.count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="studio-wishlist-popover-foot">{t("wishlist.clearFilters")}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className="studio-page-preview studio-page-preview--wishlist"
@@ -80,7 +169,7 @@ export function WishlistPagePreview({
       role="group"
       aria-label={t("settings.interface.studioPreview")}
     >
-      {/* 1. Wishlist Header */}
+      {/* 1. Wishlist Header: PageHeader + StatBand */}
       <div className="studio-page-full">
         {renderCard(
           "wishlistHeader",
@@ -91,84 +180,87 @@ export function WishlistPagePreview({
                 <Heart size={12} fill="currentColor" />
               </span>
               <div className="studio-wishlist-header-text">
+                <Line w={20} h={4} />
                 <Line w={35} h={12} />
+                <Line w={72} h={5} />
               </div>
             </div>
             <div className="studio-wishlist-header-actions">
               <span className="studio-wishlist-btn-clear">
                 <Trash2 size={9} />
-                <span>Clear</span>
+                <span>{t("wishlist.clearAll")}</span>
               </span>
             </div>
             <div className="studio-wishlist-stats-mock">
-              <span>
-                <b>24</b>Saved
-              </span>
-              <span>
-                <b>18</b>Out now
-              </span>
-              <span>
-                <b>6</b>Coming soon
-              </span>
-              <span>
-                <b>3</b>With notes
-              </span>
+              {stats.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <span key={stat.id} className="studio-wishlist-stat">
+                    <span className="studio-wishlist-stat__label">
+                      <Icon size={9} aria-hidden="true" />
+                      {stat.label}
+                    </span>
+                    <b>{stat.value}</b>
+                  </span>
+                );
+              })}
             </div>
           </div>,
         )}
       </div>
 
-      {/* 2. Wishlist Toolbar */}
+      {/* 2. Wishlist Toolbar: search + nested filters + sort + status tabs */}
       <div className="studio-page-full">
         {renderCard(
           "wishlistToolbar",
           "slot",
           <div className="studio-wishlist-toolbar-mock">
             <div className="studio-wishlist-toolbar-row">
-              <SchematicSearchBar placeholder="Search wishlist..." />
-              <span className="studio-wishlist-sort-pill">
-                <Filter size={9} />
-                <span>Filters</span>
-              </span>
-              <span className="studio-wishlist-sort-pill">
-                <ArrowUpDown size={9} />
-                <span>Date Added</span>
-              </span>
+              <SchematicSearchBar placeholder={t("wishlist.searchPlaceholder")} />
+              <div className="studio-wishlist-toolbar-end">
+                <div
+                  className="studio-wishlist-filter-slot"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {renderCard("filters", "card", renderFilters())}
+                </div>
+                <span className="studio-wishlist-sort-pill">
+                  <ArrowUpDown size={9} />
+                  <span>{t("wishlist.sortDateAdded")}</span>
+                </span>
+              </div>
             </div>
             <div className="studio-wishlist-tabs-mock">
-              <span className="is-active">All (24)</span>
-              <span>Out Now (18)</span>
-              <span>Coming Soon (6)</span>
+              {groups.map((group, i) => (
+                <span key={group.id} className={i === 0 ? "is-active" : undefined}>
+                  {group.label} ({group.count})
+                </span>
+              ))}
+              <span className="studio-wishlist-result-count">
+                {t("wishlist.showing", { visible: 24, total: 24 })}
+              </span>
             </div>
           </div>,
         )}
       </div>
 
-      {/* 3. Facet Filters */}
-      <div className="studio-page-full">
-        {renderCard(
-          "filters",
-          "card",
-          <div className="studio-wishlist-filters-mock">
-            <div className="studio-wishlist-filter-btn is-active">
-              <Filter size={9} />
-              <span>Filters</span>
-              <span className="studio-wishlist-filter-count">2</span>
-            </div>
-            <div className="studio-wishlist-active-facets">
-              <span className="studio-wishlist-facet-chip">RPG ×</span>
-              <span className="studio-wishlist-facet-chip">Windows ×</span>
-            </div>
-          </div>,
-        )}
-      </div>
-
-      {/* 4. Wishlist Grid */}
+      {/* 3. Wishlist Grid */}
       <div className="studio-page-full">
         {renderCard(
           "wishlistGrid",
           "slot",
-          <SchematicGameGrid variant="wishlist" columns={4} rows={2} />,
+          <div className="studio-wishlist-grid-stack">
+            <SchematicGameGrid variant="wishlist" columns={4} rows={2} />
+            {/* The grid renders cards or this panel, never both: kept in the
+             *  map so the no-matches composition stays visible. */}
+            <div className="studio-wishlist-empty-mock">
+              <strong>{t("wishlist.noMatches")}</strong>
+              <span>{t("wishlist.noMatchesHint")}</span>
+              <span className="studio-wishlist-empty-action">
+                {t("wishlist.clearFilters")}
+              </span>
+            </div>
+          </div>,
         )}
       </div>
     </div>
