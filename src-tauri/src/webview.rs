@@ -106,7 +106,7 @@ thread_local! {
     /// calls to whichever window was patched first.
     static PREVIEW_LINUX_STATE:
         std::cell::RefCell<std::collections::HashMap<String, LinuxPreviewLayer>> =
-        const { std::cell::RefCell::new(std::collections::HashMap::new()) };
+        std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
 #[cfg(target_os = "linux")]
@@ -169,6 +169,8 @@ fn with_preview_widget<R>(
 /// Returns the widget if it was found, so the caller can drop it explicitly.
 #[cfg(target_os = "linux")]
 fn detach_preview_widget(label: &str) -> Option<gtk::Widget> {
+    use gtk::prelude::*;
+
     PREVIEW_LINUX_STATE.with(|state_cell| {
         let mut states = state_cell.borrow_mut();
         states.values_mut().find_map(|state| {
@@ -229,8 +231,6 @@ impl PreviewWebviews {
 fn destroy_preview_webview(app: &tauri::AppHandle, label: &str) {
     #[cfg(target_os = "linux")]
     {
-        use gtk::prelude::*;
-
         let label_ = label.to_string();
         let _ = app.run_on_main_thread(move || {
             // Unparents the widget from the fixed layer; the webview's
@@ -312,14 +312,17 @@ pub async fn create_preview_webview(
             let Some(host_win) = app_handle.get_window(&window_label) else {
                 return;
             };
-            let Ok(gtk_win) = host_win.gtk_window() else {
+            let Ok(gtk_app_win) = host_win.gtk_window() else {
                 return;
             };
+            // `gtk_window()` hands back the concrete `ApplicationWindow`; the
+            // layer helpers work on the `gtk::Window` it upcasts to.
+            let gtk_win = gtk_app_win.upcast_ref::<gtk::Window>();
 
             PREVIEW_LINUX_STATE.with(|state_cell| {
                 let mut states = state_cell.borrow_mut();
                 if !states.contains_key(&window_label) {
-                    if let Some(layer) = ensure_preview_layer(&gtk_win) {
+                    if let Some(layer) = ensure_preview_layer(gtk_win) {
                         states.insert(window_label.clone(), layer);
                     }
                 }
