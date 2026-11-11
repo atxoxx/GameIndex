@@ -9,5 +9,5 @@ export * from "./ReviewsSavedQuotes";
 export * from "./ReviewsExternalShowcase";
 export * from "./ReviewsEmptyState";
 export * from "./BbCodeRenderer";
-export * from "./bbcodeParser";
+export * from "../../utils/bbcode";
 export * from "./hardwareParser";

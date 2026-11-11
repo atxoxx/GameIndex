@@ -711,10 +711,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--bs-space-3);
   padding: var(--bs-space-4) var(--bs-space-5);
+  scrollbar-gutter: stable;
 }
 
 .bigscreen-news-reader-meta {
@@ -739,10 +741,28 @@
 
 .bigscreen-news-reader-copy {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
   color: var(--bs-text-dim);
   font-size: var(--bs-text-md);
   line-height: 1.65;
+}
+
+/* Empty-body fallback is still a plain paragraph, so keep its source breaks. */
+p.bigscreen-news-reader-copy {
   white-space: pre-wrap;
+}
+
+/* Rich bodies bring their own block rhythm and type ladder (the bigscreen
+   variant of news-rich); the wrapper only supplies the reading colour. */
+.bigscreen-news-reader-copy .news-rich {
+  color: inherit;
+}
+
+.bigscreen-news-reader-copy .news-rich img,
+.bigscreen-news-reader-copy .news-rich video {
+  max-width: 100%;
+  height: auto;
 }
 
 .bigscreen-news-reader-footer {

@@ -14,6 +14,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BigScreenPill from "./BigScreenPill";
 import DiscoverTabs from "./DiscoverTabs";
+import { NewsRichText } from "../news/NewsRichText";
 import {
   BigScreenEmptyState,
   BigScreenErrorState,
@@ -240,6 +241,14 @@ function BigScreenNewsReader({
     }
   }, [article.link]);
 
+  // Links inside the body open in the OS browser: the Big Screen has no
+  // embedded browser, and a failed opener still falls back to a new window.
+  const handleOpenLink = useCallback((url: string) => {
+    openUrl(url).catch(() => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  }, []);
+
   const closeProps = useFocusable(onClose);
   const browserProps = useFocusable(handleOpenBrowser);
 
@@ -292,9 +301,19 @@ function BigScreenNewsReader({
             )}
           </div>
           <h2 className="bigscreen-news-reader-title">{article.title}</h2>
-          <p className="bigscreen-news-reader-copy">
-            {article.description || t("bigscreen.news.noPreview")}
-          </p>
+          {article.content || article.description ? (
+            <div className="bigscreen-news-reader-copy">
+              <NewsRichText
+                content={article.content || article.description || ""}
+                variant="bigscreen"
+                onOpenLink={handleOpenLink}
+              />
+            </div>
+          ) : (
+            <p className="bigscreen-news-reader-copy">
+              {t("bigscreen.news.noPreview")}
+            </p>
+          )}
         </div>
 
         {/* Footer actions */}

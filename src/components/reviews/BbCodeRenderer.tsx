@@ -6,7 +6,7 @@ import {
   isSafeUrl,
   parseBbCode,
   stripHtml,
-} from "./bbcodeParser";
+} from "../../utils/bbcode";
 
 interface BbCodeRendererProps {
   text: string;

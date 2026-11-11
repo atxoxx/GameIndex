@@ -1573,6 +1573,19 @@
   line-height: 1.75;
 }
 
+/* Rich bodies inherit the reader's font size / family so the A-/A+ controls
+   still drive the article instead of the shared rich-text base size. */
+.news-preview-body .news-rich {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Figures own their vertical rhythm; the generic img margin above would double
+   the gap around every inline article image. */
+.news-preview-body .news-rich img {
+  margin: 0;
+}
+
 .news-preview-body.font-family-sans {
   font-family: inherit;
 }
@@ -1645,6 +1658,49 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Slim notice above the full-page view when the page came from a link inside
+   the article body, with the one action that matters: get back to the story. */
+.news-preview-external-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-xl);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.news-preview-external-label {
+  min-width: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-preview-external-back {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.news-preview-external-back:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .news-preview-webview-placeholder {

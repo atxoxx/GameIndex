@@ -12,6 +12,8 @@ import { usePersistedState } from "../../hooks/usePersistedState";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
 import WebviewControls from "../webview/WebviewControls";
 import { Button } from "../ui";
+import { NewsRichText } from "./NewsRichText";
+import { newsContentToPlainText } from "./newsContent";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -63,10 +65,15 @@ export default function NewsArticlePreview({
   const [readProgress, setReadProgress] = useState(0);
   const [webviewLabel, setWebviewLabel] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  // A URL the reader asked to open from inside the article body. When set, the
+  // full-page view shows that link instead of the article itself.
+  const [externalUrl, setExternalUrl] = useState<string | null>(null);
+
+  const webviewUrl = externalUrl ?? articleLink;
 
   const { navState, goBack, goForward } = useEmbeddedWebviewNav(
     webviewLabel,
-    article?.link ?? "",
+    webviewUrl,
     previewMode === "full"
   );
   const reload = useCallback(() => setReloadNonce((n) => n + 1), []);
@@ -79,22 +86,24 @@ export default function NewsArticlePreview({
   const [ttsSpeed, setTtsSpeed] = useState<number>(1.0);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const readTimeMinutes = useMemo(() => {    if (!article) return 1;
-    const text = (article.content || article.description || "") + " " + article.title;
-    return estimateReadingTime(text);
-  }, [article]);
+  const rawContent = article?.content || article?.description || "";
 
-  const wordCount = useMemo(() => {
-    if (!article) return 0;
-    return countWords(article.content || article.description || "");
-  }, [article]);
+  // One plain-text pass feeds the word count, reading time, TTS and the
+  // Markdown quote. Steam serves BBCode, so a plain tag strip would both
+  // inflate the counts and narrate the markup.
+  const plainTextContent = useMemo(() => newsContentToPlainText(rawContent), [rawContent]);
 
-  // Clean plain text for TTS and Markdown copy
-  const plainTextContent = useMemo(() => {
-    if (!article) return "";
-    const raw = article.content || article.description || "";
-    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  }, [article]);
+  const plainDescription = useMemo(
+    () => newsContentToPlainText(article?.description || rawContent),
+    [article, rawContent],
+  );
+
+  const wordCount = useMemo(() => countWords(plainTextContent), [plainTextContent]);
+
+  const readTimeMinutes = useMemo(() => {
+    if (!article) return 1;
+    return estimateReadingTime(`${plainTextContent} ${article.title}`);
+  }, [article, plainTextContent]);
 
   // Stop speech when closing or changing article
   const stopTts = useCallback(() => {
@@ -104,11 +113,32 @@ export default function NewsArticlePreview({
     setTtsState("idle");
   }, []);
 
+  // In-body links open inside the built-in full-page view, not the OS browser.
+  const handleOpenLink = useCallback(
+    (url: string) => {
+      stopTts();
+      setExternalUrl(url);
+      setPreviewMode("full");
+    },
+    [setPreviewMode, stopTts],
+  );
+
+  const backToArticle = useCallback(() => {
+    setExternalUrl(null);
+    setPreviewMode("reader");
+  }, [setPreviewMode]);
+
   useEffect(() => {
     return () => {
       stopTts();
     };
   }, [articleLink, stopTts]);
+
+  // A different article starts from its own link, never the previous story's
+  // in-body link.
+  useEffect(() => {
+    setExternalUrl(null);
+  }, [articleLink]);
 
   const handleToggleTts = useCallback(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window) || !article) {
@@ -185,7 +215,7 @@ export default function NewsArticlePreview({
   const handleCopyMarkdown = useCallback(async () => {
     if (!article) return;
     const dateStr = article.pubDate ? new Date(article.pubDate).toLocaleDateString() : "";
-    const md = `### [${article.title}](${article.link})\n**Source:** ${article.sourceName}${dateStr ? ` (${dateStr})` : ""}\n\n> ${article.description || plainTextContent}\n`;
+    const md = `### [${article.title}](${article.link})\n**Source:** ${article.sourceName}${dateStr ? ` (${dateStr})` : ""}\n\n> ${plainDescription}\n`;
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(md);
@@ -195,7 +225,7 @@ export default function NewsArticlePreview({
     } catch {
       /* ignore */
     }
-  }, [article, plainTextContent]);
+  }, [article, plainDescription]);
 
   // Track scroll progress for reader mode
   const handleScroll = () => {
@@ -210,10 +240,12 @@ export default function NewsArticlePreview({
     setReadProgress(current);
   };
 
-  // Webview lifecycle. Keyed on the link, not the article object: loading the
+  // Webview lifecycle. Keyed on the URL, not the article object: loading the
   // body updates the object and must not tear down an open full-page webview.
+  // `webviewUrl` also covers links opened from inside the article body, so the
+  // child webview is recreated (and navigates) when that URL changes.
   useEffect(() => {
-    if (!articleLink) return;
+    if (!webviewUrl) return;
 
     let active = true;
     setWebviewReady(false);
@@ -248,7 +280,7 @@ export default function NewsArticlePreview({
         try {
           await invoke("create_preview_webview", {
             label: uniqueLabel,
-            url: articleLink,
+            url: webviewUrl,
             x: rect.left,
             y: rect.top,
             width: rect.width,
@@ -306,7 +338,7 @@ export default function NewsArticlePreview({
         }).catch(() => {});
       }
     };
-  }, [articleLink, handleKeyDown, previewMode, contentFilterEnabled, reloadNonce]);
+  }, [webviewUrl, handleKeyDown, previewMode, contentFilterEnabled, reloadNonce]);
 
   // Geometry sync
   useEffect(() => {
@@ -464,7 +496,10 @@ export default function NewsArticlePreview({
                 role="tab"
                 aria-selected={previewMode === "reader"}
                 className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
-                onClick={() => setPreviewMode("reader")}
+                onClick={() => {
+                  setExternalUrl(null);
+                  setPreviewMode("reader");
+                }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
@@ -654,12 +689,25 @@ export default function NewsArticlePreview({
             ref={bodyRef}
             onScroll={handleScroll}
             className={`news-preview-body font-size-${fontSize} font-family-${fontFamily}`}
-            dangerouslySetInnerHTML={{
-              __html: sanitizeHtml(article.content || article.description),
-            }}
-          />
+          >
+            <NewsRichText content={rawContent} onOpenLink={handleOpenLink} />
+          </div>
         ) : (
           <div className="news-preview-webview">
+            {externalUrl && (
+              <div className="news-preview-external-bar">
+                <span className="news-preview-external-label">
+                  {t("news.linkOpenedFromArticle")}
+                </span>
+                <button
+                  type="button"
+                  className="news-preview-external-back"
+                  onClick={backToArticle}
+                >
+                  {t("news.backToArticle")}
+                </button>
+              </div>
+            )}
             <div className="news-preview-webview-bar">
               <WebviewControls
                 canGoBack={navState.back}
@@ -670,8 +718,8 @@ export default function NewsArticlePreview({
                 onHome={reload}
                 onDismissCookies={dismissCookies}
               />
-              <span className="news-preview-webview-url" title={article.link}>
-                {article.link}
+              <span className="news-preview-webview-url" title={webviewUrl}>
+                {webviewUrl}
               </span>
             </div>
             <div
@@ -806,13 +854,4 @@ export default function NewsArticlePreview({
     </div>,
     document.body
   );
-}
-
-function sanitizeHtml(html: string): string {
-  let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-  cleaned = cleaned.replace(/\son\w+="[^"]*"/gi, "");
-  cleaned = cleaned.replace(/\son\w+='[^']*'/gi, "");
-  cleaned = cleaned.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
-  cleaned = cleaned.replace(/href=["']javascript:[^"']*["']/gi, 'href="#"');
-  return cleaned;
 }
