@@ -11,6 +11,7 @@ export const NOSTR_RELAYS: readonly string[] = [
   "wss://nos.lol",
   "wss://relay.snort.social",
   "wss://relay.primal.net",
+  "wss://relay.nostr.band",
 ];
 
 function bytesToHex(bytes: Uint8Array): string {

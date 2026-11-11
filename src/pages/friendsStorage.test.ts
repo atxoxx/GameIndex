@@ -194,7 +194,7 @@ async function ensureIdentityReady() {
 
 describe("NOSTR_RELAYS", () => {
   it("exposes the public relay list once, as a readonly array", () => {
-    expect(NOSTR_RELAYS).toHaveLength(4);
+    expect(NOSTR_RELAYS).toHaveLength(5);
     expect(NOSTR_RELAYS).toContain("wss://relay.damus.io");
   });
 });

@@ -92,7 +92,15 @@ class FakeRelay implements RelayPort {
 
   async query(relays: string[], filter: Filter) {
     this.queries.push({ relays: [...relays], filter });
-    return [...this.queryResults];
+    if (this.refuseAll) {
+      return { events: [] as NostrEvent[], ok: [] as string[], failed: [...relays] };
+    }
+    const ok = relays.filter((relay) => this.accepted.has(relay));
+    return {
+      events: [...this.queryResults],
+      ok,
+      failed: relays.filter((relay) => !ok.includes(relay)),
+    };
   }
 
   emit(event: NostrEvent) {
@@ -721,5 +729,134 @@ describe("FriendsSyncEngine", () => {
 
     await advance(1000);
     expect(relay.subscriptions.length).toBe(4);
+  });
+
+  it("lists every configured relay as idle on start and flips it after a pass", async () => {
+    const { adapter, state } = createFakeAdapter();
+    state.accepted.add(bobPub);
+    const relay = new FakeRelay();
+    const engine = startEngine(adapter, relay);
+
+    engine.start();
+    // Known before any network work, so the UI can render "not checked yet".
+    expect(engine.getStatus().relayStatus).toEqual({
+      [RELAY_ONE]: "idle",
+      [RELAY_TWO]: "idle",
+    });
+
+    await settle();
+    expect(engine.getStatus().relayStatus).toEqual({
+      [RELAY_ONE]: "accepted",
+      [RELAY_TWO]: "accepted",
+    });
+
+    relay.accepted = new Set([RELAY_ONE]);
+    await engine.syncNow();
+    expect(engine.getStatus().relayStatus).toEqual({
+      [RELAY_ONE]: "accepted",
+      [RELAY_TWO]: "failed",
+    });
+  });
+
+  it("marks a manual sync running before it finishes and ends ok", async () => {
+    const { adapter, state } = createFakeAdapter();
+    state.accepted.add(bobPub);
+    const relay = new FakeRelay();
+    const engine = startEngine(adapter, relay);
+
+    engine.start();
+    await settle();
+
+    const seen: string[] = [];
+    engine.subscribeStatus((status) => seen.push(status.manualSync));
+
+    const pass = engine.syncNow();
+    expect(engine.getStatus().manualSync).toBe("running");
+    await pass;
+
+    const status = engine.getStatus();
+    expect(status.manualSync).toBe("ok");
+    expect(status.manualSyncFinishedAt).not.toBeNull();
+    expect(status.phase).toBe("online");
+    expect(seen[0]).toBe("running");
+    expect(seen[seen.length - 1]).toBe("ok");
+  });
+
+  it("republishes a byte-identical snapshot on a manual sync", async () => {
+    const { adapter, state } = createFakeAdapter();
+    state.accepted.add(bobPub);
+    const relay = new FakeRelay();
+    const engine = startEngine(adapter, relay);
+
+    engine.start();
+    await settle();
+    expect(relay.stateEvents()).toHaveLength(1);
+
+    await engine.syncNow();
+
+    // The content did not change, yet the forced pass sent it again.
+    const events = relay.stateEvents();
+    expect(events).toHaveLength(2);
+    expect(events[0].event.id).not.toBe(events[1].event.id);
+
+    // The ordinary debounced path still skips the same content.
+    engine.requestPublish();
+    await advance(2000);
+    await advance(5000);
+    expect(relay.stateEvents()).toHaveLength(2);
+  });
+
+  it("reports a partial manual sync when one relay refuses", async () => {
+    const { adapter, state } = createFakeAdapter();
+    state.accepted.add(bobPub);
+    const relay = new FakeRelay();
+    relay.accepted = new Set([RELAY_ONE]);
+    const engine = startEngine(adapter, relay);
+
+    engine.start();
+    await settle();
+    const before = engine.getStatus().lastSyncedAt;
+    expect(before).not.toBeNull();
+
+    await advance(1000);
+    await engine.syncNow();
+
+    const status = engine.getStatus();
+    expect(status.manualSync).toBe("partial");
+    expect(status.phase).toBe("degraded");
+    expect(status.lastSyncedAt).toBeGreaterThan(before as number);
+    expect(status.relayStatus[RELAY_ONE]).toBe("accepted");
+    expect(status.relayStatus[RELAY_TWO]).toBe("failed");
+  });
+
+  it("fails the manual sync when no relay answers and keeps the chat cursor", async () => {
+    const { adapter, state } = createFakeAdapter();
+    state.accepted.add(bobPub);
+    const relay = new FakeRelay();
+    relay.refuseAll = true;
+    const engine = startEngine(adapter, relay);
+
+    engine.start();
+    await settle();
+    const before = engine.getStatus().lastSyncedAt;
+    expect(before).not.toBeNull();
+
+    await advance(1000);
+    await engine.syncNow();
+
+    const status = engine.getStatus();
+    expect(status.manualSync).toBe("failed");
+    expect(status.phase).toBe("offline");
+    expect(status.lastSyncedAt).toBe(before);
+
+    const chatWindows = () =>
+      relay.queries
+        .filter((entry) => entry.filter.kinds?.includes(1059))
+        .map((entry) => entry.filter.since);
+    const first = chatWindows();
+    await engine.syncNow();
+    const second = chatWindows();
+    // The cursor never advanced, so the next read replays the same window.
+    expect(second[second.length - 1]).toBe(first[first.length - 1]);
   });
 });

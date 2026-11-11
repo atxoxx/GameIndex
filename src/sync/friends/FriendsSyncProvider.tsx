@@ -48,6 +48,8 @@ export type FriendsSyncContextValue = {
 
 const IDLE_STATUS: FriendsSyncStatus = {
   phase: "idle",
+  manualSync: "idle",
+  manualSyncFinishedAt: null,
   relayStatus: {},
   lastSyncedAt: null,
   lastError: null,

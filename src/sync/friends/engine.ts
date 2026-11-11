@@ -10,6 +10,7 @@
  * No React in this file.
  */
 
+import type { Filter } from "nostr-tools/filter";
 import type { NostrEvent } from "nostr-tools/pure";
 
 import {
@@ -25,7 +26,7 @@ import {
   presenceDTagFor,
   stateDTagFor,
 } from "./protocol";
-import type { RelayPort } from "./relay";
+import type { RelayPort, RelayQueryResult } from "./relay";
 import type {
   ChatAcceptEnvelope,
   ChatEnvelope,
@@ -64,6 +65,11 @@ const CHAT_BACKFILL_SECONDS = 24 * 60 * 60;
 const REQUEST_REPLAY_MS = 10 * 60_000;
 /** Upper bound on remembered event ids (duplicate suppression). */
 const SEEN_EVENT_LIMIT = 1024;
+/**
+ * A manual sync replays chat this far back so a message that landed while the
+ * last poll was failing still arrives. Event-id dedupe makes the overlap free.
+ */
+const MANUAL_CHAT_OVERLAP_SECONDS = 10 * 60;
 
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -75,6 +81,14 @@ export type FriendsSyncPhase =
   | "offline";
 
 export type RelayHealth = "accepted" | "failed";
+/** `idle` means "not checked yet" — the engine seeds every relay with it. */
+export type RelayStatus = "idle" | RelayHealth;
+
+/**
+ * Progress of the user-initiated pass. `running` is set before any network
+ * work so the button can show that something is actually happening.
+ */
+export type ManualSyncState = "idle" | "running" | "ok" | "partial" | "failed";
 
 export type PeerPresence = {
   status: string;
@@ -100,7 +114,10 @@ export type PeerSyncState = {
 
 export type FriendsSyncStatus = {
   phase: FriendsSyncPhase;
-  relayStatus: Record<string, RelayHealth>;
+  manualSync: ManualSyncState;
+  manualSyncFinishedAt: number | null;
+  /** Every configured relay, `idle` until a pass reaches it. */
+  relayStatus: Record<string, RelayStatus>;
   lastSyncedAt: number | null;
   lastError: string | null;
   pendingPublish: number;
@@ -237,6 +254,28 @@ class SeenEvents {
 }
 
 /**
+ * Aggregate relay outcomes for one manual pass.
+ *
+ * `ok` means every publish was accepted and every query answered by at least
+ * one relay, with no relay refusing anywhere. A single refusal downgrades the
+ * pass to `partial`; a pass that nothing answered is a failure.
+ */
+class RelayTally {
+  private answered = false;
+  private refused = false;
+
+  record(result: { ok: string[]; failed: string[] }): void {
+    if (result.ok.length > 0) this.answered = true;
+    if (result.failed.length > 0) this.refused = true;
+  }
+
+  result(): ManualSyncState {
+    if (!this.answered) return "failed";
+    return this.refused ? "partial" : "ok";
+  }
+}
+
+/**
  * Snapshot identity for change detection: everything except the fields the
  * engine stamps on publish. `seen` is excluded too — it rides on the presence
  * envelope and would otherwise force a republish every time a peer acks.
@@ -285,7 +324,9 @@ export class FriendsSyncEngine {
   private identity: FriendsSyncIdentity | null = null;
 
   private phase: FriendsSyncPhase = "idle";
-  private relayStatus: Record<string, RelayHealth> = {};
+  private manualSync: ManualSyncState = "idle";
+  private manualSyncFinishedAt: number | null = null;
+  private relayStatus: Record<string, RelayStatus> = {};
   private lastSyncedAt: number | null = null;
   private lastError: string | null = null;
 
@@ -349,10 +390,15 @@ export class FriendsSyncEngine {
     this.phase = "connecting";
     this.lastError = null;
     this.resubscribeAttempts = 0;
+    this.manualSync = "idle";
+    this.manualSyncFinishedAt = null;
     this.lastChatSync =
       Math.floor(this.now() / 1000) - CHAT_BACKFILL_SECONDS;
 
     this.refreshPeers();
+    // Every configured relay is reported from the first render, so the UI can
+    // list all of them as "not checked yet" instead of an empty box.
+    this.seedRelayStatus();
     this.unsubscribeLocal = this.adapter.subscribeLocalChanges(() => {
       this.onLocalChange();
     });
@@ -404,6 +450,9 @@ export class FriendsSyncEngine {
     this.resubscribeAttempts = 0;
     this.nextSnapshotAt = 0;
     this.applyingRemote = 0;
+    this.manualSync = "idle";
+    this.manualSyncFinishedAt = null;
+    this.relayStatus = {};
     this.phase = "idle";
     this.emit();
   }
@@ -418,22 +467,39 @@ export class FriendsSyncEngine {
     this.emit();
   }
 
+  /**
+   * The user's explicit "Sync now": a forced pass that re-reads everything and
+   * re-publishes even an unchanged snapshot. It never throws; the outcome
+   * lands in `manualSync` and `phase`.
+   */
   async syncNow(): Promise<void> {
-    if (!this.started) return;
-    if (this.phase !== "online" && this.phase !== "degraded") {
-      this.phase = "connecting";
-      this.emit();
+    if (!this.started || this.stopping) return;
+
+    this.manualSync = "running";
+    this.emit();
+
+    let result: ManualSyncState = "failed";
+    try {
+      result = await this.runManualPass();
+    } catch (err) {
+      this.noteError(err);
+      result = "failed";
     }
-    await this.run(async () => {
-      this.refreshPeers();
-      await this.fetchPeerStates();
-      await this.fetchChat();
-      await this.publishChangedPeers();
-      this.flushPendingChat();
-      this.publishPresence();
-      this.lastSyncedAt = this.now();
-      this.emit();
-    });
+
+    this.manualSync = result;
+    this.manualSyncFinishedAt = this.now();
+    if (result !== "failed") this.lastSyncedAt = this.now();
+    // The outcome is the authority for the phase: the health map may still
+    // hold results from an earlier pass that this one just contradicted.
+    if (this.started) {
+      this.phase =
+        result === "ok"
+          ? "online"
+          : result === "partial"
+            ? "degraded"
+            : "offline";
+    }
+    this.emit();
   }
 
   // ── status ─────────────────────────────────────────────────────────
@@ -463,6 +529,8 @@ export class FriendsSyncEngine {
     });
     return {
       phase: this.phase,
+      manualSync: this.manualSync,
+      manualSyncFinishedAt: this.manualSyncFinishedAt,
       relayStatus: { ...this.relayStatus },
       lastSyncedAt: this.lastSyncedAt,
       lastError: this.lastError,
@@ -615,9 +683,15 @@ export class FriendsSyncEngine {
   private cancelJobsFor(pubkey: string): void {
     Array.from(this.publishJobs.values()).forEach((job) => {
       if (job.peer !== pubkey) return;
-      if (job.timer) clearTimeout(job.timer);
-      this.publishJobs.delete(job.key);
+      this.cancelJob(job.key);
     });
+  }
+
+  private cancelJob(key: string): void {
+    const job = this.publishJobs.get(key);
+    if (!job) return;
+    if (job.timer) clearTimeout(job.timer);
+    this.publishJobs.delete(key);
   }
 
   private onLocalChange(): void {
@@ -631,11 +705,23 @@ export class FriendsSyncEngine {
     return this.adapter.relays();
   }
 
+  /**
+   * Reports every configured relay up front. Relays already known keep their
+   * health; only new ones start as `idle`.
+   */
+  private seedRelayStatus(): void {
+    const seeded: Record<string, RelayStatus> = {};
+    this.relays().forEach((relay) => {
+      seeded[relay] = this.relayStatus[relay] ?? "idle";
+    });
+    this.relayStatus = seeded;
+  }
+
   private myPubkey(): string | null {
     return this.identity ? this.identity.pubkey : null;
   }
 
-  // ── internals: initial sync ────────────────────────────────────────
+  // ── internals: sync passes ─────────────────────────────────────────
 
   private async initialSync(): Promise<void> {
     await this.fetchPeerStates();
@@ -648,7 +734,50 @@ export class FriendsSyncEngine {
     this.emit();
   }
 
-  private async fetchPeerStates(): Promise<void> {
+  /**
+   * The forced pass behind "Sync now". Every read and write is awaited so the
+   * outcome is the relays' real answer, not a queued guess.
+   */
+  private async runManualPass(): Promise<ManualSyncState> {
+    const tally = new RelayTally();
+    this.refreshPeers();
+
+    await this.fetchPeerStates({ limit: 1, tally });
+    await this.fetchChat({ overlapSeconds: MANUAL_CHAT_OVERLAP_SECONDS, tally });
+
+    const peers = Array.from(this.accepted);
+    await Promise.allSettled(
+      peers.flatMap((peer) => [
+        this.publishSnapshotNow(peer, tally),
+        this.publishPresenceNow(peer, tally),
+      ])
+    );
+    this.flushPendingChat();
+
+    return tally.result();
+  }
+
+  /** One read, with its per-relay outcome recorded for the pass. */
+  private async queryRelays(
+    filter: Filter,
+    tally?: RelayTally
+  ): Promise<RelayQueryResult> {
+    const relays = this.relays();
+    let result: RelayQueryResult;
+    try {
+      result = await this.relay.query(relays, filter);
+    } catch (err) {
+      this.noteError(err);
+      result = { events: [], ok: [], failed: relays };
+    }
+    this.recordRelayHealth(result);
+    tally?.record(result);
+    return result;
+  }
+
+  private async fetchPeerStates(
+    options: { limit?: number; tally?: RelayTally } = {}
+  ): Promise<void> {
     const myPubkey = this.myPubkey();
     if (!myPubkey) return;
     const dTag = stateDTagFor(myPubkey);
@@ -656,38 +785,39 @@ export class FriendsSyncEngine {
 
     await Promise.allSettled(
       peers.map(async (peer) => {
-        const events = await this.relay.query(this.relays(), {
+        const filter: Filter = {
           kinds: [STREAM_KIND],
           authors: [peer],
           "#d": [dTag],
-        });
-        events.forEach((event) => this.handleEvent(event));
+        };
+        if (options.limit) filter.limit = options.limit;
+        const result = await this.queryRelays(filter, options.tally);
+        result.events.forEach((event) => this.handleEvent(event));
       })
     );
   }
 
-  private async fetchChat(): Promise<void> {
+  private async fetchChat(
+    options: { overlapSeconds?: number; tally?: RelayTally } = {}
+  ): Promise<void> {
     const myPubkey = this.myPubkey();
     if (!myPubkey) return;
-    const events = await this.relay.query(this.relays(), {
-      kinds: [CHAT_WRAP_KIND],
-      "#p": [myPubkey],
-      since: this.lastChatSync,
-    });
-    events.forEach((event) => this.handleEvent(event));
-    this.lastChatSync = Math.floor(this.now() / 1000);
+    const overlap = options.overlapSeconds ?? 0;
+    const since = Math.max(0, this.lastChatSync - overlap);
+    const result = await this.queryRelays(
+      { kinds: [CHAT_WRAP_KIND], "#p": [myPubkey], since },
+      options.tally
+    );
+    result.events.forEach((event) => this.handleEvent(event));
+    // A total outage must not move the cursor: the window it would skip is
+    // gone for good, and event-id dedupe makes re-reading it harmless.
+    if (result.ok.length > 0) {
+      this.lastChatSync = Math.floor(this.now() / 1000);
+    }
   }
 
   private async pollInbox(): Promise<void> {
-    const myPubkey = this.myPubkey();
-    if (!myPubkey) return;
-    const events = await this.relay.query(this.relays(), {
-      kinds: [CHAT_WRAP_KIND],
-      "#p": [myPubkey],
-      since: this.lastChatSync,
-    });
-    events.forEach((event) => this.handleEvent(event));
-    this.lastChatSync = Math.floor(this.now() / 1000);
+    await this.fetchChat();
   }
 
   // ── internals: subscriptions ───────────────────────────────────────
@@ -944,24 +1074,30 @@ export class FriendsSyncEngine {
     peer: string,
     force: boolean
   ): Promise<boolean> {
-    const myPubkey = this.myPubkey();
-    if (!this.started || this.stopping || !myPubkey) return false;
-    if (this.blocked.has(peer) || !this.accepted.has(peer)) return false;
+    if (this.publishJobs.has(`snapshot:${peer}`)) return false;
+    const job = this.buildSnapshotJob(peer, force);
+    if (!job) return false;
+    this.enqueue(job);
+    return true;
+  }
 
-    const jobKey = `snapshot:${peer}`;
-    if (this.publishJobs.has(jobKey)) return false;
+  /** Builds the snapshot job, or null when there is nothing to publish. */
+  private buildSnapshotJob(peer: string, force: boolean): PublishJob | null {
+    const myPubkey = this.myPubkey();
+    if (!this.started || this.stopping || !myPubkey) return null;
+    if (this.blocked.has(peer) || !this.accepted.has(peer)) return null;
 
     let envelope: SnapshotEnvelope;
     try {
       envelope = this.adapter.buildSnapshot(peer);
     } catch (err) {
       this.noteError(err);
-      return false;
+      return null;
     }
 
     const fingerprint = snapshotFingerprint(envelope);
     if (!force && this.lastPublishedPayload.get(peer) === fingerprint) {
-      return false;
+      return null;
     }
 
     const rev = Math.max(
@@ -988,11 +1124,11 @@ export class FriendsSyncEngine {
       });
     } catch (err) {
       this.noteError(err);
-      return false;
+      return null;
     }
 
-    this.enqueue({
-      key: jobKey,
+    return {
+      key: `snapshot:${peer}`,
       peer,
       kind: "snapshot",
       event,
@@ -1000,21 +1136,33 @@ export class FriendsSyncEngine {
       rev,
       attempts: 0,
       timer: null,
-    });
-    return true;
+    };
   }
 
   private enqueuePresence(peer: string): void {
+    const job = this.buildPresenceJob(peer);
+    if (!job) return;
+    // Presence is replaceable: a newer heartbeat supersedes one still
+    // waiting in the queue instead of piling up behind it.
+    const existing = this.publishJobs.get(job.key);
+    if (existing) {
+      existing.event = job.event;
+      return;
+    }
+    this.enqueue(job);
+  }
+
+  private buildPresenceJob(peer: string): PublishJob | null {
     const myPubkey = this.myPubkey();
-    if (!this.started || this.stopping || !myPubkey) return;
-    if (this.blocked.has(peer) || !this.accepted.has(peer)) return;
+    if (!this.started || this.stopping || !myPubkey) return null;
+    if (this.blocked.has(peer) || !this.accepted.has(peer)) return null;
 
     let envelope: PresenceEnvelope;
     try {
       envelope = this.adapter.buildPresence(peer, { ...this.seen });
     } catch (err) {
       this.noteError(err);
-      return;
+      return null;
     }
 
     const updatedAt = this.now();
@@ -1038,18 +1186,10 @@ export class FriendsSyncEngine {
       });
     } catch (err) {
       this.noteError(err);
-      return;
+      return null;
     }
 
-    // Presence is replaceable: a newer heartbeat supersedes one still
-    // waiting in the queue instead of piling up behind it.
-    const existing = this.publishJobs.get(`presence:${peer}`);
-    if (existing) {
-      existing.event = event;
-      return;
-    }
-
-    this.enqueue({
+    return {
       key: `presence:${peer}`,
       peer,
       kind: "presence",
@@ -1058,7 +1198,65 @@ export class FriendsSyncEngine {
       rev: payload.rev,
       attempts: 0,
       timer: null,
-    });
+    };
+  }
+
+  private async publishSnapshotNow(
+    peer: string,
+    tally: RelayTally
+  ): Promise<void> {
+    const job = this.buildSnapshotJob(peer, true);
+    if (!job) return;
+    await this.publishNow(job, tally);
+  }
+
+  private async publishPresenceNow(
+    peer: string,
+    tally: RelayTally
+  ): Promise<void> {
+    const job = this.buildPresenceJob(peer);
+    if (!job) return;
+    await this.publishNow(job, tally);
+  }
+
+  /**
+   * One awaited publish for the manual pass. The background queue cannot
+   * report an outcome back to its caller, so a forced pass talks to the
+   * relays itself and records what they said. A refusal is left unrecorded,
+   * so the normal cycle still retries it later.
+   */
+  private async publishNow(job: PublishJob, tally: RelayTally): Promise<void> {
+    this.cancelJob(job.key);
+
+    let result: { ok: string[]; failed: string[] };
+    try {
+      result = await this.relay.publish(this.relays(), job.event);
+    } catch (err) {
+      this.noteError(err);
+      result = { ok: [], failed: this.relays() };
+    }
+    if (!this.started) return;
+
+    this.recordRelayHealth(result);
+    tally.record(result);
+
+    if (result.ok.length > 0) {
+      if (job.kind === "snapshot") {
+        this.lastPublishedPayload.set(job.peer, job.fingerprint);
+        this.publishedRevs.set(job.peer, job.rev);
+      } else if (job.kind === "chat" && job.chat) {
+        try {
+          this.adapter.markChatDelivered(job.peer, job.chat);
+        } catch (err) {
+          this.noteError(err);
+        }
+      }
+    } else {
+      this.noteError(
+        `every relay refused a ${job.kind} event for ${job.peer.slice(0, 8)}…`
+      );
+    }
+    this.emit();
   }
 
   private publishChat(peer: string, draft: ChatEnvelopeDraft): void {
@@ -1313,7 +1511,10 @@ export class FriendsSyncEngine {
   }
 
   private updatePhase(): void {
-    const health = Object.values(this.relayStatus);
+    // A relay nobody has reached yet says nothing about the phase.
+    const health = Object.values(this.relayStatus).filter(
+      (value): value is RelayHealth => value !== "idle"
+    );
     if (health.length === 0) return;
     const accepted = health.filter((value) => value === "accepted").length;
     const phase: FriendsSyncPhase =

@@ -19,6 +19,17 @@ const QUERY_TIMEOUT_MS = 8_000;
 
 export type RelayPublishResult = { ok: string[]; failed: string[] };
 
+/**
+ * What one read actually achieved. `ok` and `failed` are per relay, so the
+ * caller can tell "the relays answered and had nothing new" (`ok` set, no
+ * events) from "nobody answered at all" (every relay in `failed`).
+ */
+export type RelayQueryResult = {
+  events: NostrEvent[];
+  ok: string[];
+  failed: string[];
+};
+
 export type RelaySubscriptionHandlers = {
   onEvent(event: NostrEvent): void;
   onEose?(): void;
@@ -39,7 +50,7 @@ export interface RelayPort {
       onClose?(reasons: string[]): void;
     }
   ): { close(): void };
-  query(relays: string[], filter: Filter): Promise<NostrEvent[]>;
+  query(relays: string[], filter: Filter): Promise<RelayQueryResult>;
 }
 
 /**
@@ -195,43 +206,79 @@ export function createRelayPort(): RelayPort {
 
     query(relays, filter) {
       const urls = normalizeRelays(relays);
-      return new Promise<NostrEvent[]>((resolve) => {
-        const events: NostrEvent[] = [];
-        const seen = new Set<string>();
+      const events: NostrEvent[] = [];
+      const seen = new Set<string>();
+      const ok: string[] = [];
+      const failed: string[] = [];
+      if (urls.length === 0) return Promise.resolve({ events, ok, failed });
+
+      return new Promise<RelayQueryResult>((resolve) => {
+        const pending = new Set(urls);
+        const closers: Array<{ close(reason?: string): void }> = [];
         let settled = false;
-        let closer: { close: () => void } | null = null;
 
         const finish = () => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
-          try {
-            closer?.close();
-          } catch {
-            /* ignore */
-          }
-          resolve(events);
+          closers.forEach((closer) => {
+            try {
+              closer.close("closed by client");
+            } catch {
+              /* ignore */
+            }
+          });
+          // Anything still outstanding never answered inside the window.
+          pending.forEach((url) => failed.push(url));
+          pending.clear();
+          resolve({ events, ok, failed });
         };
         const timer = setTimeout(finish, QUERY_TIMEOUT_MS);
 
-        if (urls.length === 0) {
-          finish();
-          return;
-        }
+        const settleRelay = (url: string, answered: boolean) => {
+          if (settled || !pending.delete(url)) return;
+          if (answered) ok.push(url);
+          else failed.push(url);
+          if (pending.size === 0) finish();
+        };
 
-        try {
-          closer = getPool().subscribeMany(urls, filter, {
-            onevent(event) {
-              if (settled || seen.has(event.id)) return;
-              seen.add(event.id);
-              events.push(event);
-            },
-            onclose: finish,
-            maxWait: QUERY_TIMEOUT_MS,
-          });
-        } catch {
-          finish();
-        }
+        // One subscription per relay: the pool's shared callbacks cannot say
+        // *which* relay answered, and that distinction is the whole point of
+        // reporting outcomes. A socket that connects accepted the REQ, so it
+        // counts as answered even when it has nothing newer to send.
+        urls.forEach((url) => {
+          void (async () => {
+            let relay;
+            try {
+              relay = await getPool().ensureRelay(url, {
+                connectionTimeout: QUERY_TIMEOUT_MS,
+              });
+            } catch {
+              settleRelay(url, false);
+              return;
+            }
+            if (settled) return;
+            try {
+              const subscription = relay.subscribe([filter], {
+                onevent(event) {
+                  if (settled || seen.has(event.id)) return;
+                  seen.add(event.id);
+                  events.push(event);
+                },
+                oneose() {
+                  settleRelay(url, true);
+                },
+                onclose() {
+                  settleRelay(url, true);
+                },
+                eoseTimeout: QUERY_TIMEOUT_MS,
+              });
+              closers.push(subscription);
+            } catch {
+              settleRelay(url, false);
+            }
+          })();
+        });
       });
     },
   };
