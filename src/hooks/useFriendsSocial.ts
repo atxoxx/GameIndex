@@ -1,30 +1,22 @@
-// useFriendsSocial — companion data hook for the Big Screen Friends
-// hub, layered on top of `useFriendsData` (which owns the profile,
-// add-friend flow + sync engine and is deliberately left untouched).
-//
-// Why a second hook?
-// ──────────────────
-// The desktop FriendsPage owns every social surface (recommendations,
-// wishlist shares, DMs, circles, sessions, activity, compare,
-// leaderboard, race). `useFriendsData` only exposes the friends-list
-// core, so this hook brings the remaining surfaces into Big Screen by
-// REUSING the same storage helpers + merge rules from friendsStorage —
-// it never rebuilds sync logic and never writes to the backend.
+// useFriendsSocial — companion data hook for the Big Screen Friends hub,
+// layered on top of `useFriendsData` (which owns the profile, the add-friend
+// flow and the engine-backed sync status).
 //
 // Ownership model
 // ───────────────
-// • `friends` + `sessions` are AUTHORITATIVE here. Every local
-//   mutation (pin / block / nickname / circles / RSVP / chat / roles /
-//   guests / pinned messages / create+delete) writes through this hook
-//   so the outbox is always pushed with the freshest state (storage
-//   `pushMyOutbox` + best-effort Nostr publish, mirroring the desktop
-//   page's folder + relay behavior).
-// • After every `useFriendsData` sync cycle completes (isSyncing →
-//   false), all social state is re-read from storage so items merged
-//   in by the sync engine appear instantly.
-// • `profile` / `selfStats` / `generatedFriendCode` / `performSync` /
-//   the add-friend flow come from `useFriendsData`; nothing here
-//   duplicates that engine.
+// • `friends` / `sessions` / DMs / recommendations / suggestions are
+//   AUTHORITATIVE here. Every local mutation writes through `friendsStorage`
+//   and stops there: the storage layer notifies the always-on sync engine,
+//   which republishes. This hook never pushes an outbox, never publishes to
+//   a relay and never reads the legacy sync folder.
+// • After every storage change (engine merges, other surfaces' writes) all
+//   social state is re-read, so remote items appear without polling.
+// • Friend requests are answered through the provider: accept →
+//   `acceptFriend(pubkey)`, deny → `blockPeer(pubkey)`. Inbound invites and
+//   outbound waiting requests are derived from `Friend.consent` +
+//   `incomingRequestAt` / `requestedAt`.
+// • DMs travel as `sendChat` envelopes to the peer pubkey. A name that maps
+//   to no friend, or to more than one, keeps the message local-only.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGames } from "../context/GameContext";
@@ -35,8 +27,9 @@ import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { parsePlayTime, type Game } from "../types/game";
 import type { UseFriendsDataResult } from "./useFriendsData";
+import { useFriendsSync } from "../sync/friends/FriendsSyncProvider";
+import { dmThreadIdForPeer } from "../sync/friends/adapter";
 import {
-  type UserProfile,
   type Friend,
   type GameSession,
   type GameRecommendation,
@@ -65,22 +58,26 @@ import {
   saveFriends,
   saveUserProfile,
   getUnseenTabItems,
+  addUnseenTabItems,
+  addUnseenCommunityItems,
   clearUnseenTabItems,
   startDmThreadId,
   displayName,
   isAppBlacklisted,
   safeCurrentlyPlaying,
-  sanitizeDmsForPush,
-  listPeerOutboxes,
-  fetchFriendOutbox,
-  pushMyOutbox as pushMyOutboxStorage,
-  buildNostrOutboxPayload,
-  publishNostrOutbox,
-  isNostrIdentityReady,
-} from "../pages/friendsStorage";import { detectTimezone, sessionsConflict } from "../components/bigscreen/friends/friendsUtils";
+  subscribeFriendsDbChange,
+} from "../pages/friendsStorage";
+import { detectTimezone, sessionsConflict } from "../components/bigscreen/friends/friendsUtils";
+import {
+  asPeerPubkey,
+  classifyFriendsByConsent,
+  peerPubkeyForThread,
+} from "../pages/friends/friendsSyncHelpers";
+import { countNewRemoteItems } from "./friendsUnseen";
 
 // ── Shared result types ──────────────────────────────────────────
 
+/** One friend request, in either direction (see `invitations`). */
 export interface FriendInvitation {
   syncId: string;
   name: string;
@@ -92,6 +89,8 @@ export interface FriendInvitation {
     playtimeMinutes: number;
     achievementsCount: number;
   };
+  /** Epoch ms the request was made (inbound or outbound). */
+  requestedAt?: number;
 }
 
 export type ActivityItem = {
@@ -195,7 +194,10 @@ export interface UseFriendsSocialResult {
   suggestions: GameSuggestion[];
   dms: DmThread[];
   circles: FriendCircle[];
+  /** Inbound requests: `consent === "pending"` and the peer asked us. */
   invitations: FriendInvitation[];
+  /** Outbound requests still waiting on the peer (`requestedAt`). */
+  outgoingRequests: FriendInvitation[];
   unseenCounts: {
     sessions: number;
     recs: number;
@@ -209,6 +211,8 @@ export interface UseFriendsSocialResult {
   achievementRaces: RaceEntry[];
   myGameIds: Set<string>;
   gameCoverForSession: (session: GameSession) => string | undefined;
+  /** Pubkey of the friend behind a DM thread, when it is unambiguous. */
+  peerForThread: (threadId: string) => string | null;
 
   // Compare state (owned here so the "Compare" quick action on friend
   // cards can jump straight into the tab with the friend selected).
@@ -251,6 +255,7 @@ export interface UseFriendsSocialResult {
   handleSetNickname: (friendId: string, nickname: string) => void;
   handleAcceptInvitation: (invite: FriendInvitation) => void;
   handleDenyInvitation: (syncId: string) => void;
+  handleResendRequest: (syncId: string) => void;
 
   // Session mutations
   handleCreateSession: (input: CreateSessionInput) => Promise<boolean>;
@@ -301,6 +306,18 @@ export interface UseFriendsSocialResult {
   clearUnseenTab: (key: "sessions" | "recs" | "suggestions" | "activity" | "dms") => void;
 }
 
+function toInvitation(friend: Friend): FriendInvitation {
+  return {
+    syncId: friend.syncId,
+    name: displayName(friend),
+    avatar: friend.avatar,
+    status: friend.status,
+    favoriteGame: friend.favoriteGame,
+    libStats: friend.libStats,
+    requestedAt: friend.incomingRequestAt ?? friend.requestedAt,
+  };
+}
+
 export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResult {
   const { t } = useLanguage();
   const { games } = useGames();
@@ -308,10 +325,17 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
   const { wishlist, toggle } = useWishlistContext();
   const { showToast } = useToast();
   const { dmReadReceipts } = useSettings();
+  const {
+    sendChat,
+    sendFriendRequest,
+    acceptFriend,
+    blockPeer,
+    removePeer,
+  } = useFriendsSync();
 
   const { profile } = fd;
 
-  // ── State (all reloaded from storage after a sync cycle) ────────
+  // ── State (all reloaded from storage on every local change) ─────
 
   const [friends, setFriends] = useState<Friend[]>(() => loadFriends());
   const [sessions, setSessions] = useState<GameSession[]>(() => loadSessions());
@@ -319,14 +343,6 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
   const [suggestions, setSuggestions] = useState<GameSuggestion[]>(() => loadSuggestions());
   const [dms, setDms] = useState<DmThread[]>(() => loadDms());
   const [circles, setCircles] = useState<FriendCircle[]>(() => loadCircles());
-  const [invitations, setInvitations] = useState<FriendInvitation[]>([]);
-  const [deniedIds, setDeniedIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("gamelib.friends.denied") || "[]");
-    } catch {
-      return [];
-    }
-  });
 
   const [unseenCounts, setUnseenCounts] = useState(() => ({
     sessions: getUnseenTabItems("sessions"),
@@ -350,10 +366,6 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
-  const deniedRef = useRef(deniedIds);
-  useEffect(() => {
-    deniedRef.current = deniedIds;
-  }, [deniedIds]);
   const dmsRef = useRef(dms);
   useEffect(() => {
     dmsRef.current = dms;
@@ -367,10 +379,11 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     recommendationsRef.current = recommendations;
   }, [recommendations]);
   const suggestionsRef = useRef(suggestions);
-  useEffect(() => {    suggestionsRef.current = suggestions;
+  useEffect(() => {
+    suggestionsRef.current = suggestions;
   }, [suggestions]);
 
-  // ── Reload from storage after each sync cycle ───────────────────
+  // ── Reload from storage ─────────────────────────────────────────
 
   const refreshUnseenCounts = useCallback(() => {
     setUnseenCounts({
@@ -390,102 +403,84 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     [refreshUnseenCounts],
   );
 
-  const reloadAll = useCallback(() => {
-    setFriends(loadFriends());
-    setSessions(loadSessions());
-    setRecommendations(loadRecommendations());
-    setSuggestions(loadSuggestions());
-    setDms(loadDms());
-    setCircles(loadCircles());
-    refreshUnseenCounts();
-  }, [refreshUnseenCounts]);
+  /**
+   * Re-reads every social collection. `countNew` bumps the unseen badges for
+   * items other people added since the last read; our own writes are skipped
+   * by author, so a local mutation never badges itself.
+   */
+  const reloadAll = useCallback(
+    (countNew = false) => {
+      const next = {
+        sessions: loadSessions(),
+        recommendations: loadRecommendations(),
+        suggestions: loadSuggestions(),
+        dms: loadDms(),
+      };
 
-  // Set by every local mutation handler; used to skip a reload that would
-  // otherwise clobber a write made while a sync cycle was running.
-  const mutationDirtyRef = useRef(false);
-  const markDirty = useCallback(() => {
-    mutationDirtyRef.current = true;
-  }, []);
-
-  // ── Invitation discovery (mirrors the desktop checkFolderInvitations) ──
-
-  const checkFolderInvitations = useCallback(async () => {
-    const mySyncId = profileRef.current.syncId;
-    const currentFriends = friendsRef.current;
-    if (!mySyncId) return;
-    try {
-      const peers = await listPeerOutboxes();
-      const newInvites: FriendInvitation[] = [];
-      for (const peerId of peers) {
-        if (currentFriends.some((f) => f.syncId === peerId)) continue;
-        if (peerId === mySyncId) continue;
-        if (deniedRef.current.includes(peerId)) continue;
-        const remoteOutbox = await fetchFriendOutbox(peerId);
-        if (remoteOutbox && remoteOutbox.friends && remoteOutbox.friends.includes(mySyncId)) {
-          newInvites.push({
-            syncId: peerId,
-            name: remoteOutbox.profile.name,
-            avatar: remoteOutbox.profile.avatar,
-            status: remoteOutbox.profile.status,
-            favoriteGame: remoteOutbox.profile.favoriteGame || undefined,
-            libStats: remoteOutbox.profile.libStats
-              ? {
-                  gamesCount: remoteOutbox.profile.libStats.gamesCount || 0,
-                  playtimeMinutes: remoteOutbox.profile.libStats.playtimeMinutes || 0,
-                  achievementsCount: remoteOutbox.profile.libStats.achievementsCount || 0,
-                }
-              : undefined,
-          });
-        }
+      if (countNew) {
+        const deltas = countNewRemoteItems(
+          {
+            sessions: sessionsRef.current,
+            recommendations: recommendationsRef.current,
+            suggestions: suggestionsRef.current,
+            dms: dmsRef.current,
+          },
+          next,
+          profileRef.current.name,
+        );
+        addUnseenTabItems("sessions", deltas.sessions);
+        addUnseenTabItems("recs", deltas.recs);
+        addUnseenTabItems("suggestions", deltas.suggestions);
+        addUnseenTabItems("dms", deltas.dms);
+        addUnseenCommunityItems(deltas.sessions + deltas.recs + deltas.suggestions);
       }
-      if (newInvites.length > 0) {
-        setInvitations((prev) => {
-          const merged = [...prev];
-          newInvites.forEach((invite) => {
-            if (!merged.some((i) => i.syncId === invite.syncId)) merged.push(invite);
-          });
-          return merged;
-        });
-      }
-    } catch (err) {
-      console.error("Failed to check folder invitations:", err);
-    }
-  }, []);
 
-  useEffect(() => {
-    void checkFolderInvitations();
-  }, [checkFolderInvitations]);
+      // Refs first: a second notification arriving before React renders must
+      // diff against these values, not the stale ones, or items count twice.
+      sessionsRef.current = next.sessions;
+      recommendationsRef.current = next.recommendations;
+      suggestionsRef.current = next.suggestions;
+      dmsRef.current = next.dms;
 
-  // Reload from storage after each completed sync cycle. If a local mutation
-  // landed while the cycle was running, storage already holds the freshest
-  // write (the engine re-merges against it), so the reload is skipped.
-  const prevSyncing = useRef(fd.isSyncing);
-  useEffect(() => {
-    if (!prevSyncing.current && fd.isSyncing) {
-      // A new cycle started — clear any flag left from before it began.
-      mutationDirtyRef.current = false;
-    } else if (prevSyncing.current && !fd.isSyncing) {
-      if (!mutationDirtyRef.current) {
-        reloadAll();
-      }
-      mutationDirtyRef.current = false;
-      void checkFolderInvitations();
-    }
-    prevSyncing.current = fd.isSyncing;
-  }, [fd.isSyncing, reloadAll, checkFolderInvitations]);
+      setSessions(next.sessions);
+      setRecommendations(next.recommendations);
+      setSuggestions(next.suggestions);
+      setDms(next.dms);
+      setFriends(loadFriends());
+      setCircles(loadCircles());
+      refreshUnseenCounts();
+    },
+    [refreshUnseenCounts],
+  );
 
-  // The disk-DB load can land after the first sync cycle completed; re-read
-  // storage whenever useFriendsData reports a fresh disk load.
+  // The engine writes merged remote data through friendsStorage, which fans
+  // out a change notification — that is the reload trigger (no polling).
+  useEffect(() => subscribeFriendsDbChange(() => reloadAll(true)), [reloadAll]);
+
+  // The disk-DB load can land after mount; useFriendsData bumps its version.
   const prevDbLoadVersion = useRef(fd.dbLoadVersion);
   useEffect(() => {
-    if (prevDbLoadVersion.current !== fd.dbLoadVersion) {
-      prevDbLoadVersion.current = fd.dbLoadVersion;
-      reloadAll();
-      void checkFolderInvitations();
-    }
-  }, [fd.dbLoadVersion, reloadAll, checkFolderInvitations]);
+    if (prevDbLoadVersion.current === fd.dbLoadVersion) return;
+    prevDbLoadVersion.current = fd.dbLoadVersion;
+    reloadAll(false);
+  }, [fd.dbLoadVersion, reloadAll]);
 
-  // ── Self snapshot + outbox push (storage + best-effort Nostr) ───
+  // ── Requests ────────────────────────────────────────────────────
+
+  const { incoming, outgoing } = useMemo(
+    () => classifyFriendsByConsent(friends),
+    [friends],
+  );
+  const invitations = useMemo(
+    () => incoming.map(toInvitation),
+    [incoming],
+  );
+  const outgoingRequests = useMemo(
+    () => outgoing.map(toInvitation),
+    [outgoing],
+  );
+
+  // ── Self snapshot (used by the compare / race derivations) ──────
 
   const selfSharedGames = useMemo<SharedGameStat[]>(() => {
     return games.map((game) => {
@@ -503,135 +498,104 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     });
   }, [games, summaries]);
 
-  const publishToNostr = useCallback(
-    async (p: UserProfile, s: GameSession[], recs: GameRecommendation[], sugs: GameSuggestion[]) => {
-      const payload = buildNostrOutboxPayload(p, fd.selfStats, s, recs, selfSharedGames, sugs);
-      await publishNostrOutbox(payload);
-    },
-    [fd.selfStats, selfSharedGames],
-  );
-
-  /** Push the authoritative outbox (folder write + Nostr). DM threads
-   *  intentionally stay out of the world-readable Nostr payload. */
-  const pushOutbox = useCallback(
-    async (
-      p: UserProfile,
-      s: GameSession[],
-      recs: GameRecommendation[],
-      sugs: GameSuggestion[],
-      dmsThreads?: DmThread[],
-    ) => {
-      // Never write a folder outbox under an unresolved identity; the
-      // authoritative sync engine pushes once the key is loaded.
-      if (!isNostrIdentityReady()) return;
-      // Read receipts are opt-in: when disabled, our own read-state never
-      // leaves the device (mirrors the desktop page's pushMyOutbox).
-      const outDms = sanitizeDmsForPush(dmsThreads || [], p.name, dmReadReceipts);
-      await pushMyOutboxStorage(p, fd.selfStats, s, recs, selfSharedGames, sugs, outDms);
-      void publishToNostr(p, s, recs, sugs);
-    },
-    [fd.selfStats, selfSharedGames, publishToNostr, dmReadReceipts],
-  );
-
-  // ── Profile save (pushes the authoritative social state) ────────
+  // ── Profile save (the storage write notifies the engine) ────────
 
   const saveProfile = useCallback(async () => {
     saveUserProfile(profile);
-    await pushOutbox(profile, sessionsRef.current, recommendationsRef.current, suggestionsRef.current, dmsRef.current);
     showToast(t("friendsPage.profileUpdated"), "success");
-  }, [profile, pushOutbox, showToast, t]);
+  }, [profile, showToast, t]);
 
   // ── Friend mutations (authoritative here) ───────────────────────
 
-  const persistFriends = useCallback(
-    (updated: Friend[]) => {
-      setFriends(updated);
-      saveFriends(updated);
-      markDirty();
-    },
-    [markDirty],
-  );
+  const persistFriends = useCallback((updated: Friend[]) => {
+    setFriends(updated);
+    saveFriends(updated);
+  }, []);
 
   const handleTogglePin = useCallback(
     (friendId: string) => {
-      persistFriends(friends.map((f) => (f.id === friendId ? { ...f, pinned: !f.pinned } : f)));
+      persistFriends(friendsRef.current.map((f) => (f.id === friendId ? { ...f, pinned: !f.pinned } : f)));
     },
-    [friends, persistFriends],
+    [persistFriends],
   );
 
   const handleToggleBlock = useCallback(
     (friendId: string, friendName: string) => {
-      const friend = friends.find((f) => f.id === friendId);
+      const friend = friendsRef.current.find((f) => f.id === friendId);
       if (!friend) return;
-      persistFriends(friends.map((f) => (f.id === friendId ? { ...f, blocked: !f.blocked } : f)));
+      const blocking = !friend.blocked;
+      persistFriends(
+        friendsRef.current.map((f) => (f.id === friendId ? { ...f, blocked: blocking } : f)),
+      );
+      const pubkey = asPeerPubkey(friend.syncId);
+      // Blocking drops the peer's cached revisions and queued events; the
+      // local record keeps the block so a restart cannot resubscribe.
+      if (blocking && pubkey) blockPeer(pubkey);
       showToast(
-        friend.blocked
-          ? t("friendsPage.unblockedFriend", { name: friendName })
-          : t("friendsPage.blockedFriend", { name: friendName }),
+        blocking
+          ? t("friendsPage.blockedFriend", { name: friendName })
+          : t("friendsPage.unblockedFriend", { name: friendName }),
         "info",
       );
     },
-    [friends, persistFriends, showToast, t],
+    [persistFriends, blockPeer, showToast, t],
   );
 
   const handleDeleteFriend = useCallback(
     (friendId: string, friendName: string) => {
-      persistFriends(friends.filter((f) => f.id !== friendId));
+      const friend = friendsRef.current.find((f) => f.id === friendId);
+      if (!friend) return;
+      const pubkey = asPeerPubkey(friend.syncId);
+      if (pubkey) {
+        removePeer(pubkey);
+      } else {
+        persistFriends(friendsRef.current.filter((f) => f.id !== friendId));
+      }
       setSelectedCompareFriendId((prev) => (prev === friendId ? "" : prev));
       showToast(t("friendsPage.removedFromFriends", { name: friendName }), "info");
     },
-    [friends, persistFriends, showToast, t],
+    [persistFriends, removePeer, showToast, t],
   );
 
   const handleSetNickname = useCallback(
     (friendId: string, nickname: string) => {
       persistFriends(
-        friends.map((f) => (f.id === friendId ? { ...f, nickname: nickname.trim() || undefined } : f)),
+        friendsRef.current.map((f) => (f.id === friendId ? { ...f, nickname: nickname.trim() || undefined } : f)),
       );
     },
-    [friends, persistFriends],
+    [persistFriends],
   );
 
+  // Accepting answers the peer with an `accept` envelope plus our first
+  // snapshot; the engine does both, so nothing else is needed here.
   const handleAcceptInvitation = useCallback(
     (invite: FriendInvitation) => {
-      const exists = friends.some((f) => f.syncId === invite.syncId);
-      if (exists) {
-        setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
-        return;
-      }
-      const newFriend: Friend = {
-        id: `friend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: invite.name,
-        avatar: invite.avatar,
-        status: invite.status,
-        favoriteGame: invite.favoriteGame,
-        libStats: invite.libStats,
-        addedAt: Date.now(),
-        syncId: invite.syncId,
-      };
-      persistFriends([...friends, newFriend]);
-      setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
+      const pubkey = asPeerPubkey(invite.syncId);
+      if (!pubkey) return;
+      acceptFriend(pubkey);
       showToast(t("friendsPage.acceptedInvitation", { name: invite.name }), "success");
-      setTimeout(() => {
-        void fd.performSync(true);
-      }, 100);
     },
-    [friends, persistFriends, showToast, t, fd],
+    [acceptFriend, showToast, t],
   );
 
+  // Denying blocks the peer: the record stays, their envelopes are dropped,
+  // and the invitation never comes back.
   const handleDenyInvitation = useCallback(
     (syncId: string) => {
-      const nextDenied = [...deniedIds, syncId];
-      setDeniedIds(nextDenied);
-      try {
-        localStorage.setItem("gamelib.friends.denied", JSON.stringify(nextDenied));
-      } catch {
-        /* ignore */
-      }
-      setInvitations((prev) => prev.filter((i) => i.syncId !== syncId));
+      const pubkey = asPeerPubkey(syncId);
+      if (pubkey) blockPeer(pubkey);
       showToast(t("friendsPage.invitationDenied"), "info");
     },
-    [deniedIds, showToast, t],
+    [blockPeer, showToast, t],
+  );
+
+  const handleResendRequest = useCallback(
+    (syncId: string) => {
+      const pubkey = asPeerPubkey(syncId);
+      if (!pubkey) return;
+      sendFriendRequest(pubkey);
+    },
+    [sendFriendRequest],
   );
 
   const handleCopyCode = useCallback(() => {
@@ -642,15 +606,11 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
 
   // ── Session mutations (authoritative here) ──────────────────────
 
-  const persistSessions = useCallback(
-    async (updated: GameSession[]) => {
-      setSessions(updated);
-      saveSessions(updated);
-      markDirty();
-      await pushOutbox(profile, updated, recommendationsRef.current, suggestionsRef.current, dmsRef.current);
-    },
-    [profile, pushOutbox, markDirty],
-  );
+  const persistSessions = useCallback(async (updated: GameSession[]) => {
+    sessionsRef.current = updated;
+    setSessions(updated);
+    saveSessions(updated);
+  }, []);
 
   const handleCreateSession = useCallback(
     async (input: CreateSessionInput): Promise<boolean> => {
@@ -861,6 +821,18 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
 
   // ── DM handlers ─────────────────────────────────────────────────
 
+  /** Resolve the peer behind a thread id (pubkey-addressed or legacy). */
+  const peerForThread = useCallback(
+    (threadId: string): string | null => {
+      const thread = dmsRef.current.find((t) => t.id === threadId) ?? null;
+      return peerPubkeyForThread(thread ?? { participants: [] }, friendsRef.current, {
+        myPubkey: profileRef.current.syncId,
+        myName: profileRef.current.name,
+      });
+    },
+    [],
+  );
+
   const handleOpenDmThread = useCallback(
     (threadId: string, friendName: string) => {
       setSelectedDmId(threadId);
@@ -868,48 +840,68 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       clearUnseenTabItems("dms");
       refreshUnseenCounts();
 
-      // Record our read receipt when the thread had unread messages — the
-      // friend only ever sees it when read receipts are enabled (pushOutbox
-      // strips our read-state otherwise).
       const thread = dmsRef.current.find((t) => t.id === threadId);
-      if (thread) {
-        const lastRead = thread.lastReadAt?.[profile.name] || 0;
-        const unread = (thread.messages || []).some(
-          (m) => m.author !== profile.name && m.timestamp > lastRead,
-        );
-        if (unread) {
-          const updated = dmsRef.current.map((t) =>
-            t.id === threadId
-              ? { ...t, lastReadAt: { ...(t.lastReadAt || {}), [profile.name]: Date.now() } }
-              : t,
-          );
-          dmsRef.current = updated;
-          setDms(updated);
-          saveDmsAndPersist(updated);
-          markDirty();
-          void pushOutbox(
-            profile,
-            sessionsRef.current,
-            recommendationsRef.current,
-            suggestionsRef.current,
-            updated,
-          );
-        }
+      if (!thread) return;
+      const lastRead = thread.lastReadAt?.[profile.name] || 0;
+      const unread = (thread.messages || []).some(
+        (m) => m.author !== profile.name && m.timestamp > lastRead,
+      );
+      if (!unread) return;
+
+      const upTo = Date.now();
+      const updated = dmsRef.current.map((t) =>
+        t.id === threadId
+          ? { ...t, lastReadAt: { ...(t.lastReadAt || {}), [profile.name]: upTo } }
+          : t,
+      );
+      dmsRef.current = updated;
+      setDms(updated);
+      saveDmsAndPersist(updated);
+
+      // Read receipts are opt-in: when disabled our read state never leaves
+      // the device, and the local badge logic above still works.
+      if (!dmReadReceipts) return;
+      const peer = peerPubkeyForThread(thread, friendsRef.current, {
+        myPubkey: profile.syncId,
+        myName: profile.name,
+      });
+      if (peer) {
+        sendChat(peer, { type: "read", threadId, upTo, at: upTo });
       }
     },
-    [profile, pushOutbox, markDirty, refreshUnseenCounts],
+    [profile.name, profile.syncId, dmReadReceipts, sendChat, refreshUnseenCounts],
   );
 
   const handleSendDm = useCallback(
     async (friendName: string, text: string) => {
       const trimmed = text.trim();
       if (!friendName || !trimmed) return;
+
+      // A name that maps to no friend, or to more than one, yields null and
+      // the message stays local — we never guess a recipient.
+      const peer = peerPubkeyForThread(
+        { participants: [profile.name, friendName] },
+        friendsRef.current,
+        { myPubkey: profile.syncId, myName: profile.name },
+      );
+      // The pair thread both sides converge on; null while the identity is
+      // still loading, in which case the message stays in a local thread.
+      const pairThreadId = peer ? dmThreadIdForPeer(peer) : null;
+
       // Reuse the live thread with this friend, else start a fresh one (a
       // tombstoned conversation must not swallow the new messages).
-      const existingThread = dmsRef.current.find(
-        (th) => !th.deleted && th.participants.includes(profile.name) && th.participants.includes(friendName),
-      );
-      const threadId = existingThread?.id ?? startDmThreadId(profile.name, friendName, dmsRef.current);
+      const existingThread =
+        dmsRef.current.find(
+          (th) =>
+            !th.deleted &&
+            th.participants.includes(profile.name) &&
+            th.participants.includes(friendName),
+        ) ??
+        (pairThreadId
+          ? dmsRef.current.find((th) => !th.deleted && th.id === pairThreadId)
+          : undefined);
+      const threadId = existingThread?.id ?? pairThreadId ?? startDmThreadId(profile.name, friendName, dmsRef.current);
+
       const msg: SessionMessage = {
         id: `dm_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
         author: profile.name,
@@ -933,8 +925,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
           ...updated,
         ];
       }
-      // Sending counts as reading — record our read receipt (only shared with
-      // the friend when read receipts are enabled; pushOutbox strips it otherwise).
+      // Sending counts as reading — record our read receipt locally (it is
+      // only shared when read receipts are enabled).
       updated = updated.map((th) =>
         th.id === threadId
           ? { ...th, lastReadAt: { ...(th.lastReadAt || {}), [profile.name]: Date.now() } }
@@ -943,25 +935,33 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       dmsRef.current = updated;
       setDms(updated);
       saveDmsAndPersist(updated);
-      markDirty();
       // Sending in a thread counts as reading it — clear the dms badge.
       clearUnseenTabItems("dms");
       refreshUnseenCounts();
-      await pushOutbox(profile, sessionsRef.current, recommendationsRef.current, suggestionsRef.current, updated);
+
+      // An ambiguous name (no match or several) keeps the message local: we
+      // never guess a recipient for someone else's inbox.
+      if (!peer) return;
+      sendChat(peer, {
+        type: "message",
+        id: msg.id,
+        threadId,
+        body: trimmed,
+        sentAt: msg.timestamp,
+      });
     },
-    [profile, pushOutbox, markDirty, refreshUnseenCounts],
+    [profile.name, profile.syncId, sendChat, refreshUnseenCounts],
   );
 
   // ── Recommendation handlers ─────────────────────────────────────
 
   const persistRecommendations = useCallback(
     async (updated: GameRecommendation[]) => {
+      recommendationsRef.current = updated;
       setRecommendations(updated);
       saveRecommendations(updated);
-      markDirty();
-      await pushOutbox(profile, sessionsRef.current, updated, suggestionsRef.current, dmsRef.current);
     },
-    [profile, pushOutbox, markDirty],
+    [],
   );
 
   const handleCreateRecommendation = useCallback(
@@ -1072,12 +1072,11 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
 
   const persistSuggestions = useCallback(
     async (updated: GameSuggestion[]) => {
+      suggestionsRef.current = updated;
       setSuggestions(updated);
       saveSuggestions(updated);
-      markDirty();
-      await pushOutbox(profile, sessionsRef.current, recommendationsRef.current, updated, dmsRef.current);
     },
-    [profile, pushOutbox, markDirty],
+    [],
   );
 
   const handleCreateSuggestion = useCallback(
@@ -1221,9 +1220,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       const updated = [...circles, circle];
       setCircles(updated);
       saveCircles(updated);
-      markDirty();
     },
-    [circles, markDirty],
+    [circles],
   );
 
   const handleRenameCircle = useCallback(
@@ -1233,9 +1231,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       const updated = circles.map((c) => (c.id === circleId ? { ...c, name: trimmed } : c));
       setCircles(updated);
       saveCircles(updated);
-      markDirty();
     },
-    [circles, markDirty],
+    [circles],
   );
 
   const handleDeleteCircle = useCallback(
@@ -1249,9 +1246,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       }));
       setFriends(updatedFriends);
       saveFriends(updatedFriends);
-      markDirty();
     },
-    [circles, friends, markDirty],
+    [circles, friends],
   );
 
   const handleToggleFriendCircle = useCallback(
@@ -1268,9 +1264,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       });
       setFriends(updated);
       saveFriends(updated);
-      markDirty();
     },
-    [friends, markDirty],
+    [friends],
   );
 
   // ── Derived feeds ───────────────────────────────────────────────
@@ -1657,6 +1652,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     dms,
     circles,
     invitations,
+    outgoingRequests,
     unseenCounts,
     activityFeed,
     playingNow,
@@ -1664,6 +1660,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     achievementRaces,
     myGameIds,
     gameCoverForSession,
+    peerForThread,
     selectedCompareFriendId,
     setSelectedCompareFriendId,
     compareSubTab,
@@ -1699,6 +1696,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     handleSetNickname,
     handleAcceptInvitation,
     handleDenyInvitation,
+    handleResendRequest,
     handleCreateSession,
     handleSetRsvp,
     handleDeleteSession,
