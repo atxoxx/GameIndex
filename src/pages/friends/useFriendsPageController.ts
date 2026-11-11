@@ -1,8 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { SimplePool } from "nostr-tools/pool";
-import { verifyEvent } from "nostr-tools/pure";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useToast } from "../../context/ToastContext";
@@ -10,6 +7,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useWishlistContext } from "../../context/WishlistContext";
 import { parsePlayTime, slugify, type StoreGameSummary } from "../../types/game";
+import { useFriendsSync } from "../../sync/friends/FriendsSyncProvider";
+import { dmThreadIdForPeer } from "../../sync/friends/adapter";
 import {
   type UserProfile,
   type Friend,
@@ -25,8 +24,6 @@ import {
   type RsvpStatus,
   type ReactionKind,
   type SuggestionReactionKind,
-  type SyncResult,
-  type FriendsDatabase,
   type UnseenTabKey,
   loadUserProfile,
   saveUserProfile,
@@ -42,45 +39,40 @@ import {
   saveCircles,
   loadDms,
   saveDmsAndPersist,
-  mergeSessions,
-  mergeRecommendations,
-  mergeSuggestions,
-  mergeDatabases,
-  mergeDms,
-  sanitizeDmsForPush,
+  areDmReadReceiptsEnabled,
   decodeFriendCode,
   encodeFriendCode,
   displayName,
-  getNostrKeys,
-  getSyncFolder,
-  fetchFriendOutbox,
-  pushMyOutbox as pushMyOutboxStorage,
-  buildOutboxPayload,
-  buildNostrOutboxPayload,
-  publishNostrOutbox,
-  stripDms,
-  NOSTR_RELAYS,
-  getNostrShareScope,
-  isNostrIdentityReady,
   initNostrKeys,
-  remoteFriendsInclude,
   loadFriendsDbToLocalStorage,
-  setDeviceId,
-  listPeerOutboxes,
+  subscribeFriendsDbChange,
   addUnseenCommunityItems,
   getUnseenTabItems,
   addUnseenTabItems,
   clearUnseenTabItems,
 } from "../friendsStorage";
 import { nextOccurrence, detectTimezone } from "./friendsUtils";
-import type { FriendInvitation, SyncLogEntry, UnseenCounts } from "./friendsTypes";
+import {
+  asPeerPubkey,
+  classifyFriendsByConsent,
+  peerPubkeyForThread,
+} from "./friendsSyncHelpers";
+import type { FriendInvitation, UnseenCounts } from "./friendsTypes";
+
+function formatClockTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 /**
  * Everything the Friends page needs except purely presentational state.
  *
- * The sync engine is a straight move of the code that used to live in
- * FriendsPage: same storage helpers, same merge order, same notifications.
- * Keeping it here lets the page shrink to layout + navigation.
+ * Networking lives entirely in the always-on sync engine
+ * (`src/sync/friends`): this hook reads and writes local storage, delegates
+ * every sync action to `useFriendsSync()`, and reloads from storage whenever
+ * the engine merges something in — it never talks to a relay itself.
  */
 export function useFriendsPageController() {
   const { t } = useLanguage();
@@ -88,7 +80,17 @@ export function useFriendsPageController() {
   const { summaries } = useAchievements();
   const { showToast } = useToast();
   const { wishlist, toggle: toggleWishlist } = useWishlistContext();
-  const { friendsNotifications, dmReadReceipts } = useSettings();
+  const { friendsNotifications } = useSettings();
+
+  const {
+    status,
+    syncNow,
+    sendChat,
+    sendFriendRequest,
+    acceptFriend,
+    blockPeer,
+    removePeer,
+  } = useFriendsSync();
 
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
   const [friends, setFriends] = useState<Friend[]>(() => loadFriends());
@@ -111,7 +113,6 @@ export function useFriendsPageController() {
     dmsRef.current = dms;
   }, [dms]);
 
-  const [invitations, setInvitations] = useState<FriendInvitation[]>([]);
   const [deniedIds, setDeniedIds] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem("gamelib.friends.denied") || "[]");
@@ -122,12 +123,6 @@ export function useFriendsPageController() {
 
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [decodedFriend, setDecodedFriend] = useState<Friend | null>(null);
-
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncedTime, setLastSyncedTime] = useState("");
-  const [syncLog, setSyncLog] = useState<SyncLogEntry[]>([]);
-
-  const nostrPool = useMemo(() => new SimplePool(), []);
 
   // ── Derived library / profile data ──────────────────────────────────
 
@@ -186,24 +181,14 @@ export function useFriendsPageController() {
     });
   }, [currentlyPlaying]);
 
-  // Refs keep the background sync loop from publishing a stale closure.
+  // Keeps the background callbacks off a stale render's profile name.
   const profileRef = useRef(profile);
-  const selfStatsRef = useRef(selfStats);
-  const selfSharedGamesRef = useRef(selfSharedGames);
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
-  useEffect(() => {
-    selfStatsRef.current = selfStats;
-  }, [selfStats]);
-  useEffect(() => {
-    selfSharedGamesRef.current = selfSharedGames;
-  }, [selfSharedGames]);
 
-  const lastPushedSignatureRef = useRef("");
-  const notifiedMsgIdsRef = useRef<Set<string>>(new Set());
-  const cancelledNotifiedRef = useRef<Set<string>>(new Set());
   const reminderNotifiedRef = useRef<Map<string, number>>(new Map());
+  const notifiedMsgIdsRef = useRef<Set<string>>(new Set());
 
   const fireNotification = (title: string, body: string) => {
     if (!friendsNotifications) return;
@@ -230,176 +215,7 @@ export function useFriendsPageController() {
     return Number.isNaN(time) ? null : time;
   };
 
-  const detectCancelledSessions = (prev: GameSession[], next: GameSession[]): GameSession[] => {
-    const prevById = new Map(prev.map((s) => [s.id, s]));
-    return next.filter((s) => {
-      const before = prevById.get(s.id);
-      if (!before || before.deleted || !s.deleted) return false;
-      return (
-        s.creatorName !== profileRef.current.name &&
-        (s.rsvps?.[profileRef.current.name] === "going" ||
-          s.attendees?.includes(profileRef.current.name) ||
-          s.invited?.includes(profileRef.current.name))
-      );
-    });
-  };
-
-  const notifyCancelledSessions = (cancelled: GameSession[]) => {
-    cancelled.forEach((s) => {
-      if (cancelledNotifiedRef.current.has(s.id)) return;
-      cancelledNotifiedRef.current.add(s.id);
-      showToast(t("friendsPage.sessionCancelledToast", { game: s.gameName }), "warning");
-      fireNotification(t("friendsPage.notifSessionCancelled"), s.gameName);
-    });
-  };
-
-  const notifyNewDmMessages = (
-    remoteThreads: DmThread[],
-    knownIdsByThread: Map<string, Set<string>>,
-    myName: string,
-    senderName: string
-  ) => {
-    remoteThreads.forEach((rt) => {
-      if (rt.deleted) return;
-      const known = knownIdsByThread.get(rt.id);
-      const fresh = (rt.messages || []).filter(
-        (m) => !m.deleted && m.author !== myName && !known?.has(m.id) && !notifiedMsgIdsRef.current.has(m.id)
-      );
-      if (fresh.length === 0) return;
-      fresh.forEach((m) => notifiedMsgIdsRef.current.add(m.id));
-      if (notifiedMsgIdsRef.current.size > 5000) notifiedMsgIdsRef.current.clear();
-      const last = fresh[fresh.length - 1];
-      fireNotification(t("friendsPage.notifNewMessage", { name: senderName }), last.text || "");
-    });
-  };
-
-  // ── Initial load ────────────────────────────────────────────────────
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const loaded = await loadFriendsDbToLocalStorage();
-        if (!cancelled && loaded) {
-          setProfile(loadUserProfile());
-          setFriends(loadFriends());
-          setSessions(loadSessions());
-          setRecommendations(loadRecommendations());
-          setSuggestions(loadSuggestions());
-          setDms(loadDms());
-          setCircles(loadCircles());
-        }
-
-        const id = await invoke<string>("get_friends_device_id");
-        if (!cancelled && id) setDeviceId(id);
-      } catch (err) {
-        console.error("Failed to initialize database or resolve device ID:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!friendCodeInput.trim()) {
-      setDecodedFriend(null);
-      return;
-    }
-    setDecodedFriend(decodeFriendCode(friendCodeInput));
-  }, [friendCodeInput]);
-
-  useEffect(() => {
-    if (!decodedFriend || !decodedFriend.syncId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const remoteOutbox = await fetchFriendOutbox(decodedFriend.syncId);
-        if (remoteOutbox && remoteOutbox.profile && !cancelled) {
-          setDecodedFriend((prev) => {
-            if (!prev || prev.syncId !== decodedFriend.syncId) return prev;
-            return {
-              ...prev,
-              name: remoteOutbox.profile!.name,
-              avatar: remoteOutbox.profile!.avatar,
-              status: remoteOutbox.profile!.status,
-              favoriteGame: remoteOutbox.profile!.favoriteGame || undefined,
-              currentlyPlaying: remoteOutbox.profile!.currentlyPlaying || undefined,
-              libStats: remoteOutbox.profile!.libStats,
-              lastActive: remoteOutbox.profile!.lastActive,
-            };
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch friend preview outbox:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [decodedFriend?.syncId]);
-
-  // ── Sync engine ─────────────────────────────────────────────────────
-
-  const publishToNostr = async (
-    db: FriendsDatabase,
-    sharedGames?: SharedGameStat[],
-    stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number } = selfStats
-  ) => {
-    const payload = buildNostrOutboxPayload(
-      db.profile || profile,
-      stats,
-      db.sessions,
-      db.recommendations,
-      sharedGames,
-      db.suggestions
-    );
-    await publishNostrOutbox(payload);
-  };
-
-  const pushMyOutbox = async (
-    currProfile: UserProfile,
-    currStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
-    currSessions: GameSession[],
-    currRecs: GameRecommendation[],
-    currSharedGames?: SharedGameStat[],
-    currSuggestions?: GameSuggestion[],
-    currDms?: DmThread[],
-    force = true
-  ): Promise<SyncResult> => {
-    if (!isNostrIdentityReady()) return { ok: true };
-    const outDms = sanitizeDmsForPush(currDms || [], profile.name, dmReadReceipts);
-    const signature =
-      JSON.stringify(
-        buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
-      ) +
-      "|scope:" +
-      getNostrShareScope();
-
-    if (!force && signature === lastPushedSignatureRef.current) return { ok: true };
-
-    const res = await pushMyOutboxStorage(
-      currProfile,
-      currStats,
-      currSessions,
-      currRecs,
-      currSharedGames,
-      currSuggestions,
-      outDms
-    );
-
-    const db: FriendsDatabase = {
-      profile: currProfile,
-      friends,
-      sessions: currSessions,
-      recommendations: currRecs,
-      suggestions: currSuggestions || [],
-      dms: outDms,
-    };
-    await publishToNostr(db, currSharedGames, currStats);
-    lastPushedSignatureRef.current = signature;
-    return res;
-  };
+  // ── Storage ⇄ state ─────────────────────────────────────────────────
 
   const refreshUnseen = () => {
     setUnseenCounts({
@@ -411,629 +227,228 @@ export function useFriendsPageController() {
     });
   };
 
-  const handleReceiveRemoteData = (remoteDb: FriendsDatabase) => {
-    try {
-      const localProfile = loadUserProfile();
-      const localFriends = loadFriends();
+  // Ids already shown to the user, so a merge only counts what is genuinely
+  // new instead of re-badging the whole collection on every reload.
+  const knownSessionIds = useRef<Set<string>>(new Set());
+  const knownRecIds = useRef<Set<string>>(new Set());
+  const knownSuggestionIds = useRef<Set<string>>(new Set());
+  const knownMessageIds = useRef<Map<string, Set<string>>>(new Map());
 
-      const remoteProfile = remoteDb.profile;
-      if (remoteProfile && remoteProfile.syncId) {
-        const isFriend = localFriends.some((f) => f.syncId === remoteProfile.syncId);
-        const isSelf = remoteProfile.syncId === localProfile.syncId;
-        const isDenied = deniedIds.includes(remoteProfile.syncId);
+  const primeKnownIds = (db: {
+    sessions: GameSession[];
+    recommendations: GameRecommendation[];
+    suggestions: GameSuggestion[];
+    dms: DmThread[];
+  }) => {
+    knownSessionIds.current = new Set(db.sessions.map((s) => s.id));
+    knownRecIds.current = new Set(db.recommendations.map((r) => r.id));
+    knownSuggestionIds.current = new Set(db.suggestions.map((s) => s.id));
+    knownMessageIds.current = new Map(
+      db.dms.map((thread) => [
+        thread.id,
+        new Set((thread.messages || []).map((m) => m.id)),
+      ])
+    );
+  };
 
-        if (!isFriend && !isSelf && !isDenied) {
-          const theyAddedUs = remoteFriendsInclude(remoteDb.friends, localProfile.syncId);
-          if (theyAddedUs) {
-            const newInvite: FriendInvitation = {
-              syncId: remoteProfile.syncId,
-              name: remoteProfile.name,
-              avatar: remoteProfile.avatar,
-              status: remoteProfile.status,
-              favoriteGame: ((remoteProfile as any).favoriteGameName || (remoteProfile as any).favoriteGame) || undefined,
-              libStats: remoteProfile.libStats
-                ? {
-                    gamesCount: remoteProfile.libStats.gamesCount || 0,
-                    playtimeMinutes: remoteProfile.libStats.playtimeMinutes || 0,
-                    achievementsCount: remoteProfile.libStats.achievementsCount || 0,
-                  }
-                : undefined,
-            };
+  /**
+   * Re-reads everything the engine can merge. Badges are derived from the
+   * difference against the last snapshot, so the counters stay honest without
+   * polling.
+   */
+  const reloadFromStorage = () => {
+    const myName = profileRef.current.name;
+    const myPubkey = profileRef.current.syncId;
+    const nextFriends = loadFriends();
+    const nextSessions = loadSessions();
+    const nextRecommendations = loadRecommendations();
+    const nextSuggestions = loadSuggestions();
+    const nextDms = loadDms();
 
-            setInvitations((prev) => {
-              if (prev.some((i) => i.syncId === newInvite.syncId)) return prev;
-              return [...prev, newInvite];
-            });
-            showToast(t("friendsPage.newInvitation", { name: remoteProfile.name }), "info");
-            fireNotification(t("friendsPage.notifNewInvitation", { name: remoteProfile.name }), "");
-            return;
-          }
-        }
+    const freshSessions = nextSessions.filter(
+      (s) => !s.deleted && !knownSessionIds.current.has(s.id) && s.creatorName !== myName
+    );
+    const newRecs = nextRecommendations.filter(
+      (r) => !r.deleted && !knownRecIds.current.has(r.id) && r.recommendedBy !== myName
+    ).length;
+    const newSuggestions = nextSuggestions.filter(
+      (s) => !s.deleted && !knownSuggestionIds.current.has(s.id) && s.suggestedBy !== myName
+    ).length;
+    const newSessions = freshSessions.length;
 
-        if (!isFriend) return;
-      }
-
-      const localSessions = loadSessions();
-      const localRecs = loadRecommendations();
-      const localSuggestions = loadSuggestions();
-      const localDms = loadDms();
-
-      const merged = mergeDatabases(
-        {
-          profile: localProfile,
-          friends: localFriends,
-          sessions: localSessions,
-          recommendations: localRecs,
-          suggestions: localSuggestions,
-          dms: localDms,
-        },
-        remoteDb
+    let newDmMessages = 0;
+    const freshMessages: Array<{ name: string; text: string }> = [];
+    nextDms.forEach((thread) => {
+      if (thread.deleted) return;
+      const known = knownMessageIds.current.get(thread.id);
+      const fresh = (thread.messages || []).filter(
+        (m) =>
+          !m.deleted &&
+          m.author !== myName &&
+          !known?.has(m.id) &&
+          !notifiedMsgIdsRef.current.has(m.id)
       );
+      if (fresh.length === 0) return;
+      fresh.forEach((m) => notifiedMsgIdsRef.current.add(m.id));
+      newDmMessages += fresh.length;
 
-      const localSessionIds = new Set(localSessions.map((s) => s.id));
-      const localRecIds = new Set(localRecs.map((r) => r.id));
-      const localSuggestionIds = new Set(localSuggestions.map((s) => s.id));
-
-      const addedSessions = merged.sessions.filter(
-        (s) => !localSessionIds.has(s.id) && !s.deleted && s.creatorName !== localProfile.name
-      ).length;
-      if (addedSessions > 0) {
-        const firstNew = merged.sessions.find(
-          (s) => !localSessionIds.has(s.id) && !s.deleted && s.creatorName !== localProfile.name
-        );
-        if (firstNew) fireNotification(t("friendsPage.notifNewSession", { name: firstNew.creatorName }), firstNew.gameName);
-      }
-      notifyCancelledSessions(detectCancelledSessions(localSessions, merged.sessions));
-      const addedRecs = merged.recommendations.filter(
-        (r) => !localRecIds.has(r.id) && !r.deleted && r.recommendedBy !== localProfile.name
-      ).length;
-      const addedSuggestions = merged.suggestions.filter(
-        (s) => !localSuggestionIds.has(s.id) && !s.deleted && s.suggestedBy !== localProfile.name
-      ).length;
-
-      let newDmMessages = 0;
-      const knownIdsByThread = new Map<string, Set<string>>();
-      localDms.forEach((thread) => knownIdsByThread.set(thread.id, new Set((thread.messages || []).map((m) => m.id))));
-      (remoteDb.dms || []).forEach((remoteThread) => {
-        if (remoteThread.deleted) return;
-        const known = knownIdsByThread.get(remoteThread.id);
-        newDmMessages += (remoteThread.messages || []).filter(
-          (m) => !m.deleted && m.author !== localProfile.name && !known?.has(m.id)
-        ).length;
+      const other = (thread.participants || []).find(
+        (participant) => participant !== myName && participant !== myPubkey
+      );
+      const friend = nextFriends.find(
+        (candidate) => candidate.syncId === other || candidate.name === other
+      );
+      freshMessages.push({
+        name: friend?.name || other || "Friend",
+        text: fresh[fresh.length - 1].text || "",
       });
-      if (remoteProfile) notifyNewDmMessages(remoteDb.dms || [], knownIdsByThread, localProfile.name, remoteProfile.name);
+    });
+    if (notifiedMsgIdsRef.current.size > 5000) notifiedMsgIdsRef.current.clear();
 
-      setFriends(merged.friends);
-      setSessions(merged.sessions);
-      setRecommendations(merged.recommendations);
-      setSuggestions(merged.suggestions);
-      setDms(merged.dms);
+    primeKnownIds({
+      sessions: nextSessions,
+      recommendations: nextRecommendations,
+      suggestions: nextSuggestions,
+      dms: nextDms,
+    });
 
-      saveFriends(merged.friends);
-      saveSessions(merged.sessions);
-      saveRecommendations(merged.recommendations);
-      saveSuggestions(merged.suggestions);
-      saveDmsAndPersist(merged.dms);
+    setFriends(nextFriends);
+    setSessions(nextSessions);
+    setRecommendations(nextRecommendations);
+    setSuggestions(nextSuggestions);
+    setDms(nextDms);
 
-      if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
-      if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
-      if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
-      if (newDmMessages > 0) addUnseenTabItems("dms", newDmMessages);
-
-      if (addedSessions > 0 || addedRecs > 0 || addedSuggestions > 0 || newDmMessages > 0) refreshUnseen();
-    } catch (err) {
-      console.error("Failed to parse/merge remote sync data:", err);
+    if (newSessions > 0) addUnseenTabItems("sessions", newSessions);
+    if (newRecs > 0) addUnseenTabItems("recs", newRecs);
+    if (newSuggestions > 0) addUnseenTabItems("suggestions", newSuggestions);
+    if (newDmMessages > 0) addUnseenTabItems("dms", newDmMessages);
+    if (newSessions + newRecs + newSuggestions > 0) {
+      addUnseenCommunityItems(newSessions + newRecs + newSuggestions);
     }
-  };
+    if (newSessions + newRecs + newSuggestions + newDmMessages > 0) refreshUnseen();
 
-  const pendingManualSync = useRef(false);
-  const isSyncingRef = useRef(false);
-
-  const performSync = async (manual = false) => {
-    if (isSyncingRef.current) {
-      if (manual) pendingManualSync.current = true;
-      return;
-    }
-    isSyncingRef.current = true;
-    setIsSyncing(true);
-
-    try {
-      let currProfile = profileRef.current;
-      if (!isNostrIdentityReady()) await initNostrKeys();
-      const identityReady = isNostrIdentityReady();
-      if (identityReady) {
-        const keys = getNostrKeys();
-        if (currProfile.syncId !== keys.publicKey) {
-          const updated = { ...currProfile, syncId: keys.publicKey };
-          saveUserProfile(updated);
-          setProfile(updated);
-          profileRef.current = updated;
-          currProfile = updated;
-        }
-      }
-
-      const folder = await getSyncFolder();
-      if (!folder) {
-        if (manual) showToast(t("friendsPage.syncFolderMissing"), "error");
-        return;
-      }
-
-      const localSessions = loadSessions();
-      const localRecs = loadRecommendations();
-      const localSuggestions = loadSuggestions();
-      const localFriends = loadFriends();
-      const localDms = loadDms();
-
-      const heartbeatSecs = Math.floor(Date.now() / 1000);
-      if (identityReady && (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120)) {
-        const heartbeated = { ...currProfile, lastActive: heartbeatSecs };
-        saveUserProfile(heartbeated);
-        setProfile(heartbeated);
-        profileRef.current = heartbeated;
-        currProfile = heartbeated;
-      }
-
-      let changesMade = false;
-      let friendsUpdated = false;
-      let pulledSessions = 0;
-      let pulledRecs = 0;
-      let newCommunityItems = 0;
-      const pullErrors: string[] = [];
-      const friendLogs: string[] = [];
-
-      let mergedSessions = [...localSessions];
-      let mergedRecs = [...localRecs];
-      let mergedSuggestions = [...localSuggestions];
-      let mergedDms = [...localDms];
-
-      const updatedFriends: Friend[] = [];
-      const nowSecs = Math.floor(Date.now() / 1000);
-
-      const outboxBySyncId = new Map<
-        string,
-        { remoteOutbox: Awaited<ReturnType<typeof fetchFriendOutbox>>; error: string | null }
-      >();
-      await Promise.all(
-        localFriends
-          .filter((f) => !f.blocked)
-          .map(async (friend) => {
-            try {
-              const remoteOutbox = await fetchFriendOutbox(friend.syncId);
-              outboxBySyncId.set(friend.syncId, { remoteOutbox, error: null });
-            } catch (err) {
-              outboxBySyncId.set(friend.syncId, {
-                remoteOutbox: null,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
-          })
+    freshMessages.forEach(({ name, text }) => {
+      fireNotification(t("friendsPage.notifNewMessage", { name }), text);
+    });
+    if (freshSessions.length > 0) {
+      fireNotification(
+        t("friendsPage.notifNewSession", { name: freshSessions[0].creatorName }),
+        freshSessions[0].gameName
       );
-
-      for (const friend of localFriends) {
-        const friendName = displayName(friend);
-        if (friend.blocked) {
-          friendLogs.push(`⛔ ${friendName}: blocked — skipped`);
-          updatedFriends.push(friend);
-          continue;
-        }
-
-        try {
-          const result = outboxBySyncId.get(friend.syncId);
-          if (result?.error) throw result.error;
-          const remoteOutbox = result?.remoteOutbox;
-          if (remoteOutbox) {
-            let friendSessions = 0;
-            let friendRecs = 0;
-            let profileChanged = false;
-
-            if (remoteOutbox.sessions && remoteOutbox.sessions.length > 0) {
-              const prevIds = new Set(mergedSessions.map((s) => s.id));
-              const beforeJson = JSON.stringify(mergedSessions);
-              mergedSessions = mergeSessions(mergedSessions, remoteOutbox.sessions);
-              const afterJson = JSON.stringify(mergedSessions);
-              const sessionChanged = beforeJson !== afterJson;
-              const addedSessions = remoteOutbox.sessions.filter((s) => !prevIds.has(s.id)).length;
-              newCommunityItems += addedSessions;
-              if (addedSessions > 0) {
-                addUnseenTabItems("sessions", addedSessions);
-                const firstNew = remoteOutbox.sessions.find((s) => !prevIds.has(s.id));
-                if (firstNew) fireNotification(t("friendsPage.notifNewSession", { name: friendName }), firstNew.gameName);
-              }
-              if (sessionChanged) {
-                changesMade = true;
-                friendSessions = remoteOutbox.sessions.length;
-                pulledSessions += friendSessions;
-              }
-            }
-
-            if (remoteOutbox.recommendations && remoteOutbox.recommendations.length > 0) {
-              const prevIds = new Set(mergedRecs.map((r) => r.id));
-              const beforeJson = JSON.stringify(mergedRecs);
-              mergedRecs = mergeRecommendations(mergedRecs, remoteOutbox.recommendations);
-              const afterJson = JSON.stringify(mergedRecs);
-              const recChanged = beforeJson !== afterJson;
-              const addedRecs = remoteOutbox.recommendations.filter((r) => !prevIds.has(r.id)).length;
-              newCommunityItems += addedRecs;
-              if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
-              if (recChanged) {
-                changesMade = true;
-                friendRecs = remoteOutbox.recommendations.length;
-                pulledRecs += friendRecs;
-              }
-            }
-
-            if (remoteOutbox.suggestions && remoteOutbox.suggestions.length > 0) {
-              const prevIds = new Set(mergedSuggestions.map((s) => s.id));
-              const beforeJson = JSON.stringify(mergedSuggestions);
-              mergedSuggestions = mergeSuggestions(mergedSuggestions, remoteOutbox.suggestions);
-              const afterJson = JSON.stringify(mergedSuggestions);
-              const suggestionChanged = beforeJson !== afterJson;
-              const addedSuggestions = remoteOutbox.suggestions.filter((s) => !prevIds.has(s.id)).length;
-              newCommunityItems += addedSuggestions;
-              if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
-              if (suggestionChanged) changesMade = true;
-            }
-
-            if (remoteOutbox.dms && remoteOutbox.dms.length > 0) {
-              const knownMessages = new Map<string, Set<string>>();
-              mergedDms.forEach((thread) =>
-                knownMessages.set(thread.id, new Set((thread.messages || []).map((m) => m.id)))
-              );
-              const beforeJson = JSON.stringify(mergedDms);
-              mergedDms = mergeDms(mergedDms, remoteOutbox.dms, currProfile.name);
-              const afterJson = JSON.stringify(mergedDms);
-              const dmChanged = beforeJson !== afterJson;
-              let newIncoming = 0;
-              remoteOutbox.dms.forEach((remoteThread) => {
-                if (remoteThread.deleted) return;
-                const known = knownMessages.get(remoteThread.id);
-                if (!known) {
-                  newIncoming += (remoteThread.messages || []).filter(
-                    (m) => !m.deleted && m.author !== currProfile.name
-                  ).length;
-                } else {
-                  newIncoming += (remoteThread.messages || []).filter(
-                    (m) => !m.deleted && !known.has(m.id) && m.author !== currProfile.name
-                  ).length;
-                }
-              });
-              notifyNewDmMessages(remoteOutbox.dms, knownMessages, currProfile.name, friendName);
-              if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
-              if (dmChanged || newIncoming > 0) changesMade = true;
-            }
-
-            if (remoteOutbox.profile) {
-              const remoteProfile = remoteOutbox.profile;
-              const remoteIsCore = remoteOutbox.scope === "core" || (remoteOutbox.scope == null && remoteOutbox.v === 2);
-              const remoteName = remoteProfile.name || friend.name;
-              const remoteAvatar = remoteProfile.avatar || friend.avatar;
-              const remoteStatus = remoteProfile.status || friend.status;
-              const remoteCurrentlyPlaying =
-                remoteProfile.currentlyPlaying === undefined
-                  ? friend.currentlyPlaying
-                  : remoteProfile.currentlyPlaying || undefined;
-              const remoteFavoriteGameRaw = (remoteProfile as any).favoriteGameName ?? remoteProfile.favoriteGame;
-              const remoteFavoriteGame = remoteFavoriteGameRaw ?? (remoteIsCore ? friend.favoriteGame : undefined);
-              const remoteBio = remoteProfile.bio ?? (remoteIsCore ? friend.bio : undefined);
-              const remoteRegion = remoteProfile.region ?? (remoteIsCore ? friend.region : undefined);
-              const remoteLibStats = remoteProfile.libStats ?? (remoteIsCore ? friend.libStats : undefined);
-              const remoteGames = remoteOutbox.games ?? (remoteIsCore ? friend.games : undefined);
-              const remoteLastActive = remoteProfile.lastActive || friend.lastActive;
-
-              const hasDiff =
-                friend.name !== remoteName ||
-                friend.avatar !== remoteAvatar ||
-                friend.status !== remoteStatus ||
-                friend.favoriteGame !== (remoteFavoriteGame || undefined) ||
-                friend.currentlyPlaying !== remoteCurrentlyPlaying ||
-                (friend.bio || "") !== (remoteBio || "") ||
-                (friend.region || "") !== (remoteRegion || "") ||
-                friend.lastActive !== remoteLastActive ||
-                JSON.stringify(friend.libStats) !== JSON.stringify(remoteLibStats) ||
-                JSON.stringify(friend.games) !== JSON.stringify(remoteGames);
-
-              if (hasDiff) profileChanged = true;
-
-              if (hasDiff) {
-                friendsUpdated = true;
-                updatedFriends.push({
-                  ...friend,
-                  name: remoteName,
-                  avatar: remoteAvatar,
-                  status: remoteStatus,
-                  favoriteGame: remoteFavoriteGame || undefined,
-                  currentlyPlaying: remoteCurrentlyPlaying || undefined,
-                  bio: remoteBio || undefined,
-                  region: remoteRegion || undefined,
-                  libStats: remoteLibStats,
-                  games: remoteGames,
-                  lastActive: remoteLastActive,
-                  lastSeen: nowSecs,
-                });
-                friendLogs.push(
-                  `🔄 ${friendName}: profile updated` +
-                    (friendSessions ? `, +${friendSessions} session(s)` : "") +
-                    (friendRecs ? `, +${friendRecs} rec(s)` : "")
-                );
-                continue;
-              }
-            }
-
-            const lastSeenStale = !friend.lastSeen || nowSecs - friend.lastSeen > 300;
-            if (lastSeenStale) {
-              friendsUpdated = true;
-              updatedFriends.push({ ...friend, lastSeen: nowSecs });
-              friendLogs.push(
-                `✓ ${friendName}: synced` +
-                  (friendSessions ? `, +${friendSessions} session(s)` : "") +
-                  (friendRecs ? `, +${friendRecs} rec(s)` : "") +
-                  (profileChanged ? ", profile updated" : "")
-              );
-              continue;
-            }
-
-            friendLogs.push(`• ${friendName}: up to date`);
-          } else {
-            friendLogs.push(`⚠ ${friendName}: no outbox found`);
-          }
-        } catch (err) {
-          const reason = err instanceof Error ? err.message : String(err);
-          pullErrors.push(`${friendName}: ${reason}`);
-          friendLogs.push(`✕ ${friendName}: error — ${reason}`);
-        }
-        updatedFriends.push(friend);
-      }
-
-      notifyCancelledSessions(detectCancelledSessions(localSessions, mergedSessions));
-
-      let finalSessions = mergedSessions;
-      let finalRecs = mergedRecs;
-      let finalSuggestions = mergedSuggestions;
-      let finalDms = mergedDms;
-
-      if (changesMade) {
-        finalSessions = mergeSessions(loadSessions(), mergedSessions);
-        finalRecs = mergeRecommendations(loadRecommendations(), mergedRecs);
-        finalSuggestions = mergeSuggestions(loadSuggestions(), mergedSuggestions);
-        finalDms = mergeDms(loadDms(), mergedDms, currProfile.name);
-        saveSessions(finalSessions);
-        saveRecommendations(finalRecs);
-        saveSuggestions(finalSuggestions);
-        saveDmsAndPersist(finalDms);
-        setSessions(finalSessions);
-        setRecommendations(finalRecs);
-        setSuggestions(finalSuggestions);
-        setDms(finalDms);
-        refreshUnseen();
-      }
-
-      if (friendsUpdated) {
-        const freshFriends = loadFriends();
-        const engineById = new Map(updatedFriends.map((f) => [f.syncId, f]));
-        const finalFriends = freshFriends.map((f) => {
-          const engineF = engineById.get(f.syncId);
-          if (!engineF) return f;
-          return { ...f, ...engineF, pinned: f.pinned, blocked: f.blocked, nickname: f.nickname, groups: f.groups };
-        });
-        saveFriends(finalFriends);
-        setFriends(finalFriends);
-      }
-
-      let pushed: SyncResult = { ok: true };
-      if (identityReady) {
-        pushed = await pushMyOutbox(
-          currProfile,
-          selfStatsRef.current,
-          finalSessions,
-          finalRecs,
-          selfSharedGamesRef.current,
-          finalSuggestions,
-          finalDms,
-          manual
-        );
-      }
-
-      const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-      setLastSyncedTime(syncedAt);
-
-      const changes: string[] = [];
-      if (pulledSessions > 0) changes.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
-      if (pulledRecs > 0) changes.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
-      if (friendsUpdated) changes.push(t("friendsPage.profileUpdates"));
-      if (pullErrors.length > 0) changes.push(t("friendsPage.syncErrors", { count: pullErrors.length }));
-
-      const logMsg = pushed.ok
-        ? changes.length > 0
-          ? t("friendsPage.syncPulled", { items: changes.join(", ") })
-          : t("friendsPage.upToDatePublished")
-        : t("friendsPage.syncPublishFailed", { reason: pushed.reason || t("friendsPage.unknownReason") });
-
-      setSyncLog((prev) => [{ time: syncedAt, message: logMsg, details: friendLogs }, ...prev].slice(0, 12));
-
-      if (manual) {
-        if (!pushed.ok) {
-          showToast(t("friendsPage.syncFailed", { reason: pushed.reason || t("friendsPage.couldNotWriteOutbox") }), "error");
-        } else if (pullErrors.length > 0) {
-          showToast(t("friendsPage.syncedWithErrors", { count: pullErrors.length, errors: pullErrors.join("; ") }), "warning");
-        } else if (pulledSessions > 0 || pulledRecs > 0 || friendsUpdated || changesMade) {
-          const bits: string[] = [];
-          if (pulledSessions > 0) bits.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
-          if (pulledRecs > 0) bits.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
-          if (friendsUpdated) bits.push(t("friendsPage.profileUpdates"));
-          showToast(t("friendsPage.syncSuccessDetails", { details: bits.join(", ") }), "success");
-        } else {
-          showToast(t("friendsPage.syncUpToDate"), "success");
-        }
-      }
-
-      if (identityReady) await checkFolderInvitations(currProfile.syncId, localFriends);
-      addUnseenCommunityItems(newCommunityItems);
-    } finally {
-      isSyncingRef.current = false;
-      setIsSyncing(false);
-    }
-
-    if (pendingManualSync.current) {
-      pendingManualSync.current = false;
-      void performSync(true);
     }
   };
 
-  const performSyncRef = useRef(performSync);
+  // The engine announces every merge through this subscription; nothing here
+  // polls, so an idle page costs nothing. The ids are primed before the
+  // subscription opens so the first merge cannot badge the whole history.
+  const reloadRef = useRef(reloadFromStorage);
+  reloadRef.current = reloadFromStorage;
   useEffect(() => {
-    performSyncRef.current = performSync;
-  }, [performSync]);
+    primeKnownIds({ sessions, recommendations, suggestions, dms });
+    return subscribeFriendsDbChange(() => reloadRef.current());
+  }, []);
+
+  // ── Initial load ────────────────────────────────────────────────────
 
   useEffect(() => {
-    const onScopeChange = () => {
-      void performSyncRef.current(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        // The database is a mirror of localStorage, not the live store:
+        // hydrate from it only when this profile has nothing yet, otherwise a
+        // boot-time read could clobber a snapshot the engine just merged.
+        const hasLocalData =
+          loadFriends().length > 0 || loadSessions().length > 0 || loadDms().length > 0;
+        if (!hasLocalData) await loadFriendsDbToLocalStorage();
+
+        await initNostrKeys();
+        if (cancelled) return;
+
+        const nextFriends = loadFriends();
+        const nextSessions = loadSessions();
+        const nextRecommendations = loadRecommendations();
+        const nextSuggestions = loadSuggestions();
+        const nextDms = loadDms();
+
+        setProfile(loadUserProfile());
+        setFriends(nextFriends);
+        setSessions(nextSessions);
+        setRecommendations(nextRecommendations);
+        setSuggestions(nextSuggestions);
+        setDms(nextDms);
+        setCircles(loadCircles());
+        primeKnownIds({
+          sessions: nextSessions,
+          recommendations: nextRecommendations,
+          suggestions: nextSuggestions,
+          dms: nextDms,
+        });
+      } catch (err) {
+        console.error("Failed to initialize the friends page:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    setDecodedFriend(friendCodeInput.trim() ? decodeFriendCode(friendCodeInput) : null);
+  }, [friendCodeInput]);
+
+  // ── Sync surface ────────────────────────────────────────────────────
+
+  const syncNowRef = useRef(syncNow);
+  syncNowRef.current = syncNow;
+
+  /**
+   * Kept for the page's "sync now" affordances. The engine owns the loop, so
+   * this only asks it to run a cycle; results arrive as `syncStatus` changes.
+   */
+  const performSync = async (_force = false): Promise<void> => {
+    syncNowRef.current();
+  };
+
+  // A scope change alters what the snapshot contains, so republish at once.
+  useEffect(() => {
+    const onScopeChange = () => syncNowRef.current();
     window.addEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
     return () => window.removeEventListener("gamelib:nostr-share-scope-changed", onScopeChange);
   }, []);
 
-  const checkFolderInvitations = async (mySyncId: string, currentFriends: Friend[]) => {
-    if (!mySyncId) return;
-    try {
-      const peers = await listPeerOutboxes();
-      const newInvites: FriendInvitation[] = [];
-
-      for (const peerId of peers) {
-        if (peerId === mySyncId) continue;
-        if (deniedIds.includes(peerId)) continue;
-
-        const remoteOutbox = await fetchFriendOutbox(peerId);
-        if (!remoteOutbox || !remoteOutbox.profile) continue;
-        const friendSyncId = remoteOutbox.syncId || peerId;
-        if (friendSyncId === mySyncId) continue;
-        if (deniedIds.includes(friendSyncId)) continue;
-        if (currentFriends.some((f) => f.syncId === friendSyncId || f.syncId === peerId)) continue;
-
-        if (remoteFriendsInclude(remoteOutbox.friends, mySyncId)) {
-          newInvites.push({
-            syncId: friendSyncId,
-            name: remoteOutbox.profile.name,
-            avatar: remoteOutbox.profile.avatar,
-            status: remoteOutbox.profile.status,
-            favoriteGame: remoteOutbox.profile.favoriteGame || undefined,
-            libStats: remoteOutbox.profile.libStats,
-          });
-        }
-      }
-
-      setInvitations((prev) => {
-        const merged = [...prev];
-        newInvites.forEach((invite) => {
-          if (!merged.some((i) => i.syncId === invite.syncId)) merged.push(invite);
-        });
-        return merged;
-      });
-    } catch (e) {
-      console.error("Failed to check folder invitations:", e);
-    }
-  };
-
-  // Initial sync + 15 s background polling.
-  useEffect(() => {
-    void performSync(false);
-  }, [profile.syncId]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      void performSync(false);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [friends, profile.syncId]);
-
-  // Session start reminders.
-  useEffect(() => {
-    if (!friendsNotifications) return;
-    const check = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      const now = Date.now();
-      const windowMs = 15 * 60 * 1000;
-      sessions.forEach((s) => {
-        if (s.deleted) return;
-        const involved =
-          s.rsvps?.[profile.name] === "going" || s.invited?.includes(profile.name) || s.attendees?.includes(profile.name);
-        if (!involved) return;
-        const start = sessionStartMs(s);
-        if (!start || start <= now || start - now > windowMs) return;
-        const key = `${s.id}@${start}`;
-        if (reminderNotifiedRef.current.has(key)) return;
-        reminderNotifiedRef.current.set(key, now);
-        fireNotification(
-          t("friendsPage.notifSessionSoon", {
-            game: s.gameName,
-            time: new Date(start).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
-          }),
-          s.gameName
-        );
-      });
-      const cutoff = now - 24 * 60 * 60 * 1000;
-      reminderNotifiedRef.current.forEach((ts, key) => {
-        if (ts < cutoff) reminderNotifiedRef.current.delete(key);
-      });
-    };
-    const iv = setInterval(check, 30_000);
-    check();
-    return () => clearInterval(iv);
-  }, [sessions, friendsNotifications, profile.name, t]);
-
-  // Incoming P2P sync listener.
-  const receiveRemoteDataRef = useRef(handleReceiveRemoteData);
-  receiveRemoteDataRef.current = handleReceiveRemoteData;
-  useEffect(() => {
-    let disposed = false;
-    const unlisten = listen<string>("internet-sync-received", (event) => {
-      if (disposed) return;
-      try {
-        receiveRemoteDataRef.current(JSON.parse(event.payload) as FriendsDatabase);
-      } catch (err) {
-        console.error("Failed to parse/merge remote sync data:", err);
-      }
-    });
-    return () => {
-      disposed = true;
-      void unlisten.then((fn) => fn());
-    };
-  }, [deniedIds]);
-
-  const nostrFriendKeys = useMemo(
-    () =>
-      friends
-        .map((f) => f.syncId)
-        .filter((id) => /^[0-9a-fA-F]{64}$/.test(id))
-        .sort()
-        .join(","),
-    [friends]
+  const lastSyncedTime = useMemo(
+    () => (status.lastSyncedAt ? formatClockTime(status.lastSyncedAt) : ""),
+    [status.lastSyncedAt]
   );
 
-  useEffect(() => {
-    const pubkeys = nostrFriendKeys ? nostrFriendKeys.split(",") : [];
-    if (pubkeys.length === 0) return;
+  const lastSyncMessage = useMemo(() => {
+    if (status.lastError) return t("friendsPage.syncFailed", { reason: status.lastError });
+    if (status.lastSyncedAt) return t("friendsPage.upToDatePublished");
+    return "";
+  }, [status.lastError, status.lastSyncedAt, t]);
 
-    const sub = nostrPool.subscribeMany(
-      [...NOSTR_RELAYS],
-      { authors: pubkeys, kinds: [30078], "#d": ["gamelib-friends-outbox"] },
-      {
-        onevent(event) {
-          if (!verifyEvent(event)) return;
-          try {
-            const remoteDb = stripDms(JSON.parse(event.content) as FriendsDatabase);
-            handleReceiveRemoteData(remoteDb);
-          } catch (err) {
-            console.error("Nostr: failed to parse remote data:", err);
-          }
-        },
-      }
-    );
+  // ── Consent / invitations ───────────────────────────────────────────
 
-    return () => {
-      sub.close();
-    };
-  }, [nostrFriendKeys, nostrPool]);
+  const consentGroups = useMemo(() => classifyFriendsByConsent(friends), [friends]);
+
+  const invitations = useMemo<FriendInvitation[]>(() => {
+    return consentGroups.incoming
+      .filter((friend) => {
+        const pubkey = asPeerPubkey(friend.syncId) ?? friend.syncId;
+        return !deniedIds.includes(pubkey);
+      })
+      .map((friend) => ({
+        syncId: asPeerPubkey(friend.syncId) ?? friend.syncId,
+        name: friend.name,
+        avatar: friend.avatar,
+        status: friend.status,
+        favoriteGame: friend.favoriteGame,
+        libStats: friend.libStats,
+      }));
+  }, [consentGroups, deniedIds]);
+
+  /** Requests we sent that the peer has not answered yet. */
+  const outgoingRequests = consentGroups.outgoing;
 
   // ── Unseen badges ───────────────────────────────────────────────────
 
@@ -1052,63 +467,62 @@ export function useFriendsPageController() {
 
   // ── Friend actions ──────────────────────────────────────────────────
 
+  const removeFriendRecords = (friendIds: string[]) => {
+    const targets = friends.filter((friend) => friendIds.includes(friend.id));
+    const legacyIds = new Set<string>();
+
+    targets.forEach((friend) => {
+      const pubkey = asPeerPubkey(friend.syncId);
+      if (pubkey) removePeer(pubkey);
+      else legacyIds.add(friend.id);
+    });
+
+    if (legacyIds.size > 0) {
+      const remaining = loadFriends().filter((friend) => !legacyIds.has(friend.id));
+      setFriends(remaining);
+      saveFriends(remaining);
+    }
+  };
+
   const handleAddFriend = (): boolean => {
     if (!decodedFriend) return false;
-    if (decodedFriend.syncId === profile.syncId) {
+    const pubkey = asPeerPubkey(decodedFriend.syncId);
+    if (!pubkey) return false;
+    if (pubkey === asPeerPubkey(profile.syncId)) {
       showToast(t("friendsPage.cannotAddYourself"), "error");
       return false;
     }
-    if (friends.some((f) => f.syncId === decodedFriend.syncId)) {
-      showToast(t("friendsPage.alreadyInFriends", { name: decodedFriend.name }), "error");
+    const existing = friends.find((friend) => asPeerPubkey(friend.syncId) === pubkey);
+    if (existing) {
+      showToast(t("friendsPage.alreadyInFriends", { name: displayName(existing) }), "error");
       return false;
     }
 
-    const updatedFriends = [...friends, decodedFriend];
-    setFriends(updatedFriends);
-    saveFriends(updatedFriends);
-    showToast(t("friendsPage.friendAdded", { name: decodedFriend.name }), "success");
+    // The engine records the pending friend itself and sends the request.
+    sendFriendRequest(pubkey);
+    showToast(t("friendsPage.friendRequestSent", { name: decodedFriend.name }), "success");
     setFriendCodeInput("");
-    setTimeout(() => void performSync(false), 100);
     return true;
   };
 
   const handleAcceptInvitation = (invite: FriendInvitation) => {
-    if (friends.some((f) => f.syncId === invite.syncId)) {
-      setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
-      return;
-    }
-
-    const newFriend: Friend = {
-      id: `friend_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-      name: invite.name,
-      avatar: invite.avatar,
-      status: invite.status,
-      favoriteGame: invite.favoriteGame,
-      libStats: invite.libStats,
-      addedAt: Date.now(),
-      syncId: invite.syncId,
-    };
-
-    const updatedFriends = [...friends, newFriend];
-    setFriends(updatedFriends);
-    saveFriends(updatedFriends);
-    setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
+    const pubkey = asPeerPubkey(invite.syncId);
+    if (!pubkey) return;
+    acceptFriend(pubkey);
     showToast(t("friendsPage.acceptedInvitation", { name: invite.name }), "success");
-    setTimeout(() => void performSync(true), 100);
   };
 
   const handleDenyInvitation = (syncId: string) => {
-    const nextDenied = [...deniedIds, syncId];
+    const pubkey = asPeerPubkey(syncId) ?? syncId;
+    const nextDenied = deniedIds.includes(pubkey) ? deniedIds : [...deniedIds, pubkey];
     setDeniedIds(nextDenied);
     localStorage.setItem("gamelib.friends.denied", JSON.stringify(nextDenied));
-    setInvitations((prev) => prev.filter((i) => i.syncId !== syncId));
+    removePeer(pubkey);
     showToast(t("friendsPage.invitationDenied"), "info");
   };
 
   const handleDeleteFriend = (friendId: string, friendName: string) => {
-    const updated = friends.filter((f) => f.id !== friendId);
-    setFriends(updated);
-    saveFriends(updated);
+    removeFriendRecords([friendId]);
     showToast(t("friendsPage.removedFromFriends", { name: friendName }), "info");
   };
 
@@ -1129,15 +543,25 @@ export function useFriendsPageController() {
   const handleToggleBlock = (friendId: string, friendName: string) => {
     const friend = friends.find((f) => f.id === friendId);
     if (!friend) return;
-    const updated = friends.map((f) => (f.id === friendId ? { ...f, blocked: !f.blocked } : f));
-    setFriends(updated);
-    saveFriends(updated);
-    showToast(
-      friend.blocked
-        ? t("friendsPage.unblockedFriend", { name: friendName })
-        : t("friendsPage.blockedFriend", { name: friendName }),
-      "info"
-    );
+
+    if (friend.blocked) {
+      // Blocking is engine-owned; unblocking is just clearing the flag.
+      const updated = friends.map((f) => (f.id === friendId ? { ...f, blocked: false } : f));
+      setFriends(updated);
+      saveFriends(updated);
+      showToast(t("friendsPage.unblockedFriend", { name: friendName }), "info");
+      return;
+    }
+
+    const pubkey = asPeerPubkey(friend.syncId);
+    if (pubkey) {
+      blockPeer(pubkey);
+    } else {
+      const updated = friends.map((f) => (f.id === friendId ? { ...f, blocked: true } : f));
+      setFriends(updated);
+      saveFriends(updated);
+    }
+    showToast(t("friendsPage.blockedFriend", { name: friendName }), "info");
   };
 
   const handleBulkPin = (ids: string[]) => {
@@ -1165,10 +589,7 @@ export function useFriendsPageController() {
   };
 
   const handleBulkRemove = (ids: string[]) => {
-    const set = new Set(ids);
-    const updated = friends.filter((f) => !set.has(f.id));
-    setFriends(updated);
-    saveFriends(updated);
+    removeFriendRecords(ids);
     showToast(t("friendsPage.removedFriends"), "info");
   };
 
@@ -1216,7 +637,7 @@ export function useFriendsPageController() {
 
   // ── Sessions ────────────────────────────────────────────────────────
 
-  const handleRsvp = async (sessionId: string, status: RsvpStatus) => {
+  const handleRsvp = (sessionId: string, status: RsvpStatus) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const rsvps = { ...(s.rsvps || {}) };
@@ -1237,10 +658,9 @@ export function useFriendsPageController() {
 
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleCreateSession = async (sessionData: Omit<GameSession, "id" | "updatedAt">) => {
+  const handleCreateSession = (sessionData: Omit<GameSession, "id" | "updatedAt">) => {
     const newSession: GameSession = {
       ...sessionData,
       id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
@@ -1250,26 +670,23 @@ export function useFriendsPageController() {
     setSessions(updated);
     saveSessions(updated);
     showToast(t("friends.sessionCreated"), "success");
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleDeleteSession = async (sessionId: string) => {
+  const handleDeleteSession = (sessionId: string) => {
     const updated = sessions.map((s) => (s.id === sessionId ? { ...s, deleted: true, updatedAt: Date.now() } : s));
     setSessions(updated);
     saveSessions(updated);
     showToast(t("friendsPage.sessionDeleted"), "info");
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleEditSession = async (sessionId: string, sessionData: Omit<GameSession, "id" | "updatedAt">) => {
+  const handleEditSession = (sessionId: string, sessionData: Omit<GameSession, "id" | "updatedAt">) => {
     const updated = sessions.map((s) => (s.id === sessionId ? { ...s, ...sessionData, updatedAt: Date.now() } : s));
     setSessions(updated);
     saveSessions(updated);
     showToast(t("friendsPage.sessionEdited"), "success");
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleVotePoll = async (sessionId: string, optionId: string) => {
+  const handleVotePoll = (sessionId: string, optionId: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId || !s.poll) return s;
       const votes: Record<string, string[]> = {};
@@ -1281,10 +698,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleFinalizePoll = async (sessionId: string, optionId: string) => {
+  const handleFinalizePoll = (sessionId: string, optionId: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId || !s.poll) return s;
       const option = s.poll.options.find((o) => o.id === optionId);
@@ -1294,10 +710,9 @@ export function useFriendsPageController() {
     setSessions(updated);
     saveSessions(updated);
     showToast(t("friendsPage.pollFinalized"), "success");
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleSetSessionRole = async (sessionId: string, name: string, role: SessionRole) => {
+  const handleSetSessionRole = (sessionId: string, name: string, role: SessionRole) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = (s.participants || []).map((p) => (p.name === name ? { ...p, role } : p));
@@ -1306,10 +721,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleAddSessionGuest = async (sessionId: string, guestName: string) => {
+  const handleAddSessionGuest = (sessionId: string, guestName: string) => {
     const name = guestName.trim();
     if (!name) return;
     const updated = sessions.map((s) => {
@@ -1325,10 +739,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleRemoveSessionGuest = async (sessionId: string, guestName: string) => {
+  const handleRemoveSessionGuest = (sessionId: string, guestName: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = (s.participants || []).filter((p) => !(p.name === guestName && p.guest));
@@ -1339,10 +752,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleSetSessionRsvpNote = async (sessionId: string, note: string) => {
+  const handleSetSessionRsvpNote = (sessionId: string, note: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = [...(s.participants || [])];
@@ -1353,10 +765,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleSendSessionMessage = async (sessionId: string, text: string) => {
+  const handleSendSessionMessage = (sessionId: string, text: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const messages = [
@@ -1367,10 +778,9 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  const handleTogglePinSessionMessage = async (sessionId: string, messageId: string) => {
+  const handleTogglePinSessionMessage = (sessionId: string, messageId: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const messages = (s.messages || []).map((m) => (m.id === messageId ? { ...m, pinned: !m.pinned } : m));
@@ -1378,12 +788,11 @@ export function useFriendsPageController() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
   // ── Recommendations ─────────────────────────────────────────────────
 
-  const handleReactRec = async (recId: string, kind: ReactionKind) => {
+  const handleReactRec = (recId: string, kind: ReactionKind) => {
     const updated = recommendations.map((r) => {
       if (r.id !== recId) return r;
       const reactions = { ...(r.reactions || {}) };
@@ -1393,17 +802,15 @@ export function useFriendsPageController() {
     });
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleToggleWantToPlay = async (recId: string) => {
+  const handleToggleWantToPlay = (recId: string) => {
     const updated = recommendations.map((r) => (r.id === recId ? { ...r, wantToPlay: !r.wantToPlay, updatedAt: Date.now() } : r));
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleSetWantToPlayBulk = async (recIds: string[], wantToPlay: boolean) => {
+  const handleSetWantToPlayBulk = (recIds: string[], wantToPlay: boolean) => {
     if (recIds.length === 0) return;
     const ids = new Set(recIds);
     const now = Date.now();
@@ -1412,10 +819,9 @@ export function useFriendsPageController() {
     );
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleAddRecComment = async (recId: string, text: string) => {
+  const handleAddRecComment = (recId: string, text: string) => {
     const updated = recommendations.map((r) => {
       if (r.id !== recId) return r;
       const comments = [
@@ -1426,10 +832,9 @@ export function useFriendsPageController() {
     });
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleCreateRec = async (recData: Omit<GameRecommendation, "id" | "comments" | "createdAt" | "updatedAt">) => {
+  const handleCreateRec = (recData: Omit<GameRecommendation, "id" | "comments" | "createdAt" | "updatedAt">) => {
     const newRec: GameRecommendation = {
       ...recData,
       id: `rec_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
@@ -1441,15 +846,13 @@ export function useFriendsPageController() {
     setRecommendations(updated);
     saveRecommendations(updated);
     showToast(t("friendsPage.recPostedSuccess"), "success");
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleDeleteRec = async (recId: string) => {
+  const handleDeleteRec = (recId: string) => {
     const updated = recommendations.map((r) => (r.id === recId ? { ...r, deleted: true, updatedAt: Date.now() } : r));
     setRecommendations(updated);
     saveRecommendations(updated);
     showToast(t("friendsPage.recDeleted"), "info");
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
   const handleOpenRecGame = async (_gameId: string, gameName: string, slug?: string) => {
@@ -1466,7 +869,7 @@ export function useFriendsPageController() {
 
   // ── Wishlist suggestions ────────────────────────────────────────────
 
-  const handleReactSuggestion = async (sugId: string, kind: SuggestionReactionKind) => {
+  const handleReactSuggestion = (sugId: string, kind: SuggestionReactionKind) => {
     const updated = suggestions.map((s) => {
       if (s.id !== sugId) return s;
       const reactions = { ...(s.reactions || {}) };
@@ -1476,7 +879,6 @@ export function useFriendsPageController() {
     });
     setSuggestions(updated);
     saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
   const handleToggleWishlistSuggestion = (gameId: string, gameName: string) => {
@@ -1497,7 +899,7 @@ export function useFriendsPageController() {
     });
   };
 
-  const handleAddSuggestionComment = async (sugId: string, text: string) => {
+  const handleAddSuggestionComment = (sugId: string, text: string) => {
     const updated = suggestions.map((s) => {
       if (s.id !== sugId) return s;
       const comments = [
@@ -1508,10 +910,9 @@ export function useFriendsPageController() {
     });
     setSuggestions(updated);
     saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
-  const handleCreateSuggestion = async (
+  const handleCreateSuggestion = (
     sugData: Omit<GameSuggestion, "id" | "comments" | "createdAt" | "updatedAt">
   ) => {
     const newSug: GameSuggestion = {
@@ -1525,20 +926,32 @@ export function useFriendsPageController() {
     setSuggestions(updated);
     saveSuggestions(updated);
     showToast(t("friendsPage.sugPostedSuccess"), "success");
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
-  const handleDeleteSuggestion = async (sugId: string) => {
+  const handleDeleteSuggestion = (sugId: string) => {
     const updated = suggestions.map((s) => (s.id === sugId ? { ...s, deleted: true, updatedAt: Date.now() } : s));
     setSuggestions(updated);
     saveSuggestions(updated);
     showToast(t("friendsPage.suggestionDeleted"), "info");
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
   // ── Direct messages ─────────────────────────────────────────────────
 
-  const handleSendDmMessage = async (threadId: string, text: string, otherName: string, attachments?: DmAttachment[]) => {
+  /** Peer a thread's chat envelopes belong to, or null when it is ambiguous. */
+  const peerForThread = (thread: DmThread | undefined): string | null => {
+    if (!thread) return null;
+    return peerPubkeyForThread(thread, friends, {
+      myPubkey: profile.syncId,
+      myName: profile.name,
+    });
+  };
+
+  const handleSendDmMessage = (
+    threadId: string,
+    text: string,
+    otherName: string,
+    attachments?: DmAttachment[]
+  ) => {
     const now = Date.now();
     const newMsg: SessionMessage = {
       id: `msg_${now}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1548,7 +961,7 @@ export function useFriendsPageController() {
       attachments,
     };
 
-    let updated = dms.map((th) =>
+    let updated = dmsRef.current.map((th) =>
       th.id === threadId ? { ...th, messages: [...(th.messages || []), newMsg], updatedAt: now } : th
     );
 
@@ -1562,12 +975,34 @@ export function useFriendsPageController() {
       updated = [newThread, ...updated];
     }
 
+    dmsRef.current = updated;
     setDms(updated);
     saveDmsAndPersist(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+
+    const thread = updated.find((th) => th.id === threadId);
+    const peer = peerForThread(thread);
+    if (!peer) return;
+
+    const attachment = attachments?.[0];
+    sendChat(peer, {
+      type: "message",
+      id: newMsg.id,
+      threadId: dmThreadIdForPeer(peer) ?? threadId,
+      body: text,
+      sentAt: now,
+      ...(attachment
+        ? {
+            attachment: {
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              dataUrl: attachment.dataUrl,
+            },
+          }
+        : {}),
+    });
   };
 
-  const handleTogglePinDmMessage = async (threadId: string, messageId: string) => {
+  const handleTogglePinDmMessage = (threadId: string, messageId: string) => {
     const updated = dms.map((th) => {
       if (th.id !== threadId) return th;
       const messages = (th.messages || []).map((m) => (m.id === messageId ? { ...m, pinned: !m.pinned } : m));
@@ -1575,10 +1010,9 @@ export function useFriendsPageController() {
     });
     setDms(updated);
     saveDmsAndPersist(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
   };
 
-  const handleReactDmMessage = async (threadId: string, messageId: string, emoji: string) => {
+  const handleReactDmMessage = (threadId: string, messageId: string, emoji: string) => {
     const updated = dms.map((th) => {
       if (th.id !== threadId) return th;
       const messages = (th.messages || []).map((m) => {
@@ -1592,25 +1026,42 @@ export function useFriendsPageController() {
     });
     setDms(updated);
     saveDmsAndPersist(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
   };
 
   const markDmThreadRead = (threadId: string) => {
     const thread = dmsRef.current.find((t) => t.id === threadId);
     if (!thread || thread.deleted) return;
-    const lastRead = thread.lastReadAt?.[profile.name] || 0;
+
+    const myReadKey = asPeerPubkey(profile.syncId) ?? profile.name;
+    const lastRead = Math.max(
+      thread.lastReadAt?.[profile.syncId] ?? 0,
+      thread.lastReadAt?.[profile.name] ?? 0
+    );
     const unread = (thread.messages || []).some((m) => m.author !== profile.name && m.timestamp > lastRead);
     if (!unread) return;
+
+    const now = Date.now();
     const updated = dmsRef.current.map((t) =>
-      t.id === threadId ? { ...t, lastReadAt: { ...(t.lastReadAt || {}), [profile.name]: Date.now() } } : t
+      t.id === threadId ? { ...t, lastReadAt: { ...(t.lastReadAt || {}), [myReadKey]: now } } : t
     );
     dmsRef.current = updated;
     setDms(updated);
     saveDmsAndPersist(updated);
-    void pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+
+    // The badge stays local; the receipt only leaves when the user allows it.
+    if (!areDmReadReceiptsEnabled()) return;
+
+    const peer = peerForThread(thread);
+    if (!peer) return;
+    sendChat(peer, {
+      type: "read",
+      threadId: dmThreadIdForPeer(peer) ?? thread.id,
+      upTo: now,
+      at: now,
+    });
   };
 
-  const handleDeleteDmMessage = async (threadId: string, messageId: string) => {
+  const handleDeleteDmMessage = (threadId: string, messageId: string) => {
     const now = Date.now();
     const updated = dms.map((th) => {
       if (th.id !== threadId) return th;
@@ -1619,24 +1070,21 @@ export function useFriendsPageController() {
     });
     setDms(updated);
     saveDmsAndPersist(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
   };
 
-  const handleDeleteDmThread = async (threadId: string) => {
+  const handleDeleteDmThread = (threadId: string) => {
     const now = Date.now();
     const updated = dms.map((th) => (th.id === threadId ? { ...th, deleted: true, updatedAt: now } : th));
     setDms(updated);
     saveDmsAndPersist(updated);
     showToast(t("friendsPage.threadDeleted"), "info");
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
   };
 
   // ── Profile ─────────────────────────────────────────────────────────
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     saveUserProfile(profile);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, dms);
     showToast(t("friendsPage.profileUpdated"), "success");
   };
 
@@ -1669,7 +1117,6 @@ export function useFriendsPageController() {
             const updated = { ...profile, avatar: compressedBase64 };
             setProfile(updated);
             saveUserProfile(updated);
-            void pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions, dms);
             showToast(t("friendsPage.avatarUploaded"), "success");
           } catch {
             showToast(t("friendsPage.imageProcessingFailed"), "error");
@@ -1680,6 +1127,41 @@ export function useFriendsPageController() {
     };
     reader.readAsDataURL(file);
   };
+
+  // Session start reminders.
+  useEffect(() => {
+    if (!friendsNotifications) return;
+    const check = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      const now = Date.now();
+      const windowMs = 15 * 60 * 1000;
+      sessions.forEach((s) => {
+        if (s.deleted) return;
+        const involved =
+          s.rsvps?.[profile.name] === "going" || s.invited?.includes(profile.name) || s.attendees?.includes(profile.name);
+        if (!involved) return;
+        const start = sessionStartMs(s);
+        if (!start || start <= now || start - now > windowMs) return;
+        const key = `${s.id}@${start}`;
+        if (reminderNotifiedRef.current.has(key)) return;
+        reminderNotifiedRef.current.set(key, now);
+        fireNotification(
+          t("friendsPage.notifSessionSoon", {
+            game: s.gameName,
+            time: new Date(start).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+          }),
+          s.gameName
+        );
+      });
+      const cutoff = now - 24 * 60 * 60 * 1000;
+      reminderNotifiedRef.current.forEach((ts, key) => {
+        if (ts < cutoff) reminderNotifiedRef.current.delete(key);
+      });
+    };
+    const iv = setInterval(check, 30_000);
+    check();
+    return () => clearInterval(iv);
+  }, [sessions, friendsNotifications, profile.name, t]);
 
   return {
     // data
@@ -1692,6 +1174,7 @@ export function useFriendsPageController() {
     circles,
     dms,
     invitations,
+    outgoingRequests,
     unseenCounts,
     // derived
     selfStats,
@@ -1700,9 +1183,11 @@ export function useFriendsPageController() {
     generatedFriendCode,
     currentlyPlaying,
     // sync
-    isSyncing,
+    syncStatus: status,
     lastSyncedTime,
-    syncLog,
+    lastSyncMessage,
+    pendingPublish: status.pendingPublish,
+    peerStatuses: status.peers,
     performSync,
     // friend code
     friendCodeInput,
