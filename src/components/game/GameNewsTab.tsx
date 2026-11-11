@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { Newspaper } from "lucide-react";
+import { Loader2, Newspaper } from "lucide-react";
 import type { Game } from "../../types/game";
 import { gameDisplayName } from "../../types/game";
 import type { NewsArticle } from "../../types/news";
 import { parseRSS } from "../../utils/news/feed";
 import { useNewsDemand } from "../../context/NewsContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
@@ -40,10 +41,12 @@ import {
   matchesNewsCategory,
 } from "./news/gameNewsBriefingData";
 
-/** How many Steam news items to request per "load more" page. */
+/** How many Steam news items to request per page of the feed. */
 const STEAM_PAGE_SIZE = 20;
-/** How many merged articles are revealed per "load more" page. */
+/** How many merged articles are revealed per page of the feed. */
 const LIST_PAGE_SIZE = 12;
+/** The RSS feed is capped by Valve; below this the Web API fills the page. */
+const STEAM_RSS_MIN_ITEMS = 5;
 
 /** Steam publishes a per-app RSS feed (patch notes, announcements, etc.). */
 function steamFeedUrl(appId: number, langCode: string): string {
@@ -154,11 +157,21 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const [steamArticles, setSteamArticles] = useState<NewsArticle[]>([]);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState(false);
+  /** True once the RSS request settled, either way — the Web API fallback waits for it. */
+  const [steamRssSettled, setSteamRssSettled] = useState(false);
 
   const [steamApiArticles, setSteamApiArticles] = useState<NewsArticle[]>([]);
   const [steamNewsCount, setSteamNewsCount] = useState(0);
   const [steamTotal, setSteamTotal] = useState<number | null>(null);
+  const [steamExhausted, setSteamExhausted] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  /** App id whose Web API fallback already ran, so it never fires twice. */
+  const steamFallbackRef = useRef<number | null>(null);
+  /** Item count of the last Web API page — no growth means there is nothing older. */
+  const lastSteamPageSizeRef = useRef(0);
+  /** One page at a time, no matter how often the sentinel reports in. */
+  const pageInFlightRef = useRef(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
@@ -177,11 +190,13 @@ export default function GameNewsTab({ game }: { game: Game }) {
   useEffect(() => {
     if (!steamAppId) {
       setSteamArticles([]);
+      setSteamRssSettled(true);
       return;
     }
     let active = true;
     setSteamLoading(true);
     setSteamError(false);
+    setSteamRssSettled(false);
 
     const url = steamFeedUrl(steamAppId, language);
     const sourceName = t("game.news.steamFeed");
@@ -204,7 +219,10 @@ export default function GameNewsTab({ game }: { game: Game }) {
         console.warn(`[GameNews] Steam feed failed for ${game.name}:`, err);
         if (active) setSteamError(true);
       } finally {
-        if (active) setSteamLoading(false);
+        if (active) {
+          setSteamLoading(false);
+          setSteamRssSettled(true);
+        }
       }
     })();
 
@@ -217,8 +235,30 @@ export default function GameNewsTab({ game }: { game: Game }) {
     setSteamApiArticles([]);
     setSteamTotal(null);
     setSteamNewsCount(0);
+    setSteamExhausted(false);
     setVisibleCount(LIST_PAGE_SIZE);
+    steamFallbackRef.current = null;
+    lastSteamPageSizeRef.current = 0;
+    pageInFlightRef.current = false;
   }, [steamAppId]);
+
+  /* The per-app RSS feed Valve publishes is short (often one or two posts on
+   * a quiet app). When it comes back empty, failed or thin while a Steam id
+   * exists, pull the first Web API page immediately instead of opening the
+   * tab nearly empty and waiting for a scroll that may never come. */
+  const steamFallbackPending =
+    steamAppId != null &&
+    steamRssSettled &&
+    !steamLoading &&
+    steamNewsCount === 0 &&
+    (steamError || steamArticles.length < STEAM_RSS_MIN_ITEMS);
+
+  useEffect(() => {
+    if (!steamFallbackPending || steamAppId == null) return;
+    if (steamFallbackRef.current === steamAppId) return;
+    steamFallbackRef.current = steamAppId;
+    setSteamNewsCount(STEAM_PAGE_SIZE);
+  }, [steamAppId, steamFallbackPending]);
 
   useEffect(() => {
     if (!steamAppId || steamNewsCount <= 0) return;
@@ -242,10 +282,19 @@ export default function GameNewsTab({ game }: { game: Game }) {
         const { articles, total } = parseSteamNewsApi(jsonText, steamAppId, sourceName);
         setSteamApiArticles(articles);
         setSteamTotal(total);
+        // A page that did not grow the pool means Steam has nothing older to
+        // give us; stop paging instead of asking again forever.
+        setSteamExhausted(
+          articles.length === 0 || articles.length <= lastSteamPageSizeRef.current,
+        );
+        lastSteamPageSizeRef.current = articles.length;
       } catch (err) {
         console.warn(`[GameNews] Steam news API failed for ${game.name}:`, err);
       } finally {
-        if (active) setLoadingMore(false);
+        if (active) {
+          setLoadingMore(false);
+          pageInFlightRef.current = false;
+        }
       }
     })();
 
@@ -301,20 +350,28 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const matchKeys = useMemo(() => buildMatchKeys(game.name), [game.name]);
 
   const allMergedArticles = useMemo(() => {
-    const byLink = new Map<string, NewsArticle>();
-    const add = (article: NewsArticle) => {
+    /* Lower rank wins a timestamp tie: Valve's own posts lead, then the
+     * per-game custom feeds, then global headlines that merely mention the
+     * game. Without the rank the order would depend on map insertion. */
+    const byLink = new Map<string, { article: NewsArticle; rank: number }>();
+    const add = (article: NewsArticle, rank: number) => {
       const key = article.link.trim().toLowerCase();
-      if (!byLink.has(key)) byLink.set(key, article);
+      if (!byLink.has(key)) byLink.set(key, { article, rank });
     };
 
-    for (const article of steamArticles) add(article);
-    for (const article of steamApiArticles) add(article);
-    for (const article of customArticles) add(article);
+    for (const article of steamArticles) add(article, 0);
+    for (const article of steamApiArticles) add(article, 0);
+    for (const article of customArticles) add(article, 1);
     for (const article of allArticles) {
-      if (articleMatchesGame(article, matchKeys)) add(article);
+      if (articleMatchesGame(article, matchKeys)) add(article, 2);
     }
 
-    return Array.from(byLink.values()).sort((a, b) => articleTime(b) - articleTime(a));
+    return Array.from(byLink.values())
+      .sort(
+        (a, b) =>
+          articleTime(b.article) - articleTime(a.article) || a.rank - b.rank,
+      )
+      .map((entry) => entry.article);
   }, [steamArticles, steamApiArticles, customArticles, allArticles, matchKeys]);
 
   const unreadLinks = useMemo(() => {
@@ -392,7 +449,9 @@ export default function GameNewsTab({ game }: { game: Game }) {
   const totalDisplayed = orderedLeads.length;
   const hasMoreLocal = totalDisplayed > visibleCount;
   const steamHasMore =
-    steamAppId != null && (steamTotal === null || steamApiArticles.length < steamTotal);
+    steamAppId != null &&
+    !steamExhausted &&
+    (steamTotal === null || steamApiArticles.length < steamTotal);
   const hasMore = hasMoreLocal || steamHasMore;
 
   const paginatedArticles = useMemo(
@@ -405,11 +464,33 @@ export default function GameNewsTab({ game }: { game: Game }) {
   }, [state.category, state.sort, searchQuery, state.view]);
 
   const handleLoadMore = useCallback(() => {
+    if (pageInFlightRef.current) return;
+    pageInFlightRef.current = true;
     setVisibleCount((count) => count + LIST_PAGE_SIZE);
     if (steamHasMore) {
+      // The Web API takes a cumulative count, so the next page is one page
+      // size further in and the merge below dedupes what overlaps.
       setSteamNewsCount((count) => (count <= 0 ? STEAM_PAGE_SIZE : count + STEAM_PAGE_SIZE));
+    } else {
+      // Nothing to fetch — the local reveal is the whole page.
+      pageInFlightRef.current = false;
     }
   }, [steamHasMore]);
+
+  /* The list pages itself: the sentinel at the bottom asks for the next
+   * Steam Web API page and the next local slice together. It disarms while a
+   * page is in flight and re-arms when the visible slice or a filter moves. */
+  const sentinelResetKey = [
+    state.view,
+    state.category,
+    state.sort,
+    searchQuery,
+    visibleCount,
+  ].join("|");
+  const loadMoreRef = useInfiniteScroll<HTMLDivElement>(handleLoadMore, {
+    enabled: state.view === "feed" && hasMore && !loadingMore,
+    resetKey: sentinelResetKey,
+  });
 
   const showHero =
     state.view === "feed" &&
@@ -475,8 +556,13 @@ export default function GameNewsTab({ game }: { game: Game }) {
     setSteamApiArticles([]);
     setSteamTotal(null);
     setSteamNewsCount(0);
+    setSteamExhausted(false);
+    steamFallbackRef.current = null;
+    lastSteamPageSizeRef.current = 0;
+    pageInFlightRef.current = false;
     if (steamAppId) {
       setSteamLoading(true);
+      setSteamRssSettled(false);
       const url = steamFeedUrl(steamAppId, language);
       const sourceName = t("game.news.steamFeed");
       void (async () => {
@@ -494,12 +580,17 @@ export default function GameNewsTab({ game }: { game: Game }) {
           // ignore
         } finally {
           setSteamLoading(false);
+          setSteamRssSettled(true);
         }
       })();
     }
   }, [refreshGlobalFeeds, fetchCustomFeeds, steamAppId, language, t]);
 
   const loading = feedsLoading || steamLoading || customLoading || steamResolving;
+  /* While the Steam id is still resolving, or the Web API fallback is on its
+   * way, an empty merge is not "no news" — keep the skeleton up. */
+  const initialLoading =
+    allMergedArticles.length === 0 && (loading || steamFallbackPending || loadingMore);
   const hasUnread = unreadLinks.size > 0;
   const failed =
     allMergedArticles.length === 0 && feedsError && (steamAppId === null || steamError);
@@ -540,7 +631,7 @@ export default function GameNewsTab({ game }: { game: Game }) {
         />
       }
     >
-      {loading && allMergedArticles.length === 0 ? (
+      {initialLoading ? (
         state.view === "feed" && state.density === "timeline" ? (
           <GameNewsTimelineSkeleton />
         ) : state.view === "feed" && state.density === "list" ? (
@@ -653,15 +744,21 @@ export default function GameNewsTab({ game }: { game: Game }) {
           )}
 
           {hasMore && (
-            <div className="game-news-load-more">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-              >
-                {loadingMore ? t("common.loading") : t("news.loadMore")}
-              </Button>
+            <div className="game-news-load-more" ref={loadMoreRef}>
+              {loadingMore && (
+                <span
+                  className="game-news-load-more-status"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Loader2
+                    size={14}
+                    className="game-news-load-more-spinner"
+                    aria-hidden="true"
+                  />
+                  {t("common.loading")}
+                </span>
+              )}
             </div>
           )}
 

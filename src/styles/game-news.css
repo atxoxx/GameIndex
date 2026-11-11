@@ -745,12 +745,38 @@
   gap: var(--space-md);
 }
 
-/* ── Load More ─────────────────────────────────────────────────────── */
+/* ── Infinite scroll sentinel ──────────────────────────────────────── */
 
 .game-news-load-more {
   display: flex;
+  align-items: center;
   justify-content: center;
+  min-height: var(--space-lg);
   margin-top: var(--space-lg);
+}
+
+.game-news-load-more-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.game-news-load-more-spinner {
+  animation: game-news-spin 900ms linear infinite;
+}
+
+@keyframes game-news-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-news-load-more-spinner {
+    animation: none;
+  }
 }
 
 /* ── Footer ────────────────────────────────────────────────────────── */
