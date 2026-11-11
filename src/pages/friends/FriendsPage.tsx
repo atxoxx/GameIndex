@@ -338,6 +338,7 @@ export default function FriendsPage() {
             totalFriends={acceptedFriends.length}
             inGameCount={inGameCount}
             syncPhase={controller.syncStatus.phase}
+            manualSync={controller.syncStatus.manualSync}
             pendingPublish={controller.pendingPublish}
             lastSyncedTime={controller.lastSyncedTime}
             lastSyncMessage={controller.lastSyncMessage}

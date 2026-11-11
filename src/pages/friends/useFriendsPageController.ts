@@ -422,10 +422,31 @@ export function useFriendsPageController() {
   );
 
   const lastSyncMessage = useMemo(() => {
-    if (status.lastError) return t("friendsPage.syncFailed", { reason: status.lastError });
-    if (status.lastSyncedAt) return t("friendsPage.upToDatePublished");
-    return "";
-  }, [status.lastError, status.lastSyncedAt, t]);
+    if (status.manualSync === "running") return t("friendsPage.syncStateRunning");
+    if (status.pendingPublish > 0) return t("friendsPage.syncStatePending");
+
+    const relays = Object.values(status.relayStatus);
+    const accepted = relays.filter((value) => value === "accepted").length;
+    const failed = relays.filter((value) => value === "failed").length;
+
+    // "2 of 5 relays did not answer" says more than a bare "partly connected".
+    if (failed > 0 && accepted > 0) {
+      return t("friendsPage.syncStateRelaysUnanswered", { down: failed, total: relays.length });
+    }
+    if (status.manualSync === "failed") return t("friendsPage.syncStateFailed");
+    if (status.phase === "offline") return t("friendsPage.syncStateOffline");
+    if (!status.lastSyncedAt && status.phase === "idle" && status.manualSync === "idle") {
+      return t("friendsPage.syncStateNever");
+    }
+    return t("friendsPage.syncStateUpToDate");
+  }, [
+    status.manualSync,
+    status.pendingPublish,
+    status.relayStatus,
+    status.phase,
+    status.lastSyncedAt,
+    t,
+  ]);
 
   // ── Consent / invitations ───────────────────────────────────────────
 

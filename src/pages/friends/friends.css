@@ -294,7 +294,8 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 70;
-  width: 320px;
+  width: 340px;
+  max-width: min(340px, calc(100vw - var(--space-xl)));
   padding: var(--space-md);
   display: flex;
   flex-direction: column;
@@ -335,6 +336,10 @@
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
+}
+
+.friends-sync__subtitle {
+  overflow-wrap: anywhere;
 }
 
 .friends-sync__popover-icon {
@@ -395,23 +400,27 @@
 }
 
 .friends-sync__actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-xs);
+  width: 100%;
 }
 
 .friends-sync__action {
-  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
+  min-width: 0;
   height: 32px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text-primary);
   font-family: inherit;
   font-size: var(--text-xs);
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -419,6 +428,10 @@
   border-color: transparent;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+}
+
+.friends-sync__action.is-secondary {
+  flex: 0 0 auto;
 }
 
 .friends-sync__action:disabled {
@@ -1978,9 +1991,10 @@
 .friends-digest__item {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   width: 100%;
-  padding: var(--space-xs) var(--space-sm);
+  min-width: 0;
+  padding: var(--space-sm);
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -2022,6 +2036,44 @@
   color: var(--color-accent);
 }
 
+/* Avatar wrapper: the friend's face plus a small badge naming the kind. */
+.friends-digest__media {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.friends-digest__kind {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-surface);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.friends-digest__kind.is-message {
+  color: var(--color-info);
+}
+
+.friends-digest__kind.is-session {
+  color: var(--color-warning);
+}
+
+.friends-digest__kind.is-recommendation {
+  color: var(--color-success);
+}
+
+.friends-digest__kind.is-suggestion {
+  color: var(--color-accent);
+}
+
 .friends-digest__body {
   display: flex;
   flex-direction: column;
@@ -2046,9 +2098,18 @@
   white-space: nowrap;
 }
 
+.friends-digest__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  flex: 0 0 auto;
+  color: var(--color-text-tertiary);
+}
+
 .friends-digest__time {
   font-size: var(--text-xs);
   color: var(--color-text-tertiary);
+  white-space: nowrap;
 }
 
 .friends-digest__all {
@@ -5583,6 +5644,14 @@
 
 .friends-modal-box.friends-sync-modal {
   max-width: 580px;
+  max-height: min(85dvh, 680px);
+}
+
+/* The dialog is taller than most windows: only the body may scroll, so the
+   title and the close button never slide out of reach. */
+.friends-sync-modal .friends-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .friends-modal-box.friends-circles-modal {
@@ -6300,16 +6369,19 @@ textarea.profile-input {
   background: var(--color-text-muted);
 }
 
+/* A relay only turns green once it accepted something this pass. */
+.nostr-relay-dot.is-accepted,
 .nostr-relay-dot.online {
   background: var(--color-success);
 }
 
-/* Relay answered the last publish attempt. */
+.nostr-relay-dot.is-failed,
 .nostr-relay-dot.failed {
   background: var(--color-danger);
 }
 
-/* Explicit muted state; same as the base dot, kept for symmetry. */
+/* Not contacted yet; same muted dot as the base state. */
+.nostr-relay-dot.is-idle,
 .nostr-relay-dot.offline {
   background: var(--color-text-muted);
 }
@@ -6324,24 +6396,41 @@ textarea.profile-input {
   white-space: nowrap;
 }
 
-/* Base = "not checked yet" (muted); modifiers match the dot states so a
+/* Base = "not contacted yet" (muted); modifiers match the dot states so a
    failed relay never reads as green. */
 .nostr-relay-status {
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
+.nostr-relay-status.is-accepted,
 .nostr-relay-status.online {
   color: var(--color-success);
 }
 
+.nostr-relay-status.is-failed,
 .nostr-relay-status.failed {
   color: var(--color-danger);
+}
+
+.nostr-relay-status.is-idle {
+  color: var(--color-text-muted);
 }
 
 .nostr-relay-status,
 .nostr-relay-dot {
   flex-shrink: 0;
+}
+
+.sync-relay-summary {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.sync-relay-summary.is-none {
+  color: var(--color-danger);
 }
 
 /* Labelled scope control: heading + segmented radio group. */
@@ -7631,29 +7720,73 @@ textarea.profile-input {
 .sync-peer-main {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4xs);
   flex: 1;
+  min-width: 0;
+}
+
+.sync-peer-name-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
   min-width: 0;
 }
 
 .sync-peer-name {
   font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sync-peer-presence {
+/* Only shown when two friends share a display name. */
+.sync-peer-suffix {
+  flex: 0 0 auto;
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+}
+
+.sync-peer-state {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 17px;
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sync-peer-state.is-online {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.sync-peer-state.is-offline {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-hover);
+}
+
+.sync-peer-meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2xs);
+  min-width: 0;
   font-size: var(--text-2xs);
   color: var(--color-text-muted);
 }
 
-.sync-peer-presence.is-online {
-  color: var(--color-success);
+.sync-peer-playing {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-accent);
 }
 
 .sync-peer-sep {
@@ -7663,16 +7796,28 @@ textarea.profile-input {
 }
 
 .sync-peer-delivery {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  height: 19px;
+  padding: 0 var(--space-2xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   font-size: var(--text-2xs);
   font-weight: 600;
+  white-space: nowrap;
   color: var(--color-text-muted);
+  cursor: help;
 }
 
 .sync-peer-delivery.is-delivered {
   color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
 }
 
 .sync-peer-delivery.is-seen {
   color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
 }

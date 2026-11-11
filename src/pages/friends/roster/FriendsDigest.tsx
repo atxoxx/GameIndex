@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import { visibleMessages } from "../../friendsStorage";
+import { displayName, visibleMessages } from "../../friendsStorage";
 import type {
   DmThread,
   Friend,
@@ -26,6 +26,7 @@ import type {
 } from "../friendsTypes";
 import type { FriendsTabKey } from "../friendsTypes";
 import { formatLastSeen } from "../friendsUtils";
+import { FriendAvatar } from "../shared/FriendAvatar";
 
 interface FriendsDigestProps {
   friends: Friend[];
@@ -41,13 +42,56 @@ interface FriendsDigestProps {
   onNavigate: (tab: FriendsTabKey) => void;
 }
 
+type DigestKind = "message" | "session" | "recommendation" | "suggestion";
+
 interface DigestItem {
   id: string;
-  kind: "message" | "session" | "recommendation" | "suggestion";
+  kind: DigestKind;
+  /** Friend behind the row, so a share shows their face instead of an icon. */
+  author?: string;
   title: string;
   detail?: string;
   timestamp: number;
   action: FriendsTabKey;
+}
+
+/** How many rows the card shows before it stops being a summary. */
+const MAX_DIGEST_ROWS = 5;
+/** Games named in a grouped row before the rest collapse into "+N". */
+const MAX_NAMED_GAMES = 3;
+
+/** Buckets shares by author and keeps each bucket newest-first. */
+function groupByAuthor<T>(
+  items: T[],
+  authorOf: (item: T) => string,
+  timeOf: (item: T) => number
+): { author: string; items: T[]; timestamp: number }[] {
+  const buckets = new Map<string, T[]>();
+  items.forEach((item) => {
+    const author = authorOf(item);
+    const bucket = buckets.get(author);
+    if (bucket) bucket.push(item);
+    else buckets.set(author, [item]);
+  });
+
+  return [...buckets.entries()].map(([author, bucket]) => {
+    const sorted = [...bucket].sort((a, b) => timeOf(b) - timeOf(a));
+    return {
+      author,
+      items: sorted,
+      timestamp: Math.max(...sorted.map(timeOf)),
+    };
+  });
+}
+
+/** "Hades · Celeste · Tunic +2" — enough names to be useful, never a wall. */
+function summarizeGames(
+  names: string[],
+  t: (key: string, vars?: Record<string, unknown>) => string
+): string {
+  const shown = names.slice(0, MAX_NAMED_GAMES).join(" · ");
+  const extra = names.length - MAX_NAMED_GAMES;
+  return extra > 0 ? `${shown} ${t("friendsPage.digest.moreGames", { count: extra })}` : shown;
 }
 
 export function FriendsDigest({
@@ -83,6 +127,16 @@ export function FriendsDigest({
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
   }, [sessions]);
 
+  const friendsByName = useMemo(() => {
+    const map = new Map<string, Friend>();
+    friends.forEach((friend) => {
+      map.set(friend.name, friend);
+      const label = displayName(friend);
+      if (!map.has(label)) map.set(label, friend);
+    });
+    return map;
+  }, [friends]);
+
   const items = useMemo<DigestItem[]>(() => {
     const now = Date.now();
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
@@ -99,6 +153,7 @@ export function FriendsDigest({
       list.push({
         id: `dm_${thread.id}`,
         kind: "message",
+        author: last.author,
         title: t("friendsPage.digest.newMessages", { name: last.author, count: unread.length }),
         detail: last.text,
         timestamp: last.timestamp,
@@ -112,6 +167,7 @@ export function FriendsDigest({
       list.push({
         id: `session_${session.id}`,
         kind: "session",
+        author: session.creatorName,
         title: t("friendsPage.digest.newSession", { name: session.creatorName, game: session.gameName }),
         detail: new Date(session.scheduledAt).toLocaleString(undefined, {
           weekday: "short",
@@ -123,39 +179,63 @@ export function FriendsDigest({
       });
     });
 
-    recommendations.forEach((rec) => {
-      if (rec.deleted || rec.recommendedBy === profile.name) return;
-      if ((rec.updatedAt || rec.createdAt || 0) < weekAgo) return;
+    // A friend who shared five wishlist games is one piece of news, not five.
+    const recentRecommendations = recommendations.filter(
+      (rec) =>
+        !rec.deleted &&
+        rec.recommendedBy !== profile.name &&
+        (rec.updatedAt || rec.createdAt || 0) >= weekAgo
+    );
+    groupByAuthor(
+      recentRecommendations,
+      (rec) => rec.recommendedBy,
+      (rec) => rec.updatedAt || rec.createdAt || now
+    ).forEach(({ author, items: group, timestamp }) => {
+      const names = group.map((rec) => rec.gameName);
       list.push({
-        id: `rec_${rec.id}`,
+        id: `rec_${author}`,
         kind: "recommendation",
-        title: t("friendsPage.digest.newRecommendation", { name: rec.recommendedBy, game: rec.gameName }),
-        detail: rec.reason,
-        timestamp: rec.updatedAt || rec.createdAt || now,
+        author,
+        title:
+          group.length > 1
+            ? t("friendsPage.digest.recommendationGroup", { name: author, count: group.length })
+            : t("friendsPage.digest.newRecommendation", { name: author, game: names[0] }),
+        detail: group.length > 1 ? summarizeGames(names, t) : group[0].reason || summarizeGames(names, t),
+        timestamp,
         action: "recs",
       });
     });
 
-    suggestions.forEach((suggestion) => {
-      if (suggestion.deleted || suggestion.suggestedBy === profile.name) return;
-      if ((suggestion.updatedAt || suggestion.createdAt || 0) < weekAgo) return;
+    const recentSuggestions = suggestions.filter(
+      (suggestion) =>
+        !suggestion.deleted &&
+        suggestion.suggestedBy !== profile.name &&
+        (suggestion.updatedAt || suggestion.createdAt || 0) >= weekAgo
+    );
+    groupByAuthor(
+      recentSuggestions,
+      (suggestion) => suggestion.suggestedBy,
+      (suggestion) => suggestion.updatedAt || suggestion.createdAt || now
+    ).forEach(({ author, items: group, timestamp }) => {
+      const names = group.map((suggestion) => suggestion.gameName);
       list.push({
-        id: `sug_${suggestion.id}`,
+        id: `sug_${author}`,
         kind: "suggestion",
-        title: t("friendsPage.digest.newSuggestion", {
-          name: suggestion.suggestedBy,
-          game: suggestion.gameName,
-        }),
-        detail: suggestion.note,
-        timestamp: suggestion.updatedAt || suggestion.createdAt || now,
+        author,
+        title:
+          group.length > 1
+            ? t("friendsPage.digest.wishlistGroup", { name: author, count: group.length })
+            : t("friendsPage.digest.newSuggestion", { name: author, game: names[0] }),
+        detail: group.length > 1 ? summarizeGames(names, t) : group[0].note || summarizeGames(names, t),
+        timestamp,
         action: "suggestions",
       });
     });
 
-    return list.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
+    return list.sort((a, b) => b.timestamp - a.timestamp).slice(0, MAX_DIGEST_ROWS);
   }, [dms, sessions, recommendations, suggestions, profile.name, t]);
 
-  const iconFor = (kind: DigestItem["kind"]) => {
+  const iconFor = (kind: DigestKind) => {
     if (kind === "message") return <MessageCircle size={14} aria-hidden="true" />;
     if (kind === "session") return <CalendarClock size={14} aria-hidden="true" />;
     if (kind === "recommendation") return <ThumbsUp size={14} aria-hidden="true" />;
@@ -255,24 +335,42 @@ export function FriendsDigest({
         </div>
       ) : (
         <div className="friends-digest__list">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`friends-digest__item is-${item.kind}`}
-              onClick={() => onNavigate(item.action)}
-            >
-              <span className="friends-digest__icon" aria-hidden="true">
-                {iconFor(item.kind)}
-              </span>
-              <span className="friends-digest__body">
-                <span className="friends-digest__title">{item.title}</span>
-                {item.detail && <span className="friends-digest__detail">{item.detail}</span>}
-                <span className="friends-digest__time">{formatLastSeen(Math.floor(item.timestamp / 1000), t)}</span>
-              </span>
-              <ChevronRight size={15} aria-hidden="true" />
-            </button>
-          ))}
+          {items.map((item) => {
+            const authorFriend = item.author ? friendsByName.get(item.author) : undefined;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`friends-digest__item is-${item.kind}`}
+                onClick={() => onNavigate(item.action)}
+              >
+                <span className="friends-digest__media">
+                  {item.author ? (
+                    <FriendAvatar friend={authorFriend} name={item.author} size="sm" />
+                  ) : (
+                    <span className="friends-digest__icon" aria-hidden="true">
+                      {iconFor(item.kind)}
+                    </span>
+                  )}
+                  {item.author && (
+                    <span className={`friends-digest__kind is-${item.kind}`} aria-hidden="true">
+                      {iconFor(item.kind)}
+                    </span>
+                  )}
+                </span>
+                <span className="friends-digest__body">
+                  <span className="friends-digest__title">{item.title}</span>
+                  {item.detail && <span className="friends-digest__detail">{item.detail}</span>}
+                </span>
+                <span className="friends-digest__meta">
+                  <span className="friends-digest__time">
+                    {formatLastSeen(Math.floor(item.timestamp / 1000), t)}
+                  </span>
+                  <ChevronRight size={15} aria-hidden="true" />
+                </span>
+              </button>
+            );
+          })}
           <button type="button" className="friends-digest__all" onClick={() => onNavigate("activity")}>
             {t("friendsPage.digest.viewActivity")}
             <ArrowRight size={14} aria-hidden="true" />

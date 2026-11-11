@@ -1,6 +1,6 @@
 import { CalendarPlus, Check, Gamepad2, Pencil, Tag, UserPlus, Users, X } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import type { FriendsSyncPhase } from "../../../sync/friends/engine";
+import type { FriendsSyncPhase, ManualSyncState } from "../../../sync/friends/engine";
 import type { FriendInvitation, UserProfile } from "../friendsTypes";
 import { FriendAvatar } from "./FriendAvatar";
 import { SyncStatusChip } from "./SyncStatusChip";
@@ -12,6 +12,7 @@ interface FriendsCockpitProps {
   totalFriends: number;
   inGameCount: number;
   syncPhase: FriendsSyncPhase;
+  manualSync?: ManualSyncState;
   pendingPublish?: number;
   lastSyncedTime: string;
   lastSyncMessage?: string;
@@ -42,6 +43,7 @@ export function FriendsCockpit({
   totalFriends,
   inGameCount,
   syncPhase,
+  manualSync,
   pendingPublish = 0,
   lastSyncedTime,
   lastSyncMessage,
@@ -150,6 +152,7 @@ export function FriendsCockpit({
         </button>
         <SyncStatusChip
           phase={syncPhase}
+          manualSync={manualSync}
           pendingPublish={pendingPublish}
           lastSyncedTime={lastSyncedTime}
           lastMessage={lastSyncMessage}
