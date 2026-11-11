@@ -58,7 +58,6 @@ rquickjs = "0.9"
 # Pinned to 0.41 (RUSTSEC-2026-0194/0195 fixes) — also the version
 # librqbit-upnp 9.x resolves to, so the graph keeps one quick-xml.
 quick-xml = "0.41"
-aes-gcm = "0.10"
 chrono = { version = "0.4", features = ["clock"] }
 urlencoding = "2"
 unicode-normalization = "0.1"
@@ -190,7 +189,6 @@ serde_yaml = "0.9"
 #   alternative to the hard disable — a small cap keeps tit-for-tat peers
 #   unchoking us while practically stopping the transfer.
 librqbit = { version = "9", default-features = false, features = ["default-tls", "disable-upload"] }
-igd-next = "0.17"
 # Magnet URI parsing — extract the info-hash, trackers, and
 # exact-topic fields without rolling our own URI parser.
 url = "2"

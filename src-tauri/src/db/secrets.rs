@@ -18,6 +18,7 @@
 //! - `steam_config`
 //! - `debrid_api_key` (written by the frontend via
 //!   `download_set_debrid_key` — see `downloads/mod.rs`)
+//! - `friends_nostr_privkey` (friends-sync signing key — see `friends.rs`)
 //!
 //! The service name is `gamelib/gamelib-app` (kept as-is to keep
 //! existing OS-keychain credentials accessible after the rename to
@@ -35,6 +36,13 @@ pub const SERVICE_FOR_DIAGNOSTICS: &str = SERVICE;
 /// Keychain account holding the debrid provider API key. Consumed by
 /// `download_get_debrid_key` / `download_set_debrid_key` (downloads/mod.rs).
 pub const DEBRID_API_KEY_ACCOUNT: &str = "debrid_api_key";
+
+/// Keychain account holding the friends-sync Nostr signing key (32-byte
+/// secp256k1 secret, 64 lowercase hex chars). Consumed by
+/// `get_friends_nostr_privkey` / `set_friends_nostr_privkey` (friends.rs);
+/// it used to live in SQLite `kv_store` in plaintext and is migrated here
+/// on first read.
+pub const FRIENDS_NOSTR_PRIVKEY_ACCOUNT: &str = "friends_nostr_privkey";
 
 /// One-stop wrapper. Cloning is cheap (only holds a `&str`).
 #[derive(Clone)]

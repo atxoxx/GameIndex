@@ -1,162 +1,160 @@
-//! Friends sync (local shared-file P2P) + internet sync loop.
+//! Friends sync — local pieces only.
+//!
+//! The transport is encrypted Nostr relays, driven entirely from the
+//! frontend. Earlier versions opened a raw TCP listener, mapped a port with
+//! UPnP and published the resulting address to a public key/value service;
+//! all of that is gone (it exposed the user's IP and ran unauthenticated
+//! peer-to-peer transfer). The shared sync folder under `<app_data_dir>/sync`
+//! and the commands that read and wrote it are gone too, for the same reason:
+//! relay transport replaced it.
+//!
+//! What stays in Rust:
+//!
+//! - the signing identity (secp256k1 private key, kept in the OS keychain),
+//! - the friends database file (`<app_data_dir>/friends_db/database.json`).
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::OnceLock;
-use std::time::SystemTime;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
+
 use crate::db;
+use crate::db::secrets::{SecretStore, FRIENDS_NOSTR_PRIVKEY_ACCOUNT};
 
-const FRIENDS_SYNC_FILE_NAME: &str = "gamelib-friends.json";
+/// kv_store key that used to hold the signing key in plaintext. Only read
+/// for the one-shot migration into the OS keychain, then deleted.
+const LEGACY_PRIVKEY_KV_KEY: &str = "friends_nostr_privkey";
 
-fn sanitize_segment(s: &str) -> String {
-    s.chars()
-        .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
-        .collect()
+/// True for a 32-byte secp256k1 secret key written as 64 lowercase hex
+/// characters — the shape the frontend mints and the shape we accept.
+fn is_valid_privkey_hex(s: &str) -> bool {
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
-fn ensure_device_id(app: &tauri::AppHandle) -> Result<String, String> {
-    let db = app.state::<db::Db>();
-    if let Ok(Some(id)) = db::kv::get(&db, "friends_device_id") {
-        return Ok(id);
+/// Where the signing identity came from, and what the caller must do about
+/// it. Kept pure so the migration rules are testable without touching the
+/// OS keychain.
+#[derive(Debug, PartialEq, Eq)]
+enum IdentityResolution {
+    /// The keychain already holds the key. `clear_legacy` is set when an
+    /// obsolete plaintext copy is still sitting in kv_store.
+    Keychain { value: String, clear_legacy: bool },
+    /// Only the legacy plaintext row exists: write it to the keychain,
+    /// verify the read-back, then delete the row.
+    Legacy { value: String },
+    /// Neither store has a usable key. The frontend may mint a new identity.
+    Missing,
+}
+
+/// Decide what the identity commands should do.
+///
+/// A keychain error is propagated — never folded into `Missing` — because the
+/// frontend mints a fresh identity when it sees "no key", which would orphan
+/// the user's existing friend code.
+fn resolve_identity(
+    keychain: Result<Option<String>, String>,
+    legacy: Option<String>,
+) -> Result<IdentityResolution, String> {
+    let legacy = legacy.filter(|v| is_valid_privkey_hex(v));
+    let keychain_value = keychain?.filter(|v| !v.trim().is_empty());
+
+    match keychain_value {
+        Some(value) => {
+            if !is_valid_privkey_hex(&value) {
+                return Err(
+                    "stored friends identity in the OS keychain is not a 64-character hex key"
+                        .to_string(),
+                );
+            }
+            Ok(IdentityResolution::Keychain {
+                clear_legacy: legacy.is_some(),
+                value,
+            })
+        }
+        None => Ok(match legacy {
+            Some(value) => IdentityResolution::Legacy { value },
+            None => IdentityResolution::Missing,
+        }),
     }
-    let random_id = format!("device_{}_{:04x}", 
-        SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
-        rand::random::<u16>()
-    );
-    if let Err(e) = db::kv::set(&db, "friends_device_id", &random_id) {
-        return Err(e);
-    }
-    Ok(random_id)
 }
 
-#[tauri::command]
-pub fn get_friends_device_id(app: tauri::AppHandle) -> Result<String, String> {
-    ensure_device_id(&app)
-}
-
-/// Reads the Nostr signing key from the SQLite kv_store (the repo's
-/// standard secret location — the OS keychain's Windows backend silently
-/// fails). Returns `None` when no key has been generated yet.
+/// Read the Nostr signing key from the OS keychain.
+///
+/// `Ok(None)` means "no identity yet" and the frontend may mint one.
+/// `Err` means the keychain could not be consulted (locked, unavailable,
+/// corrupt entry) — the frontend must show an error instead of minting,
+/// otherwise the existing friend code is lost.
+///
+/// Legacy installations kept the key in the SQLite `kv_store`; when only
+/// that copy is present it is moved into the keychain, verified with a
+/// read-back, and the plaintext row is deleted.
 #[tauri::command]
 pub fn get_friends_nostr_privkey(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let db = app.state::<db::Db>();
-    db::kv::get(&db, "friends_nostr_privkey")
+    let store = SecretStore::new();
+    let keychain = store.get(FRIENDS_NOSTR_PRIVKEY_ACCOUNT);
+    let legacy = db::kv::get(&db, LEGACY_PRIVKEY_KV_KEY)?;
+
+    match resolve_identity(keychain, legacy)? {
+        IdentityResolution::Keychain {
+            value,
+            clear_legacy,
+        } => {
+            if clear_legacy {
+                // Best effort: the key is already served, so a failed cleanup
+                // must not turn a successful read into an error.
+                if let Err(e) = db::kv::delete(&db, LEGACY_PRIVKEY_KV_KEY) {
+                    eprintln!("[gameindex] friends identity: legacy kv cleanup failed: {e}");
+                }
+            }
+            Ok(Some(value))
+        }
+        IdentityResolution::Legacy { value } => {
+            store.set(FRIENDS_NOSTR_PRIVKEY_ACCOUNT, &value)?;
+            let readback = store.get(FRIENDS_NOSTR_PRIVKEY_ACCOUNT)?;
+            if readback.as_deref() != Some(value.as_str()) {
+                return Err("friends nostr key keychain write failed verification".to_string());
+            }
+            db::kv::delete(&db, LEGACY_PRIVKEY_KV_KEY)?;
+            Ok(Some(value))
+        }
+        IdentityResolution::Missing => Ok(None),
+    }
 }
 
-/// Persists the Nostr signing key to the SQLite kv_store, verifying the
-/// write with a readback so a silent persistence failure is never mistaken
-/// for success (mirrors the epic/gog token pattern).
+/// Persist the Nostr signing key in the OS keychain.
+///
+/// The value must be 64 lowercase hex characters. It is written, read back to
+/// prove it reached the keystore, and any legacy plaintext `kv_store` row is
+/// removed. If the deletion fails the command errors so the caller retries;
+/// the next `get_friends_nostr_privkey` also retries the cleanup.
 #[tauri::command]
 pub fn set_friends_nostr_privkey(app: tauri::AppHandle, hex: String) -> Result<(), String> {
-    let db = app.state::<db::Db>();
-    db::kv::set(&db, "friends_nostr_privkey", &hex)?;
-    let stored = db::kv::get(&db, "friends_nostr_privkey")?;
-    if stored.as_deref() != Some(hex.as_str()) {
-        return Err("friends nostr key write failed verification".to_string());
+    if !is_valid_privkey_hex(&hex) {
+        return Err("friends nostr key must be 64 lowercase hex characters".to_string());
     }
+
+    let store = SecretStore::new();
+    store.set(FRIENDS_NOSTR_PRIVKEY_ACCOUNT, &hex)?;
+    let readback = store.get(FRIENDS_NOSTR_PRIVKEY_ACCOUNT)?;
+    if readback.as_deref() != Some(hex.as_str()) {
+        return Err("friends nostr key keychain write failed verification".to_string());
+    }
+
+    let db = app.state::<db::Db>();
+    db::kv::delete(&db, LEGACY_PRIVKEY_KV_KEY)?;
     Ok(())
 }
 
-/// The sync root is always `<app_data_dir>/sync`, right beside the DB.
-fn friends_sync_root(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(app_data.join("sync"))
-}
-
-#[tauri::command]
-pub fn get_friends_sync_dir(app: tauri::AppHandle) -> Result<String, String> {
-    friends_sync_root(&app).map(|p| p.to_string_lossy().to_string())
-}
-
-/// List peer device ids discovered in the shared sync directory
-/// (every subfolder that contains our outbox file, excluding our own).
-#[tauri::command]
-pub fn list_friend_outboxes(app: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let root = friends_sync_root(&app)?;
-    let my_id = ensure_device_id(&app).ok();
-    if !root.exists() {
-        return Ok(Vec::new());
-    }
-    let mut out = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&root) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if !p.is_dir() {
-                continue;
-            }
-            let candidate = p.join(FRIENDS_SYNC_FILE_NAME);
-            if !candidate.exists() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().to_string();
-            if Some(&name) == my_id.as_ref() {
-                continue;
-            }
-            out.push(name);
-        }
-    }
-    Ok(out)
-}
-
-/// Publish our outbox into `<syncRoot>/<deviceId>/gamelib-friends.json`.
-/// Creates the subfolder if needed. Writes atomically (tmp + rename).
-#[tauri::command]
-pub fn write_sync_file(app: tauri::AppHandle, content: String) -> Result<(), String> {
-    let root = friends_sync_root(&app)?;
-    let device_id = ensure_device_id(&app)?;
-    let folder = root.join(sanitize_segment(&device_id));
-    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let file_path = folder.join(FRIENDS_SYNC_FILE_NAME);
-    let tmp_path = folder.join(format!("{}.tmp", FRIENDS_SYNC_FILE_NAME));
-    std::fs::write(&tmp_path, content.as_bytes()).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp_path, &file_path).map_err(|e| e.to_string())
-}
-
-/// Read a peer's outbox from `<syncRoot>/<peerId>/gamelib-friends.json`.
-#[tauri::command]
-pub fn read_sync_file(app: tauri::AppHandle, peer_id: String) -> Result<Option<String>, String> {
-    let root = friends_sync_root(&app)?;
-    let folder = root.join(sanitize_segment(&peer_id));
-    let file_path = folder.join(FRIENDS_SYNC_FILE_NAME);
-    if file_path.exists() {
-        let content = std::fs::read_to_string(file_path).map_err(|e| e.to_string())?;
-        return Ok(Some(content));
-    }
-
-    // Fallback: search subfolders if peer_id was a syncId (e.g. Nostr pubkey) but
-    // the outbox was saved under a device_id directory.
-    if root.exists() {
-        if let Ok(entries) = std::fs::read_dir(&root) {
-            for entry in entries.flatten() {
-                let candidate = entry.path().join(FRIENDS_SYNC_FILE_NAME);
-                if candidate.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&candidate) {
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                            let match_id = val.get("syncId")
-                                .or_else(|| val.get("profile").and_then(|p| p.get("syncId")))
-                                .and_then(|s| s.as_str());
-                            if match_id == Some(&peer_id) {
-                                return Ok(Some(content));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(None)
-}
-
-// ── P2P Friends Sync Commands ────────────────────────────────────────
+// ── Friends database file ────────────────────────────────────────────
 
 fn load_friends_db_internal(app: &tauri::AppHandle) -> Result<String, String> {
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_dir = app_data.join("friends_db");
     let db_path = db_dir.join("database.json");
     if !db_path.exists() {
-        return Ok("{\"profile\":null,\"friends\":[],\"sessions\":[],\"recommendations\":[]}".to_string());
+        return Ok(
+            "{\"profile\":null,\"friends\":[],\"sessions\":[],\"recommendations\":[]}".to_string(),
+        );
     }
     std::fs::read_to_string(db_path).map_err(|e| e.to_string())
 }
@@ -177,500 +175,93 @@ pub fn save_friends_db(app: tauri::AppHandle, content: String) -> Result<(), Str
     std::fs::rename(&tmp_path, &file_path).map_err(|e| e.to_string())
 }
 
-async fn write_framed_string<S: tokio::io::AsyncWrite + Unpin>(stream: &mut S, data: &str) -> std::io::Result<()> {
-    use tokio::io::AsyncWriteExt;
-    let bytes = data.as_bytes();
-    let len = bytes.len() as u32;
-    stream.write_all(&len.to_be_bytes()).await?;
-    stream.write_all(bytes).await?;
-    stream.flush().await?;
-    Ok(())
-}
-
-async fn read_framed_string<S: tokio::io::AsyncRead + Unpin>(stream: &mut S) -> std::io::Result<String> {
-    use tokio::io::AsyncReadExt;
-    let mut len_bytes = [0u8; 4];
-    stream.read_exact(&mut len_bytes).await?;
-    let len = u32::from_be_bytes(len_bytes) as usize;
-    if len > 50 * 1024 * 1024 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "Incoming P2P sync payload exceeds 50MB limit",
-        ));
-    }
-    let mut buf = vec![0u8; len];
-    stream.read_exact(&mut buf).await?;
-    let s = String::from_utf8(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-    Ok(s)
-}
-
-// ── Internet Sync (Automatic P2P sync via KV discovery) ──────────────
-
-pub struct InternetSyncState {
-    pub bound_port: std::sync::Mutex<Option<u16>>,
-    pub external_ip: std::sync::Mutex<Option<String>>,
-    pub upnp_mapped: std::sync::Mutex<bool>,
-    pub last_synced_times: std::sync::Mutex<HashMap<String, u64>>,
-    pub error_message: std::sync::Mutex<Option<String>>,
-}
-
-static INTERNET_SYNC_STATE: OnceLock<Arc<InternetSyncState>> = OnceLock::new();
-
-pub(crate) fn init_internet_sync() -> Arc<InternetSyncState> {
-    let state = Arc::new(InternetSyncState {
-        bound_port: std::sync::Mutex::new(None),
-        external_ip: std::sync::Mutex::new(None),
-        upnp_mapped: std::sync::Mutex::new(false),
-        last_synced_times: std::sync::Mutex::new(HashMap::new()),
-        error_message: std::sync::Mutex::new(None),
-    });
-    let _ = INTERNET_SYNC_STATE.set(state.clone());
-    state
-}
-
-async fn fetch_external_ip() -> Option<String> {
-    use std::str::FromStr;
-    let urls = vec![
-        "https://api.ipify.org",
-        "https://icanhazip.com",
-        "https://ident.me",
-    ];
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .ok()?;
-
-    for url in urls {
-        if let Ok(resp) = client.get(url).send().await {
-            if let Ok(text) = resp.text().await {
-                let cleaned = text.trim().to_string();
-                if std::net::IpAddr::from_str(&cleaned).is_ok() {
-                    return Some(cleaned);
-                }
-            }
-        }
-    }
-    None
-}
-
-async fn map_port_upnp(local_ip: std::net::IpAddr, port: u16) -> bool {
-    let local_addr = std::net::SocketAddr::new(local_ip, port);
-    
-    let res = tokio::task::spawn_blocking(move || {
-        let opts = igd_next::SearchOptions {
-            bind_addr: std::net::SocketAddr::new(local_ip, 0),
-            timeout: Some(std::time::Duration::from_secs(5)),
-            ..Default::default()
-        };
-        match igd_next::search_gateway(opts) {
-            Ok(gateway) => {
-                match gateway.add_port(
-                    igd_next::PortMappingProtocol::TCP,
-                    port,
-                    local_addr,
-                    0,
-                    "GameLib Internet Sync",
-                ) {
-                    Ok(_) => {
-                        println!("[gameindex] UPnP: successfully mapped port {} to {}", port, local_addr);
-                        true
-                    }
-                    Err(e) => {
-                        eprintln!("[gameindex] UPnP: failed to map port: {}", e);
-                        false
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("[gameindex] UPnP: gateway search failed: {}", e);
-                false
-            }
-        }
-    }).await;
-    
-    res.unwrap_or(false)
-}
-
-fn get_local_ip_internal() -> Option<std::net::IpAddr> {
-    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
-    socket.connect("8.8.8.8:80").ok()?;
-    let local_addr = socket.local_addr().ok()?;
-    Some(local_addr.ip())
-}
-
-const KV_APP_KEY: &str = "gamelib_v1_p2p_sync";
-
-async fn publish_address_to_kv(sync_id: &str, address: &str) -> Result<(), String> {
-    let sanitized_address = address.replace('.', "_").replace(':', "-");
-    let url = format!(
-        "https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/{}/{}/{}",
-        KV_APP_KEY,
-        urlencoding::encode(sync_id),
-        urlencoding::encode(&sanitized_address)
-    );
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let resp = client.post(&url)
-        .header("Content-Length", "0")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if resp.status().is_success() {
-        Ok(())
-    } else {
-        Err(format!("HTTP status {}", resp.status()))
-    }
-}
-
-async fn fetch_address_from_kv(sync_id: &str) -> Option<String> {
-    let url = format!(
-        "https://keyvalue.immanuel.co/api/KeyVal/GetValue/{}/{}",
-        KV_APP_KEY,
-        urlencoding::encode(sync_id)
-    );
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .ok()?;
-
-    let resp = client.get(&url).send().await.ok()?;
-    if resp.status().is_success() {
-        if let Ok(text) = resp.text().await {
-            let val = text.trim();
-            if val.is_empty() || val == "null" || val == "\"null\"" {
-                return None;
-            }
-            let cleaned = val.strip_prefix('"').unwrap_or(val).strip_suffix('"').unwrap_or(val);
-            if cleaned.contains('_') || cleaned.contains('-') {
-                return Some(cleaned.replace('_', ".").replace('-', ":"));
-            }
-            if cleaned.contains(':') {
-                return Some(cleaned.to_string());
-            }
-        }
-    }
-    None
-}
-
-#[derive(serde::Deserialize)]
-struct ProfilePayloadShort {
-    #[serde(rename = "syncId", default)]
-    sync_id: String,
-}
-
-#[derive(serde::Deserialize)]
-struct FriendPayloadShort {
-    #[serde(rename = "syncId", default)]
-    sync_id: String,
-}
-
-#[derive(serde::Deserialize)]
-struct DbPayloadShort {
-    #[serde(default)]
-    profile: Option<ProfilePayloadShort>,
-    #[serde(default)]
-    friends: Option<Vec<FriendPayloadShort>>,
-}
-
-fn load_friends_db_payload(app: &tauri::AppHandle) -> Option<DbPayloadShort> {
-    if let Ok(raw) = load_friends_db_internal(app) {
-        if let Ok(payload) = serde_json::from_str::<DbPayloadShort>(&raw) {
-            return Some(payload);
-        }
-    }
-    None
-}
-
-async fn run_tcp_host(app: tauri::AppHandle, state: Arc<InternetSyncState>, listener: tokio::net::TcpListener) {
-    loop {
-        match listener.accept().await {
-            Ok((mut socket, peer_addr)) => {
-                println!("[gameindex] Accepted internet sync connection from {}", peer_addr);
-                let app_clone = app.clone();
-                let state_clone = state.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = handle_inbound_connection(&app_clone, &state_clone, &mut socket).await {
-                        eprintln!("[gameindex] Error handling inbound connection: {}", e);
-                    }
-                });
-            }
-            Err(e) => {
-                eprintln!("[gameindex] TCP listener accept error: {}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
-        }
-    }
-}
-
-async fn handle_inbound_connection(
-    app: &tauri::AppHandle,
-    state: &Arc<InternetSyncState>,
-    socket: &mut tokio::net::TcpStream,
-) -> Result<(), String> {
-    let client_db = read_framed_string(socket).await
-        .map_err(|e| format!("Failed to read client data: {}", e))?;
-
-    let client_sync_id = if let Ok(payload) = serde_json::from_str::<DbPayloadShort>(&client_db) {
-        payload.profile.map(|p| p.sync_id)
-    } else {
-        None
-    };
-
-    let host_db = load_friends_db_internal(app)?;
-    write_framed_string(socket, &host_db).await
-        .map_err(|e| format!("Failed to send host data: {}", e))?;
-
-    if let Some(ref sync_id) = client_sync_id {
-        let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-        state.last_synced_times.lock().unwrap().insert(sync_id.clone(), now);
-    }
-    
-    app.emit("internet-sync-received", client_db).map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-async fn sync_with_friend(
-    app: &tauri::AppHandle,
-    state: &Arc<InternetSyncState>,
-    friend_sync_id: &str,
-    friend_addr: &str,
-) -> Result<(), String> {
-    use tokio::time::timeout;
-    use std::time::Duration;
-
-    println!("[gameindex] Connecting to friend {} at {}", friend_sync_id, friend_addr);
-    let mut socket = match timeout(Duration::from_secs(8), tokio::net::TcpStream::connect(friend_addr)).await {
-        Ok(Ok(stream)) => stream,
-        Ok(Err(e)) => return Err(format!("TCP connect error: {}", e)),
-        Err(_) => return Err("Connection timed out".to_string()),
-    };
-
-    let our_db = load_friends_db_internal(app)?;
-    write_framed_string(&mut socket, &our_db).await
-        .map_err(|e| format!("Failed to send our database: {}", e))?;
-
-    let remote_db = read_framed_string(&mut socket).await
-        .map_err(|e| format!("Failed to read remote database: {}", e))?;
-
-    let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    state.last_synced_times.lock().unwrap().insert(friend_sync_id.to_string(), now);
-
-    app.emit("internet-sync-received", remote_db).map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-/// True when an internet-sync tick can be skipped: the friends DB has been
-/// read at least once, its file mtime is unchanged since, and internet sync
-/// is known to be unconfigured. This lets an app with sync turned off avoid
-/// reading and parsing the whole DB every 30 s just to rediscover that.
-fn can_skip_sync_tick(
-    have_snapshot: bool,
-    modified: Option<std::time::SystemTime>,
-    last_modified: Option<std::time::SystemTime>,
-    sync_id: &str,
-) -> bool {
-    have_snapshot && modified == last_modified && sync_id.is_empty()
-}
-
-/// mtime of the friends DB file, or `None` when it doesn't exist yet.
-fn friends_db_modified(app: &tauri::AppHandle) -> Option<std::time::SystemTime> {
-    let app_data = app.path().app_data_dir().ok()?;
-    std::fs::metadata(app_data.join("friends_db").join("database.json"))
-        .ok()
-        .and_then(|m| m.modified().ok())
-}
-
-pub(crate) async fn start_internet_sync_loop(app: tauri::AppHandle) {
-    let state = match INTERNET_SYNC_STATE.get() {
-        Some(s) => s.clone(),
-        None => return,
-    };
-    
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-    let mut active_listener: Option<u16> = None;
-
-    // Snapshot of the friends DB used to skip ticks while sync is off.
-    let mut have_snapshot = false;
-    let mut last_modified: Option<std::time::SystemTime> = None;
-    let mut sync_id_seen = String::new();
-
-    // External-IP lookups hit a third-party HTTP service. The address only
-    // changes when the network does, so cache it and re-check at most every
-    // 10 minutes instead of on every 30 s tick.
-    let mut external_ip_cache: Option<(String, std::time::Instant)> = None;
-    const EXTERNAL_IP_TTL: std::time::Duration = std::time::Duration::from_secs(600);
-    
-    loop {
-        interval.tick().await;
-
-        let modified = friends_db_modified(&app);
-        if can_skip_sync_tick(have_snapshot, modified, last_modified, &sync_id_seen) {
-            continue;
-        }
-
-        let db_payload = match load_friends_db_payload(&app) {
-            Some(p) => p,
-            None => continue,
-        };
-
-        have_snapshot = true;
-        last_modified = modified;
-        sync_id_seen = db_payload
-            .profile
-            .as_ref()
-            .map(|p| p.sync_id.clone())
-            .unwrap_or_default();
-
-        let profile = match db_payload.profile {
-            Some(p) => p,
-            None => continue,
-        };
-
-        if profile.sync_id.is_empty() {
-            continue;
-        }
-
-        if active_listener.is_none() {
-            let bind_res = match tokio::net::TcpListener::bind("0.0.0.0:54321").await {
-                Ok(l) => Ok(l),
-                Err(_) => tokio::net::TcpListener::bind("0.0.0.0:0").await,
-            };
-
-            match bind_res {
-                Ok(listener) => {
-                    if let Ok(local_addr) = listener.local_addr() {
-                        let port = local_addr.port();
-                        active_listener = Some(port);
-                        *state.bound_port.lock().unwrap() = Some(port);
-                        println!("[gameindex] Internet sync host listening on port {}", port);
-
-                        let app_clone = app.clone();
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            run_tcp_host(app_clone, state_clone, listener).await;
-                        });
-                    }
-                }
-                Err(e) => {
-                    let err_msg = format!("Failed to start TCP listener: {}", e);
-                    eprintln!("[gameindex] {}", err_msg);
-                    *state.error_message.lock().unwrap() = Some(err_msg);
-                }
-            }
-        }
-
-        if let Some(port) = active_listener {
-            let ip_now = std::time::Instant::now();
-            let cached_ip = match &external_ip_cache {
-                Some((ip, at)) if ip_now.duration_since(*at) < EXTERNAL_IP_TTL => {
-                    Some(ip.clone())
-                }
-                _ => None,
-            };
-            let ext_ip = match cached_ip {
-                Some(ip) => Some(ip),
-                None => match fetch_external_ip().await {
-                    Some(ip) => {
-                        external_ip_cache = Some((ip.clone(), ip_now));
-                        Some(ip)
-                    }
-                    None => None,
-                },
-            };
-            if let Some(ext_ip) = ext_ip {
-                let current_addr = format!("{}:{}", ext_ip, port);
-                let (has_changed, needs_upnp) = {
-                    let last_published = state.external_ip.lock().unwrap();
-                    let changed = last_published.as_ref() != Some(&ext_ip);
-                    let upnp_needed = !*state.upnp_mapped.lock().unwrap();
-                    (changed, upnp_needed)
-                };
-
-                if has_changed || needs_upnp {
-                    {
-                        *state.external_ip.lock().unwrap() = Some(ext_ip.clone());
-                    }
-                    
-                    if let Some(local_ip) = get_local_ip_internal() {
-                        let upnp_ok = map_port_upnp(local_ip, port).await;
-                        *state.upnp_mapped.lock().unwrap() = upnp_ok;
-                    }
-                    
-                    if let Err(e) = publish_address_to_kv(&profile.sync_id, &current_addr).await {
-                        eprintln!("[gameindex] Failed to publish sync address to KV: {}", e);
-                        *state.error_message.lock().unwrap() = Some(format!("KV publish failed: {}", e));
-                    } else {
-                        println!("[gameindex] Published sync address {} to KV", current_addr);
-                        *state.error_message.lock().unwrap() = None;
-                    }
-                }
-            } else {
-                eprintln!("[gameindex] Failed to fetch external IP");
-                *state.error_message.lock().unwrap() = Some("Could not resolve external IP".to_string());
-            }
-        }
-
-        if let Some(friends) = db_payload.friends {
-            let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-            for friend in friends {
-                if friend.sync_id.is_empty() || friend.sync_id == profile.sync_id {
-                    continue;
-                }
-
-                let last_sync = {
-                    let map = state.last_synced_times.lock().unwrap();
-                    map.get(&friend.sync_id).copied().unwrap_or(0)
-                };
-
-                // Sync if never synced, or synced > 5 minutes ago (300 secs)
-                if now - last_sync > 300 {
-                    if let Some(friend_addr) = fetch_address_from_kv(&friend.sync_id).await {
-                        let app_clone = app.clone();
-                        let state_clone = state.clone();
-                        let f_sync_id = friend.sync_id.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = sync_with_friend(&app_clone, &state_clone, &f_sync_id, &friend_addr).await {
-                                println!("[gameindex] Passive sync with {} failed: {}", f_sync_id, e);
-                            } else {
-                                println!("[gameindex] Passive sync with {} succeeded", f_sync_id);
-                            }
-                        });
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+
+    const KEY_A: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const KEY_B: &str = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+
+    // ── identity shape ─────────────────────────────────────────────
 
     #[test]
-    fn can_skip_only_when_snapshot_is_current_and_sync_is_off() {
-        let t0 = SystemTime::UNIX_EPOCH;
-        let t1 = t0 + Duration::from_secs(5);
+    fn privkey_must_be_lowercase_64_hex() {
+        assert!(is_valid_privkey_hex(KEY_A));
+        assert!(!is_valid_privkey_hex(&KEY_A.to_uppercase()));
+        assert!(!is_valid_privkey_hex(&KEY_A[..63]));
+        assert!(!is_valid_privkey_hex(&format!("{KEY_A}0")));
+        assert!(!is_valid_privkey_hex(&format!("{}g", &KEY_A[..63])));
+        assert!(!is_valid_privkey_hex(""));
+    }
 
-        // Never read the DB yet — must check it.
-        assert!(!can_skip_sync_tick(false, Some(t0), Some(t0), ""));
+    // ── identity resolution ────────────────────────────────────────
 
-        // Read, file unchanged, sync off — skip.
-        assert!(can_skip_sync_tick(true, Some(t0), Some(t0), ""));
+    #[test]
+    fn keychain_wins_over_legacy() {
+        let got = resolve_identity(Ok(Some(KEY_A.to_string())), Some(KEY_B.to_string())).unwrap();
+        assert_eq!(
+            got,
+            IdentityResolution::Keychain {
+                value: KEY_A.to_string(),
+                clear_legacy: true,
+            }
+        );
+    }
 
-        // File touched since the snapshot — re-read.
-        assert!(!can_skip_sync_tick(true, Some(t1), Some(t0), ""));
+    #[test]
+    fn keychain_only_needs_no_cleanup() {
+        let got = resolve_identity(Ok(Some(KEY_A.to_string())), None).unwrap();
+        assert_eq!(
+            got,
+            IdentityResolution::Keychain {
+                value: KEY_A.to_string(),
+                clear_legacy: false,
+            }
+        );
+    }
 
-        // Sync configured — keep ticking even when the file is unchanged.
-        assert!(!can_skip_sync_tick(true, Some(t0), Some(t0), "abc"));
+    #[test]
+    fn empty_keychain_falls_back_to_legacy_and_flags_migration() {
+        for empty in [Ok(None), Ok(Some(String::new())), Ok(Some("   ".to_string()))] {
+            let got = resolve_identity(empty, Some(KEY_B.to_string())).unwrap();
+            assert_eq!(
+                got,
+                IdentityResolution::Legacy {
+                    value: KEY_B.to_string()
+                }
+            );
+        }
+    }
 
-        // No file yet, already snapshotted as unconfigured — skip.
-        assert!(can_skip_sync_tick(true, None, None, ""));
+    #[test]
+    fn nothing_stored_means_missing() {
+        assert_eq!(
+            resolve_identity(Ok(None), None).unwrap(),
+            IdentityResolution::Missing
+        );
+        // A corrupt legacy row is not a usable identity.
+        assert_eq!(
+            resolve_identity(Ok(None), Some("not-a-key".to_string())).unwrap(),
+            IdentityResolution::Missing
+        );
+        assert_eq!(
+            resolve_identity(Ok(None), Some(KEY_A.to_uppercase())).unwrap(),
+            IdentityResolution::Missing
+        );
+    }
+
+    #[test]
+    fn keychain_error_is_propagated_never_falls_back_to_minting() {
+        let got = resolve_identity(Err("keyring get: access denied".to_string()), Some(KEY_B.to_string()));
+        assert!(
+            got.is_err(),
+            "a broken keychain must not fall back to the legacy row or to Missing"
+        );
+    }
+
+    #[test]
+    fn corrupt_keychain_entry_is_an_error_not_a_new_identity() {
+        let got = resolve_identity(Ok(Some("garbage".to_string())), Some(KEY_B.to_string()));
+        assert!(got.is_err());
     }
 }
-

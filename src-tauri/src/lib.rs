@@ -394,13 +394,8 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             set_startup_splash_enabled,
             set_autostart_enabled,
             is_autostart_enabled,
-            write_sync_file,
-            read_sync_file,
-            get_friends_sync_dir,
-            get_friends_device_id,
             get_friends_nostr_privkey,
             set_friends_nostr_privkey,
-            list_friend_outboxes,
             load_friends_db,
             save_friends_db,
             set_discord_presence_enabled,
@@ -1038,12 +1033,6 @@ storage_scan::scan_leftover_folders, storage_history::storage_history_load, stor
             // configured ROM folders, emitting `rom-folder-changed` so
             // the frontend can auto-rescan (auto_scan) or offer one.
             emulation::start_rom_watcher(app.handle().clone());
-
-            let app_handle = app.handle().clone();
-            init_internet_sync();
-            tauri::async_runtime::spawn(async move {
-                start_internet_sync_loop(app_handle).await;
-            });
 
             #[cfg(target_os = "linux")]
             {
