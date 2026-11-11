@@ -45,6 +45,28 @@ export const EMPTY_STORE_FILTERS: StoreGamesFilters = {
 };
 
 /**
+ * Merge a freshly fetched page onto the already-loaded list, keeping the first
+ * occurrence of every game id. Server pages can overlap (IGDB search is not
+ * offset-stable when the underlying index shifts mid-session), so an append
+ * must never show the same card twice. Returns `current` untouched when the
+ * page adds nothing new, so callers can skip a needless state write.
+ */
+export function mergeStoreGamePages(
+  current: StoreGameSummary[],
+  incoming: StoreGameSummary[]
+): StoreGameSummary[] {
+  if (incoming.length === 0) return current;
+  const seen = new Set(current.map((g) => g.id));
+  const merged = current.slice();
+  for (const game of incoming) {
+    if (seen.has(game.id)) continue;
+    seen.add(game.id);
+    merged.push(game);
+  }
+  return merged.length === current.length ? current : merged;
+}
+
+/**
  * Primary data-fetching hook for the Store page.
  *
  * Orchestrates category browsing, live search, infinite-scroll pagination,
@@ -79,6 +101,10 @@ export function useStoreGames() {
   // ── Mutable refs (avoid stale closures) ────────────────────────────────
   const offsetRef = useRef(0);
   const requestIdRef = useRef(0);
+  // Counts fetches in flight. `loading` is state and only reflects the last
+  // committed render, so "load more" also checks this to stay out of the way
+  // of a fresh search that was kicked off in the same tick.
+  const pendingFetchesRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCategoryRef = useRef<StoreCategory>("all");
   const mountedRef = useRef(true);
@@ -111,6 +137,7 @@ export function useStoreGames() {
     ) => {
       if (!mountedRef.current) return;
 
+      pendingFetchesRef.current += 1;
       setLoading(true);
       setError(null);
 
@@ -141,9 +168,16 @@ export function useStoreGames() {
             if (cached) {
               if (reqId !== requestIdRef.current || !mountedRef.current) return;
               const currentGames = gamesRef.current;
-              const newList = append ? [...currentGames, ...cached] : cached;
+              const newList = append
+                ? mergeStoreGamePages(currentGames, cached)
+                : cached;
               setGames(newList);
-              offsetRef.current = newList.length;
+              gamesRef.current = newList;
+              // Advance by the rows the server returned, not the merged
+              // length: overlapping pages must still make progress.
+              offsetRef.current = append
+                ? offsetRef.current + cached.length
+                : cached.length;
               setHasMore(cached.length >= STORE_PAGE_SIZE);
               if (mountedRef.current && reqId === requestIdRef.current) setLoading(false);
               return;
@@ -183,10 +217,19 @@ export function useStoreGames() {
         if (reqId !== requestIdRef.current || !mountedRef.current) return;
 
         const currentGames = gamesRef.current;
-        const newList = append ? [...currentGames, ...results] : results;
+        const newList = append
+          ? mergeStoreGamePages(currentGames, results)
+          : results;
 
         setGames(newList);
-        offsetRef.current = newList.length;
+        // Keep the ref in step so a second page resolved in the same tick
+        // merges onto the list it just produced instead of a stale snapshot.
+        gamesRef.current = newList;
+        // Advance by the server's row count so the next offset lines up with
+        // the API, even when a page overlapped the previous one.
+        offsetRef.current = append
+          ? offsetRef.current + results.length
+          : results.length;
         setHasMore(results.length >= STORE_PAGE_SIZE);
 
         // Persist to cache (only for unfiltered category browsing).
@@ -206,6 +249,7 @@ export function useStoreGames() {
         if (reqId !== requestIdRef.current || !mountedRef.current) return;
         setError(String(err));
       } finally {
+        pendingFetchesRef.current = Math.max(0, pendingFetchesRef.current - 1);
         if (reqId === requestIdRef.current && mountedRef.current) {
           setLoading(false);
         }
@@ -330,7 +374,7 @@ export function useStoreGames() {
 
   // ── Infinite scroll: load next page ────────────────────────────────────
   const loadMore = useCallback(() => {
-    if (loading || !hasMore) return;
+    if (loading || !hasMore || pendingFetchesRef.current > 0) return;
 
     const reqId = ++requestIdRef.current;
     const currentCategory = isSearching ? null : activeCategoryRef.current;
@@ -373,6 +417,12 @@ export function useStoreGames() {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
+      // The controlled input reads `searchQuery`, so the raw state must be
+      // updated here too — otherwise a recent-search/popular chip click
+      // fetches results while the field stays blank, and `loadMore` builds
+      // its next page from an empty query (appending category rows onto
+      // search results). Trimmed, to match what the fetch actually uses.
+      setSearchQueryRaw(q);
       setIsSearching(true);
       const reqId = ++requestIdRef.current;
       offsetRef.current = 0;
