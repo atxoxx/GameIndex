@@ -38,6 +38,7 @@ import { SteamGridDbProvider } from "./context/SteamGridDbContext";
 import { CrackWatchProvider } from "./context/CrackWatchContext";
 import { PriceProvider } from "./context/PriceContext";
 import { SetupWizardProvider } from "./context/SetupWizardContext";
+import { FriendsSyncProvider } from "./sync/friends/FriendsSyncProvider";
 // First-run-only and update-only surfaces. Loading them lazily keeps the
 // setup wizard's onboarding steps — which statically pull the store
 // integrations, the import modal and the folder scanner — out of the boot
@@ -278,57 +279,61 @@ function App() {
             <UpdateProvider>
               <SplashProvider>
                 <GameProvider>
-                  {/* Reveals the hidden main window once the library has
-                      hydrated and the first frame painted (see component). */}
-                  <WindowReveal />
-                  <ActivityProvider>
-                    <AchievementProvider>
-                      <DensityProvider>
-                        <LibraryFilterProvider>
-                          <ShelfProvider>
-                          <WishlistProvider>
-                            <NewsProvider>
-                            <SourceProvider>
-                              <DownloadProvider>
-                                <BandwidthRecorder />
-                                <SavesProvider>
-                                  <SettingsProvider>
-                                  <SessionNotesProvider>
-                                    <SteamGridDbProvider>
-                                      <CrackWatchProvider>
-                                        <PriceProvider>
-                                          <BigScreenProvider>
-                                            <BigScreenPrefsProvider>
-                                            <PresenceProvider>
-                                              <SetupWizardProvider>
-                                                <AdaptiveThemeSync />
-                                                <GameAccentSync />
-                                                <ShellBridges />
-                                                <AppShell />
-                                                <Suspense fallback={null}>
-                                                  <SetupWizard />
-                                                  <UpdateModal />
-                                                </Suspense>
-                                                <UpdateNotification />
-                                              </SetupWizardProvider>
-                                            </PresenceProvider>
-                                            </BigScreenPrefsProvider>
-                                          </BigScreenProvider>
-                                        </PriceProvider>
-                                      </CrackWatchProvider>
-                                    </SteamGridDbProvider>
-                                  </SessionNotesProvider>
-                                </SettingsProvider>
-                                </SavesProvider>
-                              </DownloadProvider>
-                            </SourceProvider>
-                            </NewsProvider>
-                          </WishlistProvider>
-                          </ShelfProvider>
-                        </LibraryFilterProvider>
-                      </DensityProvider>
-                    </AchievementProvider>
-                  </ActivityProvider>
+                  {/* Inside GameProvider so the provider can read the library
+                      for the shared per-game stats block. */}
+                  <FriendsSyncProvider>
+                    {/* Reveals the hidden main window once the library has
+                        hydrated and the first frame painted (see component). */}
+                    <WindowReveal />
+                    <ActivityProvider>
+                      <AchievementProvider>
+                        <DensityProvider>
+                          <LibraryFilterProvider>
+                            <ShelfProvider>
+                            <WishlistProvider>
+                              <NewsProvider>
+                              <SourceProvider>
+                                <DownloadProvider>
+                                  <BandwidthRecorder />
+                                  <SavesProvider>
+                                    <SettingsProvider>
+                                    <SessionNotesProvider>
+                                      <SteamGridDbProvider>
+                                        <CrackWatchProvider>
+                                          <PriceProvider>
+                                            <BigScreenProvider>
+                                              <BigScreenPrefsProvider>
+                                              <PresenceProvider>
+                                                <SetupWizardProvider>
+                                                  <AdaptiveThemeSync />
+                                                  <GameAccentSync />
+                                                  <ShellBridges />
+                                                  <AppShell />
+                                                  <Suspense fallback={null}>
+                                                    <SetupWizard />
+                                                    <UpdateModal />
+                                                  </Suspense>
+                                                  <UpdateNotification />
+                                                </SetupWizardProvider>
+                                              </PresenceProvider>
+                                              </BigScreenPrefsProvider>
+                                            </BigScreenProvider>
+                                          </PriceProvider>
+                                        </CrackWatchProvider>
+                                      </SteamGridDbProvider>
+                                    </SessionNotesProvider>
+                                  </SettingsProvider>
+                                  </SavesProvider>
+                                </DownloadProvider>
+                              </SourceProvider>
+                              </NewsProvider>
+                            </WishlistProvider>
+                            </ShelfProvider>
+                          </LibraryFilterProvider>
+                        </DensityProvider>
+                      </AchievementProvider>
+                    </ActivityProvider>
+                  </FriendsSyncProvider>
                 </GameProvider>
                 <InlineSplashFallback />
                 <LaunchSplashBridge />

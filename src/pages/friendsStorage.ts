@@ -1,12 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { generateSecretKey, getPublicKey, finalizeEvent } from "nostr-tools/pure";
-import { SimplePool } from "nostr-tools/pool";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
+import { decode as nip19Decode } from "nostr-tools/nip19";
 
 /**
- * Public Nostr relays the friends outbox is published to and read from.
- * Centralised here (previously duplicated in FriendsPage.tsx,
- * useFriendsData.ts and twice in this module) so the publisher and the
- * sync UI can never drift apart.
+ * Public Nostr relays the friends sync engine connects to.
+ * Centralised here so the engine and the sync UI can never drift apart.
  */
 export const NOSTR_RELAYS: readonly string[] = [
   "wss://relay.damus.io",
@@ -14,8 +12,6 @@ export const NOSTR_RELAYS: readonly string[] = [
   "wss://relay.snort.social",
   "wss://relay.primal.net",
 ];
-
-const nostrPoolForPreview = new SimplePool();
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -29,33 +25,6 @@ function hexToBytes(hex: string): Uint8Array {
     bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
   }
   return bytes;
-}
-
-/**
- * Timeout ceiling for a single network round-trip (relay publish or
- * relay fetch). A dead/stuck relay must never wedge the sync loop — if it
- * doesn't settle inside this window we treat it as failed and move on.
- * (The guest relay's `publish`/`get` can hang indefinitely on network
- * partitions, which would otherwise pin `isSyncing` forever and silently
- * kill the recurring sync timer.)
- */
-const RELAY_TIMEOUT_MS = 12000;
-
-/** Race `promise` against `RELAY_TIMEOUT_MS`. On timeout the function
- *  resolves with `onTimeout()` instead of hanging. The still-running
- *  underlying operation is dropped; sync governance never waits on it. */
-async function withRelayTimeout<T>(promise: Promise<T>, onTimeout: () => T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((resolve) => {
-        timer = setTimeout(() => resolve(onTimeout()), RELAY_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
 }
 
 export interface NostrKeys {
@@ -121,8 +90,8 @@ async function loadOrMintNostrKeys(): Promise<void> {
       // Genuine backend failure (transient or persistent). Do NOT mint a
       // replacement key here: the stored key (if any) is still on the
       // backend and must win on the next successful read. Generating a new
-      // one would silently rotate the user's identity and orphan their
-      // outbox folder.
+      // one would silently rotate the user's identity and orphan every
+      // friend who already added them.
       return;
     }
     if (stored && /^[0-9a-fA-F]{64}$/.test(stored)) {
@@ -224,7 +193,7 @@ export interface UserProfile {
   status: string;
   favoriteGameId?: string;
   favoriteGameName?: string;
-  syncId: string; // Stable device id used as the outbox subfolder name
+  syncId: string; // Our Nostr pubkey — the identity friends sync with
   /** Name of the game the user is currently playing, or undefined when idle. */
   currentlyPlaying?: string;
   /** Free-text bio shown on the profile card. */
@@ -252,6 +221,9 @@ export const STATUS_PRESETS: { label: string; value: string; emoji: string }[] =
   { label: "Offline", value: "Offline", emoji: "⚪" },
 ];
 
+/** Mutual-consent state of a friend record (see `Friend.consent`). */
+export type FriendConsent = "pending" | "accepted";
+
 export interface Friend {
   id: string;
   name: string;
@@ -276,6 +248,18 @@ export interface Friend {
   lastActive?: number;
   /** Locally ignored peers — their outbox is skipped during sync. */
   blocked?: boolean;
+  /**
+   * Mutual-consent state for v3 sync. A record created from a friend code is
+   * `"pending"` until the peer accepts; `undefined` means the record predates
+   * consent and is treated as already accepted.
+   */
+  consent?: FriendConsent;
+  /** Epoch ms of the last friend request we sent this peer. */
+  requestedAt?: number;
+  /** Epoch ms the peer asked to be added (inbound invite). */
+  incomingRequestAt?: number;
+  /** Epoch ms mutual consent was established. */
+  acceptedAt?: number;
   /** Friend's free-text bio (synced from their outbox). */
   bio?: string;
   /** Friend's region label (synced from their outbox). */
@@ -351,7 +335,7 @@ export interface SessionParticipant {
   guest?: boolean;
 }
 
-/** An image (or future file type) attached to a DM message, stored as a compressed data URL so it travels inside the outbox payload. */
+/** An image (or future file type) attached to a DM message, stored as a compressed data URL so it travels inside the encrypted chat envelope. */
 export interface DmAttachment {
   id: string;
   name: string;
@@ -375,6 +359,11 @@ export interface SessionMessage {
    * message so a merge with the peer's copy cannot resurrect it.
    */
   deleted?: boolean;
+  /**
+   * Epoch ms this message was accepted by a relay (outbound only). Unset
+   * means it still sits in the sync engine's outbox.
+   */
+  deliveredAt?: number;
 }
 
 /** Messages that should be rendered / counted (tombstones excluded). */
@@ -443,7 +432,7 @@ export interface GameRecommendation {
   deleted?: boolean; // Tombstone for sync deletion
 }
 
-/** Lightweight per-game stat shared in the outbox so friends can compare libraries truthfully. */
+/** Lightweight per-game stat shared with friends so they can compare libraries truthfully. */
 export interface SharedGameStat {
   id: string;
   name: string;
@@ -506,7 +495,7 @@ const LS_DMS_PREFIX = "gamelib.friends.dms.";
 /**
  * A named circle/group used to organize friends locally (e.g. "Co-op
  * squad", "Competitive"). Circles are purely organizational — they are
- * stored per-profile and never broadcast in the outbox.
+ * stored per-profile and never shared with friends.
  */
 export interface FriendCircle {
   id: string;
@@ -525,13 +514,12 @@ export function saveCircles(circles: FriendCircle[]): void {
   writeJson(`${LS_CIRCLES_PREFIX}${profileName}`, circles);
 }
 
-// ── 1:1 DM threads (synced through the outbox, filtered to participants) ──
+// ── 1:1 DM threads (synced as encrypted chat envelopes) ──
 
 /**
- * A private direct-message thread between exactly two profiles. Threads
- * travel inside the broadcast outbox payload, but only the two named
- * participants ever adopt a thread (`mergeDms` filters), so the content
- * stays private to the pair in practice.
+ * A private direct-message thread between exactly two profiles. Threads live
+ * in local storage and travel to the peer as end-to-end encrypted chat
+ * envelopes — never inside a library snapshot.
  */
 export interface DmThread {
   id: string;
@@ -542,6 +530,8 @@ export interface DmThread {
   deleted?: boolean;
   /** Per-participant timestamp of the last message they read — doubles as the read-receipt signal. */
   lastReadAt?: Record<string, number>;
+  /** Highest read position we have successfully pushed to the peer. */
+  readSentUpTo?: number;
 }
 
 /** Deterministic thread id for a pair of names (order-independent). */
@@ -566,20 +556,6 @@ export function newDmThreadId(a: string, b: string): string {
 export function startDmThreadId(a: string, b: string, threads: DmThread[] = []): string {
   const base = dmThreadId(a, b);
   return threads.some((t) => t.id === base && t.deleted) ? newDmThreadId(a, b) : base;
-}
-
-/**
- * Strips the reader's own read-state out of DM threads before the outbox is
- * pushed, used when the user disabled read receipts — the badge logic stays
- * local, but the friend never sees when we read their messages.
- */
-export function sanitizeDmsForPush(threads: DmThread[], myName: string, receiptsEnabled: boolean): DmThread[] {
-  if (receiptsEnabled) return threads;
-  return threads.map((t) => {
-    const lastReadAt = { ...(t.lastReadAt || {}) };
-    delete lastReadAt[myName];
-    return Object.keys(lastReadAt).length > 0 ? { ...t, lastReadAt } : { ...t, lastReadAt: undefined };
-  });
 }
 
 export function loadDms(): DmThread[] {
@@ -800,9 +776,8 @@ export function loadUserProfile(): UserProfile {
 }
 
 /**
- * Reads the stable device id generated by the backend. The backend persists
- * it, so it never changes between runs — which is what makes the shared-folder
- * outbox subfolder name stable and discoverable by friends.
+ * Reads the cached legacy device id. Identity is the Nostr keypair now; this
+ * only remains so old payloads carrying a device id can be recognised.
  */
 let cachedDeviceId: string | null = null;
 export function getDeviceId(): string | null {
@@ -828,7 +803,7 @@ export function setDeviceId(id: string): void {
   }
 }
 
-// ── Shared Sync Folder Helpers ───────────────────────────────────────
+// ── Disk mirror of the local collections ─────────────────────────────
 
 export interface FriendsDatabase {
   profile: UserProfile | null;
@@ -857,7 +832,38 @@ export async function saveFriendsDb(db: FriendsDatabase): Promise<void> {
   }
 }
 
+// ── Local-change notifications ───────────────────────────────────────
+//
+// Every mutation that reaches disk funnels through
+// `persistLocalStorageToDisk`, so that is the single place that tells the
+// always-on friends sync engine "something changed, republish". Kept here
+// (not in the engine) so the storage layer stays free of sync imports.
+
+const friendsDbChangeSubscribers = new Set<() => void>();
+
+/** Subscribe to local friends-database mutations. Returns an unsubscribe. */
+export function subscribeFriendsDbChange(cb: () => void): () => void {
+  friendsDbChangeSubscribers.add(cb);
+  return () => {
+    friendsDbChangeSubscribers.delete(cb);
+  };
+}
+
+/** Fan out a local-change notification. A broken subscriber is ignored. */
+export function notifyFriendsDbChange(): void {
+  friendsDbChangeSubscribers.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      /* a broken subscriber must not break the write path */
+    }
+  });
+}
+
 export async function persistLocalStorageToDisk(): Promise<void> {
+  // Announced before the write so a listener that reacts by reading storage
+  // already sees the new values (the save* helpers write first).
+  notifyFriendsDbChange();
   const profile = loadUserProfile();
   const friends = loadFriends();
   const sessions = loadSessions();
@@ -865,6 +871,25 @@ export async function persistLocalStorageToDisk(): Promise<void> {
   const suggestions = loadSuggestions();
   const dms = loadDms();
   await saveFriendsDb({ profile, friends, sessions, recommendations, suggestions, dms });
+}
+
+/**
+ * Writes every profile-namespaced collection in one pass WITHOUT persisting.
+ * Callers that merge a whole remote database use this plus a single
+ * `persistLocalStorageToDisk()` instead of one disk write per collection.
+ */
+export function writeFriendsCollections(db: Partial<FriendsDatabase>): void {
+  const profileName = getActiveProfileName();
+  if (db.profile) writeJson(`${LS_PROFILE_PREFIX}${profileName}`, db.profile);
+  if (db.friends) writeJson(`${LS_FRIENDS_PREFIX}${profileName}`, db.friends);
+  if (db.sessions) writeJson(`${LS_SESSIONS_PREFIX}${profileName}`, db.sessions);
+  if (db.recommendations) {
+    writeJson(`${LS_RECOMMENDATIONS_PREFIX}${profileName}`, db.recommendations);
+  }
+  if (db.suggestions) {
+    writeJson(`${LS_SUGGESTIONS_PREFIX}${profileName}`, db.suggestions);
+  }
+  if (db.dms) writeJson(`${LS_DMS_PREFIX}${profileName}`, db.dms);
 }
 
 export async function loadFriendsDbToLocalStorage(): Promise<boolean> {
@@ -959,6 +984,24 @@ export function saveDmsAndPersist(threads: DmThread[]): void {
   persistLocalStorageToDisk();
 }
 
+/** localStorage key the Settings page writes for the read-receipt toggle. */
+const LS_DM_READ_RECEIPTS = "gamelib.friends.read_receipts_enabled";
+
+/**
+ * Whether read receipts may leave the device.
+ *
+ * The toggle lives in `SettingsContext` (localStorage-backed); the sync layer
+ * reads it from here so the engine's replay path cannot send a receipt the
+ * user switched off.
+ */
+export function areDmReadReceiptsEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_DM_READ_RECEIPTS) === "true";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Procedural avatar gradient generator based on string hashing.
  */
@@ -1003,55 +1046,93 @@ export function encodeFriendCode(
 }
 
 /**
- * Decodes a shareable friend code back into a Friend object.
+ * Decodes a shareable friend code back into a preview record.
+ *
+ * Only the pubkey is real: a code carries no profile, so the preview shows
+ * the shortened key and leaves the profile fields empty until the peer
+ * answers the friend request (the sync engine fills them in then).
  */
 export function decodeFriendCode(code: string): Friend | null {
+  const pubkey = decodeFriendCodePubkey(code);
+  if (!pubkey) return null;
+  return {
+    id: `friend_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    name: shortFriendCodeLabel(pubkey),
+    avatar: "procedural",
+    status: "",
+    addedAt: Date.now(),
+    syncId: pubkey,
+  };
+}
+
+/** Short, human-readable stand-in for a pubkey we have no profile for. */
+export function shortFriendCodeLabel(pubkey: string): string {
+  const value = pubkey.trim();
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 8)}…${value.slice(-4)}`;
+}
+
+/**
+ * Hex pubkey behind a friend code: bare hex, an `npub`, or a legacy
+ * `GMLF-` payload that wraps either. Legacy folder-sync codes carrying a
+ * device id resolve to null — a device id has nothing to reach on a relay.
+ */
+export function decodeFriendCodePubkey(code: string): string | null {
   try {
-    const trimmed = code.trim();
+    const trimmed = typeof code === "string" ? code.trim() : "";
     if (!trimmed) return null;
-    
-    let syncId = trimmed;
-    if (trimmed.startsWith("GMLF-")) {
-      const remaining = trimmed.substring(5);
-      if (remaining.startsWith("device_")) {
-        syncId = remaining;
-      } else {
-        // Decode old Base64 format for backward compatibility
-        try {
-          const binary = atob(remaining);
-          const jsonStr = decodeURIComponent(
-            Array.prototype.map
-              .call(binary, (c: string) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join("")
-          );
-          const data = JSON.parse(jsonStr);
-          if (data.sy) {
-            syncId = data.sy;
-          }
-        } catch {
-          syncId = remaining;
+
+    let candidate = trimmed;
+    if (candidate.startsWith("GMLF-")) {
+      const payload = candidate.slice("GMLF-".length).trim();
+      if (payload.startsWith("device_")) return null;
+      const decoded = decodeLegacyGmlfPayload(payload);
+      if (!decoded) return null;
+      candidate = decoded;
+    }
+
+    if (candidate.startsWith("device_")) return null;
+
+    const lowered = candidate.toLowerCase();
+    if (/^[0-9a-f]{64}$/.test(lowered)) return lowered;
+
+    if (lowered.startsWith("npub1")) {
+      try {
+        const decoded = nip19Decode(lowered);
+        if (decoded.type === "npub") {
+          const pubkey = String(decoded.data).toLowerCase();
+          if (/^[0-9a-f]{64}$/.test(pubkey)) return pubkey;
         }
+      } catch {
+        return null;
       }
     }
-    
-    // Nostr pubkeys are canonically lowercase hex; normalizing here keeps a
-    // pasted uppercase key from creating a duplicate friend entry.
-    if (/^[0-9a-fA-F]{64}$/.test(syncId)) syncId = syncId.toLowerCase();
 
-    const isNostrPubkey = /^[0-9a-fA-F]{64}$/.test(syncId);
-    const isLegacySyncId = syncId.startsWith("device_");
-    if (!isNostrPubkey && !isLegacySyncId) {
-      return null;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Pulls the legacy `sy` sync id out of a `GMLF-` base64 payload. */
+function decodeLegacyGmlfPayload(payload: string): string | null {
+  try {
+    const binary = atob(payload);
+    let jsonText: string;
+    try {
+      jsonText = decodeURIComponent(
+        Array.prototype.map
+          .call(binary, (c: string) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+    } catch {
+      jsonText = binary;
     }
-    
-    return {
-      id: `friend_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: "Gamer Syncing...",
-      avatar: "procedural",
-      status: "Offline",
-      addedAt: Date.now(),
-      syncId: syncId,
-    };
+    const parsed = JSON.parse(jsonText) as { sy?: unknown };
+    if (parsed && typeof parsed.sy === "string" && parsed.sy.trim()) {
+      return parsed.sy.trim();
+    }
+    return null;
   } catch {
     return null;
   }
@@ -1304,28 +1385,12 @@ export function mergeSuggestions(local: GameSuggestion[], remote: GameSuggestion
   return Array.from(mergedMap.values());
 }
 
-//
-// Each client publishes its outbox into `<appData>/sync/<myDeviceId>/`
-// and reads a friend's outbox from `<appData>/sync/<friendDeviceId>/`.
-// The sync folder is fixed next to the databases, so a local and a
-// remote client that share that data folder exchange data through the
-// same files — no server, no extra software.
-
-export interface SyncResult {
-  ok: boolean;
-  reason?: string;
-}
-
-/**
- * Publishes local social items and current player statistics to our outbox
- * subfolder in the fixed sync directory. Returns success + a human reason.
- */
-/** Maximum number of per-game stats shared in an outbox payload. */
+/** Maximum number of per-game stats shared in a snapshot. */
 const MAX_SHARED_GAMES = 1000;
 
 /**
- * Keeps the outbox bounded: most-played games first, capped so a large
- * library doesn't bloat every sync write + relay publish.
+ * Keeps a shared library bounded: most-played games first, capped so a large
+ * library doesn't bloat every snapshot.
  */
 export function capSharedGames(games: SharedGameStat[] | undefined): SharedGameStat[] {
   if (!games || games.length === 0) return [];
@@ -1360,18 +1425,14 @@ export interface NostrOutboxPayload {
   updatedAt: number;
 }
 
-let nostrPublishPool: SimplePool | null = null;
-function getNostrPublishPool(): SimplePool {
-  if (!nostrPublishPool) nostrPublishPool = new SimplePool();
-  return nostrPublishPool;
-}
-
-// ── Nostr sharing scope + relay status ───────────────────────────────
+// ── Nostr sharing scope ──────────────────────────────────────────────
 //
-// The outbox is no longer gated by a binary opt-in: users pick a sharing
-// scope. `"core"` (default) is a privacy-reduced payload; `"full"` shares
-// the library dump; `"off"` disables relay publishing entirely (local
-// folder sync always keeps working).
+// Sync itself is always on: there is no opt-in toggle and no shared folder
+// to configure. What the user picks is how much detail a snapshot carries.
+// `"core"` (default, labelled "Standard" in the UI) shares the publisher's
+// own profile, playtime and posts; `"full"` additionally carries the social
+// detail other people contributed. `"off"` is a retired value kept only so a
+// stored preference still parses — it behaves like `"core"`.
 
 export type NostrShareScope = "off" | "core" | "full";
 
@@ -1380,11 +1441,11 @@ const LS_NOSTR_SHARE_SCOPE = "gamelib.friends.nostr_share_scope";
 const LS_NOSTR_PUBLISH_LEGACY = "gamelib.friends.nostr_public_publish";
 
 /**
- * Reads the outbox sharing scope. Migration: a user who had the legacy
+ * Reads the snapshot sharing scope. Migration: a user who had the legacy
  * opt-in flag set is promoted to `"full"` (their previous behaviour);
- * everyone else — including users who had the legacy flag off — now gets
- * `"core"`, so remote friends start receiving a reduced payload again
- * instead of nothing.
+ * everyone else — including users who had the legacy flag off — gets
+ * `"core"`, so remote friends receive the reduced payload instead of
+ * nothing.
  */
 export function getNostrShareScope(): NostrShareScope {
   try {
@@ -1397,46 +1458,9 @@ export function getNostrShareScope(): NostrShareScope {
   return "core";
 }
 
-export type RelayStatus = "accepted" | "failed";
-
-/** Last observed publish outcome per relay. Replaced wholesale (never
- *  mutated in place) so a subscriber reading `getLastRelayStatus()` after an
- *  `onRelayStatusChange` notification always sees a fresh reference. */
-let relayStatusSnapshot: Record<string, RelayStatus> = {};
-const relayStatusSubscribers = new Set<() => void>();
-
-export function getLastRelayStatus(): Record<string, RelayStatus> {
-  return relayStatusSnapshot;
-}
-
-export function onRelayStatusChange(cb: () => void): () => void {
-  relayStatusSubscribers.add(cb);
-  return () => {
-    relayStatusSubscribers.delete(cb);
-  };
-}
-
-function notifyRelayStatus(): void {
-  relayStatusSubscribers.forEach((cb) => {
-    try {
-      cb();
-    } catch {
-      /* a broken subscriber must not break the publish loop */
-    }
-  });
-}
-
-function recordRelayStatus(relay: string, status: RelayStatus): void {
-  relayStatusSnapshot = { ...relayStatusSnapshot, [relay]: status };
-  notifyRelayStatus();
-}
-
 /**
- * Persists the sharing scope, clears any previous relay results (the last
- * publish no longer reflects the active scope, so the modal falls back to
- * "not checked yet"), notifies relay status subscribers and broadcasts a
- * window event so every mounted sync engine can force an immediate
- * republish (the payload just changed).
+ * Persists the sharing scope and broadcasts a window event so every mounted
+ * sync engine can force an immediate republish (the payload just changed).
  */
 export function setNostrShareScope(scope: NostrShareScope): void {
   try {
@@ -1444,8 +1468,6 @@ export function setNostrShareScope(scope: NostrShareScope): void {
   } catch {
     /* ignore */
   }
-  relayStatusSnapshot = {};
-  notifyRelayStatus();
   try {
     window.dispatchEvent(new CustomEvent("gamelib:nostr-share-scope-changed"));
   } catch {
@@ -1454,22 +1476,23 @@ export function setNostrShareScope(scope: NostrShareScope): void {
 }
 
 /**
- * Applies the sharing-scope privacy boundary to an outbox payload.
+ * Applies the sharing-scope privacy boundary to a snapshot payload.
  *
- * `"full"` keeps the library dump (`games`, `libStats`, comments, …) but is
- * still sanitized. `"core"` additionally keeps only data the PUBLISHER
- * authored and strips content OTHER people authored: session
- * participants / messages / RSVPs / attendees / invited and poll votes,
- * plus recommendation & suggestion comments and reactions; it also drops
- * `games` and `libStats`.
+ * `"full"` carries everything, sanitized only for the permanent-PII fields
+ * (avatar, DMs). `"core"` — and the retired `"off"`, which must never grant
+ * more than the default — still carries the publisher's own library: the
+ * capped per-game stats and `libStats` are what the Compare tab and the
+ * achievement race are built on. What it strips is content OTHER people
+ * authored: session participants / messages / RSVPs / attendees / invited and
+ * poll votes, plus recommendation & suggestion comments and reactions.
  *
  * `scope` and `blockedIds` are passed explicitly so this stays a pure
  * function (no ambient localStorage reads). The callers own resolving them.
  *
  * Defense-in-depth for BOTH scopes: DM threads are removed and the avatar is
  * forced to `"procedural"` — a photo (base64 data URL) on an immutable relay
- * event is permanent PII. The builders already exclude DMs, but this also
- * covers unexpected/unknown keys smuggled in by a caller.
+ * event is permanent PII. DMs travel as encrypted chat envelopes, but this
+ * also covers unexpected/unknown keys smuggled in by a caller.
  */
 export function scopeNostrPayload(
   payload: NostrOutboxPayload,
@@ -1484,7 +1507,9 @@ export function scopeNostrPayload(
   const safeProfile = { ...profile, avatar: "procedural" };
   const safeFriends = friends.filter((id) => !blocked.has(id));
 
-  if (scope !== "core") {
+  // `"off"` is a retired value: it degrades to the reduced payload rather
+  // than accidentally granting the full one.
+  if (scope === "full") {
     return {
       ...safeMeta,
       profile: safeProfile,
@@ -1501,13 +1526,16 @@ export function scopeNostrPayload(
     profile: {
       name: profile.name,
       status: profile.status,
+      favoriteGame: profile.favoriteGame,
       currentlyPlaying: profile.currentlyPlaying,
       bio: profile.bio,
       region: profile.region,
       lastActive: profile.lastActive,
+      libStats: profile.libStats,
       avatar: "procedural",
     },
     friends: safeFriends,
+    games,
     sessions: sessions.map((session) => {
       const { participants, messages, rsvps, attendees, invited, poll, ...rest } = session;
       return {
@@ -1526,14 +1554,13 @@ export function scopeNostrPayload(
   } as NostrOutboxPayload;
 }
 
-
 /**
- * Builds the kind-30078 outbox payload broadcast to public relays.
- * Deliberately EXCLUDES DM threads — those travel only through the private
- * folder / P2P channels, never through public relays. Also excludes a photo
- * avatar (base64 data URL): a picture on immutable public relay events is
- * permanent PII, so the public payload always uses the procedural avatar.
- * Blocked peers are never included in the broadcast friend graph.
+ * Builds the snapshot payload the sync engine encrypts and sends to a peer.
+ * Deliberately EXCLUDES DM threads — those travel as encrypted chat
+ * envelopes, never inside a library snapshot. Also excludes a photo avatar
+ * (base64 data URL): a picture on an immutable relay event is permanent PII,
+ * so the shared payload always uses the procedural avatar. Blocked peers are
+ * never included in the shared friend graph.
  */
 export function buildNostrOutboxPayload(
   profile: UserProfile,
@@ -1548,8 +1575,8 @@ export function buildNostrOutboxPayload(
     syncId: profile.syncId,
     profile: {
       name: profile.name || "",
-      // Photo avatars are personal data and never leave the device for
-      // public relays — friends see the procedural gradient instead.
+      // Photo avatars are personal data and never leave the device —
+      // friends see the procedural gradient instead.
       avatar:
         profile.avatar && profile.avatar.startsWith("data:")
           ? "procedural"
@@ -1569,242 +1596,6 @@ export function buildNostrOutboxPayload(
     suggestions: suggestions || [],
     updatedAt: Date.now(),
   };
-}
-
-/**
- * Signs the scoped outbox payload and publishes it to the public relays.
- *
- * `scope` is read from `getNostrShareScope()`: `"off"` skips publishing
- * entirely (local folder sync is unaffected), while `"core"`/`"full"`
- * reduce the payload through `scopeNostrPayload`. Each relay's outcome is
- * recorded in `getLastRelayStatus()` and notifies subscribers.
- *
- * Also refuses to publish under the ephemeral session placeholder identity —
- * an outbox signed by a key that won't survive restart would be
- * undiscoverable and would only leak the payload.
- */
-export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<void> {
-  const scope = getNostrShareScope();
-  if (scope === "off") return;
-  if (!isNostrIdentityReady()) return;
-
-  try {
-    const blockedIds = new Set(
-      loadFriends()
-        .filter((f) => f.blocked)
-        .map((f) => f.syncId)
-    );
-    const scoped = scopeNostrPayload(payload, scope, blockedIds);
-    const published: NostrOutboxPayload = {
-      ...scoped,
-      v: 2,
-      scope: scope === "full" ? "full" : "core",
-    };
-    const keys = getNostrKeys();
-    const eventTemplate = {
-      kind: 30078,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [["d", "gamelib-friends-outbox"]],
-      content: JSON.stringify(published),
-    };
-    const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
-    await Promise.all(
-      NOSTR_RELAYS.map(async (relay) => {
-        try {
-          // Bounded publish: a stuck relay resolves the race on timeout
-          // instead of blocking the whole broadcast (and, transitively,
-          // the sync loop awaiting publishNostrOutbox). `pool.publish`
-          // returns a `Promise[]`; race the settled aggregate against the
-          // ceiling so a hung WebSocket can't wedge the loop. A timeout
-          // resolves `[]`, which we treat as a failed relay.
-          const accepted = await withRelayTimeout(
-            Promise.all(getNostrPublishPool().publish([relay], signedEvent)),
-            () => []
-          );
-          recordRelayStatus(relay, accepted.length > 0 ? "accepted" : "failed");
-        } catch (err) {
-          recordRelayStatus(relay, "failed");
-          console.error(`Nostr: failed to publish to ${relay}:`, err);
-        }
-      })
-    );
-  } catch (err) {
-    console.error("Nostr: failed to sign/publish event:", err);
-  }
-}
-
-/** Strips DM threads from a remote payload (used for public-relay sources). */
-export function stripDms<T extends { dms?: unknown }>(db: T): T {
-  if (db && db.dms) delete db.dms;
-  return db;
-}
-
-/**
- * True when a remote `friends` field contains `syncId`. The field is a
- * `Friend[]` on the TCP P2P channel (the backend emits the raw friends DB)
- * but a `string[]` of pubkeys on outbox/Nostr payloads, so both shapes are
- * normalized here (used for the one-sided "they added us" invite scan).
- */
-export function remoteFriendsInclude(remoteFriends: unknown, syncId: string): boolean {
-  if (!Array.isArray(remoteFriends) || !syncId) return false;
-  return remoteFriends.some((f) => {
-    if (typeof f === "string") return f === syncId;
-    if (f && typeof f === "object") return (f as { syncId?: unknown }).syncId === syncId;
-    return false;
-  });
-}
-
-export function buildOutboxPayload(
-  profile: UserProfile,
-  stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
-  sessions: GameSession[],
-  recs: GameRecommendation[],
-  sharedGames?: SharedGameStat[],
-  suggestions?: GameSuggestion[],
-  dms?: DmThread[]
-) {
-  const localFriends = loadFriends();
-  return {
-    syncId: profile.syncId,
-    profile: {
-      name: profile.name,
-      avatar: profile.avatar,
-      status: profile.status,
-      favoriteGame: profile.favoriteGameName || "",
-      currentlyPlaying: profile.currentlyPlaying || "",
-      bio: profile.bio || "",
-      region: profile.region || "",
-      lastActive: profile.lastActive || 0,
-      libStats: stats,
-    },
-    friends: localFriends.filter((f) => !f.blocked).map((f) => f.syncId),
-    games: capSharedGames(sharedGames),
-    sessions,
-    recommendations: recs,
-    suggestions: suggestions || [],
-    dms: dms || [],
-  };
-}
-
-export async function pushMyOutbox(
-  profile: UserProfile,
-  stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
-  sessions: GameSession[],
-  recs: GameRecommendation[],
-  sharedGames?: SharedGameStat[],
-  suggestions?: GameSuggestion[],
-  dms?: DmThread[]
-): Promise<SyncResult> {
-  const payload = {
-    ...buildOutboxPayload(profile, stats, sessions, recs, sharedGames, suggestions, dms),
-    updatedAt: Date.now(),
-  };
-
-  try {
-    await invoke("write_sync_file", {
-      content: JSON.stringify(payload),
-    });
-    return { ok: true };
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    console.error("Failed to write local sync outbox file:", reason);
-    return { ok: false, reason };
-  }
-}
-
-/**
- * Pulls a friend's outbox content from the fixed sync directory.
- * `friendSyncId` is the friend's stable device id (their outbox subfolder).
- */
-export async function fetchFriendOutbox(friendSyncId: string): Promise<{
-  syncId: string;
-  /** Payload schema version / sharing scope. Absent on legacy events. */
-  v?: number;
-  scope?: "core" | "full";
-  profile: {
-    name: string;
-    avatar: string;
-    status: string;
-    favoriteGame?: string;
-    currentlyPlaying?: string;
-    bio?: string;
-    region?: string;
-    lastActive?: number;
-    libStats?: {
-      gamesCount: number;
-      playtimeMinutes: number;
-      achievementsCount: number;
-    };
-  };
-  friends?: string[];
-  games?: SharedGameStat[];
-  sessions: GameSession[];
-  recommendations: GameRecommendation[];
-  suggestions: GameSuggestion[];
-  dms?: DmThread[];
-} | null> {
-  if (!friendSyncId) return null;
-
-  // 1. Try local file sync first
-  try {
-    const raw = await invoke<string | null>("read_sync_file", {
-      peerId: friendSyncId,
-    });
-    if (raw) return JSON.parse(raw);
-  } catch (err) {
-    // Ignore local folder read failure, fallback to Nostr
-  }
-
-  // 2. Try Nostr relays (public — DM threads are stripped from anything
-  //    read here so private messages never get pulled over a public relay).
-  if (/^[0-9a-fA-F]{64}$/.test(friendSyncId)) {
-    try {
-      // Bounded relay read so a stuck relay can't hold up the caller
-      // (folder-sync fallback, invitation scan, or the friend preview).
-      const event = await withRelayTimeout(
-        nostrPoolForPreview.get([...NOSTR_RELAYS], {
-          authors: [friendSyncId],
-          kinds: [30078],
-          "#d": ["gamelib-friends-outbox"],
-        }),
-        () => null,
-      );
-      if (event) {
-        return stripDms(JSON.parse(event.content));
-      }
-    } catch (err) {
-      console.error(`Nostr: failed to fetch preview event for ${friendSyncId}:`, err);
-    }
-  }
-
-  return null;
-}
-
-/**
- * Discover peer device ids that have published an outbox in the sync
- * directory. Used to auto-populate friends without manual friend-code
- * exchange (as long as both clients share the same data folder).
- */
-export async function listPeerOutboxes(): Promise<string[]> {
-  try {
-    return await invoke<string[]>("list_friend_outboxes");
-  } catch (err) {
-    console.error("Failed to list peer outboxes:", err);
-    return [];
-  }
-}
-
-/**
- * Returns the fixed sync directory path (next to the databases). The UI
- * shows this so the user knows where shared files are written.
- */
-export async function getSyncFolder(): Promise<string | null> {
-  try {
-    return await invoke<string | null>("get_friends_sync_dir");
-  } catch (err) {
-    console.error("Failed to get sync folder:", err);
-    return null;
-  }
 }
 
 // ── Community tab notification badge ──────────────────────────────
@@ -1861,7 +1652,7 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
   // We intentionally do NOT auto-add remote friends we haven't accepted.
 
   // Update the sender's own friend record from their profile payload (the
-  // `friends` list on a raw outbox only describes the sender's friends, never
+  // `friends` list on a snapshot only describes the sender's friends, never
   // the sender themselves). Respect the core/full scope so a privacy-reduced
   // payload can't wipe cached data the sender chose not to share.
   if (remote.profile && remote.profile.syncId) {

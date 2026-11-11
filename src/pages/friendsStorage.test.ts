@@ -3,23 +3,17 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { webcrypto } from "node:crypto";
 import {
   NOSTR_RELAYS,
-  getLastRelayStatus,
   getNostrShareScope,
   initNostrKeys,
   isNostrIdentityReady,
-  onRelayStatusChange,
-  publishNostrOutbox,
-  remoteFriendsInclude,
   scopeNostrPayload,
   setNostrShareScope,
-  loadFriends,
   loadRecommendations,
   loadSuggestions,
   mergeDms,
   mergeRecommendations,
   mergeSessions,
   mergeSuggestions,
-  buildOutboxPayload,
   loadUserProfile,
   visibleMessages,
   dmThreadId,
@@ -97,7 +91,6 @@ const LS_PROFILE_A = "gamelib.friends.profile.A";
 const LS_FRIENDS_A = "gamelib.friends.list.A";
 const LS_SCOPE = "gamelib.friends.nostr_share_scope";
 const LS_LEGACY_PUBLISH = "gamelib.friends.nostr_public_publish";
-const LS_NOSTR_PRIVKEY = "gamelib.friends.nostr_privkey";
 
 const FRIEND_ID = "c".repeat(64);
 
@@ -190,20 +183,13 @@ beforeEach(() => {
   relayPublishMock.mockImplementation(() => [Promise.resolve("ok")]);
 });
 
-/** Resolve the static module's identity once so publish tests can sign. */
+/** Resolve the static module's identity once so sync-backed tests can run. */
 async function ensureIdentityReady() {
   enableTauriRuntime();
   if (isNostrIdentityReady()) return;
   invokeState.impl = async (command: string) =>
     command === "get_friends_nostr_privkey" ? "d".repeat(64) : null;
   await initNostrKeys();
-}
-
-/** The kind-30078 event handed to the mocked pool by the last publish. */
-function lastPublishedContent(): Record<string, unknown> {
-  const call = relayPublishMock.mock.calls[relayPublishMock.mock.calls.length - 1];
-  const event = call?.[1] as { content: string };
-  return JSON.parse(event.content) as Record<string, unknown>;
 }
 
 describe("NOSTR_RELAYS", () => {
@@ -234,30 +220,31 @@ describe("getNostrShareScope", () => {
     expect(getNostrShareScope()).toBe("off");
   });
 
-  it("notifies subscribers and dispatches a window event on change", () => {
-    const subscriber = vi.fn();
+  it("persists the scope and dispatches a window event on change", () => {
     const onWindowEvent = vi.fn();
-    const unsubscribe = onRelayStatusChange(subscriber);
     window.addEventListener("gamelib:nostr-share-scope-changed", onWindowEvent);
 
     setNostrShareScope("full");
 
     expect(getNostrShareScope()).toBe("full");
-    expect(subscriber).toHaveBeenCalledTimes(1);
     expect(onWindowEvent).toHaveBeenCalledTimes(1);
 
-    unsubscribe();
     window.removeEventListener("gamelib:nostr-share-scope-changed", onWindowEvent);
   });
 });
 
 describe("scopeNostrPayload (core)", () => {
-  it("drops the library dump, libStats and the favourite game", () => {
+  it("keeps the publisher's library, playtime and profile", () => {
     const core = scopeNostrPayload(makePayload(), "core", new Set(["aaa"]));
 
-    expect(core.games).toBeUndefined();
-    expect(core.profile.libStats).toBeUndefined();
-    expect(core.profile.favoriteGame).toBeUndefined();
+    // The Compare tab and the achievement race read these.
+    expect(core.games).toHaveLength(1);
+    expect(core.profile.libStats).toEqual({
+      gamesCount: 10,
+      playtimeMinutes: 500,
+      achievementsCount: 3,
+    });
+    expect(core.profile.favoriteGame).toBe("Favorite");
     expect(core.profile.avatar).toBe("procedural");
     // Publisher-authored profile text is kept.
     expect(core.profile.name).toBe("Me");
@@ -266,7 +253,7 @@ describe("scopeNostrPayload (core)", () => {
     expect(core.profile.bio).toBe("hello");
     expect(core.profile.region).toBe("EU");
     expect(core.profile.lastActive).toBe(123);
-    // Blocked peers are removed from the broadcast friend graph.
+    // Blocked peers are removed from the shared friend graph.
     expect(core.friends).toEqual(["bbb"]);
   });
 
@@ -311,6 +298,16 @@ describe("scopeNostrPayload (core)", () => {
     expect(payload.games).toHaveLength(1);
     expect(payload.profile.libStats).toBeDefined();
   });
+
+  it("treats the retired off value as the reduced payload, never as full", () => {
+    const off = scopeNostrPayload(makePayload(), "off");
+    const session = off.sessions[0] as unknown as Record<string, unknown>;
+
+    expect(off.games).toHaveLength(1);
+    expect(session.messages).toBeUndefined();
+    expect(session.participants).toBeUndefined();
+    expect(off.recommendations[0].comments).toBeUndefined();
+  });
 });
 
 describe("scopeNostrPayload (full)", () => {
@@ -345,130 +342,6 @@ describe("scopeNostrPayload (full)", () => {
       expect("dms" in (out as unknown as Record<string, unknown>)).toBe(false);
       expect(out.profile.avatar).toBe("procedural");
     }
-  });
-});
-
-describe("publishNostrOutbox", () => {
-  it("does not open a relay publish when the scope is off", async () => {
-    setNostrShareScope("off");
-    relayPublishMock.mockClear();
-
-    await publishNostrOutbox(makePayload());
-
-    expect(relayPublishMock).not.toHaveBeenCalled();
-    expect(getLastRelayStatus()).toEqual({});
-  });
-
-  it("publishes a core event that carries v2/scope and omits library + third-party data", async () => {
-    await ensureIdentityReady();
-    setNostrShareScope("core");
-    relayPublishMock.mockClear();
-
-    await publishNostrOutbox(makePayload());
-
-    const content = lastPublishedContent();
-    expect(content.v).toBe(2);
-    expect(content.scope).toBe("core");
-    expect(content.profile).toMatchObject({ avatar: "procedural", name: "Me" });
-    expect(content.games).toBeUndefined();
-    expect((content.profile as Record<string, unknown>).libStats).toBeUndefined();
-
-    const session = (content.sessions as Array<Record<string, unknown>>)[0];
-    expect(session.description).toBe("co-op night");
-    expect(session.participants).toBeUndefined();
-    expect(session.messages).toBeUndefined();
-    expect(session.rsvps).toBeUndefined();
-    expect(session.attendees).toBeUndefined();
-    expect(session.invited).toBeUndefined();
-    expect((session.poll as Record<string, unknown>).votes).toBeUndefined();
-    expect((session.poll as { options: unknown[] }).options).toHaveLength(1);
-
-    const rec = (content.recommendations as Array<Record<string, unknown>>)[0];
-    expect(rec.reason).toBe("great");
-    expect(rec.comments).toBeUndefined();
-    expect(rec.reactions).toBeUndefined();
-
-    const sug = (content.suggestions as Array<Record<string, unknown>>)[0];
-    expect(sug.note).toBe("try it");
-    expect(sug.comments).toBeUndefined();
-    expect(sug.reactions).toBeUndefined();
-  });
-
-  it("publishes a full event that keeps third-party data and still sanitizes", async () => {
-    await ensureIdentityReady();
-    setNostrShareScope("full");
-    relayPublishMock.mockClear();
-
-    await publishNostrOutbox(makePayload());
-
-    const content = lastPublishedContent();
-    expect(content.v).toBe(2);
-    expect(content.scope).toBe("full");
-    expect((content.profile as Record<string, unknown>).avatar).toBe("procedural");
-    expect(content.games).toHaveLength(1);
-    expect((content.profile as { libStats: { gamesCount: number } }).libStats.gamesCount).toBe(10);
-
-    const session = (content.sessions as Array<Record<string, unknown>>)[0];
-    expect(session.participants).toHaveLength(1);
-    expect(session.messages).toHaveLength(1);
-    expect(session.rsvps).toBeDefined();
-    expect((session.poll as Record<string, unknown>).votes).toBeDefined();
-
-    expect((content.recommendations as Array<{ comments: unknown[] }>)[0].comments).toHaveLength(1);
-    expect((content.suggestions as Array<{ comments: unknown[] }>)[0].comments).toHaveLength(1);
-  });
-
-  it("records a failed relay when the publish promise rejects", async () => {
-    await ensureIdentityReady();
-    setNostrShareScope("core");
-    relayPublishMock.mockImplementation(() => [Promise.reject(new Error("relay down"))]);
-
-    await publishNostrOutbox(makePayload());
-
-    expect(getLastRelayStatus()[NOSTR_RELAYS[0]]).toBe("failed");
-  });
-
-  it("records a failed relay when the publish times out", async () => {
-    await ensureIdentityReady();
-    setNostrShareScope("core");
-    vi.useFakeTimers();
-    try {
-      relayPublishMock.mockImplementation(() => [new Promise<string>(() => {})]);
-
-      const publishPromise = publishNostrOutbox(makePayload());
-      await vi.advanceTimersByTimeAsync(12000);
-      await publishPromise;
-
-      expect(getLastRelayStatus()[NOSTR_RELAYS[0]]).toBe("failed");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("clears pending relay status when the sharing scope changes", async () => {
-    await ensureIdentityReady();
-    setNostrShareScope("core");
-    await publishNostrOutbox(makePayload());
-    expect(getLastRelayStatus()[NOSTR_RELAYS[0]]).toBe("accepted");
-
-    const subscriber = vi.fn();
-    const unsubscribe = onRelayStatusChange(subscriber);
-    setNostrShareScope("off");
-
-    expect(getLastRelayStatus()).toEqual({});
-    expect(subscriber).toHaveBeenCalled();
-    unsubscribe();
-  });
-});
-
-describe("remoteFriendsInclude", () => {
-  it("matches both the string-pubkey and Friend-object shapes", () => {
-    expect(remoteFriendsInclude(["aaa", FRIEND_ID], FRIEND_ID)).toBe(true);
-    expect(remoteFriendsInclude([{ syncId: "aaa" }, { syncId: FRIEND_ID }], FRIEND_ID)).toBe(true);
-    expect(remoteFriendsInclude(["aaa"], FRIEND_ID)).toBe(false);
-    expect(remoteFriendsInclude([{ syncId: "aaa" }], FRIEND_ID)).toBe(false);
-    expect(remoteFriendsInclude(undefined, FRIEND_ID)).toBe(false);
-    expect(remoteFriendsInclude(["aaa"], "")).toBe(false);
   });
 });
 
@@ -529,10 +402,9 @@ describe("identity lifecycle", () => {
   });
 });
 
-describe("friend profile sync scope handling", () => {
-  it("does not overwrite a cached friend's libStats with a core/v2 payload", async () => {
+describe("useFriendsData (engine-backed)", () => {
+  it("never touches the legacy sync folder, relay pool or device id", async () => {
     await ensureIdentityReady();
-    localStorage.setItem(LS_NOSTR_PRIVKEY, "b".repeat(64));
     localStorage.setItem(
       LS_PROFILE_A,
       JSON.stringify({ name: "Me", avatar: "procedural", status: "Ready", syncId: "self" }),
@@ -547,44 +419,32 @@ describe("friend profile sync scope handling", () => {
           status: "Ready",
           addedAt: 1,
           syncId: FRIEND_ID,
+          consent: "accepted",
           libStats: { gamesCount: 5, playtimeMinutes: 100, achievementsCount: 2 },
         },
       ]),
     );
 
-    const remoteCoreOutbox = {
-      v: 2,
-      scope: "core",
-      syncId: FRIEND_ID,
-      profile: { name: "Friend", avatar: "procedural", status: "Ready" },
-      sessions: [],
-      recommendations: [],
-      suggestions: [],
-    };
-
-    invokeState.impl = async (command: string) => {
-      switch (command) {
-        case "load_friends_db":
-          return JSON.stringify({ profile: null });
-        case "get_friends_sync_dir":
-          return "C:/sync";
-        case "get_friends_device_id":
-          return "device_a";
-        case "read_sync_file":
-          return JSON.stringify(remoteCoreOutbox);
-        default:
-          return null;
-      }
-    };
+    invokeState.calls = [];
+    invokeState.impl = async (command: string) =>
+      command === "load_friends_db" ? JSON.stringify({ profile: null }) : null;
 
     const { result } = renderHook(() => useFriendsData());
 
-    await waitFor(() => expect(loadFriends()[0]?.lastSeen).toBeTruthy());
-    expect(loadFriends()[0].libStats).toEqual({
-      gamesCount: 5,
-      playtimeMinutes: 100,
-      achievementsCount: 2,
-    });
+    await waitFor(() => expect(result.current.dbLoadVersion).toBe(1));
+
+    const commands = invokeState.calls.map((call) => call.command);
+    expect(commands).toContain("load_friends_db");
+    // Networking belongs to the sync engine now: the page-level hook must
+    // not read the folder outbox, resolve a device id or open a relay.
+    expect(commands).not.toContain("get_friends_sync_dir");
+    expect(commands).not.toContain("read_sync_file");
+    expect(commands).not.toContain("list_friend_outboxes");
+    expect(commands).not.toContain("get_friends_device_id");
+    expect(relayPublishMock).not.toHaveBeenCalled();
+
+    // The stored friend record survives the disk load untouched.
+    expect(result.current.friends).toHaveLength(1);
     expect(result.current.friends[0].libStats).toEqual({
       gamesCount: 5,
       playtimeMinutes: 100,
@@ -771,32 +631,6 @@ describe("profile normalization", () => {
     expect(profile.lastActive).toBe(1234);
     expect(profile.lastPublished).toBe(500);
     expect(profile.libStats).toEqual({ gamesCount: 3, playtimeMinutes: 120, achievementsCount: 7 });
-  });
-});
-
-describe("folder outbox payload", () => {
-  it("omits blocked peers from the broadcast friend graph", () => {
-    const allowed = "a".repeat(64);
-    const blocked = "b".repeat(64);
-    localStorage.setItem(
-      "gamelib.friends.list.A",
-      JSON.stringify([
-        { id: "f1", name: "Allowed", avatar: "procedural", status: "", addedAt: 1, syncId: allowed },
-        { id: "f2", name: "Blocked", avatar: "procedural", status: "", addedAt: 2, syncId: blocked, blocked: true },
-      ]),
-    );
-
-    const payload = buildOutboxPayload(
-      { name: "Me", avatar: "procedural", status: "Ready", syncId: allowed },
-      { gamesCount: 0, playtimeMinutes: 0, achievementsCount: 0 },
-      [],
-      [],
-      [],
-      [],
-      [],
-    );
-
-    expect(payload.friends).toEqual([allowed]);
   });
 });
 
