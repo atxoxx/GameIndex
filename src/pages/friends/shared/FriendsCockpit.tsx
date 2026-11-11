@@ -1,6 +1,7 @@
-import { CalendarPlus, Gamepad2, Pencil, Tag, UserPlus, Users } from "lucide-react";
+import { CalendarPlus, Check, Gamepad2, Pencil, Tag, UserPlus, Users, X } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
-import type { UserProfile } from "../friendsTypes";
+import type { FriendsSyncPhase } from "../../../sync/friends/engine";
+import type { FriendInvitation, UserProfile } from "../friendsTypes";
 import { FriendAvatar } from "./FriendAvatar";
 import { SyncStatusChip } from "./SyncStatusChip";
 
@@ -10,9 +11,14 @@ interface FriendsCockpitProps {
   onlineCount: number;
   totalFriends: number;
   inGameCount: number;
-  isSyncing: boolean;
+  syncPhase: FriendsSyncPhase;
+  pendingPublish?: number;
   lastSyncedTime: string;
   lastSyncMessage?: string;
+  /** Inbound requests still waiting on an answer. */
+  invitations?: FriendInvitation[];
+  onAcceptInvitation?: (invite: FriendInvitation) => void;
+  onDenyInvitation?: (syncId: string) => void;
   onAddFriend: () => void;
   onStartSession: () => void;
   onManageCircles: () => void;
@@ -25,6 +31,9 @@ interface FriendsCockpitProps {
  * The friends page's answer to the stats cockpit: your own identity on the
  * left, the actions that start something on the right, and sync folded into
  * a single status chip instead of a toolbar of icon buttons.
+ *
+ * Connection requests sit here rather than only in the roster because they
+ * are the one thing on this page that is waiting on the user.
  */
 export function FriendsCockpit({
   profile,
@@ -32,9 +41,13 @@ export function FriendsCockpit({
   onlineCount,
   totalFriends,
   inGameCount,
-  isSyncing,
+  syncPhase,
+  pendingPublish = 0,
   lastSyncedTime,
   lastSyncMessage,
+  invitations = [],
+  onAcceptInvitation,
+  onDenyInvitation,
   onAddFriend,
   onStartSession,
   onManageCircles,
@@ -84,6 +97,39 @@ export function FriendsCockpit({
         </span>
       </div>
 
+      {invitations.length > 0 && (
+        <div className="friends-cockpit__invites">
+          <span className="friends-cockpit__invites-label">
+            <UserPlus size={13} aria-hidden="true" />
+            {t("friendsPage.invitesNeedAnswer", { count: invitations.length })}
+          </span>
+          {invitations.slice(0, 3).map((invite) => (
+            <span key={invite.syncId} className="friends-cockpit__invite">
+              <FriendAvatar name={invite.name} avatar={invite.avatar} size="sm" />
+              <span className="friends-cockpit__invite-name">{invite.name}</span>
+              <button
+                type="button"
+                className="friends-cockpit__invite-accept"
+                onClick={() => onAcceptInvitation?.(invite)}
+                title={t("friendsPage.acceptInvite")}
+                aria-label={t("friendsPage.acceptRequestFrom", { name: invite.name })}
+              >
+                <Check size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="friends-cockpit__invite-deny"
+                onClick={() => onDenyInvitation?.(invite.syncId)}
+                title={t("friendsPage.denyInvite")}
+                aria-label={t("friendsPage.declineRequestFrom", { name: invite.name })}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="friends-cockpit__actions">
         <button type="button" className="friends-cockpit__action is-primary" onClick={onAddFriend}>
           <UserPlus size={15} aria-hidden="true" />
@@ -103,7 +149,8 @@ export function FriendsCockpit({
           <Tag size={15} aria-hidden="true" />
         </button>
         <SyncStatusChip
-          isSyncing={isSyncing}
+          phase={syncPhase}
+          pendingPublish={pendingPublish}
           lastSyncedTime={lastSyncedTime}
           lastMessage={lastSyncMessage}
           onSyncNow={onSyncNow}

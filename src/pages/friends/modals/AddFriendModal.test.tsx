@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import { fireEvent, render } from "@testing-library/react";
 import type { Friend } from "../../friendsStorage";
+import type { FriendInvitation } from "../friendsTypes";
 import AddFriendModal from "./AddFriendModal";
 
 vi.mock("../../../context/LanguageContext", () => ({
@@ -12,67 +14,131 @@ vi.mock("../../../context/ToastContext", () => ({
 
 const noop = () => {};
 
-function makeFriend(overrides: Partial<Friend> = {}): Friend {
+const PUBKEY = "a".repeat(64);
+
+function makeDecodedFriend(overrides: Partial<Friend> = {}): Friend {
   return {
     id: "friend-1",
-    name: "3Lambda",
+    name: "aaaaaaaa…aaaa",
     avatar: "procedural",
-    status: "Ready to Play!",
+    status: "",
     addedAt: 1,
-    syncId: "a".repeat(64),
+    syncId: PUBKEY,
     ...overrides,
   };
 }
 
-function renderModal(friend: Friend) {
+// The dialog renders through a portal on document.body, so assertions look at
+// the document rather than the render container.
+function renderModal(overrides: Partial<ComponentProps<typeof AddFriendModal>> = {}) {
   return render(
     <AddFriendModal
       isOpen
       onClose={noop}
       myFriendCode=""
       nostrPublicKey=""
-      friendCodeInput=""
+      friendCodeInput={PUBKEY}
       onFriendCodeInputChange={noop}
-      decodedFriend={friend}
-      onAddFriend={noop}
+      decodedFriend={makeDecodedFriend()}
+      onAddFriend={() => true}
+      {...overrides}
     />,
   );
 }
 
-describe("AddFriendModal preview", () => {
-  it("keeps the procedural avatar in a fixed square wrapper", () => {
-    renderModal(makeFriend());
+describe("AddFriendModal", () => {
+  it("shows a neutral card instead of inventing a profile", () => {
+    const { queryByText } = renderModal();
 
-    const wrapper = document.querySelector(".preview-avatar-wrapper");
-    expect(wrapper).not.toBeNull();
-    expect(wrapper?.querySelector(".preview-avatar-procedural")?.textContent).toBe("3L");
-
-    // The card avatar class stretches to its flex parent, so it must not be
-    // used directly in the preview header.
-    expect(document.querySelector(".friend-preview-header > .friend-avatar-procedural")).toBeNull();
-  });
-
-  it("uses the same wrapper for an uploaded avatar image", () => {
-    renderModal(makeFriend({ avatar: "data:image/jpeg;base64,AAAA" }));
-
-    expect(document.querySelector(".preview-avatar-wrapper .preview-avatar-img")).not.toBeNull();
-  });
-
-  it("lays the shared library stats out as three labelled tiles", () => {
-    renderModal(
-      makeFriend({
-        libStats: { gamesCount: 256, playtimeMinutes: 276, achievementsCount: 869 },
-      }),
+    const card = document.querySelector(".friend-preview-card--neutral");
+    expect(card).not.toBeNull();
+    // No remote preview: no stats tiles and no fake status line.
+    expect(document.querySelector(".friend-preview-stats")).toBeNull();
+    expect(card?.querySelector(".friend-preview-status")?.textContent).toBe(
+      "friendsPage.profileAfterAccept",
     );
+    expect(queryByText("friendsPage.syncStartsOnAccept")).not.toBeNull();
+    // The procedural avatar keeps its fixed square wrapper.
+    expect(document.querySelector(".preview-avatar-wrapper .preview-avatar-procedural")).not.toBeNull();
+  });
 
-    const tiles = document.querySelectorAll(".friend-preview-stats .preview-stat-item");
-    expect(tiles).toHaveLength(3);
-    expect(tiles[0].querySelector(".preview-stat-val")?.textContent).toBe("256");
-    expect(tiles[0].querySelector(".preview-stat-lbl")?.textContent).toBe("friendsPage.games");
-    expect(tiles[2].querySelector(".preview-stat-val")?.textContent).toBe("869");
-    expect(tiles[2].querySelector(".preview-stat-lbl")?.textContent).toBe("friendsPage.achievements");
+  it("extracts an npub from pasted text before decoding", () => {
+    const onFriendCodeInputChange = vi.fn();
+    const { getByLabelText } = renderModal({
+      friendCodeInput: "",
+      decodedFriend: null,
+      onFriendCodeInputChange,
+    });
 
-    // Separators must not live in the grid as their own cells.
-    expect(document.querySelector(".friend-preview-stats > span")).toBeNull();
+    fireEvent.change(getByLabelText("friends.pasteCodePlaceholder"), {
+      target: { value: "hey, my code is npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq thanks" },
+    });
+
+    expect(onFriendCodeInputChange).toHaveBeenCalledWith(
+      "npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+    );
+  });
+
+  it("switches to the waiting state after a request is sent", () => {
+    const onAddFriend = vi.fn(() => true);
+    const { getByText, queryByText } = renderModal({ onAddFriend });
+
+    expect(queryByText("friendsPage.requestSentTitle")).toBeNull();
+    fireEvent.click(getByText("friendsPage.sendRequest"));
+
+    expect(onAddFriend).toHaveBeenCalledTimes(1);
+    expect(queryByText("friendsPage.requestSentTitle")).not.toBeNull();
+    expect(queryByText("friendsPage.requestSentBody")).not.toBeNull();
+    expect(queryByText("friendsPage.sendAgain")).not.toBeNull();
+    expect(queryByText("friendsPage.cancelRequest")).not.toBeNull();
+    // The primary action is gone: a second press cannot queue a duplicate.
+    expect(queryByText("friendsPage.sendRequest")).toBeNull();
+    expect(document.querySelector(".friend-request-pending")).not.toBeNull();
+  });
+
+  it("stays on the paste form when the request could not be queued", () => {
+    const onAddFriend = vi.fn(() => false);
+    const { getByText, queryByText } = renderModal({ onAddFriend });
+
+    fireEvent.click(getByText("friendsPage.sendRequest"));
+
+    expect(queryByText("friendsPage.requestSentTitle")).toBeNull();
+    expect(getByText("friendsPage.sendRequest")).toBeInTheDocument();
+  });
+
+  it("opens straight into the waiting state for an existing pending request", () => {
+    const pending: FriendInvitation = {
+      syncId: PUBKEY,
+      name: "aaaaaaaa…aaaa",
+      avatar: "procedural",
+      status: "",
+      requestedAt: Date.now(),
+    };
+    const onCancelRequest = vi.fn();
+    const { getByText, queryByText } = renderModal({
+      pendingRequest: pending,
+      onCancelRequest,
+    });
+
+    expect(queryByText("friendsPage.requestSentTitle")).not.toBeNull();
+    fireEvent.click(getByText("friendsPage.cancelRequest"));
+    expect(onCancelRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer to add someone who is already a friend", () => {
+    const { getByText, queryByText } = renderModal({ existingFriendName: "Nova" });
+
+    expect(queryByText("friendsPage.alreadyFriends")).not.toBeNull();
+    expect(queryByText("friendsPage.sendRequest")).toBeNull();
+    expect(getByText("common.cancel")).toBeInTheDocument();
+  });
+
+  it("explains that the shared code is safe to hand out", () => {
+    const { getByText } = renderModal({ myFriendCode: PUBKEY });
+
+    fireEvent.click(getByText("friendsPage.myFriendCodeTab"));
+    expect(getByText("friendsPage.myCodeSafeHint")).toBeInTheDocument();
+    // Hex is shown as npub so nobody copies 64 raw characters.
+    expect(getByText(/^npub1/)).toBeInTheDocument();
   });
 });

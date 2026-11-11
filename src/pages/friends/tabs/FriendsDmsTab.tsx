@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
 import type { DmThread, Friend, UserProfile, DmAttachment } from "../friendsTypes";
-import { visibleMessages, startDmThreadId } from "../../friendsStorage";
+import { visibleMessages, startDmThreadId, dmThreadId } from "../../friendsStorage";
+import { asPeerPubkey, peerPubkeyForThread } from "../friendsSyncHelpers";
+import { pendingPeerLabel } from "../friendsSyncPresentation";
 import {
   displayName,
   getInitials,
@@ -66,6 +68,32 @@ export default function FriendsDmsTab({
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
 
+  // Threads are re-keyed onto the pair's pubkeys by the sync engine, so a
+  // thread is resolved through `peerPubkeyForThread` and the friend's
+  // `syncId`; the display name is only a fallback for legacy threads.
+  const peerForThread = (thread: DmThread | null | undefined): string | null =>
+    thread
+      ? peerPubkeyForThread(thread, friends, {
+          myPubkey: profile.syncId,
+          myName: profile.name,
+        })
+      : null;
+
+  const friendForThread = (thread: DmThread | null | undefined): Friend | null => {
+    if (!thread) return null;
+    const peer = peerForThread(thread);
+    if (peer) return friends.find((f) => asPeerPubkey(f.syncId) === peer) ?? null;
+    return friends.find((f) => thread.participants.includes(f.name)) ?? null;
+  };
+
+  const threadLabel = (thread: DmThread): string => {
+    const friend = friendForThread(thread);
+    if (friend) return displayName(friend);
+    const peer = peerForThread(thread);
+    const other = thread.participants.find((p) => p !== profile.name && p !== profile.syncId);
+    return pendingPeerLabel(other ?? undefined, peer ?? other ?? undefined);
+  };
+
   // Active thread calculation
   const activeThread = useMemo(() => {
     if (!selectedDmId) return null;
@@ -75,9 +103,11 @@ export default function FriendsDmsTab({
 
   // Friend details for active conversation
   const activeFriend = useMemo(() => {
-    if (!selectedDmFriendName) return null;
+    const fromThread = friendForThread(activeThread);
+    if (fromThread) return fromThread;
     return friends.find((f) => f.name === selectedDmFriendName) || null;
-  }, [friends, selectedDmFriendName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends, selectedDmFriendName, activeThread]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -92,19 +122,21 @@ export default function FriendsDmsTab({
     if (threadSearch.trim()) {
       const q = threadSearch.toLowerCase().trim();
       list = list.filter((th) => {
-        const otherName = th.participants.find((p) => p !== profile.name) || "";
-        const f = friends.find((fr) => fr.name === otherName);
-        const name = f ? displayName(f).toLowerCase() : otherName.toLowerCase();
+        const name = threadLabel(th).toLowerCase();
         const hasMsg = visibleMessages(th.messages).some((m) => (m.text || "").toLowerCase().includes(q));
         return name.includes(q) || hasMsg;
       });
     }
     list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dms, threadSearch, profile.name, friends]);
 
   const unreadCount = (thread: DmThread): number => {
-    const lastRead = thread.lastReadAt?.[profile.name] || 0;
+    const lastRead = Math.max(
+      thread.lastReadAt?.[profile.syncId] ?? 0,
+      thread.lastReadAt?.[profile.name] ?? 0,
+    );
     return visibleMessages(thread.messages).filter((m) => m.author !== profile.name && m.timestamp > lastRead).length;
   };
 
@@ -119,13 +151,22 @@ export default function FriendsDmsTab({
   const handleStartNewChat = (friendId: string) => {
     const friend = friends.find((f) => f.id === friendId);
     if (!friend) return;
-    const existing = dms.find(
-      (th) =>
-        !th.deleted &&
-        th.participants.includes(profile.name) &&
-        th.participants.includes(friend.name)
-    );
-    const tid = existing ? existing.id : startDmThreadId(profile.name, friend.name, dms);
+    const peer = asPeerPubkey(friend.syncId);
+    const existing =
+      (peer
+        ? dms.find((th) => !th.deleted && peerForThread(th) === peer)
+        : undefined) ??
+      dms.find(
+        (th) =>
+          !th.deleted &&
+          th.participants.includes(profile.name) &&
+          th.participants.includes(friend.name)
+      );
+    const pairId =
+      peer && asPeerPubkey(profile.syncId)
+        ? dmThreadId(asPeerPubkey(profile.syncId) as string, peer)
+        : null;
+    const tid = existing?.id ?? pairId ?? startDmThreadId(profile.name, friend.name, dms);
     onSelectThread(tid, friend.name);
     setNewChatFriendId("");
   };
@@ -143,8 +184,14 @@ export default function FriendsDmsTab({
   const messages = visibleMessages(activeThread?.messages);
   const pinnedMessages = messages.filter((m) => m.pinned);
   const regularMessages = messages.filter((m) => !m.pinned);
-  const otherName = activeThread?.participants.find((p) => p !== profile.name) || "";
-  const friendReadAt = activeThread?.lastReadAt?.[otherName] || 0;
+  const otherPeer = peerForThread(activeThread);
+  const friendReadAt = Math.max(
+    activeThread?.lastReadAt?.[otherPeer ?? ""] ?? 0,
+    activeThread?.lastReadAt?.[activeFriend?.name ?? ""] ?? 0,
+  );
+  const activeDisplayName = activeFriend
+    ? displayName(activeFriend)
+    : selectedDmFriendName || pendingPeerLabel(undefined, otherPeer ?? undefined);
 
   return (
     <div className="friends-dms-section">
@@ -197,9 +244,8 @@ export default function FriendsDmsTab({
             </div>
           ) : (
             filteredThreads.map((thread) => {
-              const otherName = thread.participants.find((p) => p !== profile.name) || "Friend";
-              const friend = friends.find((f) => f.name === otherName);
-              const friendDisplay = friend ? displayName(friend) : otherName;
+              const friend = friendForThread(thread);
+              const friendDisplay = threadLabel(thread);
               const isCurr = thread.id === selectedDmId;
               const lastMsg = visibleMessages(thread.messages).slice(-1)[0];
               const online = friend ? isOnline(friend) : false;
@@ -209,7 +255,7 @@ export default function FriendsDmsTab({
                 <div
                   key={thread.id}
                   className={`dm-thread-item${isCurr ? " active" : ""}`}
-                  onClick={() => onSelectThread(thread.id, otherName)}
+                  onClick={() => onSelectThread(thread.id, friend?.name ?? friendDisplay)}
                 >
                   <div className="dm-thread-avatar-wrapper">
                     {friend?.avatar && friend.avatar.startsWith("data:") ? (
@@ -269,19 +315,17 @@ export default function FriendsDmsTab({
             <div className="dm-conversation-header">
               <div className="dm-conversation-friend-meta">
                 {activeFriend?.avatar && activeFriend.avatar.startsWith("data:") ? (
-                  <img src={activeFriend.avatar} alt={selectedDmFriendName} className="dm-header-avatar" loading="lazy" decoding="async" />
+                  <img src={activeFriend.avatar} alt={activeDisplayName} className="dm-header-avatar" loading="lazy" decoding="async" />
                 ) : (
                   <div
                     className="dm-header-avatar-procedural"
-                    style={getProceduralAvatarStyle(selectedDmFriendName)}
+                    style={getProceduralAvatarStyle(activeDisplayName)}
                   >
-                    {getInitials(selectedDmFriendName)}
+                    {getInitials(activeDisplayName)}
                   </div>
                 )}
                 <div>
-                  <h3 className="dm-header-name">
-                    {activeFriend ? displayName(activeFriend) : selectedDmFriendName}
-                  </h3>
+                  <h3 className="dm-header-name">{activeDisplayName}</h3>
                   <span className="dm-header-status">
                     {activeFriend && isOnline(activeFriend)
                       ? t("friendsPage.onlineNow")
@@ -330,7 +374,7 @@ export default function FriendsDmsTab({
                 <div className="dm-empty-conversation">
                   <MessageIcon />
                   <p>{t("friendsPage.noMessagesInChat")}</p>
-                  <span>{t("friendsPage.sayHelloDesc", { name: selectedDmFriendName })}</span>
+                  <span>{t("friendsPage.sayHelloDesc", { name: activeDisplayName })}</span>
                 </div>
               ) : (
                 regularMessages.map((msg) => {

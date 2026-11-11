@@ -3,18 +3,25 @@ import { createPortal } from "react-dom";
 import {
   Ban,
   CalendarPlus,
+  Check,
+  Clock,
   MessageCircle,
   MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
+  Send,
   Swords,
   Trash2,
+  X,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { Friend, FriendCircle } from "../friendsTypes";
 import { displayName, formatLastSeen, presenceLabel, safeCurrentlyPlaying } from "../friendsUtils";
 import { FriendAvatar } from "../shared/FriendAvatar";
+
+/** A row that has not reached mutual consent yet, if that is what it is. */
+export type PendingDirection = "incoming" | "outgoing" | null;
 
 interface FriendRowProps {
   friend: Friend;
@@ -23,6 +30,8 @@ interface FriendRowProps {
   selected: boolean;
   selectMode: boolean;
   checked: boolean;
+  /** Set for a record still waiting on one side's answer. */
+  pending?: PendingDirection;
   onSelect: () => void;
   onToggleChecked: () => void;
   onMessage: () => void;
@@ -32,6 +41,10 @@ interface FriendRowProps {
   onSetNickname: () => void;
   onToggleBlock: () => void;
   onDelete: () => void;
+  onAcceptRequest?: () => void;
+  onDeclineRequest?: () => void;
+  onResendRequest?: () => void;
+  onCancelRequest?: () => void;
 }
 
 const MENU_WIDTH = 208;
@@ -43,6 +56,7 @@ export function FriendRow({
   selected,
   selectMode,
   checked,
+  pending = null,
   onSelect,
   onToggleChecked,
   onMessage,
@@ -52,6 +66,10 @@ export function FriendRow({
   onSetNickname,
   onToggleBlock,
   onDelete,
+  onAcceptRequest,
+  onDeclineRequest,
+  onResendRequest,
+  onCancelRequest,
 }: FriendRowProps) {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -61,9 +79,13 @@ export function FriendRow({
 
   const name = displayName(friend);
   const playing = safeCurrentlyPlaying(friend.currentlyPlaying);
-  const presence = playing
-    ? t("friendsPage.playingGame", { game: playing })
-    : presenceLabel(friend, t) || formatLastSeen(friend.lastSeen, t);
+  const presence = pending
+    ? pending === "incoming"
+      ? t("friendsPage.wantsToConnect")
+      : t("friendsPage.requestSentShort")
+    : playing
+      ? t("friendsPage.playingGame", { game: playing })
+      : presenceLabel(friend, t) || formatLastSeen(friend.lastSeen, t);
   const memberCircles = (friend.groups || [])
     .map((id) => circles.find((circle) => circle.id === id))
     .filter((circle): circle is FriendCircle => !!circle);
@@ -124,6 +146,7 @@ export function FriendRow({
         selected ? "is-selected" : "",
         friend.pinned ? "is-pinned" : "",
         friend.blocked ? "is-blocked" : "",
+        pending ? `is-pending is-pending--${pending}` : "",
         selectMode ? "is-selecting" : "",
       ]
         .filter(Boolean)
@@ -167,8 +190,21 @@ export function FriendRow({
               <Ban size={11} aria-hidden="true" />
             </span>
           )}
+          {pending && (
+            <span className="friends-row__badge is-pending" title={presence}>
+              {pending === "incoming" ? <Clock size={11} aria-hidden="true" /> : <Send size={11} aria-hidden="true" />}
+            </span>
+          )}
         </span>
-        <span className={["friends-row__presence", playing ? "is-playing" : ""].filter(Boolean).join(" ")}>
+        <span
+          className={[
+            "friends-row__presence",
+            playing && !pending ? "is-playing" : "",
+            pending ? "is-pending" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           {presence}
         </span>
         {density === "comfortable" && friend.nickname && friend.nickname.trim() !== friend.name && (
@@ -189,6 +225,64 @@ export function FriendRow({
         </span>
       )}
 
+      {pending ? (
+        <span className="friends-row__actions is-pending">
+          {pending === "incoming" ? (
+            <>
+              <button
+                type="button"
+                className="is-accept"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAcceptRequest?.();
+                }}
+                title={t("friendsPage.acceptInvite")}
+                aria-label={t("friendsPage.acceptRequestFrom", { name })}
+              >
+                <Check size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="is-decline"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeclineRequest?.();
+                }}
+                title={t("friendsPage.denyInvite")}
+                aria-label={t("friendsPage.declineRequestFrom", { name })}
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onResendRequest?.();
+                }}
+                title={t("friendsPage.sendAgain")}
+                aria-label={t("friendsPage.sendAgainTo", { name })}
+              >
+                <Send size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="is-decline"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCancelRequest?.();
+                }}
+                title={t("friendsPage.cancelRequest")}
+                aria-label={t("friendsPage.cancelRequestTo", { name })}
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </span>
+      ) : (
       <span className="friends-row__actions">
         <button
           type="button"
@@ -240,6 +334,7 @@ export function FriendRow({
           <MoreHorizontal size={15} aria-hidden="true" />
         </button>
       </span>
+      )}
 
       {menuOpen &&
         menuPos &&

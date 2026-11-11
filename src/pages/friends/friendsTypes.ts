@@ -69,6 +69,8 @@ export interface FriendInvitation {
     playtimeMinutes: number;
     achievementsCount: number;
   };
+  /** Epoch ms the request was made, when the source knows it. */
+  requestedAt?: number;
 }
 
 export interface SyncLogEntry {

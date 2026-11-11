@@ -117,4 +117,74 @@ describe("FriendsRoster", () => {
 
     expect(container.querySelector(".friends-empty")).not.toBeNull();
   });
+
+  it("keeps pending requests out of the friend total", () => {
+    const { container } = renderRoster({
+      friends: [
+        makeFriend({ name: "Ada" }),
+        makeFriend({
+          id: "friend-2",
+          name: "Nova",
+          consent: "pending",
+          incomingRequestAt: Date.now(),
+        }),
+      ],
+    });
+
+    expect(container.querySelector(".friends-roster__count")?.textContent).toBe("1");
+    expect(container.querySelector(".friends-roster__pending-count")?.textContent).toBe("1");
+    // Both rows render, but only one counts as a friend.
+    expect(container.querySelectorAll(".friends-row")).toHaveLength(2);
+    expect(container.querySelectorAll(".friends-row.is-pending")).toHaveLength(1);
+  });
+
+  it("labels an inbound request and accepts it from the row", () => {
+    const onAcceptInvitation = vi.fn();
+    const inviteFriend = makeFriend({
+      id: "friend-2",
+      name: "Nova",
+      consent: "pending",
+      incomingRequestAt: Date.now(),
+    });
+    const { container } = renderRoster({
+      friends: [inviteFriend],
+      onAcceptInvitation,
+    });
+
+    const row = container.querySelector(".friends-row.is-pending") as HTMLElement;
+    expect(row.querySelector(".friends-row__presence")?.textContent).toBe("friendsPage.wantsToConnect");
+
+    fireEvent.click(row.querySelector(".friends-row__actions .is-accept") as HTMLElement);
+    expect(onAcceptInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({ syncId: inviteFriend.syncId, name: "Nova" }),
+    );
+  });
+
+  it("declines an inbound request by blocking the peer", () => {
+    const onDenyInvitation = vi.fn();
+    const { container } = renderRoster({
+      friends: [makeFriend({ consent: "pending", incomingRequestAt: Date.now() })],
+      onDenyInvitation,
+    });
+
+    fireEvent.click(container.querySelector(".friends-row__actions .is-decline") as HTMLElement);
+
+    expect(onDenyInvitation).toHaveBeenCalledWith("a".repeat(64));
+  });
+
+  it("marks an outbound request as sent and offers a resend", () => {
+    const onResendRequest = vi.fn();
+    const { container } = renderRoster({
+      friends: [makeFriend({ consent: "pending", requestedAt: Date.now() })],
+      onResendRequest,
+    });
+
+    const row = container.querySelector(".friends-row.is-pending--outgoing") as HTMLElement;
+    expect(row.querySelector(".friends-row__presence")?.textContent).toBe("friendsPage.requestSentShort");
+
+    // No friend actions on a row that is not a friend yet.
+    expect(row.querySelector(".friends-row__menu-trigger")).toBeNull();
+    fireEvent.click(row.querySelector(".friends-row__actions button") as HTMLElement);
+    expect(onResendRequest).toHaveBeenCalledWith("a".repeat(64));
+  });
 });

@@ -21,9 +21,10 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSettings, useWidgetVisible } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { useFriendsSync } from "../../sync/friends/FriendsSyncProvider";
 import { startDmThreadId } from "../friendsStorage";
 import { consumePendingSuggestion, onPendingSuggestion, type PendingSuggestion } from "../friendSuggestionSignal";
-import type { Friend } from "./friendsTypes";
+import type { Friend, FriendInvitation } from "./friendsTypes";
 import type {
   FriendsHubTab,
   FriendsPlaySegment,
@@ -31,6 +32,8 @@ import type {
   FriendsTabKey,
 } from "./friendsTypes";
 import { useFriendsPageController } from "./useFriendsPageController";
+import { asPeerPubkey, classifyFriendsByConsent } from "./friendsSyncHelpers";
+import { isOnline } from "./friendsUtils";
 import { FriendsCockpit } from "./shared/FriendsCockpit";
 import { FriendsHeroBand, type FriendsRosterFilter } from "./shared/FriendsHeroBand";
 import { SegmentedControl } from "./shared/SegmentedControl";
@@ -64,6 +67,7 @@ export default function FriendsPage() {
   const { isSimpleUi, dmReadReceipts } = useSettings();
   const subtabsVisible = useWidgetVisible("friends", "subtabs");
   const controller = useFriendsPageController();
+  const { sendFriendRequest, removePeer } = useFriendsSync();
 
   const [activeTab, setActiveTab] = usePersistedState<FriendsHubTab>(
     "gamelib.friends.hub_v2",
@@ -106,6 +110,51 @@ export default function FriendsPage() {
     () => controller.friends.find((friend) => friend.id === selectedFriendId) || null,
     [controller.friends, selectedFriendId]
   );
+
+  // Mutual consent is the line between "friend" and "request". Counts, the
+  // roster total and every action menu follow it; pending records are shown
+  // separately with their own accept / decline / resend controls.
+  const acceptedFriends = useMemo(
+    () => classifyFriendsByConsent(controller.friends).accepted,
+    [controller.friends]
+  );
+
+  // Pubkey of the request we just queued, so the modal can stay open on the
+  // "waiting for them to accept" state after the input is cleared.
+  const [requestedPubkey, setRequestedPubkey] = useState<string | null>(null);
+  const decodedPubkey = asPeerPubkey(controller.decodedFriend?.syncId);
+
+  const pendingRequest = useMemo<FriendInvitation | null>(() => {
+    const target = decodedPubkey ?? requestedPubkey;
+    if (!target) return null;
+    return controller.outgoingRequests.find((request) => asPeerPubkey(request.syncId) === target) ?? null;
+  }, [decodedPubkey, requestedPubkey, controller.outgoingRequests]);
+
+  const existingFriendName = useMemo(() => {
+    if (!decodedPubkey) return null;
+    const match = acceptedFriends.find((friend) => asPeerPubkey(friend.syncId) === decodedPubkey);
+    return match ? match.nickname?.trim() || match.name : null;
+  }, [decodedPubkey, acceptedFriends]);
+
+  const handleSendRequest = (): boolean => {
+    const target = decodedPubkey;
+    const queued = controller.handleAddFriend();
+    if (queued && target) setRequestedPubkey(target);
+    return queued;
+  };
+
+  const handleResendRequest = (syncId: string) => {
+    const pubkey = asPeerPubkey(syncId) ?? syncId;
+    sendFriendRequest(pubkey);
+    showToast(t("friendsPage.requestResent"), "success");
+  };
+
+  const handleCancelRequest = (syncId: string) => {
+    const pubkey = asPeerPubkey(syncId) ?? syncId;
+    removePeer(pubkey);
+    if (requestedPubkey === pubkey) setRequestedPubkey(null);
+    showToast(t("friendsPage.requestCancelled"), "info");
+  };
 
   const go = (tab: FriendsTabKey) => {
     if (tab === "dms") {
@@ -226,25 +275,15 @@ export default function FriendsPage() {
     if (match) launchGame(match);
   };
 
-  const onlineCount = controller.friends.filter((friend) => {
-    if (friend.blocked) return false;
-    return (
-      !!friend.currentlyPlaying ||
-      friend.status?.toLowerCase().includes("online") ||
-      friend.status?.toLowerCase().includes("playing") ||
-      (!!friend.lastActive && Math.floor(Date.now() / 1000) - friend.lastActive < 180)
-    );
-  }).length;
-  const inGameCount = controller.friends.filter(
-    (friend) => !friend.blocked && !!friend.currentlyPlaying
-  ).length;
+  const onlineCount = acceptedFriends.filter((friend) => isOnline(friend)).length;
+  const inGameCount = acceptedFriends.filter((friend) => !!friend.currentlyPlaying).length;
 
   let navItems: SubTabItem<FriendsHubTab>[] = [
     {
       id: "friends",
       label: t("friendsPage.friendList"),
       icon: Users,
-      count: controller.friends.filter((friend) => !friend.blocked).length,
+      count: acceptedFriends.length,
     },
     {
       id: "activity",
@@ -296,11 +335,15 @@ export default function FriendsPage() {
             profile={controller.profile}
             currentlyPlaying={controller.currentlyPlaying}
             onlineCount={onlineCount}
-            totalFriends={controller.friends.filter((friend) => !friend.blocked).length}
+            totalFriends={acceptedFriends.length}
             inGameCount={inGameCount}
-            isSyncing={controller.isSyncing}
+            syncPhase={controller.syncStatus.phase}
+            pendingPublish={controller.pendingPublish}
             lastSyncedTime={controller.lastSyncedTime}
-            lastSyncMessage={controller.syncLog[0]?.message}
+            lastSyncMessage={controller.lastSyncMessage}
+            invitations={controller.invitations}
+            onAcceptInvitation={controller.handleAcceptInvitation}
+            onDenyInvitation={controller.handleDenyInvitation}
             onAddFriend={() => setShowAddModal(true)}
             onStartSession={() => {
               setCreateSessionSignal((value) => value + 1);
@@ -317,7 +360,7 @@ export default function FriendsPage() {
       <PageWidget page="friends" widget="friendsHero">
         <div className="ui-complete-only ui-item-kpis ui-item-friendsHero">
           <FriendsHeroBand
-            friends={controller.friends}
+            friends={acceptedFriends}
             sessions={controller.sessions}
             myGameIds={controller.myGameIds}
             onFilter={(filter) => {
@@ -360,6 +403,8 @@ export default function FriendsPage() {
                 onOpenCirclesModal={() => setShowCirclesModal(true)}
                 onAcceptInvitation={controller.handleAcceptInvitation}
                 onDenyInvitation={controller.handleDenyInvitation}
+                onResendRequest={handleResendRequest}
+                onCancelRequest={handleCancelRequest}
                 onMessageFriend={handleMessageFriend}
                 onInviteFriend={handleInviteToSession}
                 onCompareFriend={handleCompareFromCard}
@@ -406,6 +451,9 @@ export default function FriendsPage() {
                     suggestions={controller.suggestions}
                     dms={controller.dms}
                     profile={controller.profile}
+                    invitations={controller.invitations}
+                    onAcceptInvitation={controller.handleAcceptInvitation}
+                    onDenyInvitation={controller.handleDenyInvitation}
                     onNavigate={go}
                   />
                 )}
@@ -610,8 +658,16 @@ export default function FriendsPage() {
         friendCodeInput={controller.friendCodeInput}
         onFriendCodeInputChange={controller.setFriendCodeInput}
         decodedFriend={controller.decodedFriend}
-        onAddFriend={() => {
-          if (controller.handleAddFriend()) setShowAddModal(false);
+        onAddFriend={handleSendRequest}
+        pendingRequest={pendingRequest}
+        existingFriendName={existingFriendName}
+        onResendRequest={() => {
+          if (pendingRequest) handleResendRequest(pendingRequest.syncId);
+          else if (requestedPubkey) handleResendRequest(requestedPubkey);
+        }}
+        onCancelRequest={() => {
+          if (pendingRequest) handleCancelRequest(pendingRequest.syncId);
+          else if (requestedPubkey) handleCancelRequest(requestedPubkey);
         }}
       />
 
@@ -619,7 +675,7 @@ export default function FriendsPage() {
         isOpen={showCirclesModal}
         onClose={() => setShowCirclesModal(false)}
         circles={controller.circles}
-        friends={controller.friends.filter((friend) => !friend.blocked)}
+        friends={acceptedFriends}
         onCreateCircle={controller.handleCreateCircle}
         onRenameCircle={controller.handleRenameCircle}
         onDeleteCircle={controller.handleDeleteCircle}
@@ -629,9 +685,9 @@ export default function FriendsPage() {
       <FriendsSyncModal
         isOpen={showSyncModal}
         onClose={() => setShowSyncModal(false)}
-        isSyncing={controller.isSyncing}
+        syncStatus={controller.syncStatus}
+        friends={controller.friends}
         lastSyncedTime={controller.lastSyncedTime}
-        syncLog={controller.syncLog}
         onTriggerSync={() => void controller.performSync(true)}
       />
 

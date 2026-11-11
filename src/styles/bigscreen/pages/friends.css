@@ -3468,3 +3468,33 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Requests vs friends ────────────────────────────────────── */
+
+.bigscreen-friends-invite-row--outgoing {
+  border-style: dashed;
+  border-color: var(--bs-border-strong);
+}
+
+/* ── DM pane: delivery + privacy hints ──────────────────────── */
+
+.bigscreen-dms-pane-delivery {
+  margin-left: var(--bs-space-2);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+}
+
+.bigscreen-dms-pane-delivery.is-delivered {
+  color: var(--bs-info);
+}
+
+.bigscreen-dms-pane-delivery.is-seen {
+  color: var(--bs-success);
+}
+
+.bigscreen-dms-pane-private {
+  margin-left: var(--bs-space-2);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+}

@@ -29,6 +29,10 @@ import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useFriendsData } from "../../hooks/useFriendsData";
 import { useFriendsSocial } from "../../hooks/useFriendsSocial";
+import { useToast } from "../../context/ToastContext";
+import { useFriendsSync } from "../../sync/friends/FriendsSyncProvider";
+import type { FriendsSyncPhase } from "../../sync/friends/engine";
+import { asPeerPubkey } from "../../pages/friends/friendsSyncHelpers";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
 import BigScreenTabPanel from "./BigScreenTabPanel";
 import type { Friend } from "../../pages/friendsStorage";
@@ -45,11 +49,22 @@ import { focusTabLanding } from "../game/bigscreenGameTabs";
 
 type FriendsTab = "list" | "activity" | "dms" | "sessions" | "social" | "compare" | "profile";
 
+/** One plain-language label per engine phase for the toolbar button. */
+const SYNC_PHASE_LABEL: Record<FriendsSyncPhase, string> = {
+  idle: "friendsPage.syncPhaseIdle",
+  connecting: "friendsPage.syncPhaseConnecting",
+  online: "friendsPage.syncPhaseOnline",
+  degraded: "friendsPage.syncPhaseDegraded",
+  offline: "friendsPage.syncPhaseOffline",
+};
+
 export default function BigScreenFriends() {
   const { t } = useLanguage();
   const gamepad = useGamepad();
+  const { showToast } = useToast();
   const fd = useFriendsData();
   const social = useFriendsSocial(fd);
+  const { status, removePeer } = useFriendsSync();
 
   const { profile, setProfile, selfStats, generatedFriendCode, isSyncing } = fd;
 
@@ -243,6 +258,17 @@ export default function BigScreenFriends() {
     setNicknameFriendId(friendId);
   }, []);
 
+  // Cancelling an unanswered request just drops the local pending record; the
+  // engine forgets the peer and stops trying to reach them.
+  const handleCancelRequest = useCallback(
+    (syncId: string) => {
+      const pubkey = asPeerPubkey(syncId) ?? syncId;
+      removePeer(pubkey);
+      showToast(t("friendsPage.requestCancelled"), "info");
+    },
+    [removePeer, showToast, t],
+  );
+
   const nicknameFriend = nicknameFriendId
     ? social.friends.find((f) => f.id === nicknameFriendId) || null
     : null;
@@ -261,10 +287,11 @@ export default function BigScreenFriends() {
           <button
             type="button"
             className={`bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact${syncBusy ? " is-syncing" : ""}`}
+            title={t("bigscreen.friends.syncNetwork")}
             {...focusSyncBtn}
           >
             {Icons.refresh()}
-            {t("bigscreen.friends.syncNetwork")}
+            {t(SYNC_PHASE_LABEL[status.phase])}
           </button>
           {activeTab === "list" && (
             <button
@@ -286,10 +313,12 @@ export default function BigScreenFriends() {
           <FriendsListTab
             social={social}
             profileName={profile.name}
+            peerStates={fd.peerStates}
             onOpenDm={handleOpenDm}
             onInviteToLobby={handleInviteToLobby}
             onCompare={handleCompare}
             onSetNickname={handleSetNickname}
+            onCancelRequest={handleCancelRequest}
           />
         </BigScreenTabPanel>
 
@@ -298,7 +327,12 @@ export default function BigScreenFriends() {
         </BigScreenTabPanel>
 
         <BigScreenTabPanel tabId="dms" activeTab={activeTab} className="bigscreen-friends-pane">
-          <DmsTab social={social} profileName={profile.name} />
+          <DmsTab
+            social={social}
+            profileName={profile.name}
+            myPubkey={profile.syncId}
+            peerStates={fd.peerStates}
+          />
         </BigScreenTabPanel>
 
         <BigScreenTabPanel tabId="sessions" activeTab={activeTab} className="bigscreen-friends-pane">
@@ -365,7 +399,9 @@ export default function BigScreenFriends() {
                 </div>
                 <div>
                   <div className="bigscreen-addfriend-preview-name">{fd.decodedFriend.name}</div>
-                  <div className="bigscreen-addfriend-preview-status">{fd.decodedFriend.status}</div>
+                  <div className="bigscreen-addfriend-preview-status">
+                    {t("friendsPage.profileAfterAccept")}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -373,6 +409,7 @@ export default function BigScreenFriends() {
                 <div className="bigscreen-addfriend-error">{t("bigscreen.friends.invalidKey")}</div>
               )
             )}
+            <p className="bigscreen-modal-body-text">{t("friendsPage.syncStartsOnAccept")}</p>
 
             <div className="bigscreen-modal-footer bigscreen-addfriend-footer">
               <button

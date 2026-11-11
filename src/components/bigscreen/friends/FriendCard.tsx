@@ -13,12 +13,19 @@ import {
   displayName,
   safeCurrentlyPlaying,
 } from "../../../pages/friendsStorage";
+import type { PeerSyncState } from "../../../sync/friends/engine";
+import {
+  isPeerOnline,
+  peerCurrentlyPlaying,
+} from "../../../pages/friends/friendsSyncPresentation";
 import { FriendAvatar, Icons, formatFriendsSince, formatHours, isOnline, presenceLabel, sharedGamesCount, useOverlayEscape } from "./friendsUtils";
 
 export interface FriendCardProps {
   friend: Friend;
   circles: FriendCircle[];
   myGameIds: Set<string>;
+  /** Engine state for this peer; presence comes from here when present. */
+  peerState?: PeerSyncState;
   onPin: () => void;
   onBlock: () => void;
   onDelete: () => void;
@@ -34,9 +41,12 @@ export default function FriendCard(props: FriendCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const focusCard = useFocusable(() => setShowMenu(true));
   useOverlayEscape(() => setShowMenu(false), showMenu);
-  const { friend } = props;
-  const playing = safeCurrentlyPlaying(friend.currentlyPlaying);
-  const online = isOnline(friend);
+  const { friend, peerState } = props;
+  // Presence is what the peer last told us, never a name lookup. Without any
+  // engine state (first run, before the first sync) fall back to the stored
+  // record so the card still reads sensibly.
+  const playing = peerCurrentlyPlaying(peerState) ?? safeCurrentlyPlaying(friend.currentlyPlaying);
+  const online = peerState ? isPeerOnline(peerState) || !!playing : isOnline(friend);
   const shared = sharedGamesCount(friend, props.myGameIds);
 
   return (
@@ -62,7 +72,9 @@ export default function FriendCard(props: FriendCardProps) {
                 ? t("friendsPage.blocked")
                 : playing
                   ? t("bigscreen.friends.playing", { game: playing })
-                  : presenceLabel(friend, t) || friend.status || t("bigscreen.friends.offline")}
+                  : online
+                    ? t("friendsPage.formatOnline")
+                    : presenceLabel(friend, t) || friend.status || t("bigscreen.friends.offline")}
             </p>
           </div>
           {friend.pinned && (

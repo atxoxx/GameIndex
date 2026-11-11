@@ -1,84 +1,85 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Clock, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
-import type { SyncLogEntry } from "../friendsTypes";
+import type { FriendsSyncStatus } from "../../../sync/friends/engine";
+import type { Friend } from "../friendsTypes";
+import { asPeerPubkey } from "../friendsSyncHelpers";
 import {
-  NOSTR_RELAYS,
-  getLastRelayStatus,
+  isPeerOnline,
+  peerCurrentlyPlaying,
+  peerDeliveryState,
+  syncTone,
+} from "../friendsSyncPresentation";
+import { displayName, formatLastSeen } from "../friendsUtils";
+import { FriendAvatar } from "../shared/FriendAvatar";
+import {
   getNostrShareScope,
-  getSyncFolder,
-  onRelayStatusChange,
   setNostrShareScope,
   type NostrShareScope,
-  type RelayStatus,
 } from "../../friendsStorage";
-import { P2pSyncIcon, RefreshIcon, XIcon, CopyIcon } from "../friendsUtils";
 import { Button } from "../../../components/ui";
 
 interface FriendsSyncModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isSyncing: boolean;
+  syncStatus: FriendsSyncStatus;
+  /** Accepted friends, so every row has a name even without presence. */
+  friends: Friend[];
   lastSyncedTime: string;
-  syncLog: SyncLogEntry[];
   onTriggerSync: () => void;
 }
 
-interface ScopeOption {
-  value: NostrShareScope;
-  labelKey: string;
-  descKey: string;
-  /** Marked as the sensible default so "Standard" reads as the recommended choice. */
-  recommended?: boolean;
-}
-
-const SCOPE_OPTIONS: ScopeOption[] = [
-  { value: "off", labelKey: "friendsPage.nostrScopeOff", descKey: "friendsPage.nostrScopeOffDesc" },
-  {
-    value: "core",
-    labelKey: "friendsPage.nostrScopeCore",
-    descKey: "friendsPage.nostrScopeCoreDesc",
-    recommended: true,
-  },
+const SCOPE_OPTIONS: { value: Exclude<NostrShareScope, "off">; labelKey: string; descKey: string }[] = [
+  { value: "core", labelKey: "friendsPage.nostrScopeCore", descKey: "friendsPage.nostrScopeCoreDesc" },
   { value: "full", labelKey: "friendsPage.nostrScopeFull", descKey: "friendsPage.nostrScopeFullDesc" },
 ];
 
-/**
- * Maps a real relay result to its dot/status modifier and label. A relay
- * absent from `getLastRelayStatus()` is simply untouched (no modifier) and
- * shown as "not checked yet" — we never invent a probe, so the state here
- * reflects the last real publish attempt.
- */
-const RELAY_STATUS_META: Record<RelayStatus, { modifier: string; labelKey: string }> = {
-  accepted: { modifier: "online", labelKey: "friendsPage.nostrRelayReachable" },
-  failed: { modifier: "failed", labelKey: "friendsPage.nostrRelayFailed" },
-};
+/** The engine always publishes; a stored legacy "off" means the reduced set. */
+function normalizeScope(scope: NostrShareScope): Exclude<NostrShareScope, "off"> {
+  return scope === "full" ? "full" : "core";
+}
 
+const PHASE_LABEL = {
+  idle: "friendsPage.syncPhaseIdle",
+  connecting: "friendsPage.syncPhaseConnecting",
+  online: "friendsPage.syncPhaseOnline",
+  degraded: "friendsPage.syncPhaseDegraded",
+  offline: "friendsPage.syncPhaseOffline",
+} as const;
+
+const DELIVERY_LABEL = {
+  seen: "friendsPage.syncSeen",
+  delivered: "friendsPage.syncDelivered",
+  none: "friendsPage.syncNotDelivered",
+} as const;
+
+/**
+ * Diagnostics for the always-on engine.
+ *
+ * Everything shown comes from `FriendsSyncStatus`: the phase it reached, what
+ * each relay answered, what is still queued, and what each friend's presence
+ * says back. Nothing is inferred from a timer, so an idle page never claims to
+ * be syncing.
+ */
 export default function FriendsSyncModal({
   isOpen,
   onClose,
-  isSyncing,
+  syncStatus,
+  friends,
   lastSyncedTime,
-  syncLog,
   onTriggerSync,
 }: FriendsSyncModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const [syncFolderPath, setSyncFolderPath] = useState<string>("");
-  const [scope, setScope] = useState<NostrShareScope>("core");
-  const [relayStatus, setRelayStatus] = useState<Record<string, RelayStatus>>({});
+  const [scope, setScope] = useState<Exclude<NostrShareScope, "off">>(() =>
+    normalizeScope(getNostrShareScope())
+  );
 
   useEffect(() => {
     if (!isOpen) return;
-    getSyncFolder().then((folder) => {
-      if (folder) setSyncFolderPath(folder);
-    });
-    setScope(getNostrShareScope());
-    setRelayStatus(getLastRelayStatus());
-    // The relay listener only lives while the modal is open.
-    const unsubscribe = onRelayStatusChange(() => setRelayStatus(getLastRelayStatus()));
-    return unsubscribe;
+    setScope(normalizeScope(getNostrShareScope()));
   }, [isOpen]);
 
   // Escape to close + body scroll lock, matching the rest of the app's modals.
@@ -96,24 +97,30 @@ export default function FriendsSyncModal({
     };
   }, [isOpen, onClose]);
 
+  const peerRows = useMemo(
+    () =>
+      friends
+        .filter((friend) => !friend.blocked && friend.consent !== "pending")
+        .map((friend) => {
+          const pubkey = asPeerPubkey(friend.syncId);
+          return { friend, state: pubkey ? syncStatus.peers[pubkey] : undefined };
+        }),
+    [friends, syncStatus.peers]
+  );
+
+  const relays = useMemo(() => Object.entries(syncStatus.relayStatus), [syncStatus.relayStatus]);
+
   if (!isOpen) return null;
 
-  const activeOption = SCOPE_OPTIONS.find((opt) => opt.value === scope) ?? SCOPE_OPTIONS[1];
+  const tone = syncTone(syncStatus.phase, syncStatus.pendingPublish);
+  const activeScope = scope;
+  const activeOption = SCOPE_OPTIONS.find((opt) => opt.value === activeScope) ?? SCOPE_OPTIONS[0];
 
-  const handleCopyFolder = () => {
-    if (!syncFolderPath) return;
-    navigator.clipboard.writeText(syncFolderPath);
-    showToast(t("friendsPage.copiedToClipboard", { label: t("friendsPage.syncFolder") }), "success");
-  };
-
-  const handleScopeChange = (next: NostrShareScope) => {
+  const handleScopeChange = (next: Exclude<NostrShareScope, "off">) => {
     if (next === scope) return;
     setScope(next);
     setNostrShareScope(next);
-    showToast(
-      next === "off" ? t("friendsPage.nostrPublishOffToast") : t("friendsPage.nostrPublishOnToast"),
-      "info"
-    );
+    showToast(t("friendsPage.nostrPublishOnToast"), "info");
   };
 
   return createPortal(
@@ -127,134 +134,140 @@ export default function FriendsSyncModal({
       >
         <div className="friends-modal-header">
           <h2 className="friends-modal-title" id="friends-sync-modal-title">
-            <P2pSyncIcon /> {t("friendsPage.p2pSyncDiagnostics")}
+            <ShieldCheck size={16} aria-hidden="true" /> {t("friendsPage.syncModalTitle")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X />} type="button" onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">
           <div className="sync-section-block">
-            <h4 className="sync-section-heading">{t("friendsPage.syncFolderHeading")}</h4>
-            <p className="friends-modal-desc">{t("friendsPage.syncFolderDesc")}</p>
-            <div className="sync-folder-picker-row">
-              <input
-                type="text"
-                className="profile-input sync-folder-input"
-                readOnly
-                aria-label={t("friendsPage.syncFolder")}
-                value={syncFolderPath || t("friendsPage.noFolderSelected")}
-              />
-              <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}
-                type="button"
-                onClick={handleCopyFolder}
-                title={t("common.copy")}
-              > {t("common.copy")} </Button>
-            </div>
-          </div>
-
-          <div className="sync-section-block">
-            <h4 className="sync-section-heading">{t("friendsPage.nostrRelaysHeading")}</h4>
-            <p className="friends-modal-desc">{t("friendsPage.nostrRelaysDesc")}</p>
-            <div className="nostr-publish-row">
-              <span className="nostr-publish-label">{t("friendsPage.nostrPublishToggle")}</span>
-              <div
-                className="nostr-scope-group"
-                role="radiogroup"
-                aria-label={t("friendsPage.nostrPublishToggle")}
-              >
-                {SCOPE_OPTIONS.map((opt) => {
-                  const active = scope === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      className={`nostr-scope-option${active ? " active" : ""}`}
-                      onClick={() => handleScopeChange(opt.value)}
-                    >
-                      {t(opt.labelKey)}
-                      {opt.recommended && (
-                        <span className="nostr-scope-recommended">
-                          {t("friendsPage.nostrScopeRecommended")}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+            <div className="sync-phase-row">
+              <span className={`sync-phase-dot is-${tone}`} aria-hidden="true" />
+              <div className="sync-phase-text">
+                <strong>{t(PHASE_LABEL[tone])}</strong>
+                <span>{t("friendsPage.syncAlwaysOn")}</span>
               </div>
-            </div>
-            <p className="friends-modal-desc">{t("friendsPage.nostrPublishDesc")}</p>
-            <p className="friends-modal-desc nostr-scope-detail">{t(activeOption.descKey)}</p>
-            <div className="nostr-relays-list">
-              {NOSTR_RELAYS.map((relay) => {
-                const status = relayStatus[relay];
-                const meta = status ? RELAY_STATUS_META[status] : null;
-                const modifier = meta ? ` ${meta.modifier}` : "";
-                return (
-                  <div key={relay} className="nostr-relay-item">
-                    <span className={`nostr-relay-dot${modifier}`} />
-                    <span className="nostr-relay-url">{relay}</span>
-                    <span className={`nostr-relay-status${modifier}`}>
-                      {meta ? t(meta.labelKey) : t("friendsPage.nostrRelayUnchecked")}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="friends-modal-desc nostr-relay-hint">{t("friendsPage.nostrRelayStatusHint")}</p>
-            <div className="nostr-disclosure">
-              <p>{t("friendsPage.nostrDisclosurePerm")}</p>
-              <p>{t("friendsPage.nostrDisclosureHeartbeat")}</p>
-              <p>{t("friendsPage.nostrDisclosureDms")}</p>
-            </div>
-          </div>
-
-          <div className="sync-section-block">
-            <div className="sync-activity-header">
-              <div>
-                <h4 className="sync-section-heading">{t("friendsPage.recentSyncActivity")}</h4>
-                {lastSyncedTime && (
-                  <span className="sync-last-time-label">
-                    {t("friendsPage.lastSynced")}: {lastSyncedTime}
-                  </span>
-                )}
-              </div>
-              <Button variant="primary" size="sm" leftIcon={<RefreshIcon className={isSyncing ? "sync-spinner" : ""} />}
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<RefreshCw size={14} className={tone === "connecting" ? "sync-spinner" : ""} />}
                 type="button"
                 onClick={onTriggerSync}
-                disabled={isSyncing}
-              > {t("friends.syncNow")} </Button>
+              >
+                {t("friends.syncNow")}
+              </Button>
             </div>
 
-            <div className="sync-log-container">
-              {syncLog.length === 0 ? (
-                <p className="sync-log-empty">{t("friendsPage.noSyncActivityRecorded")}</p>
+            <div className="sync-facts">
+              <span className="sync-fact">
+                <Clock size={13} aria-hidden="true" />
+                {t("friendsPage.lastSynced")}: {lastSyncedTime || t("friendsPage.lastSyncedNever")}
+              </span>
+              <span className="sync-fact">
+                {t("friendsPage.syncPendingPublish", { count: syncStatus.pendingPublish })}
+              </span>
+            </div>
+
+            {syncStatus.lastError && (
+              <p className="sync-error-line">{t("friendsPage.syncFailed", { reason: syncStatus.lastError })}</p>
+            )}
+          </div>
+
+          <div className="sync-section-block">
+            <h4 className="sync-section-heading">{t("friendsPage.syncRelaysHeading")}</h4>
+            <p className="friends-modal-desc">{t("friendsPage.nostrRelaysDesc")}</p>
+            <div className="nostr-relays-list">
+              {relays.length === 0 ? (
+                <p className="sync-log-empty">{t("friendsPage.nostrRelayUnchecked")}</p>
               ) : (
-                syncLog.map((entry, idx) => (
-                  <div key={idx} className="sync-log-item">
-                    <div className="sync-log-meta">
-                      <span className="sync-log-time">{entry.time}</span>
-                      <span className="sync-log-summary">{entry.message}</span>
-                    </div>
-                    {entry.details && entry.details.length > 0 && (
-                      <div className="sync-log-details-list">
-                        {entry.details.map((d, dIdx) => (
-                          <div key={dIdx} className="sync-log-detail-line">
-                            {d}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                relays.map(([relay, health]) => (
+                  <div key={relay} className="nostr-relay-item">
+                    <span className={`nostr-relay-dot ${health === "accepted" ? "online" : "failed"}`} />
+                    <span className="nostr-relay-url">{relay}</span>
+                    <span className={`nostr-relay-status ${health === "accepted" ? "online" : "failed"}`}>
+                      {health === "accepted"
+                        ? t("friendsPage.nostrRelayReachable")
+                        : t("friendsPage.nostrRelayFailed")}
+                    </span>
                   </div>
                 ))
               )}
+            </div>
+            <p className="friends-modal-desc nostr-relay-hint">{t("friendsPage.nostrRelayStatusHint")}</p>
+          </div>
+
+          <div className="sync-section-block">
+            <h4 className="sync-section-heading">{t("friendsPage.syncPeersHeading")}</h4>
+            {peerRows.length === 0 ? (
+              <p className="sync-log-empty">{t("friendsPage.syncNoFriends")}</p>
+            ) : (
+              <div className="sync-peer-list">
+                {peerRows.map(({ friend, state }) => {
+                  const online = isPeerOnline(state);
+                  const playing = peerCurrentlyPlaying(state);
+                  const delivery = peerDeliveryState(state);
+                  const lastSeen = state?.lastSeenAt
+                    ? formatLastSeen(Math.floor(state.lastSeenAt / 1000), t)
+                    : t("friendsPage.syncPeerNeverHeard");
+                  return (
+                    <div key={friend.id} className="sync-peer-row">
+                      <FriendAvatar friend={friend} size="sm" />
+                      <span className="sync-peer-main">
+                        <span className="sync-peer-name">{displayName(friend)}</span>
+                        <span className={["sync-peer-presence", online ? "is-online" : ""].filter(Boolean).join(" ")}>
+                          {playing
+                            ? t("friendsPage.playingGame", { game: playing })
+                            : online
+                              ? t("friendsPage.formatOnline")
+                              : t("friendsPage.syncPeerOffline")}
+                          <span className="sync-peer-sep" aria-hidden="true" />
+                          {t("friendsPage.syncLastReceived", { time: lastSeen })}
+                        </span>
+                      </span>
+                      <span className={`sync-peer-delivery is-${delivery}`}>
+                        {t(DELIVERY_LABEL[delivery])}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="sync-section-block">
+            <h4 className="sync-section-heading">{t("friendsPage.nostrPublishToggle")}</h4>
+            <div className="nostr-scope-group" role="radiogroup" aria-label={t("friendsPage.nostrPublishToggle")}>
+              {SCOPE_OPTIONS.map((opt) => {
+                const active = activeScope === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={`nostr-scope-option${active ? " active" : ""}`}
+                    onClick={() => handleScopeChange(opt.value)}
+                  >
+                    {t(opt.labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="friends-modal-desc nostr-scope-detail">{t(activeOption.descKey)}</p>
+
+            <div className="nostr-disclosure">
+              <p>{t("friendsPage.nostrDisclosurePerm")}</p>
+              <p>{t("friendsPage.nostrDisclosureEncrypted")}</p>
+              <p>{t("friendsPage.nostrDisclosureNoSetup")}</p>
+              <p>{t("friendsPage.messagesPrivate")}</p>
             </div>
           </div>
         </div>
 
         <div className="friends-modal-footer">
-          <Button variant="secondary" size="md" type="button"  onClick={onClose}> {t("common.close")} </Button>
+          <Button variant="secondary" size="md" type="button" onClick={onClose}>
+            {t("common.close")}
+          </Button>
         </div>
       </div>
     </div>,

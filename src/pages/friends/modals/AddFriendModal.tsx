@@ -1,8 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { npubEncode } from "nostr-tools/nip19";
+import { Clock, Send, ShieldCheck, X } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
-import type { Friend } from "../friendsTypes";
+import type { Friend, FriendInvitation } from "../friendsTypes";
+import { asPeerPubkey } from "../friendsSyncHelpers";
+import { extractNpub, pendingPeerLabel } from "../friendsSyncPresentation";
 import {
   FriendCodeQR,
   CopyIcon,
@@ -10,23 +14,49 @@ import {
   XIcon,
   getInitials,
   getProceduralAvatarStyle,
-  formatHours,
   UsersIcon,
-  StarIcon,
 } from "../friendsUtils";
 import { Button } from "../../../components/ui";
 
 interface AddFriendModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Our own hex pubkey (the friend code the controller generates). */
   myFriendCode: string;
   nostrPublicKey: string;
   friendCodeInput: string;
   onFriendCodeInputChange: (val: string) => void;
   decodedFriend: Friend | null;
-  onAddFriend: () => void;
+  /** Returns true when the request was actually queued. */
+  onAddFriend: () => boolean;
+  /** Outbound request already waiting on the pasted peer, if any. */
+  pendingRequest?: FriendInvitation | null;
+  /** Name of an accepted friend already using the pasted key. */
+  existingFriendName?: string | null;
+  onResendRequest?: () => void;
+  onCancelRequest?: () => void;
 }
 
+/** Hex pubkeys are shared as `npub` so nobody has to copy 64 raw characters. */
+function shareCode(pubkey: string): string {
+  const hex = pubkey.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(hex)) return pubkey.trim();
+  try {
+    return npubEncode(hex);
+  } catch {
+    return hex;
+  }
+}
+
+/**
+ * The connect flow.
+ *
+ * Everything is decoded locally: the code carries a public key and nothing
+ * else, so the peer's profile and stats stay hidden until they accept. The
+ * modal therefore shows a neutral card instead of a fake preview, and keeps
+ * the "request sent" state visible so a second press cannot silently queue a
+ * duplicate request.
+ */
 export default function AddFriendModal({
   isOpen,
   onClose,
@@ -36,10 +66,26 @@ export default function AddFriendModal({
   onFriendCodeInputChange,
   decodedFriend,
   onAddFriend,
+  pendingRequest,
+  existingFriendName,
+  onResendRequest,
+  onCancelRequest,
 }: AddFriendModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<"add" | "mycode">("add");
+  const [requested, setRequested] = useState<{ pubkey: string; name: string } | null>(null);
+
+  const myNpub = useMemo(() => shareCode(myFriendCode), [myFriendCode]);
+
+  // A new paste supersedes the "sent" state; clearing the box (which the
+  // controller does right after a send) must not.
+  useEffect(() => {
+    if (!requested) return;
+    if (!friendCodeInput.trim()) return;
+    const current = asPeerPubkey(decodedFriend?.syncId);
+    if (current !== requested.pubkey) setRequested(null);
+  }, [decodedFriend, requested, friendCodeInput]);
 
   // Escape closes, matching the sync and nickname dialogs.
   useEffect(() => {
@@ -58,6 +104,27 @@ export default function AddFriendModal({
     showToast(t("friendsPage.copiedToClipboard", { label }), "success");
   };
 
+  const decodedPubkey = asPeerPubkey(decodedFriend?.syncId);
+  const pending = pendingRequest
+    ? { pubkey: asPeerPubkey(pendingRequest.syncId) ?? pendingRequest.syncId, name: pendingRequest.name }
+    : requested
+      ? { pubkey: requested.pubkey, name: requested.name }
+      : null;
+  const pendingLabel = pending ? pendingPeerLabel(pending.name, pending.pubkey) : "";
+
+  const handleInput = (raw: string) => {
+    // A pasted sentence may carry the code in the middle; keep only the code.
+    const npub = extractNpub(raw);
+    onFriendCodeInputChange(npub ?? raw);
+  };
+
+  const handleSend = () => {
+    if (!decodedFriend) return;
+    const pubkey = decodedPubkey ?? decodedFriend.syncId;
+    const queued = onAddFriend();
+    if (queued) setRequested({ pubkey, name: decodedFriend.name });
+  };
+
   return createPortal(
     <div className="friends-modal-backdrop" onClick={onClose} role="presentation">
       <div
@@ -71,7 +138,7 @@ export default function AddFriendModal({
           <h2 className="friends-modal-title" id="friends-add-modal-title">
             <UsersIcon /> {t("friendsPage.addFriendModalTitle")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button" onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-subtabs">
@@ -94,7 +161,7 @@ export default function AddFriendModal({
         <div className="friends-modal-body">
           {activeSubTab === "add" ? (
             <div className="add-friend-form">
-              <p className="friends-modal-desc">{t("friends.pasteFriendCodeDesc")}</p>
+              <p className="friends-modal-desc">{t("friendsPage.pasteCodeHint")}</p>
 
               <div className="form-group">
                 <input
@@ -103,61 +170,86 @@ export default function AddFriendModal({
                   placeholder={t("friends.pasteCodePlaceholder")}
                   aria-label={t("friends.pasteCodePlaceholder")}
                   value={friendCodeInput}
-                  onChange={(e) => onFriendCodeInputChange(e.target.value)}
+                  onChange={(e) => handleInput(e.target.value)}
                   autoFocus
                 />
               </div>
 
-              {decodedFriend && (
-                <div className="friend-preview-card">
+              {pending && (
+                <div className="friend-request-pending" role="status">
+                  <div className="friend-request-pending__head">
+                    <Clock size={15} aria-hidden="true" />
+                    <span>{t("friendsPage.requestSentTitle")}</span>
+                  </div>
+                  {pendingLabel && <p className="friend-request-pending__peer">{pendingLabel}</p>}
+                  <p className="friend-request-pending__body">{t("friendsPage.requestSentBody")}</p>
+                  <div className="friend-request-pending__actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      leftIcon={<Send size={14} />}
+                      onClick={() => onResendRequest?.()}
+                    >
+                      {t("friendsPage.sendAgain")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      leftIcon={<X size={14} />}
+                      onClick={() => {
+                        onCancelRequest?.();
+                        setRequested(null);
+                        onFriendCodeInputChange("");
+                      }}
+                    >
+                      {t("friendsPage.cancelRequest")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!pending && decodedFriend && existingFriendName && (
+                <div className="friend-preview-card friend-preview-card--neutral">
                   <div className="friend-preview-header">
                     <div className="preview-avatar-wrapper">
-                      {decodedFriend.avatar && decodedFriend.avatar.startsWith("data:") ? (
-                        <img src={decodedFriend.avatar} alt={decodedFriend.name} className="preview-avatar-img" />
-                      ) : (
-                        <div
-                          className="preview-avatar-procedural"
-                          style={getProceduralAvatarStyle(decodedFriend.name)}
-                        >
-                          {getInitials(decodedFriend.name)}
-                        </div>
-                      )}
+                      <div className="preview-avatar-procedural" style={getProceduralAvatarStyle(existingFriendName)}>
+                        {getInitials(existingFriendName)}
+                      </div>
+                    </div>
+                    <div className="friend-preview-info">
+                      <span className="friend-preview-name">{existingFriendName}</span>
+                      <span className="friend-preview-status">
+                        {t("friendsPage.alreadyFriends", { name: existingFriendName })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!pending && decodedFriend && !existingFriendName && (
+                <div className="friend-preview-card friend-preview-card--neutral">
+                  <div className="friend-preview-header">
+                    <div className="preview-avatar-wrapper">
+                      <div
+                        className="preview-avatar-procedural"
+                        style={getProceduralAvatarStyle(decodedFriend.name)}
+                      >
+                        {getInitials(decodedFriend.name)}
+                      </div>
                     </div>
                     <div className="friend-preview-info">
                       <span className="friend-preview-name">{decodedFriend.name}</span>
                       <span className="friend-preview-status">
-                        {decodedFriend.status || t("friendsPage.formatOnline")}
+                        {t("friendsPage.profileAfterAccept")}
                       </span>
-                      {decodedFriend.favoriteGame && (
-                        <span className="friend-preview-favorite">
-                          <StarIcon /> {decodedFriend.favoriteGame}
-                        </span>
-                      )}
                     </div>
                   </div>
-
-                  {decodedFriend.libStats && (
-                    <div className="friend-preview-stats">
-                      <div className="preview-stat-item">
-                        <span className="preview-stat-val">
-                          {decodedFriend.libStats.gamesCount || 0}
-                        </span>
-                        <span className="preview-stat-lbl">{t("friendsPage.games")}</span>
-                      </div>
-                      <div className="preview-stat-item">
-                        <span className="preview-stat-val">
-                          {formatHours(decodedFriend.libStats.playtimeMinutes || 0, t)}
-                        </span>
-                        <span className="preview-stat-lbl">{t("friendsPage.playtime")}</span>
-                      </div>
-                      <div className="preview-stat-item">
-                        <span className="preview-stat-val">
-                          {decodedFriend.libStats.achievementsCount || 0}
-                        </span>
-                        <span className="preview-stat-lbl">{t("friendsPage.achievements")}</span>
-                      </div>
-                    </div>
-                  )}
+                  <p className="friend-preview-note">
+                    <ShieldCheck size={13} aria-hidden="true" />
+                    {t("friendsPage.syncStartsOnAccept")}
+                  </p>
                 </div>
               )}
             </div>
@@ -166,16 +258,26 @@ export default function AddFriendModal({
               <p className="friends-modal-desc">{t("friendsPage.shareCodeDesc")}</p>
 
               <div className="my-code-box">
-                <span className="my-code-text">{myFriendCode}</span>
-                <Button variant="secondary" size="sm" leftIcon={<CopyIcon />}
+                <span className="my-code-text">{myNpub}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<CopyIcon />}
                   type="button"
-                  onClick={() => copyToClipboard(myFriendCode, t("friendsPage.friendCode"))}
-                > {t("common.copy")} </Button>
+                  onClick={() => copyToClipboard(myNpub, t("friendsPage.friendCode"))}
+                >
+                  {t("common.copy")}
+                </Button>
               </div>
 
-              {myFriendCode && (
+              <p className="my-code-hint">
+                <ShieldCheck size={13} aria-hidden="true" />
+                {t("friendsPage.myCodeSafeHint")}
+              </p>
+
+              {myNpub && (
                 <div className="my-qr-container">
-                  <FriendCodeQR code={myFriendCode} />
+                  <FriendCodeQR code={myNpub} />
                   <span className="my-qr-label">{t("friends.scanQrWithMobile")}</span>
                 </div>
               )}
@@ -185,7 +287,11 @@ export default function AddFriendModal({
                   <span className="nostr-key-label">{t("friendsPage.nostrPublicKey")}</span>
                   <div className="nostr-key-row">
                     <span className="nostr-key-val">{nostrPublicKey}</span>
-                    <Button variant="secondary" size="sm" iconOnly leftIcon={<CopyIcon />}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      iconOnly
+                      leftIcon={<CopyIcon />}
                       type="button"
                       onClick={() => copyToClipboard(nostrPublicKey, t("friendsPage.nostrPublicKey"))}
                     ></Button>
@@ -199,18 +305,20 @@ export default function AddFriendModal({
         {activeSubTab === "add" && (
           <div className="friends-modal-footer">
             <Button variant="secondary" size="md" type="button" onClick={onClose}>
-              {t("common.cancel")}
+              {pending ? t("common.close") : t("common.cancel")}
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              type="button"
-              leftIcon={<PlusIcon />}
-              onClick={onAddFriend}
-              disabled={!decodedFriend}
-            >
-              {t("friends.addFriend")}
-            </Button>
+            {!pending && !existingFriendName && (
+              <Button
+                variant="primary"
+                size="md"
+                type="button"
+                leftIcon={<PlusIcon />}
+                onClick={handleSend}
+                disabled={!decodedFriend}
+              >
+                {t("friendsPage.sendRequest")}
+              </Button>
+            )}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   ArrowRight,
   CalendarClock,
+  Check,
   CheckCircle2,
   ChevronRight,
   Inbox,
@@ -9,12 +10,15 @@ import {
   MessageCircle,
   Sparkles,
   ThumbsUp,
+  UserPlus,
+  X,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { visibleMessages } from "../../friendsStorage";
 import type {
   DmThread,
   Friend,
+  FriendInvitation,
   GameRecommendation,
   GameSession,
   GameSuggestion,
@@ -30,6 +34,10 @@ interface FriendsDigestProps {
   suggestions: GameSuggestion[];
   dms: DmThread[];
   profile: UserProfile;
+  /** Inbound requests still waiting on an answer. */
+  invitations?: FriendInvitation[];
+  onAcceptInvitation?: (invite: FriendInvitation) => void;
+  onDenyInvitation?: (syncId: string) => void;
   onNavigate: (tab: FriendsTabKey) => void;
 }
 
@@ -49,6 +57,9 @@ export function FriendsDigest({
   suggestions,
   dms,
   profile,
+  invitations = [],
+  onAcceptInvitation,
+  onDenyInvitation,
   onNavigate,
 }: FriendsDigestProps) {
   const { t } = useLanguage();
@@ -170,6 +181,39 @@ export function FriendsDigest({
         )}
       </header>
 
+      {invitations.length > 0 && (
+        <section className="friends-digest__invites" aria-label={t("friendsPage.pendingInvitations", { count: invitations.length })}>
+          <div className="friends-digest__invites-head">
+            <UserPlus size={14} aria-hidden="true" />
+            {t("friendsPage.pendingInvitations", { count: invitations.length })}
+          </div>
+          {invitations.slice(0, 4).map((invite) => (
+            <div key={invite.syncId} className="friends-digest__invite">
+              <span className="friends-digest__invite-name">{invite.name}</span>
+              <span className="friends-digest__invite-status">{t("friendsPage.wantsToConnect")}</span>
+              <button
+                type="button"
+                className="friends-digest__invite-accept"
+                onClick={() => onAcceptInvitation?.(invite)}
+                title={t("friendsPage.acceptInvite")}
+                aria-label={t("friendsPage.acceptRequestFrom", { name: invite.name })}
+              >
+                <Check size={13} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="friends-digest__invite-deny"
+                onClick={() => onDenyInvitation?.(invite.syncId)}
+                title={t("friendsPage.denyInvite")}
+                aria-label={t("friendsPage.declineRequestFrom", { name: invite.name })}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
+
       {nextSession && (
         <button type="button" className="friends-digest__next" onClick={() => onNavigate("sessions")}>
           <span className="friends-digest__next-icon" aria-hidden="true">
@@ -238,7 +282,9 @@ export function FriendsDigest({
 
       <div className="friends-digest__footer">
         <span>
-          {t("friendsPage.digest.people", { count: friends.filter((friend) => !friend.blocked).length })}
+          {t("friendsPage.digest.people", {
+            count: friends.filter((friend) => !friend.blocked && friend.consent !== "pending").length,
+          })}
         </span>
         <button type="button" onClick={() => onNavigate("compare")}>
           {t("friendsPage.digest.compare")}

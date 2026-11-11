@@ -16,6 +16,13 @@ import {
   displayName,
   dmThreadId,
 } from "../../../pages/friendsStorage";
+import type { PeerSyncState } from "../../../sync/friends/engine";
+import { asPeerPubkey } from "../../../pages/friends/friendsSyncHelpers";
+import {
+  isPeerOnline,
+  peerCurrentlyPlaying,
+  pendingPeerLabel,
+} from "../../../pages/friends/friendsSyncPresentation";
 import type { FriendInvitation, UseFriendsSocialResult } from "../../../hooks/useFriendsSocial";
 import { FriendAvatar, Icons, isOnline, useFocusableInput, useOverlayEscape } from "./friendsUtils";
 import FriendCard from "./FriendCard";
@@ -26,19 +33,25 @@ export type FriendFilter = "all" | "online" | "pinned";
 export interface FriendsListTabProps {
   social: UseFriendsSocialResult;
   profileName: string;
+  /** Per-peer engine state, keyed by pubkey — the only presence source. */
+  peerStates: Record<string, PeerSyncState>;
   onOpenDm: (threadId: string, friendName: string) => void;
   onInviteToLobby: (friendName: string) => void;
   onCompare: (friendId: string) => void;
   onSetNickname: (friendId: string) => void;
+  /** Drop an outbound request that has not been answered. */
+  onCancelRequest: (syncId: string) => void;
 }
 
 export default function FriendsListTab({
   social,
   profileName,
+  peerStates,
   onOpenDm,
   onInviteToLobby,
   onCompare,
   onSetNickname,
+  onCancelRequest,
 }: FriendsListTabProps) {
   const { t } = useLanguage();
   const { runningGameIds, launchGame } = useGames();
@@ -48,15 +61,32 @@ export default function FriendsListTab({
   const [selectedCircleId, setSelectedCircleId] = useState("all");
   const [showCirclesModal, setShowCirclesModal] = useState(false);
 
-  const { friends, circles, invitations, playingNow, myGameIds } = social;
+  const { friends, circles, invitations, outgoingRequests, playingNow, myGameIds } = social;
+
+  // Requests are not friends yet: they get their own rows and never reach the
+  // grid, the counts or the circle membership list.
+  const acceptedFriends = useMemo(
+    () => friends.filter((f) => !f.blocked && f.consent !== "pending"),
+    [friends]
+  );
+
+  const peerStateFor = (friend: Friend) => {
+    const pubkey = asPeerPubkey(friend.syncId);
+    return pubkey ? peerStates[pubkey] : undefined;
+  };
+
+  const onlineFor = (friend: Friend) => {
+    const state = peerStateFor(friend);
+    return state ? isPeerOnline(state) || !!peerCurrentlyPlaying(state) : isOnline(friend);
+  };
 
   const visibleFriends = useMemo(() => {
     const query = search.trim().toLowerCase();
-    let list = friends.filter((f) => {
+    let list = acceptedFriends.filter((f) => {
       const name = displayName(f).toLowerCase();
       const matchesQuery =
         !query || name.includes(query) || (f.favoriteGame || "").toLowerCase().includes(query);
-      const matchesFilter = filter === "all" ? true : filter === "online" ? isOnline(f) : !!f.pinned;
+      const matchesFilter = filter === "all" ? true : filter === "online" ? onlineFor(f) : !!f.pinned;
       const matchesCircle =
         selectedCircleId === "all" || (f.groups || []).includes(selectedCircleId);
       return matchesQuery && matchesFilter && matchesCircle;
@@ -65,8 +95,8 @@ export default function FriendsListTab({
       if (sort === "name") return displayName(a).localeCompare(displayName(b));
       if (sort === "recent") return (b.addedAt || 0) - (a.addedAt || 0);
       if (sort === "online") {
-        const ao = isOnline(a) ? 1 : 0;
-        const bo = isOnline(b) ? 1 : 0;
+        const ao = onlineFor(a) ? 1 : 0;
+        const bo = onlineFor(b) ? 1 : 0;
         if (bo !== ao) return bo - ao;
         return (b.addedAt || 0) - (a.addedAt || 0);
       }
@@ -76,7 +106,7 @@ export default function FriendsListTab({
       return (b.addedAt || 0) - (a.addedAt || 0);
     });
     return list;
-  }, [friends, search, filter, sort, selectedCircleId]);
+  }, [acceptedFriends, search, filter, sort, selectedCircleId, peerStates]);
 
   return (
     <div className="bigscreen-friends-list-section">
@@ -93,6 +123,25 @@ export default function FriendsListTab({
                 invite={invite}
                 onAccept={() => social.handleAcceptInvitation(invite)}
                 onDeny={() => social.handleDenyInvitation(invite.syncId)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Outbound requests still waiting on the other side */}
+      {outgoingRequests.length > 0 && (
+        <section className="bigscreen-friends-invites bigscreen-friends-requests">
+          <div className="bigscreen-friends-section-head">
+            <h3>{t("bigscreen.friends.pendingRequests", { count: outgoingRequests.length })}</h3>
+          </div>
+          <div className="bigscreen-friends-invites-list">
+            {outgoingRequests.map((request) => (
+              <OutgoingRequestRow
+                key={request.syncId}
+                request={request}
+                onResend={() => social.handleResendRequest(request.syncId)}
+                onCancel={() => onCancelRequest(request.syncId)}
               />
             ))}
           </div>
@@ -137,7 +186,7 @@ export default function FriendsListTab({
         </section>
       )}
 
-      {friends.length === 0 ? (
+      {acceptedFriends.length === 0 ? (
         <div className="system-view-empty">
           <p>{t("bigscreen.friends.noFriendsDesc")}</p>
         </div>
@@ -147,17 +196,17 @@ export default function FriendsListTab({
           <div className="bigscreen-friends-controls">
             <div className="bigscreen-filter-chips" role="group" aria-label={t("friendsPage.friendFiltersAria")}>
               <FilterChip
-                label={`${t("friends.filterAll")} (${friends.length})`}
+                label={`${t("friends.filterAll")} (${acceptedFriends.length})`}
                 active={filter === "all"}
                 onActivate={() => setFilter("all")}
               />
               <FilterChip
-                label={`${t("friends.filterOnline")} (${friends.filter(isOnline).length})`}
+                label={`${t("friends.filterOnline")} (${acceptedFriends.filter(onlineFor).length})`}
                 active={filter === "online"}
                 onActivate={() => setFilter("online")}
               />
               <FilterChip
-                label={`${t("friends.filterPinned")} (${friends.filter((f) => f.pinned).length})`}
+                label={`${t("friends.filterPinned")} (${acceptedFriends.filter((f) => f.pinned).length})`}
                 active={filter === "pinned"}
                 onActivate={() => setFilter("pinned")}
               />
@@ -171,7 +220,7 @@ export default function FriendsListTab({
               {circles.map((c) => (
                 <FilterChip
                   key={c.id}
-                  label={`${c.name} (${friends.filter((f) => (f.groups || []).includes(c.id)).length})`}
+                  label={`${c.name} (${acceptedFriends.filter((f) => (f.groups || []).includes(c.id)).length})`}
                   active={selectedCircleId === c.id}
                   onActivate={() => setSelectedCircleId(selectedCircleId === c.id ? "all" : c.id)}
                 />
@@ -214,6 +263,7 @@ export default function FriendsListTab({
                   friend={friend}
                   circles={circles}
                   myGameIds={myGameIds}
+                  peerState={peerStateFor(friend)}
                   onPin={() => social.handleTogglePin(friend.id)}
                   onBlock={() => social.handleToggleBlock(friend.id, displayName(friend))}
                   onDelete={() => social.handleDeleteFriend(friend.id, displayName(friend))}
@@ -339,7 +389,7 @@ function InvitationRow({
       <div className="bigscreen-friends-invite-id">
         <div className="bigscreen-friends-invite-name">{invite.name}</div>
         <div className="bigscreen-friends-invite-status">
-          {invite.status || t("friends.wantsToConnect")}
+          {t("friendsPage.wantsToConnect")}
           {invite.favoriteGame && (
             <span className="bigscreen-friends-invite-fav">
               {Icons.star(true)} {invite.favoriteGame}
@@ -363,6 +413,54 @@ function InvitationRow({
         >
           {Icons.x()}
           {t("friends.deny")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Outbound request row ─────────────────────────────────────────
+
+function OutgoingRequestRow({
+  request,
+  onResend,
+  onCancel,
+}: {
+  request: FriendInvitation;
+  onResend: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const resendProps = useFocusable(onResend);
+  const cancelProps = useFocusable(onCancel);
+  const label = pendingPeerLabel(request.name, request.syncId);
+  return (
+    <div className="bigscreen-friends-invite-row bigscreen-friends-invite-row--outgoing">
+      <FriendAvatar
+        avatar={request.avatar}
+        name={label}
+        className="bigscreen-friend-avatar bigscreen-friend-avatar--sm"
+      />
+      <div className="bigscreen-friends-invite-id">
+        <div className="bigscreen-friends-invite-name">{label}</div>
+        <div className="bigscreen-friends-invite-status">{t("friendsPage.requestSentShort")}</div>
+      </div>
+      <div className="bigscreen-friends-invite-actions">
+        <button
+          type="button"
+          className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+          {...resendProps}
+        >
+          {Icons.send()}
+          {t("friendsPage.sendAgain")}
+        </button>
+        <button
+          type="button"
+          className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+          {...cancelProps}
+        >
+          {Icons.x()}
+          {t("friendsPage.cancelRequest")}
         </button>
       </div>
     </div>

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, RefreshCw, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
+import type { FriendsSyncPhase } from "../../../sync/friends/engine";
+import { syncTone } from "../friendsSyncPresentation";
 import {
   getNostrShareScope,
   setNostrShareScope,
@@ -9,26 +11,43 @@ import {
 } from "../../friendsStorage";
 
 interface SyncStatusChipProps {
-  isSyncing: boolean;
+  /** Engine phase; the chip never guesses from timers. */
+  phase: FriendsSyncPhase;
+  /** Local changes still queued for the next publish. */
+  pendingPublish?: number;
   lastSyncedTime: string;
   lastMessage?: string;
   onSyncNow: () => void;
   onOpenDiagnostics: () => void;
 }
 
-const SCOPES: { value: NostrShareScope; labelKey: string }[] = [
-  { value: "off", labelKey: "friendsPage.nostrScopeOff" },
+const SCOPES: { value: Exclude<NostrShareScope, "off">; labelKey: string }[] = [
   { value: "core", labelKey: "friendsPage.nostrScopeCore" },
   { value: "full", labelKey: "friendsPage.nostrScopeFull" },
 ];
 
+/** The engine always publishes; a stored legacy "off" means the reduced set. */
+function normalizeScope(scope: NostrShareScope): Exclude<NostrShareScope, "off"> {
+  return scope === "full" ? "full" : "core";
+}
+
+const PHASE_LABEL: Record<ReturnType<typeof syncTone>, string> = {
+  idle: "friendsPage.syncPhaseIdle",
+  connecting: "friendsPage.syncPhaseConnecting",
+  online: "friendsPage.syncPhaseOnline",
+  degraded: "friendsPage.syncPhaseDegraded",
+  offline: "friendsPage.syncPhaseOffline",
+};
+
 /**
- * One honest sync control. The old toolbar carried two icon buttons and a
- * status line; this chip keeps the same information one click away and
- * surfaces the share scope where the sync actually happens.
+ * One honest sync control. The engine runs on its own, so this chip reports
+ * its phase and lets the user ask for a pass; nothing here polls or fakes a
+ * spinner. The share scope lives one click away because that is the only sync
+ * decision the user actually makes.
  */
 export function SyncStatusChip({
-  isSyncing,
+  phase,
+  pendingPublish = 0,
   lastSyncedTime,
   lastMessage,
   onSyncNow,
@@ -37,12 +56,14 @@ export function SyncStatusChip({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
-  const [scope, setScope] = useState<NostrShareScope>(() => getNostrShareScope());
+  const [scope, setScope] = useState<Exclude<NostrShareScope, "off">>(() =>
+    normalizeScope(getNostrShareScope())
+  );
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setScope(getNostrShareScope());
+    setScope(normalizeScope(getNostrShareScope()));
     const onPointerDown = (event: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     };
@@ -57,35 +78,34 @@ export function SyncStatusChip({
     };
   }, [open]);
 
-  const handleScope = (next: NostrShareScope) => {
+  const handleScope = (next: Exclude<NostrShareScope, "off">) => {
     if (next === scope) return;
     setScope(next);
     setNostrShareScope(next);
     window.dispatchEvent(new Event("gamelib:nostr-share-scope-changed"));
-    showToast(
-      next === "off" ? t("friendsPage.nostrPublishOffToast") : t("friendsPage.nostrPublishOnToast"),
-      "info"
-    );
+    showToast(t("friendsPage.nostrPublishOnToast"), "info");
   };
 
-  const status = isSyncing
-    ? t("friends.syncing")
-    : lastSyncedTime
-    ? t("friends.synced", { time: lastSyncedTime })
-    : t("friendsPage.lastSyncedNever");
+  const tone = syncTone(phase, pendingPublish);
+  const status = t(PHASE_LABEL[tone]);
 
   return (
     <div className="friends-sync" ref={rootRef}>
       <button
         type="button"
-        className={["friends-sync__chip", isSyncing ? "is-syncing" : ""].filter(Boolean).join(" ")}
+        className={`friends-sync__chip is-${tone}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         title={t("friendsPage.syncAndSharing")}
       >
-        <span className={`friends-sync__dot${isSyncing ? " is-syncing" : ""}`} aria-hidden="true" />
+        <span className={`friends-sync__dot is-${tone}`} aria-hidden="true" />
         <span className="friends-sync__label">{status}</span>
+        {pendingPublish > 0 && (
+          <span className="friends-sync__pending" title={t("friendsPage.syncPendingPublish", { count: pendingPublish })}>
+            {pendingPublish}
+          </span>
+        )}
         <ChevronDown size={13} className="friends-sync__chevron" aria-hidden="true" />
       </button>
 
@@ -97,8 +117,17 @@ export function SyncStatusChip({
             </span>
             <div>
               <strong>{t("friendsPage.syncAndSharing")}</strong>
-              <span>{lastMessage || t("friendsPage.noSyncActivityRecorded")}</span>
+              <span>{lastMessage || t("friendsPage.syncAlwaysOn")}</span>
             </div>
+          </div>
+
+          <div className="friends-sync__meta">
+            <span className={`friends-sync__meta-dot is-${tone}`} aria-hidden="true" />
+            <span>{status}</span>
+            <span className="friends-sync__meta-sep" aria-hidden="true" />
+            <span>
+              {t("friendsPage.lastSynced")}: {lastSyncedTime || t("friendsPage.lastSyncedNever")}
+            </span>
           </div>
 
           <div className="friends-sync__scope">
@@ -123,8 +152,8 @@ export function SyncStatusChip({
           </div>
 
           <div className="friends-sync__actions">
-            <button type="button" className="friends-sync__action is-primary" onClick={onSyncNow} disabled={isSyncing}>
-              <RefreshCw size={13} className={isSyncing ? "friends-spin" : ""} aria-hidden="true" />
+            <button type="button" className="friends-sync__action is-primary" onClick={onSyncNow}>
+              <RefreshCw size={13} aria-hidden="true" />
               {t("friends.syncNow")}
             </button>
             <button type="button" className="friends-sync__action" onClick={onOpenDiagnostics}>

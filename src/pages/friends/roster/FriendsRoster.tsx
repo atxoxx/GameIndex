@@ -16,10 +16,12 @@ import {
 import { useLanguage } from "../../../context/LanguageContext";
 import { usePersistedState } from "../../../hooks/usePersistedState";
 import type { Friend, FriendCircle, FriendInvitation } from "../friendsTypes";
+import { classifyFriendsByConsent } from "../friendsSyncHelpers";
+import { pendingPeerLabel } from "../friendsSyncPresentation";
 import { displayName, isOnline, safeCurrentlyPlaying } from "../friendsUtils";
 import { FriendAvatar } from "../shared/FriendAvatar";
 import type { FriendsRosterFilter } from "../shared/FriendsHeroBand";
-import { FriendRow } from "./FriendRow";
+import { FriendRow, type PendingDirection } from "./FriendRow";
 
 type SortOption = "default" | "name" | "recent" | "online";
 type Density = "comfortable" | "compact";
@@ -36,6 +38,8 @@ interface FriendsRosterProps {
   onOpenCirclesModal: () => void;
   onAcceptInvitation: (invite: FriendInvitation) => void;
   onDenyInvitation: (syncId: string) => void;
+  onResendRequest?: (syncId: string) => void;
+  onCancelRequest?: (syncId: string) => void;
   onMessageFriend: (friend: Friend) => void;
   onInviteFriend: (friend: Friend) => void;
   onCompareFriend: (friend: Friend) => void;
@@ -63,6 +67,8 @@ export function FriendsRoster({
   onOpenCirclesModal,
   onAcceptInvitation,
   onDenyInvitation,
+  onResendRequest,
+  onCancelRequest,
   onMessageFriend,
   onInviteFriend,
   onCompareFriend,
@@ -91,8 +97,38 @@ export function FriendsRoster({
     if (circleId !== "all" && !circles.some((circle) => circle.id === circleId)) setCircleId("all");
   }, [circles, circleId]);
 
+  // Requests waiting on an answer are a different thing from friends, so the
+  // total, the filters and the bulk actions all count mutual consent only.
+  const groups = useMemo(() => classifyFriendsByConsent(friends), [friends]);
+  const accepted = groups.accepted;
+  const blocked = groups.blocked;
+
+  const pendingRows = useMemo(() => {
+    if (filter !== "all") return [] as { friend: Friend; direction: Exclude<PendingDirection, null> }[];
+    const q = searchQuery.trim().toLowerCase();
+    const matches = (friend: Friend) =>
+      !q ||
+      displayName(friend).toLowerCase().includes(q) ||
+      friend.name.toLowerCase().includes(q) ||
+      (friend.favoriteGame || "").toLowerCase().includes(q);
+    const rows: { friend: Friend; direction: Exclude<PendingDirection, null> }[] = [];
+    // A record the engine created from a pubkey has no profile yet; show the
+    // shortened key instead of its placeholder name.
+    const withLabel = (friend: Friend): Friend => {
+      const label = pendingPeerLabel(friend.name, friend.syncId);
+      return label === friend.name ? friend : { ...friend, name: label };
+    };
+    groups.incoming.forEach((friend) => matches(friend) && rows.push({ friend, direction: "incoming" }));
+    groups.outgoing.forEach(
+      (friend) => matches(friend) && rows.push({ friend: withLabel(friend), direction: "outgoing" })
+    );
+    // A pending record with no timestamp is treated as an unanswered invite.
+    groups.pending.forEach((friend) => matches(friend) && rows.push({ friend, direction: "incoming" }));
+    return rows;
+  }, [groups, filter, searchQuery]);
+
   const visible = useMemo(() => {
-    let list = [...friends];
+    let list = filter === "blocked" ? [...blocked] : [...accepted];
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -107,14 +143,9 @@ export function FriendsRoster({
 
     if (circleId !== "all") list = list.filter((friend) => (friend.groups || []).includes(circleId));
 
-    if (filter === "blocked") {
-      list = list.filter((friend) => friend.blocked);
-    } else {
-      list = list.filter((friend) => !friend.blocked);
-      if (filter === "online") list = list.filter((friend) => isOnline(friend));
-      else if (filter === "ingame") list = list.filter((friend) => !!safeCurrentlyPlaying(friend.currentlyPlaying));
-      else if (filter === "pinned") list = list.filter((friend) => friend.pinned);
-    }
+    if (filter === "online") list = list.filter((friend) => isOnline(friend));
+    else if (filter === "ingame") list = list.filter((friend) => !!safeCurrentlyPlaying(friend.currentlyPlaying));
+    else if (filter === "pinned") list = list.filter((friend) => friend.pinned);
 
     list.sort((a, b) => {
       if (sort === "name") return displayName(a).localeCompare(displayName(b));
@@ -132,17 +163,19 @@ export function FriendsRoster({
     });
 
     return list;
-  }, [friends, searchQuery, circleId, filter, sort]);
+  }, [accepted, blocked, filter, circleId, sort, searchQuery]);
 
   const filterCount = (key: FriendsRosterFilter) => {
-    if (key === "all") return friends.filter((friend) => !friend.blocked).length;
-    if (key === "online") return friends.filter((friend) => !friend.blocked && isOnline(friend)).length;
+    if (key === "all") return accepted.length;
+    if (key === "online") return accepted.filter((friend) => isOnline(friend)).length;
     if (key === "ingame") {
-      return friends.filter((friend) => !friend.blocked && !!safeCurrentlyPlaying(friend.currentlyPlaying)).length;
+      return accepted.filter((friend) => !!safeCurrentlyPlaying(friend.currentlyPlaying)).length;
     }
-    if (key === "pinned") return friends.filter((friend) => !friend.blocked && friend.pinned).length;
-    return friends.filter((friend) => friend.blocked).length;
+    if (key === "pinned") return accepted.filter((friend) => friend.pinned).length;
+    return blocked.length;
   };
+
+  const pendingCount = groups.incoming.length + groups.outgoing.length + groups.pending.length;
 
   const toggleChecked = (friendId: string) => {
     setSelectedIds((prev) => (prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]));
@@ -163,7 +196,12 @@ export function FriendsRoster({
           <span className="friends-roster__eyebrow">{t("friendsPage.yourCircle")}</span>
           <h2 className="friends-roster__title">
             {t("friendsPage.friendList")}
-            <span className="friends-roster__count">{friends.filter((friend) => !friend.blocked).length}</span>
+            <span className="friends-roster__count">{accepted.length}</span>
+            {pendingCount > 0 && (
+              <span className="friends-roster__pending-count" title={t("friendsPage.pendingRequests", { count: pendingCount })}>
+                {pendingCount}
+              </span>
+            )}
           </h2>
         </div>
         <button
@@ -189,7 +227,7 @@ export function FriendsRoster({
                 <FriendAvatar name={invite.name} avatar={invite.avatar} size="sm" />
                 <span className="friends-invite__meta">
                   <span className="friends-invite__name">{invite.name}</span>
-                  <span className="friends-invite__status">{invite.status || t("friendsPage.formatOnline")}</span>
+                  <span className="friends-invite__status">{t("friendsPage.wantsToConnect")}</span>
                 </span>
                 <button
                   type="button"
@@ -374,7 +412,49 @@ export function FriendsRoster({
       )}
 
       <div className="friends-roster__list" role="listbox" aria-label={t("friendsPage.friendList")}>
-        {visible.length === 0 ? (
+        {pendingRows.map(({ friend, direction }) => (
+          <FriendRow
+            key={friend.id}
+            friend={friend}
+            circles={circles}
+            density={density}
+            selected={false}
+            selectMode={false}
+            checked={false}
+            pending={direction}
+            onSelect={() => {}}
+            onToggleChecked={() => {}}
+            onMessage={() => {}}
+            onInvite={() => {}}
+            onCompare={() => {}}
+            onTogglePin={() => {}}
+            onSetNickname={() => {}}
+            onToggleBlock={() => {}}
+            onDelete={() => {}}
+            onAcceptRequest={
+              direction === "incoming"
+                ? () =>
+                    onAcceptInvitation({
+                      syncId: friend.syncId,
+                      name: displayName(friend),
+                      avatar: friend.avatar,
+                      status: friend.status,
+                    })
+                : undefined
+            }
+            onDeclineRequest={
+              direction === "incoming" ? () => onDenyInvitation(friend.syncId) : undefined
+            }
+            onResendRequest={
+              direction === "outgoing" ? () => onResendRequest?.(friend.syncId) : undefined
+            }
+            onCancelRequest={
+              direction === "outgoing" ? () => onCancelRequest?.(friend.syncId) : undefined
+            }
+          />
+        ))}
+
+        {visible.length === 0 && pendingRows.length === 0 ? (
           <div className="friends-empty">
             <span className="friends-empty__icon" aria-hidden="true">
               <Users size={22} />
