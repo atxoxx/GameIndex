@@ -792,8 +792,11 @@ export function useStoreCatalogue(): StoreCatalogue {
           return;
         }
       }
-      // Enter flushes debounce immediately (instant search)
-      if (e.key === "Enter" && searchQuery.trim()) {
+      // Enter flushes debounce immediately (instant search). The inline bar
+      // already handles Enter on the input and calls preventDefault, so skip
+      // this fallback in that case — otherwise one keypress dispatches two
+      // flushes (the first fetch is discarded, the second repeats the work).
+      if (e.key === "Enter" && searchQuery.trim() && !e.defaultPrevented) {
         const el = document.activeElement as HTMLElement | null;
         if (el?.classList.contains("store-search-input")) {
           // Allow flushSearch to cancel pending debounce and fetch now
