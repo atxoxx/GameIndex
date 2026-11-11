@@ -230,6 +230,14 @@ const GAMES = vi.hoisted(() => ([
     installed: false,
     coverArtUrl: "",
   },
+  {
+    id: "game-4",
+    name: "Hades",
+    path: "C:/Games/Hades.exe",
+    platform: "Epic",
+    installed: true,
+    coverArtUrl: "",
+  },
 ]));
 
 vi.mock("../../context/GameContext", () => ({
@@ -544,12 +552,29 @@ describe("SavesPage", () => {
     });
   });
 
-  it("renders a recoverable empty state when the library cannot be read", async () => {
+  it("lists an installed game that has no save locations yet", async () => {
+    renderPage();
+    await screen.findByText("Recent snapshots");
+
+    // Never scanned and never backed up: still part of the roster, so the
+    // user can rescan it or point it at a folder from this page.
+    fireEvent.click(screen.getByRole("button", { name: /Hades/ }));
+
+    expect(await screen.findByText("No save locations yet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan for saves" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Add location" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No locations included").length).toBeGreaterThan(0);
+  });
+
+  it("renders a recoverable error banner while still listing installed games", async () => {
     vi.mocked(invoke).mockRejectedValue(new Error("database unavailable"));
     renderPage();
 
     expect(await screen.findByText("Could not read the save backup library.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Try Again" })).toBeTruthy();
-    expect(screen.getByText("No save locations found yet")).toBeTruthy();
+    // The roster comes from the library context, so it survives a failed
+    // save-list load instead of collapsing into the page-level empty state.
+    expect(await screen.findByRole("button", { name: /Cyberpunk 2077/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Baldur's Gate 3/ })).toBeTruthy();
   });
 });

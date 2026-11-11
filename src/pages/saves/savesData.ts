@@ -82,6 +82,11 @@ function stateFor(
 /**
  * Join the three backend lists into the roster model the hub renders.
  *
+ * The roster is a union: every installed library game is listed even before a
+ * save location has been detected for it, so the hub can offer a rescan or a
+ * manual folder. Ids that only exist in the location or snapshot lists stay
+ * visible too, which keeps a removed or uninstalled game's snapshots reachable.
+ *
  * Pure on purpose: the filters, counts and per-game status are the parts most
  * likely to drift, so they are unit-tested without mounting React.
  */
@@ -115,7 +120,15 @@ export function buildSavesOverview({
     else backupsByGame.set(backup.gameId, [backup]);
   }
 
-  const ids = new Set<string>([...locationsByGame.keys(), ...backupsByGame.keys()]);
+  const ids = new Set<string>();
+  // Installed games belong in the roster whether or not a save folder has been
+  // found yet; an uninstalled game only shows up through its locations/backups.
+  for (const game of games) {
+    if (game.installed) ids.add(game.id);
+  }
+  for (const gameId of locationsByGame.keys()) ids.add(gameId);
+  for (const gameId of backupsByGame.keys()) ids.add(gameId);
+
   const tracked: TrackedSaveGame[] = [];
 
   for (const gameId of ids) {

@@ -141,6 +141,45 @@ describe("buildSavesOverview", () => {
     expect(overview.byId.get("excluded")?.missingCount).toBe(0);
     expect(overview.counts.issues).toBe(0);
   });
+
+  it("lists an installed game before any save location was detected", () => {
+    const overview = buildSavesOverview({
+      games: [game("fresh", "Fresh Install")],
+      locations: [],
+      backups: [],
+      health: [],
+      now: NOW,
+    });
+
+    const entry = overview.byId.get("fresh");
+    expect(entry).toBeDefined();
+    expect(entry?.installed).toBe(true);
+    expect(entry?.locations).toEqual([]);
+    expect(entry?.includedLocations).toEqual([]);
+    expect(entry?.snapshots).toEqual([]);
+    expect(entry?.state).toBe("excluded");
+    expect(overview.counts).toMatchObject({
+      all: 1,
+      protected: 0,
+      needsBackup: 0,
+      issues: 0,
+    });
+  });
+
+  it("adds an uninstalled game only when it still owns locations or snapshots", () => {
+    const overview = buildSavesOverview({
+      games: [game("gone", "Gone", false), game("archived", "Archived", false)],
+      locations: [location("archived-loc", "archived")],
+      backups: [],
+      health: [{ id: "archived-loc", exists: true }],
+      now: NOW,
+    });
+
+    expect(overview.byId.has("gone")).toBe(false);
+    expect(overview.byId.get("archived")?.installed).toBe(false);
+    expect(overview.byId.get("archived")?.state).toBe("never");
+    expect(overview.tracked.map((entry) => entry.gameId)).toEqual(["archived"]);
+  });
 });
 
 describe("filterTrackedGames", () => {
