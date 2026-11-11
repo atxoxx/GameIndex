@@ -19,6 +19,7 @@ import type {
   RequirementsSpec,
 } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { useOptionalActivity } from "../../context/ActivityContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
 
 /**
@@ -154,6 +155,26 @@ function formatVram(mb: number): string {
   return `${mb} MB`;
 }
 
+/**
+ * Pick the GPU shown in the "Your system" strip.
+ *
+ * The adapter chosen in Settings → Hardware always wins; it is matched
+ * back against the freshly detected list so the VRAM readout reflects
+ * the latest probe even when the persisted selection is stale. With no
+ * selection we fall back to the first detected adapter (the old
+ * behaviour), and with nothing at all we return null so the row hides.
+ */
+export function resolveDisplayGpu(
+  selectedGpu: GpuInfo | null | undefined,
+  detectedGpus: readonly GpuInfo[] | null | undefined,
+): GpuInfo | null {
+  if (selectedGpu) {
+    const fresh = (detectedGpus ?? []).find((gpu) => gpu.id === selectedGpu.id);
+    return fresh ?? selectedGpu;
+  }
+  return detectedGpus?.[0] ?? null;
+}
+
 /** Same conservative HTML denylist the AboutSection uses for
  *  Steam `about_the_game`. We don't ship DOMPurify (heavyweight
  *  added bundle), so a regex deny-list of script/handler vectors
@@ -187,6 +208,10 @@ export default function SystemRequirementsCard({
   steamAppId,
 }: SystemRequirementsCardProps) {
   const { t } = useLanguage();
+  // GPU the user picked in Settings → Hardware. Tolerates a missing
+  // provider (auxiliary windows / tests) and falls back to detection.
+  const activity = useOptionalActivity();
+  const selectedGpu = activity?.selectedGpu ?? null;
   const [activeTier, setActiveTier] = usePersistedState<Tier>("gamelib.game.system_requirements.tier_v1", "recommended", ["minimum", "recommended"]);
   const [payload, setPayload] = useState<PcRequirementsPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -332,7 +357,7 @@ export default function SystemRequirementsCard({
         ? "meets"
         : "below"
       : null;
-  const primaryGpu = sysInfo?.gpus?.[0] ?? null;
+  const primaryGpu = resolveDisplayGpu(selectedGpu, sysInfo?.gpus);
 
   return (
     <section className="game-section system-requirements-card">

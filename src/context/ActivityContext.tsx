@@ -151,11 +151,38 @@ async function importLegacySession(s: GameSession): Promise<void> {
   }
 }
 
+/**
+ * Resolve the persisted GPU choice against the cached adapter list.
+ *
+ * Detection runs after the first idle slice, so starting the selection from
+ * localStorage keeps surfaces that read `selectedGpu` (e.g. the game page's
+ * system requirements) correct on first paint instead of briefly falling back
+ * to the first detected adapter. The post-detection load still refreshes the
+ * entry, so a stale cache only lives until the probe finishes.
+ */
+function readCachedSelectedGpu(): GpuInfo | null {
+  try {
+    const id = localStorage.getItem("gamelib-selected-gpu");
+    if (!id) return null;
+    const raw = localStorage.getItem("gamelib-gpus");
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const match = parsed.find(
+      (gpu): gpu is GpuInfo =>
+        !!gpu && typeof gpu === "object" && (gpu as GpuInfo).id === id,
+    );
+    return match ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function ActivityProvider({ children }: { children: ReactNode }) {
   const { games } = useGames();
   const [sessions, setSessions] = useState<GameSession[]>([]);
   const [availableGpus, setAvailableGpus] = useState<GpuInfo[]>([]);
-  const [selectedGpu, setSelectedGpu] = useState<GpuInfo | null>(null);
+  const [selectedGpu, setSelectedGpu] = useState<GpuInfo | null>(readCachedSelectedGpu);
   const [totalRamGb, setTotalRamGb] = useState<number>(16);
   const initializedRef = useRef(false);
 
@@ -545,6 +572,13 @@ export function useActivity(): ActivityContextType {
     throw new Error("useActivity must be used within an ActivityProvider");
   }
   return ctx;
+}
+
+/** Non-throwing variant of `useActivity` for surfaces that can render
+ *  outside the provider (auxiliary windows, isolated unit tests). Callers
+ *  get `null` instead of an exception and fall back to their own data. */
+export function useOptionalActivity(): ActivityContextType | null {
+  return useContext(ActivityContext);
 }
 
 // ─── Stats computation helper ────────────────────────────────────────────────
