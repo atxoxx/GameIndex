@@ -1228,18 +1228,31 @@ Automatically trigger cleanups when the game process terminates:
         id: "community",
         categoryId: "achievements",
         title: "Community & Friends",
-        summary: "Local-first social system, friend presence, library overlap comparison, and encrypted direct messaging.",
+        summary: "Encrypted, always-on friend sync: presence, library overlap, and end-to-end encrypted direct messages.",
         badge: "guide",
         icon: Users,
-        keywords: ["friends", "social", "presence", "messaging", "chat", "library compare"],
+        keywords: ["friends", "social", "presence", "messaging", "chat", "library compare", "encrypted", "relay"],
         relatedIds: ["achievements"],
-        body: `Connect with your gaming circle using GameIndex's optional, local-first social features.
+        body: `GameIndex keeps your friends list on your own machine and syncs it through encrypted relays. There is no account server, no port to open and no shared folder to set up.
 
-## Core Features
-- **Friend Presence**: See what games your friends are currently playing in real time.
-- **Library Overlap**: Compare your library against a friend's profile to discover mutual co-op and multiplayer titles you both own.
-- **Direct Messaging**: Lightweight, end-to-end encrypted direct messaging with read receipts.
-- **Zero Corporate Surveillance**: All presence relaying is opt-in and decentralized. Disable social features at any time in **Settings → Privacy & Data**.`,
+## Connecting
+- Open **Friends** and press **Add Friend**.
+- Share your own code (\`npub…\`) or paste a friend's — the QR code works too.
+- A request is sent, and the row reads **Request sent** until they answer. Sync only starts when both of you agree, and nothing about either library is shared before that.
+- When someone asks to connect with you, the request appears at the top of the list and in the cockpit with **Accept** and **Decline**.
+
+## What syncs, and when
+- Sync runs in the background while the app is open. There is nothing to start, schedule or point at a folder.
+- **Standard** shares your profile (name, status, favourite game, now-playing game, bio, region), your library size and per-game playtime, and the sessions, recommendations and suggestions you post.
+- **Full** adds the detail other people contribute: their comments and reactions on your posts, who is attending your sessions, and the session chat.
+- Presence updates about once a minute, so **Online** and **Playing…** stay honest.
+- **Sync status** shows the connection phase, every relay it tried, what is still waiting to send, and per-friend **Delivered** / **Seen**.
+
+## Privacy
+- Everything is end-to-end encrypted between you and each friend. A relay only sees that two keys exchanged an event, never its contents.
+- Direct messages are end-to-end encrypted: only the two of you can read them.
+- Nothing is shared with a friend until they accept, and blocking someone stops their events from being read.
+- Your store passwords, API keys and your private key stay in the OS keychain. Files, downloads and saves never leave the machine.`,
       },
       {
         id: "retroachievements",
