@@ -6342,6 +6342,8 @@ export const ru: TranslationDict = {
   "weblinks.linkAppIdSubmit": "Применить AppID",
   "weblinks.linkCount": "{count} ссылок",
   "weblinks.loading": "Загрузка {source}…",
+  "weblinks.menu.browseAll": "Просмотреть все ссылки",
+  "weblinks.menu.switchSource": "Сменить источник",
   "weblinks.myLink": "Моя ссылка",
   "weblinks.myLinks": "Мои ссылки",
   "weblinks.navigate": "Перейти",

@@ -27,79 +27,102 @@
   }
 }
 
-/* ─── 1. Source Tabs Strip (with inline category filter) ──────────────────── */
-.wl-category-filter {
+/* ─── 1. Source Menu (one grouped dropdown) ───────────────────────────────── */
+.wl-source-menu {
   position: relative;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
-.wl-category-filter-btn {
+.wl-source-menu-trigger {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+  max-width: min(320px, 100%);
   height: 38px;
-  padding: 0 var(--space-sm) 0 var(--space-md);
+  padding: 0 var(--space-sm) 0 var(--space-xs);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast), color var(--transition-fast);
 }
 
-.wl-category-filter-btn:hover {
-  color: var(--color-text-primary);
+.wl-source-menu-trigger:hover {
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
 }
 
-.wl-category-filter-btn:focus-visible {
+.wl-source-menu-trigger:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-.wl-category-filter-label {
+.wl-source-menu-trigger.open {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.wl-source-menu-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+}
+
+.wl-source-menu-trigger-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.wl-source-menu-trigger-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: var(--font-weight-semibold);
 }
 
-.wl-category-filter-chevron {
+.wl-source-menu-trigger-chevron {
   display: flex;
   align-items: center;
   color: var(--color-text-muted);
   transition: transform var(--transition-fast);
 }
 
-.wl-category-filter-chevron.open {
+.wl-source-menu-trigger-chevron.open {
   transform: rotate(180deg);
 }
 
-.wl-category-filter-chevron svg {
+.wl-source-menu-trigger-chevron svg {
   width: 12px;
   height: 12px;
 }
 
-.wl-category-menu {
+/* ─── 2. Source Menu Popover ──────────────────────────────────────────────── */
+.wl-source-menu-popover {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: var(--z-popover);
-  min-width: 190px;
-  padding: var(--space-2xs);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3xs);
+  width: min(320px, 80vw);
+  max-height: 60vh;
+  overflow: hidden;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   animation: wlMenuIn 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -114,168 +137,173 @@
   }
 }
 
-.wl-category-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-xs) var(--space-sm);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.wl-category-menu-item:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-
-.wl-category-menu-item.active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-weight: var(--font-weight-semibold);
-}
-
-.wl-category-menu-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-2xs);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.wl-category-menu-item.active .wl-category-menu-count {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-}
-
-/* ─── 2. Horizontal Source Tabs Strip ─────────────────────────────────────── */
-.wl-source-tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+.wl-source-menu-search {
+  flex-shrink: 0;
+  padding: var(--space-sm);
   border-bottom: 1px solid var(--color-border);
 }
 
-.wl-source-tabs-divider {
-  width: 1px;
-  align-self: stretch;
-  margin: var(--space-sm) 0;
-  background: var(--color-border);
-  flex-shrink: 0;
+.wl-source-menu-search input {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
 }
 
-.wl-source-tabs-scroll {
-  display: flex;
-  gap: var(--space-xs);
-  overflow-x: auto;
+.wl-source-menu-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.wl-source-menu-search input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-bg-primary);
+}
+
+.wl-source-menu-scroll {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-xs);
+  overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-light) transparent;
 }
 
-.wl-source-tabs-scroll::-webkit-scrollbar {
-  height: 5px;
+.wl-source-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
 }
 
-.wl-source-tabs-scroll::-webkit-scrollbar-track {
-  background: transparent;
+.wl-source-menu-group + .wl-source-menu-group {
+  margin-top: var(--space-xs);
 }
 
-.wl-source-tabs-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-border-light);
-  border-radius: var(--radius-full);
+.wl-source-menu-group-head {
+  padding: var(--space-2xs) var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.wl-source-tab {
+.wl-source-menu-item {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  width: 100%;
   padding: var(--space-xs) var(--space-sm);
-  border: none;
+  border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
+  text-align: left;
   cursor: pointer;
-  position: relative;
-  height: 38px;
-  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  white-space: nowrap;
-  flex-shrink: 0;
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.wl-source-tab:hover {
-  color: var(--color-text-primary);
+.wl-source-menu-item:hover {
   background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
-.wl-source-tab:focus-visible {
+.wl-source-menu-item:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
-.wl-source-tab.active {
-  border-bottom-width: 2px;
+.wl-source-menu-item.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
   font-weight: var(--font-weight-semibold);
 }
 
-.wl-source-tab-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+.wl-source-menu-item--manage {
+  margin-top: var(--space-2xs);
 }
 
-.wl-source-tab-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.wl-source-tab-label {
-  font-size: var(--text-sm);
-}
-
-.wl-source-tab-count {
+.wl-source-menu-item-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 var(--space-2xs);
-  border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
 }
 
-.wl-source-tab.active .wl-source-tab-count {
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent);
+.wl-source-menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.wl-source-menu-item-icon--manage {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.wl-source-menu-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-source-menu-item-check {
+  flex-shrink: 0;
+  margin-left: auto;
   color: var(--color-accent);
+}
+
+.wl-source-menu-empty {
+  margin: 0;
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.wl-source-menu-footer {
+  flex-shrink: 0;
+  padding: var(--space-xs);
+  border-top: 1px solid var(--color-border);
+}
+
+.wl-source-menu-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wl-source-menu-footer-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.wl-source-menu-footer-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 /* ─── 3. Steam Sub-Sections & AppID Bar ───────────────────────────────────── */
@@ -1325,7 +1353,7 @@
 @media (prefers-reduced-motion: reduce) {
   .wl-tab,
   .wl-webview-loader,
-  .wl-category-menu,
+  .wl-source-menu-popover,
   .wl-expand-overlay {
     animation: none;
   }
@@ -1337,13 +1365,14 @@
 
 /* ── Web Links ───────────────────────────────────────────────────────── */
 
-/* Source tab strip: keep the underline metaphor, fade the rail. */
-.game-page--immersive .wl-source-tabs {
-  border-bottom-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+/* Source menu: a floating slab on the wash, like the URL bar. */
+.game-page--immersive .wl-source-menu-trigger {
+  background: var(--panel-tint-raised);
+  border-color: transparent;
 }
 
-.game-page--immersive .wl-source-tab.active {
-  border-bottom-color: var(--color-accent);
+.game-page--immersive .wl-source-menu-trigger.open {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
 
 /* URL bar: a floating command slab on the wash, not a boxed toolbar. */
@@ -1404,8 +1433,7 @@
 .game-page--immersive .wl-mylink-btn-icon,
 .game-page--immersive .wl-urlbar-btn,
 .game-page--immersive .wl-preset-chip,
-.game-page--immersive .wl-source-tab-count,
-.game-page--immersive .wl-category-menu-count,
+.game-page--immersive .wl-source-menu-item-icon--manage,
 .game-page--immersive .wl-steam-subtab {
   background: var(--panel-tint-sunken);
   border-color: color-mix(in srgb, var(--color-text-primary) 12%, transparent);

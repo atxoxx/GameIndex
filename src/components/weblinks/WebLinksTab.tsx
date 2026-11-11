@@ -12,7 +12,7 @@ import {
   useGameTabState,
 } from "../game/tabs";
 import { CloseIcon } from "./WebLinksIcons";
-import WebLinksSourceStrip from "./WebLinksSourceStrip";
+import WebLinksSourceMenu from "./WebLinksSourceMenu";
 import WebLinksSteamSections from "./WebLinksSteamSections";
 import WebLinksAddressBar from "./WebLinksAddressBar";
 import WebLinksWebview from "./WebLinksWebview";
@@ -21,7 +21,12 @@ import WebLinksBigScreen from "./WebLinksBigScreen";
 import WebLinksHub from "./WebLinksHub";
 import { useWebLinksBrowser } from "./useWebLinksBrowser";
 import { readLastSource, writeLastSource } from "./weblinksStorage";
-import { FIXED_SOURCES, MY_LINKS_KEY, SOURCE_CATEGORIES } from "./sources";
+import {
+  FIXED_SOURCES,
+  MY_LINKS_KEY,
+  SOURCE_CATEGORIES,
+  resolveInitialSourceKey,
+} from "./sources";
 import type { SourceCategoryKey, WebLinksTabProps } from "./types";
 
 interface WebLinksTabState {
@@ -33,12 +38,13 @@ const DEFAULT_STATE: WebLinksTabState = {
 };
 
 /**
- * Web Links — a hub that maps every useful destination for a game, backed by
- * the existing native preview browser.
+ * Web Links — the game's web destinations, opened straight into the existing
+ * native preview browser.
  *
- * The hub is the landing surface; opening a card moves into the browser, and
- * the grid button in its address bar returns to the hub. The last opened
- * source is remembered per game and offered as a resume card.
+ * The tab lands on the last source opened for this game (or Steam), and the
+ * grouped source menu switches between stores, wikis, community sites, modding
+ * tools and the reader's own links. The old hub is still reachable from the
+ * menu footer and the address bar's grid button.
  */
 export default function WebLinksTab({
   game,
@@ -47,7 +53,16 @@ export default function WebLinksTab({
 }: WebLinksTabProps) {
   const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
-  const browser = useWebLinksBrowser({ game, visible, onWebsitesChange });
+  const [lastSourceKey, setLastSourceKey] = useState<string | null>(() =>
+    readLastSource(game.id),
+  );
+  const browser = useWebLinksBrowser({
+    game,
+    visible,
+    onWebsitesChange,
+    initialSourceKey: resolveInitialSourceKey(lastSourceKey, FIXED_SOURCES),
+  });
+  const { setActiveSourceKey } = browser;
   const [state, setState] = useGameTabState<WebLinksTabState>({
     prefix: "wl",
     defaults: DEFAULT_STATE,
@@ -55,15 +70,14 @@ export default function WebLinksTab({
       category: SOURCE_CATEGORIES.map((category) => category.key),
     },
   });
-  const [mode, setMode] = useState<"hub" | "browser">("hub");
+  const [mode, setMode] = useState<"hub" | "browser">("browser");
   const [hubSearch, setHubSearch] = useState("");
-  const [lastSourceKey, setLastSourceKey] = useState<string | null>(() =>
-    readLastSource(game.id),
-  );
 
   useEffect(() => {
-    setLastSourceKey(readLastSource(game.id));
-  }, [game.id]);
+    const stored = readLastSource(game.id);
+    setLastSourceKey(stored);
+    setActiveSourceKey(resolveInitialSourceKey(stored, FIXED_SOURCES));
+  }, [game.id, setActiveSourceKey]);
 
   const openSource = (sourceKey: string) => {
     browser.setActiveSourceKey(sourceKey);
@@ -136,7 +150,10 @@ export default function WebLinksTab({
                   ...categoryItems,
                 ]}
                 value={state.category}
-                onChange={(category) => setState({ category })}
+                onChange={(category) => {
+                  setState({ category });
+                  browser.handleSelectCategory(category);
+                }}
                 ariaLabel={t("weblinks.filterByCategory")}
               />
             }
@@ -187,15 +204,12 @@ export default function WebLinksTab({
 
   return (
     <div className="wl-tab">
-      <WebLinksSourceStrip
-        sources={browser.filteredSources}
+      <WebLinksSourceMenu
+        sources={browser.allSources}
         activeSourceKey={browser.activeSourceKey}
+        activeSourceDef={browser.activeSourceDef}
         onSelectSource={openSource}
-        customLinksCount={browser.customLinks.length}
-        showMyLinksTab={true}
-        activeCategory={browser.activeCategory}
-        onSelectCategory={browser.handleSelectCategory}
-        counts={browser.categoryCounts}
+        onOpenHub={openHub}
         onMenuOpenChange={browser.setCategoryMenuOpen}
       />
 

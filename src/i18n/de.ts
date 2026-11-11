@@ -6342,6 +6342,8 @@ export const de: TranslationDict = {
   "weblinks.linkAppIdSubmit": "AppID anwenden",
   "weblinks.linkCount": "{count} Links",
   "weblinks.loading": "Lade {source}…",
+  "weblinks.menu.browseAll": "Alle Links durchsuchen",
+  "weblinks.menu.switchSource": "Quelle wechseln",
   "weblinks.myLink": "Mein Link",
   "weblinks.myLinks": "Meine Links",
   "weblinks.navigate": "Los",

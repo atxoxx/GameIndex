@@ -6342,6 +6342,8 @@ export const zhCN: TranslationDict = {
   "weblinks.linkAppIdSubmit": "应用 AppID",
   "weblinks.linkCount": "{count} 个链接",
   "weblinks.loading": "正在加载 {source}…",
+  "weblinks.menu.browseAll": "浏览所有链接",
+  "weblinks.menu.switchSource": "切换来源",
   "weblinks.myLink": "我的链接",
   "weblinks.myLinks": "我的链接",
   "weblinks.navigate": "前往",

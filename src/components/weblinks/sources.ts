@@ -83,6 +83,23 @@ export const STEAM_SECTIONS: SteamSectionDef[] = [
   { key: "broadcasts", label: "Broadcasts", i18nKey: "weblinks.steam.broadcasts", icon: SteamBroadcastsIcon, requiresAppId: true },
 ];
 
+/**
+ * Resolve the source the browser should open on mount: the last source the
+ * reader opened for this game when it is still selectable, otherwise Steam.
+ */
+export function resolveInitialSourceKey(
+  lastKey: string | null | undefined,
+  sources: SourceDef[] = FIXED_SOURCES,
+): string {
+  const fallback = "steam";
+  if (!lastKey) return fallback;
+  const match = sources.find(
+    (source) =>
+      source.key === lastKey || (!!source.url && isSameUrl(source.url, lastKey)),
+  );
+  return match ? match.key : fallback;
+}
+
 export function getNexusModsDomain(gameName: string): string {
   const normalized = gameName.toLowerCase().trim();
   if (normalized.includes("cyberpunk 2077")) return "cyberpunk2077";

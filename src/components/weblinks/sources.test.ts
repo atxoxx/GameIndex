@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  FIXED_SOURCES,
   buildUrl,
   dedupeWebsites,
   deriveCustomLinkMeta,
@@ -8,6 +9,7 @@ import {
   normalizeUrl,
   parseCustomLink,
   parseCustomLinks,
+  resolveInitialSourceKey,
   serializeCustomLink,
   uniqueByUrl,
 } from "./sources";
@@ -144,6 +146,36 @@ describe("isSameUrl", () => {
   it("does not treat a prefix as equal", () => {
     expect(isSameUrl("https://example.com", "https://example.com/page")).toBe(false);
     expect(isSameUrl("", "https://example.com")).toBe(false);
+  });
+});
+
+describe("resolveInitialSourceKey", () => {
+  it("keeps the last source when it is still selectable", () => {
+    expect(resolveInitialSourceKey("protondb", FIXED_SOURCES)).toBe("protondb");
+  });
+
+  it("falls back to Steam when there is no remembered source", () => {
+    expect(resolveInitialSourceKey(null, FIXED_SOURCES)).toBe("steam");
+    expect(resolveInitialSourceKey(undefined, FIXED_SOURCES)).toBe("steam");
+  });
+
+  it("falls back to Steam when the remembered source is gone", () => {
+    expect(resolveInitialSourceKey("gone-source", FIXED_SOURCES)).toBe("steam");
+  });
+
+  it("resolves a remembered URL to the source that owns it", () => {
+    const custom = {
+      key: "custom",
+      label: "Custom",
+      category: "mylinks" as const,
+      accent: "var(--color-accent)",
+      iconBg: "var(--color-bg-tertiary)",
+      icon: null,
+      url: "https://example.com/game",
+    };
+    expect(
+      resolveInitialSourceKey("https://EXAMPLE.com/game/", [...FIXED_SOURCES, custom]),
+    ).toBe("custom");
   });
 });
 

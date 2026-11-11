@@ -21,19 +21,27 @@ interface UseWebLinksBrowserArgs {
   game: Game;
   visible: boolean;
   onWebsitesChange?: (websites: string[]) => void;
+  /**
+   * Source to land on when the tab mounts. Callers validate the remembered
+   * key against the source list first (see `resolveInitialSourceKey`).
+   */
+  initialSourceKey?: string;
 }
 
 export function useWebLinksBrowser({
   game,
   visible,
   onWebsitesChange,
+  initialSourceKey,
 }: UseWebLinksBrowserArgs) {
   const { t } = useLanguage();
   const editable = typeof onWebsitesChange === "function";
 
   const [activeCategory, setActiveCategory] = useState<SourceCategoryKey>("all");
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
-  const [activeSourceKey, setActiveSourceKey] = useState<string>("steam");
+  const [activeSourceKey, setActiveSourceKey] = useState<string>(
+    () => initialSourceKey ?? "steam",
+  );
   const [steamSection, setSteamSection] = useState<SteamSectionKey>("store");
   const [customPreviewUrl, setCustomPreviewUrl] = useState<string | null>(null);
   const [appIdOverride, setAppIdOverride] = useState<string | null>(null);
@@ -104,19 +112,6 @@ export function useWebLinksBrowser({
     return FIXED_SOURCES.filter((s) => s.category === activeCategory);
   }, [activeCategory, allSources, customSources]);
 
-  const categoryCounts = useMemo<Record<SourceCategoryKey, number>>(() => {
-    const countIn = (cat: SourceCategoryKey) =>
-      FIXED_SOURCES.filter((s) => s.category === cat).length;
-    return {
-      all: allSources.length,
-      stores: countIn("stores"),
-      wikis: countIn("wikis"),
-      community: countIn("community"),
-      modding: countIn("modding"),
-      mylinks: customSources.length,
-    };
-  }, [allSources, customSources]);
-
   const isMyLinksManagerActive = activeSourceKey === MY_LINKS_KEY;
 
   const handleSelectCategory = useCallback(
@@ -142,7 +137,7 @@ export function useWebLinksBrowser({
         category: "mylinks",
         accent: "var(--color-accent)",
         iconBg: "var(--color-accent-soft)",
-        icon: FIXED_SOURCES[0].icon,
+        icon: <CustomLinkIcon />,
       };
     }
     const found = allSources.find(
@@ -299,8 +294,8 @@ export function useWebLinksBrowser({
     activeCategory,
     categoryMenuOpen,
     setCategoryMenuOpen,
+    allSources,
     filteredSources,
-    categoryCounts,
     activeSourceKey,
     setActiveSourceKey,
     handleSelectCategory,

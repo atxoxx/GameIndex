@@ -410,7 +410,7 @@
 [data-ui-style="epic"] .studio-detail-tag, [data-ui-style="epic"] .studio-hero-editor__chip, [data-ui-style="epic"] .studio-hero-mock__poster-badge { border-radius: 0 !important; }
 [data-ui-style="epic"] .studio-pages__count, [data-ui-style="epic"] .studio-preview__chips, [data-ui-style="epic"] .studio-preview__main-pill { border-radius: 0 !important; }
 [data-ui-style="epic"] .system-requirements-card__row-tag, [data-ui-style="epic"] .system-requirements-card__source-pill, [data-ui-style="epic"] .ttb-source-badge { border-radius: 0 !important; }
-[data-ui-style="epic"] .wine-logs-line-count, [data-ui-style="epic"] .wishlist-filter-badge, [data-ui-style="epic"] .wl-source-tab-count { border-radius: 0 !important; }
+[data-ui-style="epic"] .wine-logs-line-count, [data-ui-style="epic"] .wishlist-filter-badge { border-radius: 0 !important; }
 
 /* ── High-contrast guard: flat fills, one loud focus ring ───────────────── */
 [data-theme="highcontrast"][data-ui-style="epic"] .lib-card:hover,
