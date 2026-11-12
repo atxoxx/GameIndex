@@ -56,6 +56,7 @@ import {
   upsertProfile,
   upsertSettings,
   deleteProfile as deleteModProfile,
+  deleteSourceLink,
 } from "../features/mods/store";
 import { scanGame } from "../features/mods/scan";
 import {
@@ -271,12 +272,23 @@ async function runOtherSourcePass(gameId: string): Promise<void> {
   const mods = listModsForGame(gameId);
   const total = mods.length;
   let done = 0;
+  let lookups = 0;
+  const MAX_LOOKUPS = 40;
   const domain = storedDomain(gameId);
   for (const mod of mods) {
     done += 1;
+    emit("mods-update-progress", {
+      gameId,
+      done,
+      total,
+      name: mod.name,
+      source: mod.source ?? "nexus",
+    });
     if (mod.source !== "nexus" || !mod.sourceModId) continue;
+    if (lookups >= MAX_LOOKUPS) continue;
     const sourceDomain = mod.nexusDomain ?? domain;
     if (!sourceDomain) continue;
+    lookups += 1;
     try {
       const latest = await latestVersionFor("nexus", sourceDomain, mod.sourceModId);
       if (latest) {
@@ -291,13 +303,6 @@ async function runOtherSourcePass(gameId: string): Promise<void> {
     } catch {
       /* a failed source must not abort the whole check */
     }
-    emit("mods-update-progress", {
-      gameId,
-      done,
-      total,
-      name: mod.name,
-      source: mod.source ?? "nexus",
-    });
   }
 }
 
@@ -430,6 +435,8 @@ export const mo2Commands: Record<string, CommandHandler> = {
     const domain = optionalText(args, "domain")?.trim() || null;
     const settings = getSettings(gameId) ?? emptySettings(gameId);
     upsertSettings({ ...settings, gameId, nexusDomain: domain ?? undefined, updatedAt: nowSecs() });
+    if (domain) setSourceLink(gameId, "nexus", domain, domain);
+    else deleteSourceLink(gameId, "nexus");
     return null;
   },
 

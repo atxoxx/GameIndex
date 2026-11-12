@@ -106,6 +106,15 @@ export function toggleArtifact(filePath: string, enabled: boolean): string {
   return target;
 }
 
+/** `.ucas`/`.utoc` IoStore siblings of an Unreal `.pak` (ignoring `.disabled`). */
+function unrealCompanions(filePath: string): string[] {
+  const visible = filePath.toLowerCase().endsWith(".disabled")
+    ? filePath.slice(0, -".disabled".length)
+    : filePath;
+  const stem = path.join(path.dirname(visible), path.basename(visible, path.extname(visible)));
+  return [".ucas", ".utoc"].map((ext) => `${stem}${ext}`);
+}
+
 export function setModEnabled(modId: string, enabled: boolean): ModRow {
   const row = getMod(modId);
   if (!row) throw new Error(`Mod not found: ${modId}`);
@@ -121,14 +130,11 @@ export function setModEnabled(modId: string, enabled: boolean): ModRow {
   if (row.engine === "unreal") {
     const current = originalPath;
     const toggled = toggleArtifact(current, enabled);
-    for (const ext of [".ucas", ".utoc"]) {
-      const companion = path.join(
-        path.dirname(current),
-        `${path.basename(current, path.extname(current))}${ext}`,
-      );
-      if (isFile(companion)) {
-        backupFile(companion, backupDir);
-        toggleArtifact(companion, enabled);
+    for (const companion of unrealCompanions(current)) {
+      if (isFile(companion) || isFile(`${companion}.disabled`)) {
+        const actual = isFile(companion) ? companion : `${companion}.disabled`;
+        backupFile(actual, backupDir);
+        toggleArtifact(actual, enabled);
       }
     }
     next = { ...next, path: toggled };
@@ -178,14 +184,12 @@ export function deleteModArtifact(modId: string): void {
     backupPath = backupFile(row.path, backupDir);
     fs.rmSync(row.path, { force: true });
     if (row.engine === "unreal") {
-      for (const ext of [".ucas", ".utoc"]) {
-        const sibling = path.join(
-          path.dirname(row.path),
-          `${path.basename(row.path, path.extname(row.path))}${ext}`,
-        );
-        if (isFile(sibling)) {
-          backupFile(sibling, backupDir);
-          fs.rmSync(sibling, { force: true });
+      for (const companion of unrealCompanions(row.path)) {
+        for (const candidate of [companion, `${companion}.disabled`]) {
+          if (isFile(candidate)) {
+            backupFile(candidate, backupDir);
+            fs.rmSync(candidate, { force: true });
+          }
         }
       }
     }
@@ -386,18 +390,18 @@ function safeEntryPath(root: string, entryName: string): string | null {
 }
 
 /** Copy every file under `src` into `dest`; abort and roll back on conflicts. */
-function mergeDirInto(src: string, dest: string): number {
+async function mergeDirInto(src: string, dest: string): Promise<number> {
   const created: string[] = [];
   let count = 0;
 
-  const walk = (current: string): void => {
+  const walk = async (current: string): Promise<void> => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const from = path.join(current, entry.name);
       const relative = path.relative(src, from);
       const target = path.join(dest, relative);
       if (entry.isDirectory()) {
         fs.mkdirSync(target, { recursive: true });
-        walk(from);
+        await walk(from);
         continue;
       }
       if (fs.existsSync(target)) {
@@ -407,11 +411,12 @@ function mergeDirInto(src: string, dest: string): number {
       fs.copyFileSync(from, target);
       created.push(target);
       count += 1;
+      if (count % 50 === 0) await new Promise((resolve) => setImmediate(resolve));
     }
   };
 
   try {
-    walk(src);
+    await walk(src);
     return count;
   } catch (error) {
     for (const file of [...created].reverse()) {
@@ -428,9 +433,10 @@ function mergeDirInto(src: string, dest: string): number {
 /**
  * Extract a mod archive into `destination`, returning the file count.
  * Extraction is staged in a temp folder first; the merge then refuses to
- * overwrite anything and rolls back what it wrote on failure.
+ * overwrite anything and rolls back what it wrote on failure. Both loops
+ * yield to the event loop so a large archive does not freeze the main process.
  */
-export function installArchive(archivePath: string, destination: string): number {
+export async function installArchive(archivePath: string, destination: string): Promise<number> {
   const ext = path.extname(archivePath).toLowerCase();
   if (ext !== ".zip") {
     throw new Error(
@@ -450,18 +456,20 @@ export function installArchive(archivePath: string, destination: string): number
     }
 
     const entries = zip.getEntries();
-    for (const entry of entries) {
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
       const safe = safeEntryPath(staging, entry.entryName);
       if (!safe) throw new Error("unsafe_archive: archive contains a path traversal entry");
       if (entry.isDirectory) {
         fs.mkdirSync(safe, { recursive: true });
-        continue;
+      } else {
+        fs.mkdirSync(path.dirname(safe), { recursive: true });
+        fs.writeFileSync(safe, entry.getData());
       }
-      fs.mkdirSync(path.dirname(safe), { recursive: true });
-      fs.writeFileSync(safe, entry.getData());
+      if (index % 100 === 0) await new Promise((resolve) => setImmediate(resolve));
     }
 
-    return mergeDirInto(staging, destination);
+    return await mergeDirInto(staging, destination);
   } finally {
     try {
       fs.rmSync(staging, { recursive: true, force: true });

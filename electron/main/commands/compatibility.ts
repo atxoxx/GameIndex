@@ -121,10 +121,16 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
 
   list_wine_prefixes: () => listPrefixes(),
 
-  get_game_wine_logs: (args) => getGameWineLogs(text(args, "gameId")),
+  get_game_wine_logs: (args) => {
+    const gameId = text(args, "gameId");
+    if (!gameId) throw new Error("A game id is required to read its Wine log");
+    return getGameWineLogs(gameId);
+  },
 
   clear_game_wine_logs: (args) => {
-    clearGameWineLogs(text(args, "gameId"));
+    const gameId = text(args, "gameId");
+    if (!gameId) throw new Error("A game id is required to clear its Wine log");
+    clearGameWineLogs(gameId);
     return null;
   },
 
@@ -180,24 +186,24 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
     );
   },
 
-  delete_wine_prefix: (args) => {
+  delete_wine_prefix: async (args) => {
     requireLinux("Deleting a Wine prefix");
     const target = text(args, "path");
     if (!isSafePrefixTarget(target)) {
       throw new Error(`Refusing to delete "${target}" — that is a shared system folder`);
     }
-    deletePrefix(target);
+    await deletePrefix(target);
     unregisterCustomPrefix(target);
     return null;
   },
 
-  clear_wine_prefix: (args) => {
+  clear_wine_prefix: async (args) => {
     requireLinux("Clearing a Wine prefix");
-    clearPrefix(text(args, "path"));
+    await clearPrefix(text(args, "path"));
     return null;
   },
 
-  duplicate_wine_prefix: (args) => {
+  duplicate_wine_prefix: async (args) => {
     requireLinux("Duplicating a Wine prefix");
     return duplicatePrefix(
       text(args, "sourcePath"),
@@ -241,6 +247,7 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
       optionalText(args, "runnerPath"),
       text(args, "tool"),
       Array.isArray(args.args) ? textList(args, "args") : null,
+      optionalText(args, "gameId"),
     );
     return null;
   },

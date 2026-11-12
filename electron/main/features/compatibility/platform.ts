@@ -11,6 +11,7 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { userDataPath } from "../../lib/paths";
@@ -140,7 +141,7 @@ function steamLibraryRoots(): string[] {
 export function systemStatus(): LinuxSystemStatus {
   if (!IS_LINUX) {
     return {
-      osName: process.platform,
+      osName: IS_WINDOWS ? "windows" : process.platform === "darwin" ? "macos" : "unknown",
       kernelVersion: os.release(),
       displayServer: IS_WINDOWS ? "Windows" : "unknown",
       vulkanSupport: false,
@@ -369,14 +370,18 @@ export function createPrefix(name: string, customPath: string | null, arch: stri
   return target;
 }
 
-export function deletePrefix(prefixPath: string): void {
+export async function deletePrefix(prefixPath: string): Promise<void> {
   const target = prefixPath.trim();
   if (!target) throw new Error("A prefix path is required");
   if (!isDir(target)) throw new Error(`Prefix "${target}" does not exist`);
-  fs.rmSync(target, { recursive: true, force: true });
+  await fsp.rm(target, { recursive: true, force: true });
 }
 
-export function duplicatePrefix(sourcePath: string, newName: string, targetPath: string | null): string {
+export async function duplicatePrefix(
+  sourcePath: string,
+  newName: string,
+  targetPath: string | null,
+): Promise<string> {
   const source = sourcePath.trim();
   if (!isDir(source)) throw new Error(`Prefix "${source}" does not exist`);
   const name = newName.trim();
@@ -385,16 +390,16 @@ export function duplicatePrefix(sourcePath: string, newName: string, targetPath:
   if (isDir(target) && fs.readdirSync(target).length > 0) {
     throw new Error(`A prefix already exists at "${target}"`);
   }
-  fs.cpSync(source, target, { recursive: true, errorOnExist: false });
+  await fsp.cp(source, target, { recursive: true, force: false, errorOnExist: false });
   return target;
 }
 
-export function clearPrefix(prefixPath: string): void {
+export async function clearPrefix(prefixPath: string): Promise<void> {
   const target = prefixPath.trim();
   if (!isDir(target)) throw new Error(`Prefix "${target}" does not exist`);
   // Empty the prefix but keep the folder (and its registration).
-  for (const entry of fs.readdirSync(target)) {
-    fs.rmSync(path.join(target, entry), { recursive: true, force: true });
+  for (const entry of await fsp.readdir(target)) {
+    await fsp.rm(path.join(target, entry), { recursive: true, force: true });
   }
 }
 
@@ -403,10 +408,17 @@ export function runWineTool(
   runnerPath: string | null,
   tool: string,
   args: string[] | null,
+  gameId?: string | null,
 ): void {
   if (!IS_LINUX) throw linuxOnlyError("Running a Wine tool");
   const settings = getCompatibilitySettings();
-  const prefix = prefixPath?.trim() || settings.defaultPrefix?.trim() || path.join(defaultPrefixBase(), "default");
+  let prefix = prefixPath?.trim() || "";
+  if (!prefix && gameId) {
+    const game = listGamesSummary().find((row) => row.id === gameId);
+    prefix = game?.compatibility?.customWinePrefix?.trim() || "";
+    if (!prefix) prefix = path.join(prefixBaseDir(), gameId);
+  }
+  if (!prefix) prefix = settings.defaultPrefix?.trim() || path.join(defaultPrefixBase(), "default");
   const runner = runnerPath?.trim() || settings.defaultRunnerPath?.trim() || "wine";
   fs.mkdirSync(prefix, { recursive: true });
 

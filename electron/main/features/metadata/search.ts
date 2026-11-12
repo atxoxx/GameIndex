@@ -15,10 +15,23 @@ import {
 import { fetchSteamGenresAndTags, fetchSteamGameByAppId, searchSteam } from "./steam";
 import { fetchTimeToBeat } from "./hltb";
 
-export function isNotConfigured(error: unknown): boolean {
-  return /is not configured/i.test(
-    error instanceof Error ? error.message : String(error),
+const warned = new Set<string>();
+
+/** Provider outages (missing key, auth, cooldown, network) are expected states. */
+function providerUnavailable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /is not configured|authentication failed|cooling down|fetch failed|network|ECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|HTTP 5\d\d|rate.?limit|timed out/i.test(
+    message,
   );
+}
+
+/** Log each distinct provider failure once per session, not once per game. */
+function warnOnce(label: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  const key = `${label}|${message.slice(0, 80)}`;
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(`[metadata] ${label}:`, error);
 }
 
 export async function searchGameMetadata(
@@ -30,8 +43,10 @@ export async function searchGameMetadata(
 
   if (steamAppId && steamAppId > 0) {
     const pinned = await fetchIgdbGameBySteamAppid(steamAppId).catch((error) => {
-      if (!isNotConfigured(error)) {
-        console.warn("[metadata] IGDB appid lookup failed:", error);
+      if (!providerUnavailable(error)) {
+        warnOnce("IGDB appid lookup failed", error);
+      } else {
+        warnOnce("IGDB appid lookup unavailable", error);
       }
       return null;
     });
@@ -69,8 +84,10 @@ export async function searchGameMetadata(
     igdbPinned
       ? Promise.resolve<MetadataResult[]>([])
       : searchIgdb(gameName).catch((error) => {
-          if (!isNotConfigured(error)) {
-            console.warn("[metadata] IGDB search failed:", error);
+          if (!providerUnavailable(error)) {
+            warnOnce("IGDB search failed", error);
+          } else {
+            warnOnce("IGDB search unavailable", error);
           }
           return [];
         }),

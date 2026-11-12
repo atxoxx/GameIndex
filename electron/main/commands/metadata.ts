@@ -262,9 +262,23 @@ export const metadataCommands: Record<string, CommandHandler> = {
  */
 const warnedProviders = new Set<string>();
 
-function notConfiguredMessage(error: unknown): string | null {
+/**
+ * Classify a provider failure that should degrade to an empty result instead of
+ * rejecting (and flooding the renderer log):
+ *  - missing key            → "not configured"
+ *  - bad key / offline / 5xx / cooldown → transient provider availability
+ * Real programming errors are re-thrown.
+ */
+function providerIssue(error: unknown): { key: string; message: string } | null {
   const message = error instanceof Error ? error.message : String(error);
-  return /is not configured/i.test(message) ? message : null;
+  const configured = /is not configured/i.test(message);
+  const unavailable =
+    /authentication failed|credentials|cooling down|fetch failed|network|socket|ECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|HTTP 5\d\d|rate.?limit|timed out/i.test(
+      message,
+    );
+  if (!configured && !unavailable) return null;
+  const provider = message.split(/[—:-]/)[0].trim().slice(0, 48) || "provider";
+  return { key: `${provider}|${configured ? "config" : "unavailable"}`, message };
 }
 
 function emptyFallback(name: string): unknown {
@@ -286,12 +300,11 @@ export function registerMetadataCommands(): void {
       try {
         return await handler(args, ctx);
       } catch (error) {
-        const message = notConfiguredMessage(error);
-        if (!message) throw error;
-        const provider = message.split(" is not configured")[0];
-        if (!warnedProviders.has(provider)) {
-          warnedProviders.add(provider);
-          console.warn(`[metadata] ${message}`);
+        const issue = providerIssue(error);
+        if (!issue) throw error;
+        if (!warnedProviders.has(issue.key)) {
+          warnedProviders.add(issue.key);
+          console.warn(`[metadata] ${issue.message}`);
         }
         return emptyFallback(name);
       }

@@ -192,11 +192,14 @@ export async function detectSources(gameId: string, resolve: boolean): Promise<M
       homepage: SOURCE_META.workshop.homepage,
       requiresCredential: false,
       hasCredential: true,
-      available: !!steamAppId,
+      // Browsing the Workshop catalogue needs Steam's Web API, which this
+      // build does not call. Installed Workshop items are still listed and
+      // toggled by the Mods scanner.
+      available: false,
       ...(steamAppId ? { externalId: steamAppId, externalLabel: steamAppId } : {}),
       directDownload: false,
       supportsSearch: false,
-      note: "Workshop items are managed by Steam; GameIndex lists and toggles them but cannot download them.",
+      note: "Workshop items are managed by Steam; GameIndex lists and toggles installed items but cannot browse or download them.",
     },
   ];
 
@@ -277,11 +280,6 @@ interface DownloadArgs {
 
 export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallResult> {
   requireSource(args.source);
-  const destination =
-    args.destination?.trim() || getSettings(args.gameId)?.customRoot || getSettings(args.gameId)?.modsRoot || null;
-  if (!destination || !fs.existsSync(destination)) {
-    throw new Error("install_target_missing: select a mods folder first");
-  }
 
   if (args.source === WORKSHOP_SOURCE) {
     const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${encodeURIComponent(args.modId)}`;
@@ -291,6 +289,12 @@ export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallR
       url,
       message: "Workshop items install through Steam - open the item page.",
     };
+  }
+
+  const destination =
+    args.destination?.trim() || getSettings(args.gameId)?.customRoot || getSettings(args.gameId)?.modsRoot || null;
+  if (!destination || !fs.existsSync(destination)) {
+    throw new Error("install_target_missing: select a mods folder first");
   }
 
   const key = nexusKeyOrThrow();
@@ -341,7 +345,7 @@ export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallR
 
   let installedFiles = 0;
   try {
-    installedFiles = installArchive(archive, destination);
+    installedFiles = await installArchive(archive, destination);
   } catch (error) {
     // A conflict or unsupported format keeps the archive for the manual modal.
     insertRemoteInstall({
@@ -353,7 +357,7 @@ export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallR
       name: label,
       ...(args.author ? { author: args.author } : {}),
       ...(args.version ? { version: args.version } : {}),
-      ...(args.remoteUrl ?? plan.url ? { remoteUrl: args.remoteUrl ?? plan.url } : {}),
+      remoteUrl: args.remoteUrl ?? plan.url,
       installedPath: archive,
       installedAt: nowSecs(),
     });
@@ -375,7 +379,7 @@ export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallR
     name: label,
     ...(args.author ? { author: args.author } : {}),
     ...(args.version ? { version: args.version } : {}),
-    ...(args.remoteUrl ?? plan.url ? { remoteUrl: args.remoteUrl ?? plan.url } : {}),
+    remoteUrl: args.remoteUrl ?? plan.url,
     installedPath: destination,
     installedAt: nowSecs(),
   });
