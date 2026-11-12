@@ -7,8 +7,23 @@
  * spawned `unref`'d so it cannot keep the app alive on its own.
  */
 import { spawn } from "node:child_process";
+import path from "node:path";
 
 export const IS_WINDOWS = process.platform === "win32";
+
+/**
+ * Where the compiled C# probes are cached.
+ *
+ * PowerShell's `Add-Type` compiles the probe on every launch (1–3 s). Writing
+ * the assembly once and loading it with `Add-Type -Path` afterwards makes a
+ * warm start ~100 ms. The file name carries a version so a probe change does
+ * not load a stale assembly.
+ */
+export function probeDllPath(kind: "rtss" | "mahm"): string | undefined {
+  const base = process.env.APPDATA ?? process.env.LOCALAPPDATA;
+  if (!base) return undefined;
+  return path.join(base, "GameIndex", "telemetry", `${kind}-probe-v2.dll`);
+}
 
 export interface CaptureResult {
   code: number | null;

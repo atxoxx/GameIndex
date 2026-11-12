@@ -43,7 +43,7 @@ import {
   type ActiveSession,
 } from "./sessions";
 import { steamGameInstallPath } from "./steam";
-import { stopTelemetry } from "../telemetry";
+import { shutdownTelemetry } from "../telemetry";
 import type { GameRef, GameRefInput, ProcessInfo, WatcherIndexDocument } from "./types";
 import { setPollWakeHandler } from "./wake";
 
@@ -294,7 +294,7 @@ export function stopWatcher(): void {
   }
   started = false;
   setPollWakeHandler(null);
-  stopTelemetry();
+  shutdownTelemetry();
 }
 
 /** Schedule the next poll, replacing any pending one. */

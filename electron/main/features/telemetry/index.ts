@@ -117,8 +117,17 @@ export function startTelemetry(): void {
   startMahmHelper();
 }
 
-/** Stop every long-lived source (app quit). The FPS helper is killed. */
+/**
+ * End a sampling window. The long-lived probes stay warm on purpose: killing
+ * them between games made every launch pay the PowerShell start + C# compile
+ * (1–3 s), which is exactly the delay users saw before FPS/CPU temp appeared.
+ */
 export function stopTelemetry(): void {
+  // Intentionally empty; use `shutdownTelemetry()` on quit.
+}
+
+/** Kill every probe. Only for app quit. */
+export function shutdownTelemetry(): void {
   stopRtssHelper();
   stopMahmHelper();
 }

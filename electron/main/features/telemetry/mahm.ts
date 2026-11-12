@@ -16,7 +16,7 @@
  * `MAHM_SHARED_MEMORY_ENTRY`) and the retired `mahm_reader.rs`.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { capture, IS_WINDOWS, powershellArgs } from "./proc";
+import { capture, IS_WINDOWS, powershellArgs, probeDllPath } from "./proc";
 
 const SECTION_NAME = "MAHMSharedMemory";
 const STALE_MS = 5_000;
@@ -101,7 +101,10 @@ function onLine(line: string): void {
 }
 
 /** PowerShell program: one JSON line per second while Afterburner runs. */
-export function buildMahmHelperScript(sectionName = SECTION_NAME): string {
+export function buildMahmHelperScript(
+  sectionName = SECTION_NAME,
+  cacheDllPath?: string,
+): string {
   const section = sectionName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const csharp = `
 using System;
@@ -154,7 +157,7 @@ public static class GameIndexMahmProbe
                 if (view != null) view.Dispose();
                 if (mmf != null) mmf.Dispose();
             }
-            Thread.Sleep(1000);
+            Thread.Sleep(500);
             if (failures >= 30) return;
         }
     }
@@ -264,11 +267,29 @@ public static class GameIndexMahmProbe
     }
 }
 `;
+  const load = cacheDllPath
+    ? [
+        `$dll = '${cacheDllPath.replace(/'/g, "''")}'`,
+        "$source = @'",
+        csharp.trim(),
+        "'@",
+        "$loaded = $false",
+        "if (Test-Path -LiteralPath $dll) {",
+        "  try { Add-Type -Path $dll; $loaded = $true }",
+        "  catch { Remove-Item -LiteralPath $dll -Force -ErrorAction SilentlyContinue }",
+        "}",
+        "if (-not $loaded) {",
+        "  $dir = Split-Path -Parent $dll",
+        "  if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }",
+        "  Add-Type -TypeDefinition $source -OutputAssembly $dll",
+        "  Add-Type -Path $dll",
+        "}",
+      ]
+    : ["Add-Type -TypeDefinition @'", csharp.trim(), "'@"];
+
   return [
     "$ErrorActionPreference = 'Stop'",
-    "Add-Type -TypeDefinition @'",
-    csharp.trim(),
-    "'@",
+    ...load,
     "[GameIndexMahmProbe]::Run()",
   ].join("\n");
 }
@@ -285,7 +306,7 @@ function killHelper(): void {
 
 function spawnHelper(): void {
   if (helper || stopped) return;
-  const child = spawn("powershell.exe", powershellArgs(buildMahmHelperScript()), {
+  const child = spawn("powershell.exe", powershellArgs(buildMahmHelperScript(SECTION_NAME, probeDllPath("mahm"))), {
     windowsHide: true,
     shell: false,
     stdio: ["ignore", "pipe", "pipe"],

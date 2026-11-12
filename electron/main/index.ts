@@ -13,7 +13,7 @@ import { installAssetProtocol, registerAssetScheme } from "./assetProtocol";
 import { emit, registerCommand, registerIpcHandlers } from "./ipc";
 import { markQuitting } from "./quitState";
 import { createSurfaces, getSurfaces } from "./surfaces";
-import { readTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
+import { readTelemetry, shutdownTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
 import { allowMainWindowClose } from "./surfaces/mainWindow";
 import { registerCommandHandlers } from "./commands";
 import { installSmokeTest } from "./smoke";
@@ -75,6 +75,9 @@ if (!singleInstance) {
 
       await createSurfaces();
       registerCommandHandlers();
+      // Warm the telemetry probes while the app boots, so the first game does
+      // not wait for PowerShell + the C# compile before FPS/temps appear.
+      startTelemetry();
       await getSurfaces().boot();
     })
     .catch((error: unknown) => {
@@ -91,6 +94,7 @@ if (!singleInstance) {
 app.on("before-quit", () => {
   markQuitting();
   allowMainWindowClose();
+  shutdownTelemetry();
 });
 
 app.on("window-all-closed", () => {

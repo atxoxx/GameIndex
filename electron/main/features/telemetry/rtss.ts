@@ -13,7 +13,7 @@
  * hooked yet — FPS stays `null`; a zero is never fabricated.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { capture, IS_WINDOWS, powershellArgs } from "./proc";
+import { capture, IS_WINDOWS, powershellArgs, probeDllPath } from "./proc";
 
 const SECTION_NAME = "RTSSSharedMemoryV2";
 const RTSS_STALE_MS = 5_000;
@@ -130,7 +130,10 @@ export function createRtssParser(): {
  * second. `sectionName` is injectable so the harness can point it at a
  * synthetic mapping; production always uses the default.
  */
-export function buildRtssHelperScript(sectionName = SECTION_NAME): string {
+export function buildRtssHelperScript(
+  sectionName = SECTION_NAME,
+  cacheDllPath?: string,
+): string {
   const section = sectionName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const csharp = `
 using System;
@@ -164,7 +167,7 @@ public static class GameIndexRtssProbe
                     mmf = null;
                     view = null;
                     if (failures >= 30) return;
-                    Thread.Sleep(1000);
+                    Thread.Sleep(500);
                     continue;
                 }
             }
@@ -187,7 +190,7 @@ public static class GameIndexRtssProbe
                 Console.WriteLine(output);
                 Console.Out.Flush();
             }
-            Thread.Sleep(1000);
+            Thread.Sleep(500);
         }
     }
 
@@ -268,12 +271,30 @@ public static class GameIndexRtssProbe
 }
 `;
 
+  const load = cacheDllPath
+    ? [
+        `$dll = '${cacheDllPath.replace(/'/g, "''")}'`,
+        "$source = @'",
+        csharp.trim(),
+        "'@",
+        "$loaded = $false",
+        "if (Test-Path -LiteralPath $dll) {",
+        "  try { Add-Type -Path $dll; $loaded = $true }",
+        "  catch { Remove-Item -LiteralPath $dll -Force -ErrorAction SilentlyContinue }",
+        "}",
+        "if (-not $loaded) {",
+        "  $dir = Split-Path -Parent $dll",
+        "  if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }",
+        "  Add-Type -TypeDefinition $source -OutputAssembly $dll",
+        "  Add-Type -Path $dll",
+        "}",
+      ]
+    : ["Add-Type -TypeDefinition @'", csharp.trim(), "'@"];
+
   return [
     "$ErrorActionPreference = 'Stop'",
     "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
-    "Add-Type -TypeDefinition @'",
-    csharp.trim(),
-    "'@",
+    ...load,
     "[GameIndexRtssProbe]::Run()",
   ].join("\n");
 }
@@ -306,7 +327,7 @@ function killHelper(): void {
 
 function spawnHelper(): void {
   if (helper) return;
-  const script = buildRtssHelperScript();
+  const script = buildRtssHelperScript(SECTION_NAME, probeDllPath("rtss"));
   let child: ChildProcess;
   try {
     child = spawn("powershell.exe", powershellArgs(script), {

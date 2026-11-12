@@ -13,7 +13,7 @@
 import { emit } from "../../ipc";
 import { setLastPlayed } from "../../state/libraryStore";
 import { appendSample, finishSession, startSession } from "../../state/sessionsStore";
-import { startTelemetry, stopTelemetry } from "../telemetry";
+import { shutdownTelemetry, startTelemetry } from "../telemetry";
 import { createSessionMetrics, type SessionMetrics } from "./metrics";
 import { getGameRootDir } from "./paths";
 import { resolveProcessDetails } from "./processes";
@@ -312,8 +312,9 @@ export async function finalizeSession(
   if (remainingGameName) payload.remainingGameName = remainingGameName;
   emit("game-exited", payload);
 
-  // Last session ended: tear down the RTSS probe so it cannot outlive play.
-  if (activeSessions.size === 0) stopTelemetry();
+  // The telemetry probes stay warm between games (only app quit kills them), so
+  // the next launch shows FPS/temps immediately instead of recompiling the C#.
+  void activeSessions.size;
 
   if (!options.killedByUser && elapsed < HEAL_SHORT_RUN_SECS) {
     const failure: GameFailurePayload = {
@@ -384,7 +385,7 @@ export function runSessionPeriodic(
  * are skipped (there is no time to await them).
  */
 export function finalizeSessionsOnQuit(): void {
-  stopTelemetry();
+  shutdownTelemetry();
   if (activeSessions.size === 0) return;
   const now = Date.now();
   for (const session of activeSessions.values()) {
