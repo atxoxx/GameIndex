@@ -191,7 +191,6 @@ async function fetchToken(): Promise<CachedToken> {
   try {
     const response = await httpText(url, {
       method: "POST",
-      headers: { "content-length": "0" },
       timeoutMs: 15_000,
       retries: 1,
     });

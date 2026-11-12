@@ -158,6 +158,14 @@ async function request(url: string, options: HttpOptions = {}): Promise<Response
       "accept-language": "en-US,en;q=0.9",
       ...headers,
     };
+    // undici rejects a manually supplied content-length on a bodyless request
+    // (`UND_ERR_INVALID_ARG`) even when the value is correct; it sets the header
+    // itself. Drop it so callers cannot break a POST by being explicit.
+    if (body === undefined) {
+      for (const key of Object.keys(requestHeaders)) {
+        if (key.toLowerCase() === "content-length") delete requestHeaders[key];
+      }
+    }
     const cookieHeader = jar?.header(url);
     if (cookieHeader) requestHeaders.cookie = cookieHeader;
 
@@ -182,7 +190,23 @@ async function request(url: string, options: HttpOptions = {}): Promise<Response
       }
       return response;
     } catch (error) {
-      if (attempt >= retries) throw error;
+      if (attempt >= retries) {
+        // Surface the transport cause (`ENOTFOUND`, `ECONNRESET`, TLS codes,
+        // `UND_ERR_CONNECT_TIMEOUT`, …) without echoing the URL: several
+        // providers carry secrets in query strings.
+        const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+        const detail =
+          [cause?.code, cause?.message].filter(Boolean).join(": ") ||
+          (error instanceof Error ? error.message : "");
+        const host = (() => {
+          try {
+            return new URL(url).host;
+          } catch {
+            return "network";
+          }
+        })();
+        throw new Error(`Network error (${host}${detail ? `: ${detail}` : ""})`);
+      }
       attempt += 1;
       await sleep(Math.min(5_000, 400 * 2 ** attempt));
     } finally {

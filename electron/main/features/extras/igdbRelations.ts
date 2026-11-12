@@ -81,7 +81,6 @@ async function igdbToken(): Promise<{ token: string; clientId: string } | null> 
     "&grant_type=client_credentials";
   const response = await httpText(url, {
     method: "POST",
-    headers: { "content-length": "0" },
     timeoutMs: 15_000,
     retries: 1,
   });
