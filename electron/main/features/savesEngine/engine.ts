@@ -1,27 +1,44 @@
 /**
  * Save-snapshot engine (ported from `src-tauri/src/saves/engine.rs`).
  *
- * One snapshot is a self-describing folder:
+ * One snapshot is a single Deflated zip:
  *
  * ```text
- * <backupDir>/<game-id>/<timestamp>/
- *   manifest.json      # locations + per-file index (forward-slash rel paths)
- *   backup.zip         # files/<location-index>/<relative path…>
+ * <backupDir>/<game-id>/<created-at>-<kind>.gisave
+ *   manifest.json          # locations + per-file index (forward-slash rel paths)
+ *   files/<location-index>/<relative path…>
  * ```
  *
  * The manifest is the source of truth for restore, so a snapshot stays usable
- * even when the SQLite index is lost. It records a SHA-256 per file and a
- * `dedupe` pointer when two files share identical bytes, which keeps repeated
- * save slots from doubling the archive size. Restore verifies those hashes and
- * refuses to write outside the recorded location root (zip-slip guard).
+ * even when the SQLite index is lost. Restore refuses to write outside the
+ * recorded location root (zip-slip guard). Legacy directory snapshots — both
+ * the Rust-era `files/` layout and the first Electron port's nested
+ * `backup.zip` — stay readable.
  */
-import AdmZip from "adm-zip";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import type { SaveBackup, SaveLocation } from "../../state/db";
+import {
+  defaultIgnorePatterns,
+  entryNameFor,
+  isArchivePath,
+  isInside,
+  isInsideAny,
+  isIgnored,
+  LEGACY_ARCHIVE_NAME,
+  MANIFEST_JSON,
+  openSnapshotReader,
+  resolveManifest,
+  safeComponent,
+  safeDestination,
+  sha256,
+  uniqueArchivePath,
+  writeSnapshotArchive,
+  type PendingEntry,
+} from "./format";
 import { cancelledError } from "./progress";
+import { saveBackupRoots } from "./legacy";
 import * as store from "./store";
 import type {
   SaveManifest,
@@ -30,98 +47,8 @@ import type {
   SaveRestoreResult,
 } from "./types";
 
-export const MANIFEST_FORMAT = "gameindex-save-backup";
-export const MANIFEST_VERSION = 2;
-/** Name of the archive inside each snapshot folder. */
-export const ARCHIVE_NAME = "backup.zip";
-const MANIFEST_JSON = "manifest.json";
-const DATA_DIR = "data";
-
-/** Default ignore globs (used when the user has not configured any). */
-export function defaultIgnorePatterns(): string[] {
-  return [
-    "*.tmp",
-    "*.temp",
-    "*.log",
-    "*.dmp",
-    "*.cache",
-    "*.pid",
-    "thumbs.db",
-    ".ds_store",
-  ];
-}
-
-/** Simple wildcard match supporting `*` and `?`, case-insensitive. */
-export function globMatch(pattern: string, text: string): boolean {
-  const p = pattern.toLowerCase();
-  const t = text.toLowerCase();
-  let pi = 0;
-  let ti = 0;
-  let starP = -1;
-  let starT = -1;
-  while (ti < t.length) {
-    if (pi < p.length && (p[pi] === "?" || p[pi] === t[ti])) {
-      pi += 1;
-      ti += 1;
-    } else if (pi < p.length && p[pi] === "*") {
-      starP = pi;
-      starT = ti;
-      pi += 1;
-    } else if (starP >= 0) {
-      pi = starP + 1;
-      starT += 1;
-      ti = starT;
-    } else {
-      return false;
-    }
-  }
-  while (pi < p.length && p[pi] === "*") pi += 1;
-  return pi === p.length;
-}
-
-/** True when a file should be skipped (matched by name or by rel path). */
-export function isIgnored(patterns: string[], name: string, rel: string): boolean {
-  return patterns.some(
-    (pattern) => globMatch(pattern, name) || globMatch(pattern, rel),
-  );
-}
-
-/** Make a path-safe component for the backup directory tree. */
-export function safeComponent(value: string): string {
-  const cleaned = value
-    .split("")
-    .map((char) => (/[a-zA-Z0-9\-_.]/.test(char) ? char : "_"))
-    .join("")
-    .replace(/^_+|_+$/g, "");
-  if (!cleaned) return "game";
-  return cleaned.slice(0, 80);
-}
-
-/** `YYYYMMDD-HHMMSS` in local time (filesystem-safe, sortable). */
-export function timestampName(atMs = Date.now()): string {
-  const date = new Date(atMs);
-  const pad = (value: number): string => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
-    `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-  );
-}
-
-function sha256(data: Buffer): string {
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
-
-function toForward(value: string): string {
-  return value.replace(/\\/g, "/");
-}
-
-function isInside(child: string, parent: string): boolean {
-  const normalize = (value: string): string =>
-    process.platform === "win32" ? value.toLowerCase() : value;
-  const c = normalize(child);
-  const p = normalize(parent);
-  return c === p || c.startsWith(p.endsWith(path.sep) ? p : `${p}${path.sep}`);
-}
+// Re-exported so callers keep one import site for the format constants.
+export { MANIFEST_FORMAT, MANIFEST_VERSION } from "./format";
 
 interface CollectedFile {
   rel: string;
@@ -168,7 +95,7 @@ async function walkFiles(
       continue;
     }
     if (!entry.isFile()) continue;
-    const rel = toForward(path.relative(root, abs));
+    const rel = path.relative(root, abs).replace(/\\/g, "/");
     if (isIgnored(patterns, entry.name, rel)) continue;
     let size = 0;
     try {
@@ -213,17 +140,6 @@ async function planLocation(
   return { location, missing: false, files };
 }
 
-function uniqueSnapshotDir(gameDir: string, createdAt: number): string {
-  const base = timestampName(createdAt);
-  let candidate = path.join(gameDir, base);
-  let counter = 1;
-  while (fs.existsSync(candidate)) {
-    counter += 1;
-    candidate = path.join(gameDir, `${base}-${counter}`);
-  }
-  return candidate;
-}
-
 export interface CreateBackupOptions {
   gameId: string;
   gameName: string;
@@ -238,7 +154,7 @@ export interface CreateBackupOptions {
 }
 
 /**
- * Capture `locations` into a new snapshot folder and index it.
+ * Capture `locations` into a new `.gisave` archive and index it.
  *
  * Locked or unreadable files are recorded as warnings and skipped — one file
  * held open by a running game must not fail the whole backup.
@@ -259,11 +175,8 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
   const createdAt = Date.now();
   const gameDir = path.join(backupDir, safeComponent(gameId));
   await fsp.mkdir(gameDir, { recursive: true });
-  const snapshotDir = uniqueSnapshotDir(gameDir, createdAt);
-  await fsp.mkdir(snapshotDir, { recursive: true });
-  const dataDir = path.join(snapshotDir, DATA_DIR);
+  const archivePath = uniqueArchivePath(gameDir, createdAt, kind);
 
-  const warnings: string[] = [];
   try {
     // Discover first so the progress bar has an honest total.
     const plans: LocationPlan[] = [];
@@ -272,18 +185,13 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
       const plan = await planLocation(location, ignorePatterns, signal);
       plans.push(plan);
       totalFiles += plan.files.length;
-      if (plan.missing && location.kind !== "file") {
-        warnings.push(`missing: ${location.path}`);
-      }
     }
     onProgress?.(0, totalFiles, "Collecting save files");
 
-    const zip = new AdmZip();
+    const entries: PendingEntry[] = [];
     const manifestLocations: SaveManifestLocation[] = [];
     const manifestFiles: SaveManifestFile[] = [];
-    /** Archive entry holding the authoritative copy of each hash. */
-    const canonical = new Map<string, string>();
-    let dedupedFiles = 0;
+    const errors: string[] = [];
     let done = 0;
     let copiedLocations = 0;
 
@@ -297,60 +205,40 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
 
       for (const file of plan.files) {
         if (signal?.aborted) throw cancelledError();
-        const entry = `files/${index}/${file.rel}`;
         let bytes: Buffer;
         try {
           bytes = await fsp.readFile(file.abs);
         } catch (error) {
           const code =
             (error as NodeJS.ErrnoException).code ?? (error as Error).message;
-          warnings.push(`${file.rel}: ${code}`);
+          errors.push(`${file.rel}: ${code}`);
           done += 1;
           continue;
         }
 
-        const hash = sha256(bytes);
-        const previous = canonical.get(hash);
-        if (previous) {
-          dedupedFiles += 1;
-          manifestFiles.push({
-            locationIndex: index,
-            rel: file.rel,
-            size: bytes.byteLength,
-            modifiedMs: file.modifiedMs,
-            hash,
-            dedupe: previous,
-          });
-        } else {
-          const staged = path.join(
-            dataDir,
-            ...entry.split("/").filter(Boolean),
-          );
-          try {
-            await fsp.mkdir(path.dirname(staged), { recursive: true });
-            await fsp.writeFile(staged, bytes);
-          } catch (error) {
-            warnings.push(`${file.rel}: ${(error as Error).message}`);
-            done += 1;
-            continue;
-          }
-          zip.addFile(entry, bytes);
-          canonical.set(hash, entry);
-          manifestFiles.push({
-            locationIndex: index,
-            rel: file.rel,
-            size: bytes.byteLength,
-            modifiedMs: file.modifiedMs,
-            hash,
-          });
-        }
-
+        entries.push({ entry: entryNameFor(index, file.rel), data: bytes });
+        manifestFiles.push({
+          locationIndex: index,
+          rel: file.rel,
+          size: bytes.byteLength,
+          modifiedMs: file.modifiedMs,
+        });
         locationFiles += 1;
         locationBytes += bytes.byteLength;
         done += 1;
         onProgress?.(done, totalFiles, `Backing up ${location.label || location.path}`);
+        // Yield so a save tree with tens of thousands of files cannot starve
+        // IPC or the window while the archive is assembled.
+        if (done % 500 === 0) {
+          await new Promise<void>((resolve) => setImmediate(resolve));
+        }
       }
 
+      // A folder location that no longer exists is recorded as an error; a
+      // single-file location that vanished is simply skipped (Rust behaviour).
+      if (plan.missing && location.kind !== "file") {
+        errors.push(`missing: ${location.path}`);
+      }
       if (locationFiles > 0 || !plan.missing) copiedLocations += 1;
       manifestLocations.push({
         index,
@@ -366,10 +254,16 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
     if (signal?.aborted) throw cancelledError();
 
     const status =
-      warnings.length === 0 ? "complete" : manifestFiles.length === 0 ? "failed" : "partial";
+      errors.length === 0
+        ? "complete"
+        : manifestFiles.length === 0
+          ? "failed"
+          : "partial";
+    // Exactly the Rust `BackupManifest` field set — no extra keys, so the old
+    // Tauri build (and third-party tooling) can read the archive unchanged.
     const manifest: SaveManifest = {
-      format: MANIFEST_FORMAT,
-      version: MANIFEST_VERSION,
+      format: "gameindex-save-backup",
+      version: 1,
       gameId,
       gameName,
       createdAt,
@@ -378,17 +272,8 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
       locations: manifestLocations,
       files: manifestFiles,
     };
-    if (dedupedFiles > 0) manifest.dedupedFiles = dedupedFiles;
-    if (warnings.length > 0) manifest.warnings = warnings.slice(0, 200);
 
-    const manifestJson = JSON.stringify(manifest, null, 2);
-    zip.addFile(MANIFEST_JSON, Buffer.from(manifestJson, "utf8"));
-    const archivePath = path.join(snapshotDir, ARCHIVE_NAME);
-    zip.writeZip(archivePath);
-    await fsp.writeFile(path.join(snapshotDir, MANIFEST_JSON), manifestJson, "utf8");
-
-    // The loose staging copies exist only to build the zip.
-    await fsp.rm(dataDir, { recursive: true, force: true });
+    writeSnapshotArchive(archivePath, manifest, entries);
 
     const totalBytes = manifestFiles.reduce((sum, file) => sum + file.size, 0);
     const backup = store.insertBackup({
@@ -402,9 +287,10 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
       fileCount: manifestFiles.length,
       totalBytes,
       status,
-      error: warnings.length > 0 ? warnings.slice(0, 20).join("; ") : null,
+      error: errors.length > 0 ? errors.slice(0, 20).join("; ") : null,
       rootPath: archivePath,
-      manifestPath: path.join(snapshotDir, MANIFEST_JSON),
+      // The manifest lives inside the archive, not at a standalone path.
+      manifestPath: "",
     });
 
     for (const location of locations) {
@@ -414,63 +300,19 @@ export async function createBackup(options: CreateBackupOptions): Promise<SaveBa
     onProgress?.(
       Math.max(1, totalFiles),
       Math.max(1, totalFiles),
-      `Backup complete${dedupedFiles > 0 ? ` (${dedupedFiles} duplicate files shared)` : ""}`,
+      "Backup complete",
     );
     return backup;
   } catch (error) {
-    // A cancelled or failed run never leaves a half-written snapshot behind.
-    await fsp.rm(snapshotDir, { recursive: true, force: true }).catch(() => undefined);
+    // A cancelled or failed run never leaves a half-written archive behind.
+    await fsp.rm(archivePath, { force: true }).catch(() => undefined);
     throw error;
   }
 }
 
-/** Read a snapshot's manifest (snapshot folder first, then the archive). */
+/** Read a snapshot's manifest (archive first, then legacy directory shapes). */
 export function readManifest(backup: SaveBackup): SaveManifest | null {
-  const candidates: string[] = [];
-  if (backup.manifestPath) candidates.push(backup.manifestPath);
-  if (backup.rootPath) {
-    candidates.push(path.join(path.dirname(backup.rootPath), MANIFEST_JSON));
-  }
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8")) as SaveManifest;
-      if (parsed && parsed.format === MANIFEST_FORMAT && Array.isArray(parsed.files)) {
-        return parsed;
-      }
-    } catch {
-      /* try the next candidate / the archive */
-    }
-  }
-  try {
-    const entry = new AdmZip(backup.rootPath).getEntry(MANIFEST_JSON);
-    if (!entry) return null;
-    const parsed = JSON.parse(entry.getData().toString("utf8")) as SaveManifest;
-    return parsed && parsed.format === MANIFEST_FORMAT ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Destination for one captured file, or `null` when the manifest entry would
- * escape the location root (zip-slip guard).
- */
-function safeDestination(location: SaveManifestLocation, rel: string): string | null {
-  const root = path.resolve(location.path);
-  if (location.kind === "file") {
-    // A single-file location restores exactly onto its recorded path.
-    return root;
-  }
-  const relative = toForward(rel);
-  if (!relative || relative.startsWith("/") || /^[a-zA-Z]:/.test(relative)) {
-    return null;
-  }
-  const segments = relative.split("/");
-  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    return null;
-  }
-  const destination = path.resolve(root, ...segments);
-  return isInside(destination, root) ? destination : null;
+  return resolveManifest(backup);
 }
 
 export interface RestoreOptions {
@@ -481,8 +323,9 @@ export interface RestoreOptions {
 /**
  * Restore every location from a snapshot into its original place.
  *
- * Files are verified against the manifest hash before they are written; a
- * mismatch is reported as a warning and that file is left untouched.
+ * Files are verified against the recorded size (and hash when the snapshot is
+ * a version 2 one) before they are written; a mismatch is reported as a
+ * warning and that file is left untouched.
  */
 export async function restoreSnapshot(
   backup: SaveBackup,
@@ -493,15 +336,7 @@ export async function restoreSnapshot(
     throw new Error("Backup manifest is missing or unreadable — the snapshot is incomplete");
   }
 
-  let zip: AdmZip;
-  try {
-    zip = new AdmZip(backup.rootPath);
-  } catch (error) {
-    throw new Error(
-      `Cannot read snapshot archive: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
+  const reader = await openSnapshotReader(backup);
   const warnings: string[] = [];
   let restoredFiles = 0;
   let totalBytes = 0;
@@ -516,22 +351,12 @@ export async function restoreSnapshot(
         warnings.push(`Skipped unsafe path: ${file.rel}`);
         continue;
       }
-      const entryName = file.dedupe ?? `files/${location.index}/${file.rel}`;
-      let data: Buffer;
-      try {
-        const entry = zip.getEntry(entryName);
-        if (!entry) {
-          warnings.push(`Missing backup file: ${file.rel}`);
-          continue;
-        }
-        data = entry.getData();
-      } catch (error) {
-        warnings.push(
-          `${file.rel}: ${error instanceof Error ? error.message : String(error)}`,
-        );
+      const entryName = file.dedupe ?? entryNameFor(location.index, file.rel);
+      const data = await reader.get(entryName);
+      if (!data) {
+        warnings.push(`Missing backup file: ${file.rel}`);
         continue;
       }
-
       if (file.size >= 0 && data.byteLength !== file.size) {
         warnings.push(`Corrupt backup file (size mismatch): ${file.rel}`);
         continue;
@@ -559,12 +384,42 @@ export async function restoreSnapshot(
   return { restoredFiles, totalBytes, warnings };
 }
 
-/** Delete a snapshot from disk, refusing paths outside the backup directory. */
+function samePath(a: string, b: string): boolean {
+  const normalize = (value: string): string => {
+    const resolved = path.resolve(value);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  return normalize(a) === normalize(b);
+}
+
+/** Roots a snapshot row is allowed to live under (current + retired profiles). */
+function allowedSnapshotRoots(backupDir: string): string[] {
+  const roots = [path.resolve(backupDir)];
+  for (const candidate of saveBackupRoots()) {
+    const resolved = path.resolve(candidate);
+    if (!roots.some((root) => samePath(root, resolved))) roots.push(resolved);
+  }
+  return roots;
+}
+
+/** True when the row points inside the configured backup directory. */
+export function snapshotIsManaged(backup: SaveBackup, backupDir: string): boolean {
+  if (!backup.rootPath) return false;
+  return isInside(backup.rootPath, backupDir);
+}
+
+/**
+ * Delete a snapshot from disk, refusing anything outside the configured
+ * backup directory or a retired profile's save-backup folder. Only `.gisave`
+ * archives and snapshot directories (with a `manifest.json`) are removed.
+ */
 export async function deleteSnapshot(backup: SaveBackup, backupDir: string): Promise<void> {
   if (!backup.rootPath) return;
-  const root = path.resolve(backupDir);
+  const roots = allowedSnapshotRoots(backupDir);
   const target = path.resolve(backup.rootPath);
-  if (!isInside(target, root) || target === root) return;
+  if (!isInsideAny(target, roots) || roots.some((root) => samePath(root, target))) {
+    return;
+  }
 
   let stat: fs.Stats | null = null;
   try {
@@ -574,25 +429,35 @@ export async function deleteSnapshot(backup: SaveBackup, backupDir: string): Pro
   }
 
   if (stat.isDirectory()) {
+    if (!fs.existsSync(path.join(target, MANIFEST_JSON))) return;
     await fsp.rm(target, { recursive: true, force: true });
     return;
   }
 
-  if (path.basename(target).toLowerCase() === ARCHIVE_NAME) {
+  if (isArchivePath(target)) {
+    await fsp.rm(target, { force: true });
+    return;
+  }
+
+  // First Electron port: `<snapshot>/backup.zip`; remove its snapshot folder.
+  if (path.basename(target).toLowerCase() === LEGACY_ARCHIVE_NAME) {
     const snapshotDir = path.dirname(target);
-    if (isInside(snapshotDir, root) && snapshotDir !== root) {
+    if (
+      isInsideAny(snapshotDir, roots) &&
+      !roots.some((root) => samePath(root, snapshotDir)) &&
+      fs.existsSync(path.join(snapshotDir, MANIFEST_JSON))
+    ) {
       await fsp.rm(snapshotDir, { recursive: true, force: true });
-      return;
     }
   }
-  await fsp.rm(target, { force: true });
 }
 
 /**
- * Prune old snapshots for a game beyond `retention` (0 = keep all).
+ * Prune managed snapshots for a game beyond `retention` (0 = keep all).
  *
  * Manual backups are evicted last so an auto-backup flood never removes a
- * snapshot the user explicitly asked for.
+ * snapshot the user explicitly asked for. Snapshots that live in a retired
+ * profile folder are left alone — retention never destroys pre-migration data.
  */
 export async function pruneBackups(
   gameId: string,
@@ -609,6 +474,7 @@ export async function pruneBackups(
     return manualA - manualB || a.createdAt - b.createdAt;
   });
   for (const backup of doomed) {
+    if (!snapshotIsManaged(backup, backupDir)) continue;
     await deleteSnapshot(backup, backupDir);
     store.deleteBackupRow(backup.id);
   }

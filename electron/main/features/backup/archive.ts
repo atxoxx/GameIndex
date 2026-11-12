@@ -2,21 +2,30 @@
  * Whole-app backup & restore engine (ported from `src-tauri/src/backup.rs` and
  * `backup_raw.rs`).
  *
- * A `.gibak` archive is a plain zip:
+ * A `.gibak` archive is a plain Deflated zip:
  *
  * ```text
- * manifest.json            # magic, version, app version, domain -> entry map
+ * manifest.json            # magic, version, app version, created at, domains
  * domains/<name>.db        # consistent snapshot of each SQLite domain
- * json/<file>.json         # the app's JSON documents (settings, caches)
- * files/artwork/…          # optional custom artwork, under the configured cap
- * files/crashlog/…         # only when `includeLogs` is on
+ * json/app-settings.json   # app-level settings (Electron-only extension)
+ * files/artwork/…          # only when `includeArtwork` is on (size caps apply)
+ * files/logs/…             # only when `includeLogs` is on
  * ```
  *
- * Databases are snapshotted through SQLite itself (`wal_checkpoint(TRUNCATE)`
- * + a synchronous file copy, so no write can interleave), and restored through
- * `ATTACH` + table copies rather than by swapping files under live
- * connections. That keeps the process consistent and lets "merge" be a real
- * row-level upsert; the UI still offers a restart so JSON-backed caches reload.
+ * The manifest keeps the Rust `gameindex-backup` v1 fields
+ * (`format`/`version`/`appVersion`/`createdAt`/`domains`) and adds `counts`,
+ * `entries`, `note` and `skipped`; the retired build ignores unknown fields.
+ *
+ * Databases are snapshotted through SQLite itself
+ * (`wal_checkpoint(TRUNCATE)` + a synchronous file copy, so no write can
+ * interleave), and restored through `ATTACH` + validated table copies rather
+ * than by swapping files under live connections.
+ *
+ * Archives written by the retired app are accepted too:
+ *  • v1 binary (`domains/<name>.db`), and
+ *  • v2 raw NDJSON (`data/<table>.ndjson`, see `legacyArchive.ts`);
+ * `.zip` remains a legacy alias for list/verify/diff/restore/delete, but new
+ * archives are always written with the `.gibak` extension.
  */
 import AdmZip from "adm-zip";
 import { app } from "electron";
@@ -24,7 +33,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { userDataPath } from "../../lib/paths";
+import { legacyAppDataDir, userDataPath } from "../../lib/paths";
 import {
   DB_FILES,
   ensureStorage,
@@ -39,6 +48,15 @@ import {
   MAX_ARTWORK_FILE_BYTES,
   type BackupConfig,
 } from "./config";
+import {
+  hasRawEntries,
+  isLegacyPluginAsset,
+  RAW_MAGIC,
+  RAW_VERSION,
+  restoreLegacyArtwork,
+  restoreRawDomain,
+  verifyRawDomain,
+} from "./legacyArchive";
 import type {
   ArchiveManifest,
   BackupArchiveSummary,
@@ -57,19 +75,32 @@ import type {
 
 export const BACKUP_MAGIC = "gameindex-backup";
 export const BACKUP_FORMAT_VERSION = 1;
+/** Extension every newly written archive uses. */
+export const GIBACK_EXT = "gibak";
+/** Legacy alias accepted by list/verify/diff/restore/delete. */
+export const LEGACY_ARCHIVE_EXT = "zip";
 
 const KV_LAST_AT = "backup.last_at";
 const KV_LAST_BYTES = "backup.last_bytes";
 const MANIFEST_JSON = "manifest.json";
 const SQLITE_HEADER = "SQLite format 3\0";
+const ARCHIVE_EXTS = [GIBACK_EXT, LEGACY_ARCHIVE_EXT];
 
-/** Domain order in the overview and the manifest. */
+/**
+ * Domain names the retired app used that this build stores under another
+ * `DbDomain` today (`download_history.db` → `downloads.db`).
+ */
+const LEGACY_DOMAIN_ALIASES: Record<string, DbDomain> = {
+  download_history: "downloads",
+};
+
+/** Domain order in the overview and the manifest (runtime — the data
+ * workstream adds domains without this module changing). */
 const DB_DOMAINS: DbDomain[] = Object.keys(DB_FILES) as DbDomain[];
 
+/** Non-database settings document. */
 const JSON_DOMAINS: { name: string; file: string }[] = [
   { name: "settings", file: "app-settings.json" },
-  { name: "storage_history", file: "storage-history.json" },
-  { name: "plugin_cache", file: "plugin_availability_cache.json" },
 ];
 
 const DIR_DOMAINS: { name: string; dir: string; capBytes: number }[] = [
@@ -77,8 +108,12 @@ const DIR_DOMAINS: { name: string; dir: string; capBytes: number }[] = [
   { name: "logs", dir: "crashlog", capBytes: 20 * 1024 * 1024 },
 ];
 
-/** Primary-record count per SQLite domain, matching the Rust overview. */
-const SQLITE_COUNT_SQL: Record<DbDomain, string> = {
+/**
+ * Primary-record count per SQLite domain. `Partial` on purpose: the data
+ * workstream owns the domain set, and an unknown domain falls back to counting
+ * its generic `documents` table (or reports 0).
+ */
+const SQLITE_COUNT_SQL: Partial<Record<DbDomain, string>> = {
   games: "SELECT count(*) AS n FROM games",
   sessions: "SELECT count(*) AS n FROM sessions",
   game_notes: "SELECT count(*) AS n FROM game_notes",
@@ -88,6 +123,19 @@ const SQLITE_COUNT_SQL: Record<DbDomain, string> = {
   saves:
     "SELECT (SELECT count(*) FROM save_locations) + (SELECT count(*) FROM save_backups) AS n",
   kv: "SELECT count(*) AS n FROM kv_store",
+  achievements:
+    "SELECT (SELECT count(*) FROM achievement_links) + (SELECT count(*) FROM achievements_cache) AS n",
+  plugins: "SELECT count(*) AS n FROM plugins",
+  clips: "SELECT count(*) AS n FROM clips",
+  mods: "SELECT count(*) AS n FROM mods",
+  emulators: "SELECT count(*) AS n FROM emulators",
+  sources: "SELECT count(*) AS n FROM sources",
+  store_cache: "SELECT count(*) AS n FROM store_cache",
+  compatibility:
+    "SELECT (SELECT count(*) FROM compatibility_settings) " +
+    "+ (SELECT count(*) FROM game_compatibility) " +
+    "+ (SELECT count(*) FROM compatibility_runners) AS n",
+  downloads: "SELECT count(*) AS n FROM download_history",
 };
 
 interface DomainSpec {
@@ -193,9 +241,9 @@ export function countDomain(name: string): number {
   if (domain) {
     try {
       ensureStorage(domain);
-      const row = prepare(domain, SQLITE_COUNT_SQL[domain]).get() as
-        | { n?: number | bigint }
-        | undefined;
+      const sql =
+        SQLITE_COUNT_SQL[domain] ?? "SELECT count(*) AS n FROM documents";
+      const row = prepare(domain, sql).get() as { n?: number | bigint } | undefined;
       return Number(row?.n ?? 0);
     } catch {
       return 0;
@@ -259,11 +307,24 @@ function openArchive(filePath: string): AdmZip {
   }
 }
 
-/** Read and validate the manifest of an archive (throws with a clear reason). */
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/**
+ * Read and validate the manifest of an archive (throws with a clear reason).
+ * Supports both retried formats:
+ *  • `gameindex-backup` v1 (binary domain snapshots, and what this build writes)
+ *  • `gameindex-raw-backup` v2 (the old app's NDJSON writer)
+ */
 export function readManifest(filePath: string): ArchiveManifest {
   const zip = openArchive(filePath);
   const entry = zip.getEntry(MANIFEST_JSON);
-  if (!entry) throw new Error("Archive missing manifest.json");
+  if (!entry) {
+    throw new Error("Not a GameIndex backup file (missing manifest.json)");
+  }
   let parsed: ArchiveManifest;
   try {
     parsed = JSON.parse(entry.getData().toString("utf8")) as ArchiveManifest;
@@ -275,13 +336,37 @@ export function readManifest(filePath: string): ArchiveManifest {
   if (!parsed || typeof parsed !== "object" || !parsed.format) {
     throw new Error("Archive manifest is not a GameIndex backup");
   }
-  if (parsed.format !== BACKUP_MAGIC && parsed.format !== "gameindex-raw-backup") {
+  if (parsed.format !== BACKUP_MAGIC && parsed.format !== RAW_MAGIC) {
     throw new Error(`Unsupported backup format: ${parsed.format}`);
   }
-  if (!Array.isArray(parsed.domains) || !parsed.entries) {
+  const version = Number(parsed.version ?? 0);
+  if (parsed.format === BACKUP_MAGIC && version !== BACKUP_FORMAT_VERSION) {
+    throw new Error(`Unsupported backup version: ${version}`);
+  }
+  if (parsed.format === RAW_MAGIC && version !== RAW_VERSION) {
+    throw new Error(`Unsupported backup version: ${version}`);
+  }
+  if (!Array.isArray(parsed.domains)) {
     throw new Error("Archive manifest is incomplete — regenerate the backup");
   }
+  parsed.domains = parsed.domains.filter(
+    (name): name is string => typeof name === "string" && name.length > 0,
+  );
+  parsed.counts = Object.fromEntries(
+    Object.entries(asRecord(parsed.counts)).filter(
+      (entryPair): entryPair is [string, number] => typeof entryPair[1] === "number",
+    ),
+  );
+  parsed.entries = Object.fromEntries(
+    Object.entries(asRecord(parsed.entries)).filter(
+      (entryPair): entryPair is [string, string] => typeof entryPair[1] === "string",
+    ),
+  );
   return parsed;
+}
+
+function isRawManifest(manifest: ArchiveManifest): boolean {
+  return manifest.format === RAW_MAGIC;
 }
 
 export function inspectArchive(filePath: string): BackupInspect {
@@ -290,7 +375,7 @@ export function inspectArchive(filePath: string): BackupInspect {
     createdAt: Number(manifest.createdAt ?? 0),
     appVersion: String(manifest.appVersion ?? ""),
     domains: manifest.domains,
-    isRaw: manifest.format === "gameindex-raw-backup",
+    isRaw: isRawManifest(manifest),
     counts: manifest.counts ?? {},
   };
 }
@@ -301,39 +386,90 @@ function archiveExtension(filePath: string): string {
   return path.extname(filePath).replace(/^\./, "").toLowerCase();
 }
 
-export function listArchives(dir: string): BackupArchiveSummary[] {
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  const summaries: BackupArchiveSummary[] = [];
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const filePath = path.join(dir, entry.name);
-    if (!["gibak", "zip"].includes(archiveExtension(filePath))) continue;
+function isArchiveFile(filePath: string): boolean {
+  return ARCHIVE_EXTS.includes(archiveExtension(filePath));
+}
+
+/** Retired profiles that may hold `.gibak` archives (`<profile>/backups`). */
+function legacyBackupDirs(): string[] {
+  const appData = app.getPath("appData");
+  const profiles = [
+    path.join(appData, "com.gameindex.app"),
+    path.join(appData, "GameIndex"),
+    path.join(appData, "gameindex"),
+  ];
+  const detected = legacyAppDataDir();
+  if (detected) profiles.push(detected);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const profile of profiles) {
+    const dir = path.resolve(path.join(profile, "backups"));
+    const key = dir.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
     try {
-      const manifest = readManifest(filePath);
-      const counts = manifest.counts ?? {};
-      const totalRecords = Object.values(counts).reduce(
-        (sum, value) => sum + (Number.isFinite(value) ? value : 0),
-        0,
-      );
-      summaries.push({
-        filePath,
-        fileName: entry.name,
-        sizeBytes: fs.statSync(filePath).size,
-        createdAt: Number(manifest.createdAt ?? 0),
-        appVersion: String(manifest.appVersion ?? ""),
-        domains: manifest.domains,
-        domainCount: manifest.domains.length,
-        totalRecords,
-        isRaw: manifest.format === "gameindex-raw-backup",
-        counts,
-      });
+      if (fs.statSync(dir).isDirectory()) out.push(dir);
     } catch {
-      // A random zip (or a truncated archive) is simply not listed.
+      /* profile not present */
+    }
+  }
+  return out;
+}
+
+/**
+ * Every discovered `.gibak`/`.zip` archive. By default the configured folder is
+ * scanned together with each retired profile's `backups/` directory, so
+ * archives made by the old app show up without copying them first.
+ */
+export function listArchives(dir: string, includeLegacy = true): BackupArchiveSummary[] {
+  const dirs: string[] = [];
+  const seenDirs = new Set<string>();
+  const candidates = [path.resolve(dir), ...(includeLegacy ? legacyBackupDirs() : [])];
+  for (const candidate of candidates) {
+    const key = candidate.toLowerCase();
+    if (seenDirs.has(key)) continue;
+    seenDirs.add(key);
+    dirs.push(candidate);
+  }
+
+  const summaries: BackupArchiveSummary[] = [];
+  const seenFiles = new Set<string>();
+  for (const folder of dirs) {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(folder, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const filePath = path.join(folder, entry.name);
+      if (!isArchiveFile(filePath)) continue;
+      const fileKey = filePath.toLowerCase();
+      if (seenFiles.has(fileKey)) continue;
+      seenFiles.add(fileKey);
+      try {
+        const manifest = readManifest(filePath);
+        const counts = manifest.counts ?? {};
+        const totalRecords = Object.values(counts).reduce(
+          (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+          0,
+        );
+        summaries.push({
+          filePath,
+          fileName: entry.name,
+          sizeBytes: fs.statSync(filePath).size,
+          createdAt: Number(manifest.createdAt ?? 0),
+          appVersion: String(manifest.appVersion ?? ""),
+          domains: manifest.domains,
+          domainCount: manifest.domains.length,
+          totalRecords,
+          isRaw: isRawManifest(manifest),
+          counts,
+        });
+      } catch {
+        // A random zip (or a truncated archive) is simply not listed.
+      }
     }
   }
   summaries.sort((a, b) => b.createdAt - a.createdAt);
@@ -349,7 +485,7 @@ export function deleteArchive(filePath: string): boolean {
     throw new Error("File not found");
   }
   if (!stat.isFile()) throw new Error("File not found");
-  if (!["gibak", "zip"].includes(archiveExtension(target))) {
+  if (!isArchiveFile(target)) {
     throw new Error("Only .gibak or .zip backup files can be deleted");
   }
   try {
@@ -399,7 +535,7 @@ export function pruneDir(dir: string, maxCount: number): void {
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const filePath = path.join(dir, entry.name);
-    if (!["gibak", "zip"].includes(archiveExtension(filePath))) continue;
+    if (!isArchiveFile(filePath)) continue;
     try {
       files.push({ path: filePath, mtime: fs.statSync(filePath).mtimeMs });
     } catch {
@@ -430,7 +566,20 @@ export function quickBackupPath(backupDir: string, note?: string | null): string
         .map((char) => (/[a-zA-Z0-9_-]/.test(char) ? char : "-"))
         .join("")}`
     : "";
-  return path.join(backupDir, `gameindex-backup-${timestamp}${suffix}.gibak`);
+  return path.join(backupDir, `gameindex-backup-${timestamp}${suffix}.${GIBACK_EXT}`);
+}
+
+/**
+ * Force the `.gibak` extension on a user-chosen target. `.zip` is only ever a
+ * legacy alias for reading; new archives must be written as `.gibak`.
+ */
+export function ensureGibakPath(target: string): string {
+  const ext = path.extname(target).toLowerCase();
+  if (ext === `.${GIBACK_EXT}`) return target;
+  if (ext === `.${LEGACY_ARCHIVE_EXT}`) {
+    return `${target.slice(0, -ext.length)}.${GIBACK_EXT}`;
+  }
+  return `${target}.${GIBACK_EXT}`;
 }
 
 // ── Progress ────────────────────────────────────────────────────────────────
@@ -590,13 +739,16 @@ function snapshotDatabase(domain: DbDomain, destination: string): number {
 }
 
 export async function createArchive(options: CreateArchiveOptions): Promise<BackupOutcome> {
-  const { targetPath, config } = options;
+  const { config } = options;
+  const target = path.resolve(ensureGibakPath(options.targetPath));
   const reporter = new BackupProgressReporter(
     options.onProgress ?? (() => undefined),
   );
   reporter.phase("preparing", "Preparing backup snapshot...", { percent: 5, force: true });
 
   const all = availableDomains(config).filter((spec) => spec.available);
+  // Only domains the retired app knew are valid archive items; `settings`,
+  // `artwork` and `logs` are Electron extensions that are also selectable.
   const requested = options.domains?.filter((name) => typeof name === "string") ?? null;
   if (requested) {
     for (const name of requested) {
@@ -606,10 +758,7 @@ export async function createArchive(options: CreateArchiveOptions): Promise<Back
     }
   }
 
-  const defaultNames = all
-    .filter((spec) => spec.kind !== "dir" || spec.name !== "artwork" || config.includeArtwork)
-    .map((spec) => spec.name);
-  const chosenNames = requested && requested.length > 0 ? requested : defaultNames;
+  const chosenNames = requested && requested.length > 0 ? requested : all.map((spec) => spec.name);
   const chosen = chosenNames
     .map((name) => all.find((spec) => spec.name === name))
     .filter((spec): spec is DomainSpec => Boolean(spec));
@@ -617,7 +766,6 @@ export async function createArchive(options: CreateArchiveOptions): Promise<Back
   const existing = chosen.filter((spec) => fs.existsSync(spec.source));
   if (existing.length === 0) throw new Error("Nothing to back up yet");
 
-  const target = path.resolve(targetPath);
   await fsp.mkdir(path.dirname(target), { recursive: true });
   const staging = await fsp.mkdtemp(path.join(os.tmpdir(), "gameindex-backup-"));
   const staged: StagedDomain[] = [];
@@ -659,7 +807,11 @@ export async function createArchive(options: CreateArchiveOptions): Promise<Back
           continue;
         }
         reporter.addBytes(result.bytes);
-        staged.push({ spec, stagedPath: path.join(staging, ...spec.entry.split("/")), bytes: result.bytes });
+        staged.push({
+          spec,
+          stagedPath: path.join(staging, ...spec.entry.split("/")),
+          bytes: result.bytes,
+        });
         if (result.skipped) skippedDomains.push(spec.name);
       }
 
@@ -698,7 +850,18 @@ export async function createArchive(options: CreateArchiveOptions): Promise<Back
       }
     };
     await addStaged(staging, "");
-    zip.writeZip(target);
+
+    // Write to a sibling temp file first: a failed run must never leave a
+    // truncated archive where the UI expects a valid backup.
+    const temp = `${target}.${process.pid}.tmp`;
+    try {
+      zip.writeZip(temp);
+      fs.rmSync(target, { force: true });
+      await fsp.rename(temp, target);
+    } catch (error) {
+      fs.rmSync(temp, { force: true });
+      throw error;
+    }
 
     const sizeBytes = fs.statSync(target).size;
     if (options.recordStatus !== false) {
@@ -723,44 +886,105 @@ export async function createArchive(options: CreateArchiveOptions): Promise<Back
 
 // ── Verification / diff ─────────────────────────────────────────────────────
 
+/** Archive entry holding a domain's payload (legacy manifests have no map). */
+function domainEntry(
+  manifest: ArchiveManifest,
+  name: string,
+  zip: AdmZip,
+): string | null {
+  const mapped = manifest.entries?.[name];
+  if (mapped) return mapped;
+  const dbEntry = `domains/${name}.db`;
+  if (zip.getEntry(dbEntry)) return dbEntry;
+  const jsonDoc = JSON_DOMAINS.find((doc) => doc.name === name);
+  if (jsonDoc) {
+    const entryName = `json/${jsonDoc.file}`;
+    if (zip.getEntry(entryName)) return entryName;
+  }
+  const dir = DIR_DOMAINS.find((candidate) => candidate.name === name);
+  if (dir) return `files/${dir.name}`;
+  if (zip.getEntry(`data/${name}.ndjson`)) return `data/${name}.ndjson`;
+  return null;
+}
+
+function domainKind(name: string): DomainKind | "unknown" {
+  if (DB_DOMAINS.includes(name as DbDomain)) return "db";
+  const alias = LEGACY_DOMAIN_ALIASES[name];
+  if (alias && DB_DOMAINS.includes(alias)) return "db";
+  if (JSON_DOMAINS.some((doc) => doc.name === name)) return "json";
+  if (DIR_DOMAINS.some((dir) => dir.name === name)) return "dir";
+  return "unknown";
+}
+
+function looksLikeDbEntry(entryName: string): boolean {
+  return entryName.toLowerCase().endsWith(".db");
+}
+
+/** Live domain that receives an archived domain's database. */
+function restoreDomainName(name: string): DbDomain {
+  return (LEGACY_DOMAIN_ALIASES[name] ?? name) as DbDomain;
+}
+
+/** `YYYYMMDD-HHMMSS` in local time (the Rust safety-snapshot naming). */
+function localStamp(date = new Date()): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+    `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+  );
+}
+
 export function verifyArchive(filePath: string): BackupVerifyReport {
   const manifest = readManifest(filePath);
   const zip = openArchive(filePath);
+  const raw = isRawManifest(manifest);
   const details: DomainVerifyDetail[] = [];
   const corrupted: string[] = [];
   let totalRecords = 0;
 
   for (const domain of manifest.domains) {
-    const entryName = manifest.entries[domain];
     const count = manifest.counts?.[domain] ?? 0;
     let valid = false;
+    let records = 0;
     let error: string | null = null;
 
     try {
-      const entry = entryName ? zip.getEntry(entryName) : null;
-      if (!entry) {
-        error = `Missing ${entryName ?? domain} in archive`;
+      if (raw) {
+        const result = verifyRawDomain(zip, domain, count);
+        valid = result.valid;
+        records = result.records;
+        error = result.error;
       } else {
-        const data = entry.getData();
-        const specKind = DB_DOMAINS.includes(domain as DbDomain)
-          ? "db"
-          : JSON_DOMAINS.some((doc) => doc.name === domain)
-            ? "json"
-            : "dir";
-        if (specKind === "db") {
-          valid =
-            data.byteLength >= 16 && data.subarray(0, 16).toString("latin1") === SQLITE_HEADER;
-          if (!valid) error = "Invalid SQLite database header";
-        } else if (specKind === "json") {
-          JSON.parse(data.toString("utf8"));
-          valid = true;
-        } else {
+        const entryName = domainEntry(manifest, domain, zip);
+        if (!entryName) {
+          error = `Missing ${domain} in archive`;
+        } else if (domainKind(domain) === "dir") {
           const prefix = `${entryName.replace(/\/+$/, "")}/`;
           valid = zip
             .getEntries()
             .some((candidate) => !candidate.isDirectory && candidate.entryName.startsWith(prefix));
           if (!valid) error = `No files captured under ${entryName}`;
+        } else {
+          const entry = zip.getEntry(entryName);
+          if (!entry) {
+            error = `Missing ${entryName} in archive`;
+          } else {
+            const data = entry.getData();
+            const kind = domainKind(domain);
+            if (kind === "json" || entryName.toLowerCase().endsWith(".json")) {
+              JSON.parse(data.toString("utf8"));
+              valid = true;
+            } else if (kind === "db" || looksLikeDbEntry(entryName)) {
+              valid =
+                data.byteLength >= 16 &&
+                data.subarray(0, 16).toString("latin1") === SQLITE_HEADER;
+              if (!valid) error = "Invalid SQLite database header";
+            } else {
+              valid = true;
+            }
+          }
         }
+        if (valid) records = count;
       }
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
@@ -768,8 +992,8 @@ export function verifyArchive(filePath: string): BackupVerifyReport {
     }
 
     if (!valid) corrupted.push(domain);
-    else totalRecords += count;
-    details.push({ domain, valid, recordsFound: valid ? count : 0, error });
+    else totalRecords += records;
+    details.push({ domain, valid, recordsFound: valid ? records : 0, error });
   }
 
   const totalDomains = manifest.domains.length;
@@ -778,7 +1002,7 @@ export function verifyArchive(filePath: string): BackupVerifyReport {
   return {
     filePath,
     valid,
-    isRaw: manifest.format === "gameindex-raw-backup",
+    isRaw: raw,
     formatVersion: Number(manifest.version ?? 1),
     totalDomains,
     healthyDomains,
@@ -804,7 +1028,8 @@ export function diffArchive(filePath: string): BackupDiffReport {
   ]);
   for (const name of names) {
     const archiveCount = manifest.counts?.[name] ?? 0;
-    const liveCount = countDomain(name);
+    const alias = LEGACY_DOMAIN_ALIASES[name];
+    const liveCount = countDomain(alias ?? name);
     archiveTotal += archiveCount;
     liveTotal += liveCount;
     domains.push({
@@ -830,7 +1055,11 @@ function quoteIdent(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function tableColumns(db: ReturnType<typeof openDb>, schema: string, table: string): string[] {
+function tableColumnsOf(
+  db: ReturnType<typeof openDb>,
+  schema: string,
+  table: string,
+): string[] {
   const rows = db
     .prepare(`PRAGMA ${schema}.table_info(${quoteIdent(table)})`)
     .all() as { name?: string }[];
@@ -840,16 +1069,18 @@ function tableColumns(db: ReturnType<typeof openDb>, schema: string, table: stri
 function isInside(child: string, parent: string): boolean {
   const normalize = (value: string): string =>
     process.platform === "win32" ? value.toLowerCase() : value;
-  const c = normalize(child);
-  const p = normalize(parent);
+  const c = normalize(path.resolve(child));
+  const p = normalize(path.resolve(parent));
   return c === p || c.startsWith(p.endsWith(path.sep) ? p : `${p}${path.sep}`);
 }
 
 /**
  * Replace/merge a domain's tables from an archived database.
  *
- * Schema mismatches are detected before anything is deleted, so a failed
- * restore can never leave a half-emptied table behind.
+ * Column compatibility is checked before anything is deleted: every archived
+ * column must exist in the live table (live-only columns keep their defaults).
+ * A schema mismatch therefore aborts the whole domain rather than leaving a
+ * half-emptied table behind.
  */
 function restoreDatabase(domain: DbDomain, data: Buffer, mode: string): void {
   if (data.byteLength < 16 || data.subarray(0, 16).toString("latin1") !== SQLITE_HEADER) {
@@ -871,28 +1102,33 @@ function restoreDatabase(domain: DbDomain, data: Buffer, mode: string): void {
         )
         .all() as { name?: string }[]).map((row) => String(row.name ?? ""));
 
+      const plans: { table: string; columns: string[] }[] = [];
       for (const table of tables) {
-        const source = tableColumns(db, "restore_src", table);
-        const live = tableColumns(db, "main", table);
-        if (
-          live.length === 0 ||
-          source.length !== live.length ||
-          source.some((column, index) => column !== live[index])
-        ) {
+        const source = tableColumnsOf(db, "restore_src", table);
+        const live = new Set(tableColumnsOf(db, "main", table));
+        if (live.size === 0) {
           throw new Error(
-            `Cannot restore ${domain}.${table}: the archive schema does not match this build`,
+            `Cannot restore ${domain}.${table}: this build has no such table`,
           );
         }
+        const missing = source.filter((column) => !live.has(column));
+        if (missing.length > 0) {
+          throw new Error(
+            `Cannot restore ${domain}.${table}: the archive has unknown column(s) ${missing.join(", ")}`,
+          );
+        }
+        plans.push({ table, columns: source });
       }
 
       const replace = mode === "replace";
       const run = db.transaction(() => {
-        for (const table of tables) {
-          const quoted = quoteIdent(table);
-          if (replace) db.exec(`DELETE FROM main.${quoted}`);
+        for (const plan of plans) {
+          const quotedTable = quoteIdent(plan.table);
+          const columns = plan.columns.map(quoteIdent).join(", ");
+          if (replace) db.exec(`DELETE FROM main.${quotedTable}`);
           db.exec(
-            `INSERT ${replace ? "" : "OR REPLACE "}INTO main.${quoted} ` +
-              `SELECT * FROM restore_src.${quoted}`,
+            `INSERT OR REPLACE INTO main.${quotedTable} (${columns}) ` +
+              `SELECT ${columns} FROM restore_src.${quotedTable}`,
           );
         }
       });
@@ -948,6 +1184,18 @@ function resolveDomainSpec(
 ): DomainSpec {
   const known = findDomain(name, config);
   if (known) return known;
+  const alias = LEGACY_DOMAIN_ALIASES[name];
+  if (alias && DB_DOMAINS.includes(alias)) {
+    // Rust domain name → today's file (e.g. download_history → downloads.db),
+    // while the archive entry keeps the retired name.
+    return {
+      name,
+      kind: "db",
+      source: dbSource(alias),
+      entry: manifest.entries[name] ?? `domains/${name}.db`,
+      available: true,
+    };
+  }
   if (DB_DOMAINS.includes(name as DbDomain)) {
     return {
       name,
@@ -968,11 +1216,32 @@ function resolveDomainSpec(
     };
   }
   const dir = DIR_DOMAINS.find((candidate) => candidate.name === name);
+  if (dir) {
+    return {
+      name,
+      kind: "dir",
+      source: userDataPath(dir.dir),
+      entry: manifest.entries[name] ?? `files/${name}`,
+      available: true,
+    };
+  }
+  // Legacy Electron archives also carried plain JSON caches such as
+  // `storage-history.json`; restore them beside the settings document.
+  const mapped = manifest.entries[name];
+  if (mapped && mapped.toLowerCase().endsWith(".json")) {
+    return {
+      name,
+      kind: "json",
+      source: userDataPath(path.posix.basename(mapped)),
+      entry: mapped,
+      available: true,
+    };
+  }
   return {
     name,
     kind: "dir",
-    source: userDataPath(dir?.dir ?? name),
-    entry: manifest.entries[name] ?? `files/${name}`,
+    source: userDataPath(name),
+    entry: mapped ?? `files/${name}`,
     available: true,
   };
 }
@@ -989,8 +1258,10 @@ export interface RestoreArchiveOptions {
 export async function restoreArchive(options: RestoreArchiveOptions): Promise<BackupOutcome> {
   const { sourcePath, config } = options;
   const reporter = new BackupProgressReporter(options.onProgress ?? (() => undefined));
+  // Validate before touching anything (including the safety snapshot).
   const manifest = readManifest(sourcePath);
   const zip = openArchive(sourcePath);
+  const raw = isRawManifest(manifest);
   const mode = options.mode === "merge" ? "merge" : "replace";
 
   const requested =
@@ -999,19 +1270,18 @@ export async function restoreArchive(options: RestoreArchiveOptions): Promise<Ba
       : manifest.domains.slice();
   for (const name of requested) {
     if (!manifest.domains.includes(name)) {
-      throw new Error(`Archive does not contain: ${name}`);
+      throw new Error(`Backup does not contain "${name}"`);
     }
   }
+  if (requested.length === 0) throw new Error("Nothing selected to restore");
 
   reporter.phase("preparing", "Preparing restore...", { percent: 2, force: true });
 
   if (options.createSafetySnapshot) {
-    const stamp = new Date()
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .replace(/\..+$/, "")
-      .replace("T", "-");
-    const safetyPath = path.join(config.backupDir, `safety-pre-restore-${stamp}.gibak`);
+    const safetyPath = path.join(
+      config.backupDir,
+      `safety-pre-restore-${localStamp()}.gibak`,
+    );
     try {
       reporter.phase("snapshotting", "Saving a safety snapshot...", { percent: 6, force: true });
       await createArchive({
@@ -1040,32 +1310,78 @@ export async function restoreArchive(options: RestoreArchiveOptions): Promise<Ba
       force: true,
     });
 
-    const spec = resolveDomainSpec(name, config, manifest);
-    const entryName = manifest.entries[name] ?? spec.entry;
-    const entry = zip.getEntry(entryName);
-    if (!entry) {
-      warnings.push(`Missing ${name} in archive`);
-      continue;
-    }
-
     try {
+      if (raw) {
+        const warningCount = warnings.length;
+        const records = restoreRawDomain(zip, name, mode, warnings);
+        if (!hasRawEntries(zip, name)) {
+          const count = manifest.counts?.[name] ?? 0;
+          if (count > 0) {
+            warnings.push(`Missing ${name} records in archive`);
+            continue;
+          }
+        }
+        if (records === 0 && warnings.length > warningCount) continue;
+        restored.push(name);
+        continue;
+      }
+
+      const spec = resolveDomainSpec(name, config, manifest);
+      const entryName = domainEntry(manifest, name, zip) ?? spec.entry;
+
+      if (spec.kind === "dir" && domainKind(name) === "unknown" && looksLikeDbEntry(entryName)) {
+        warnings.push(`${name}: database not supported by this build`);
+        continue;
+      }
+
+      if (spec.kind === "dir") {
+        const count = await restoreDirectory(spec, zip, mode);
+        if (count === 0) {
+          warnings.push(`No files restored for ${name}`);
+          continue;
+        }
+        restored.push(name);
+        continue;
+      }
+
+      const entry = zip.getEntry(entryName);
+      if (!entry) {
+        warnings.push(`Missing ${name} in archive`);
+        continue;
+      }
+
       if (spec.kind === "db") {
-        restoreDatabase(name as DbDomain, entry.getData(), mode);
-      } else if (spec.kind === "json") {
+        restoreDatabase(restoreDomainName(name), entry.getData(), mode);
+      } else {
         const destination = spec.source;
         await fsp.mkdir(path.dirname(destination), { recursive: true });
         const temp = `${destination}.${process.pid}.restore`;
         await fsp.writeFile(temp, entry.getData());
         await fsp.rename(temp, destination);
-      } else {
-        const count = await restoreDirectory(spec, zip, mode);
-        if (count === 0) warnings.push(`No files restored for ${name}`);
       }
       restored.push(name);
     } catch (error) {
       warnings.push(
         `${name}: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  // The raw writer also bundled custom artwork beside the records.
+  if (raw && config.includeArtwork) {
+    try {
+      const artwork = await restoreLegacyArtwork(zip, warnings);
+      if (artwork > 0) restored.push("artwork");
+    } catch (error) {
+      warnings.push(
+        `artwork: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const pluginAsset = zip
+      .getEntries()
+      .some((entry) => !entry.isDirectory && isLegacyPluginAsset(entry.entryName));
+    if (pluginAsset) {
+      warnings.push("Plugin files in this archive were not restored");
     }
   }
 

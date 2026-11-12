@@ -43,18 +43,23 @@ export interface SaveManifestLocation {
   totalBytes: number;
 }
 
-/** One captured file within a location. */
+/**
+ * One captured file within a location.
+ *
+ * `hash` and `dedupe` only appear in manifest version 2 snapshots written by
+ * the first Electron port; current (and Rust) snapshots omit them.
+ */
 export interface SaveManifestFile {
   locationIndex: number;
   /** Path relative to the location root, forward-slash separated. */
   rel: string;
   size: number;
   modifiedMs: number;
-  /** Lowercase hex SHA-256 of the captured bytes. */
-  hash: string;
+  /** Lowercase hex SHA-256 of the captured bytes (version 2 snapshots only). */
+  hash?: string;
   /**
    * Archive entry holding the bytes when this file duplicates another one
-   * (content dedupe). Absent when the file's own entry is authoritative.
+   * (content dedupe, version 2 snapshots only).
    */
   dedupe?: string;
 }
@@ -62,7 +67,10 @@ export interface SaveManifestFile {
 /** A snapshot manifest (also returned by `saves_get_backup_manifest`). */
 export interface SaveManifest {
   format: "gameindex-save-backup";
-  /** 2 adds per-file hashes + dedupe pointers; 1 was the hash-less layout. */
+  /**
+   * 1 = Rust layout and what this build writes (no hashes, one entry per
+   * file); 2 = the first Electron port's directory snapshots (hash + dedupe).
+   */
   version: number;
   gameId: string;
   gameName: string;

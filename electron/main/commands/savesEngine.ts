@@ -17,6 +17,7 @@ import { ensureStorage, getGameRow, listGameSummaries } from "../state/db";
 import type { SaveBackup, SaveLocation } from "../state/db";
 import { detectForGame, resolveRoots, type SaveRoots } from "../features/savesEngine/detect";
 import * as engine from "../features/savesEngine/engine";
+import { reconcileLegacySnapshots, snapshotFromPath } from "../features/savesEngine/legacy";
 import {
   beginOperation,
   cancelActiveOperation,
@@ -124,6 +125,38 @@ function normalizeLocationInput(raw: unknown): SaveLocation {
 }
 
 // ── Commands ────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a restore target: an index row (`backupId`) or an on-disk snapshot
+ * picked by the user (`path`/`sourcePath`). Picked legacy snapshots are not
+ * written to the index — the restore still works straight from the manifest.
+ */
+function resolveRestoreTarget(args: CommandArgs): SaveBackup {
+  const id = asString(args.backupId ?? args.id);
+  if (id) {
+    const backup = store.getBackup(id);
+    if (!backup) throw new Error(`Backup not found: ${id}`);
+    return backup;
+  }
+
+  const target = asString(args.path ?? args.sourcePath).trim();
+  if (!target) throw new Error("A backup id is required");
+  const resolved = path.resolve(target);
+  const existing = store
+    .listBackups()
+    .find(
+      (row) => row.rootPath && store.pathKey(row.rootPath) === store.pathKey(resolved),
+    );
+  if (existing) return existing;
+
+  const discovered = snapshotFromPath(resolved);
+  if (!discovered) {
+    throw new Error(
+      "Backup manifest is missing or unreadable — pick a .gisave archive or a snapshot folder",
+    );
+  }
+  return discovered;
+}
 
 export const savesEngineCommands: Record<string, CommandHandler> = {
   /** Detect and persist locations for one game, returning the merged set. */
@@ -358,6 +391,11 @@ export const savesEngineCommands: Record<string, CommandHandler> = {
   /** List backup snapshots, optionally scoped to a game. Newest first. */
   saves_list_backups: (args: CommandArgs): SaveBackup[] => {
     const gameId = asOptionalString(args.gameId ?? args.game_id);
+    const settings = readSettings();
+    // Pick up snapshots left in a retired profile (or dropped into the backup
+    // folder by hand). Memoized per process and never duplicates an imported
+    // row, so this stays cheap on every list.
+    reconcileLegacySnapshots(settings.backupDir);
     return store.listBackups(gameId);
   },
 
@@ -385,17 +423,26 @@ export const savesEngineCommands: Record<string, CommandHandler> = {
 
   /**
    * Restore a snapshot. When the setting is on, the current saves are captured
-   * first so the restore itself can be undone.
+   * first so the restore itself can be undone. Snapshots from a retired
+   * profile (or a file the user picked) always get a safety snapshot: a legacy
+   * archive must never overwrite a live save folder silently.
    */
   saves_restore_backup: async (args: CommandArgs): Promise<SaveRestoreResult> => {
-    const id = asString(args.backupId ?? args.id);
-    if (!id) throw new Error("A backup id is required");
-    const backup = store.getBackup(id);
-    if (!backup) throw new Error(`Backup not found: ${id}`);
+    const backup = resolveRestoreTarget(args);
     const settings = readSettings();
+    const manifest = engine.readManifest(backup);
+    if (!manifest) {
+      throw new Error(
+        "Backup manifest is missing or unreadable — the snapshot is incomplete",
+      );
+    }
+    const managed = engine.snapshotIsManaged(backup, settings.backupDir);
+    const legacyShape =
+      !backup.rootPath.toLowerCase().endsWith(".gisave") || manifest.version !== 1;
+    const wantsSafety = settings.restoreSafetySnapshot || !managed || legacyShape;
 
     let safetyBackupId: string | null = null;
-    if (settings.restoreSafetySnapshot) {
+    if (wantsSafety) {
       const current = includedLocations(backup.gameId);
       if (current.length > 0) {
         try {
@@ -411,6 +458,13 @@ export const savesEngineCommands: Record<string, CommandHandler> = {
           });
           safetyBackupId = snapshot.id;
         } catch (error) {
+          if (!managed) {
+            throw new Error(
+              "Could not create a safety snapshot before restoring the legacy " +
+                "snapshot — close any running game and retry " +
+                `(${error instanceof Error ? error.message : String(error)})`,
+            );
+          }
           console.error("[saves] safety snapshot failed:", error);
         }
       }
@@ -420,6 +474,29 @@ export const savesEngineCommands: Record<string, CommandHandler> = {
     const result = await engine.restoreSnapshot(backup, {
       onProgress: (current, total, message) => reporter.emit(current, total, message),
     });
+
+    // A legacy archive restored onto a machine that never saw this game leaves
+    // the save folder untracked. Rebuild the location rows from the manifest so
+    // the next backup/restore and the "open folder" action keep working.
+    if (backup.gameId && store.listLocations(backup.gameId).length === 0) {
+      for (const location of manifest.locations) {
+        const locationPath = location.path?.trim();
+        if (!locationPath) continue;
+        store.upsertLocation({
+          id: "",
+          gameId: backup.gameId,
+          path: locationPath,
+          label: location.label?.trim() || path.basename(locationPath),
+          kind: location.kind === "file" ? "file" : "dir",
+          source: location.source?.trim() || "manual",
+          include: true,
+          createdAt: 0,
+          updatedAt: 0,
+          lastBackupAt: null,
+          lastRestoreAt: null,
+        });
+      }
+    }
 
     const now = Date.now();
     for (const location of store.listLocations(backup.gameId)) {

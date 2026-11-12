@@ -15,37 +15,35 @@ import {
 } from "../../../electron/main/state/db/schema";
 import { GAME_COLUMNS } from "../../../electron/main/state/db/gameRows";
 
-const DOMAINS: DbDomain[] = [
-  "games",
-  "sessions",
-  "game_notes",
-  "shelves",
-  "wishlist",
-  "saves",
-  "kv",
-];
+const DOMAINS = Object.keys(MIGRATIONS) as DbDomain[];
+const versionsOf = (domain: DbDomain): number[] =>
+  MIGRATIONS[domain].map((migration) => migration.version);
 
 describe("schema versions", () => {
   it("starts a fresh database at version 0 with every migration pending", () => {
     for (const domain of DOMAINS) {
       const pending = pendingMigrations(domain, 0);
-      expect(pending.map((migration) => migration.version)).toEqual(
-        MIGRATIONS[domain].map((migration) => migration.version),
-      );
+      expect(pending.map((migration) => migration.version)).toEqual(versionsOf(domain));
       expect(pending.length).toBeGreaterThan(0);
     }
   });
 
   it("selects only the migrations above the recorded version", () => {
-    expect(pendingMigrations("games", 0).map((m) => m.version)).toEqual([1, 2]);
-    expect(pendingMigrations("games", 1).map((m) => m.version)).toEqual([2]);
-    expect(pendingMigrations("games", 2)).toEqual([]);
-    expect(pendingMigrations("sessions", 1).map((m) => m.version)).toEqual([2]);
-    expect(pendingMigrations("kv", 1)).toEqual([]);
+    expect(pendingMigrations("games", 0).map((m) => m.version)).toEqual(versionsOf("games"));
+    expect(pendingMigrations("games", 1).map((m) => m.version)).toEqual(
+      versionsOf("games").filter((version) => version > 1),
+    );
+    // No domain reports work once it is at its latest version.
+    for (const domain of DOMAINS) {
+      expect(pendingMigrations(domain, latestVersion(domain))).toEqual([]);
+    }
+    expect(pendingMigrations("kv", 1).map((m) => m.version)).toEqual(
+      versionsOf("kv").filter((version) => version > 1),
+    );
   });
 
   it("treats a non-finite or future version safely", () => {
-    expect(pendingMigrations("games", Number.NaN).map((m) => m.version)).toEqual([1, 2]);
+    expect(pendingMigrations("games", Number.NaN).map((m) => m.version)).toEqual(versionsOf("games"));
     expect(pendingMigrations("games", 99)).toEqual([]);
   });
 
