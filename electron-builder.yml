@@ -1,0 +1,49 @@
+appId: com.gameindex.app
+productName: GameIndex
+copyright: Copyright © GameIndex
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - "!**/*.map"
+
+# better-sqlite3 ships a native binary; it cannot be loaded from inside asar.
+asarUnpack:
+  - node_modules/better-sqlite3/**
+  - "**/*.node"
+
+extraResources:
+  - from: build/tray.png
+    to: tray.png
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Game
+  icon: build/icon.png
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.games
+  icon: build/icon.icns

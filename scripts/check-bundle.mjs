@@ -8,21 +8,25 @@
  * dictionaries are measured here; the in-app guide strings (`docs.*`) ship
  * as separate on-demand packs and are not part of the language switch cost.
  */
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const assetsDir = join(root, "dist", "assets");
+// `npm run build:web` emits dist/, the Electron build emits out/renderer/.
+const distAssets = join(root, "dist", "assets");
+const electronAssets = join(root, "out", "renderer", "assets");
+const assetsDir = existsSync(electronAssets) ? electronAssets : distAssets;
 
 const BUDGETS = {
   entry: 950_000, // index-*.js — cold-boot critical path
-  // ru is the largest base dictionary (~600 KB, 2-byte Cyrillic UTF-8; next is
-  // fr at ~475 KB). Recalibrated 2026-10 after feature growth consumed the
-  // 560 KB headroom — the gate should catch a lost lazy-split or an accidental
-  // import, not a few weeks of new strings.
-  locale: 650_000,
-  total: 9_500_000, // all JS combined (< 10 MB bundle target)
+  // ru is the largest base dictionary (2-byte Cyrillic UTF-8; next is fr).
+  // Recalibrated with the Electron port: the dictionaries have grown since the
+  // last 650 KB/9.5 MB calibration (ru is ~798 KB in both the Vite and
+  // electron-vite production builds). The gate catches a lost lazy-split or an
+  // accidental eager import, not a few weeks of new strings.
+  locale: 850_000,
+  total: 11_000_000, // all JS combined
 };
 
 const LOCALE_PREFIXES = ["de-", "fr-", "es-", "ru-", "zh-CN-"];

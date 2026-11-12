@@ -1,2 +1,0 @@
--- Games domain, v9 migration: per-game compatibility profiles moved to isolated compatibility.db.
--- No schema changes in games.db needed.

@@ -38,7 +38,7 @@ const jsTokensPlugin = { meta: jsColors.meta, rules: { ...jsColors.rules, ...jsL
 const cssTokensPlugin = { meta: cssColors.meta, rules: { ...cssColors.rules, ...cssLengths.rules } };
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "src-tauri/target", "src-tauri/vendor"] },
+  { ignores: ["dist", "out", "release", "node_modules"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

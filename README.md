@@ -1,7 +1,7 @@
 <div align="center">
 
 <picture>
-  <img src="src-tauri/icons/128x128.png" alt="GameIndex logo" width="96" height="96" />
+  <img src="build/icon.png" alt="GameIndex logo" width="96" height="96" />
 </picture>
 
 <h1>GameIndex</h1>
@@ -213,41 +213,48 @@ GameIndex treats Linux as a target platform rather than an afterthought. The com
 ### Prerequisites
 
 - [Node.js](https://nodejs.org) 20.19+ or 22.12+ with npm (Vite 7 requirement)
-- [Rust](https://rustup.rs) stable
-- Platform dependencies from the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- No Rust toolchain: the native layer is Electron (main + preload processes)
 
 ```bash
 npm install
-npm run tauri dev      # native window with hot reload
-npm run tauri build    # production bundles
+npm run dev:electron  # native window with hot reload
+npm run dist          # production installer for the current OS
 ```
 
-Frontend-only iteration, with Tauri APIs stubbed:
+Frontend-only iteration, with the native bridge stubbed:
 
 ```bash
 npm run dev            # http://localhost:1420
 ```
 
+### API keys
+
+Five keys are baked into the main bundle at build time (the same contract the
+Rust `build.rs` used). Copy `.env.example` to `.env`, or set the variables in
+CI — see `.github/workflows/release.yml`:
+
+```
+TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET   # IGDB
+OPENCRITIC_RAPIDAPI_KEY                   # Metacritic/OpenCritic scores
+DISCORD_CLIENT_ID                         # Rich Presence
+STEAMGRIDDB_API_KEY                       # artwork
+```
+
+Missing keys do not break the app: the affected command fails with a message
+naming the variable.
+
 ### Checks
 
 | Command | What it does |
 |---------|--------------|
-| `npm run typecheck` | TypeScript check (`tsc --noEmit`) |
+| `npm run typecheck` | TypeScript check (`tsc --noEmit`, includes `electron/`) |
 | `npm run lint` | ESLint over `src`, zero warnings allowed |
 | `npm test` | Vitest suite |
 | `npm run audit:i18n` | Verifies every UI string has all six translations |
-| `cargo check` | Rust backend, run inside `src-tauri/` |
+| `npm run build` | electron-vite build into `out/` |
+| `npm run dist:win` / `dist:linux` | Packaged installers (`release/`) |
 
-`package.json` also holds scripts for plugin linting, Tauri version auditing and the AppImage build.
-
-### Nix and NixOS
-
-A `flake.nix` provides the Tauri runtime libraries (WebKitGTK 4.1, GTK3, D-Bus, Clang) and toolchains:
-
-```bash
-nix develop            # or: direnv allow
-npm install && npm run tauri dev
-```
+`package.json` also holds scripts for plugin linting and the web-only build.
 
 ### Project structure
 
@@ -256,23 +263,16 @@ src/                       React + TypeScript frontend
   pages/                   One folder per route (Library, Game, Store, Deals, Activity, ...)
   components/<area>/       Feature-scoped UI (game/, library/, store/, mods/, bigscreen/, ui/, ...)
   context/                 Cross-cutting providers (Game, Theme, Language, Download, ...)
-  hooks/  types/  styles/  Reusable logic, Rust model mirrors, themed CSS
+  hooks/  types/  styles/  Reusable logic, model mirrors, themed CSS
   bigscreen/               Big Screen sections and the five TV layout presets
+  shims/                   `@tauri-apps/*` → Electron bridge compatibility layer
 
-src-tauri/                 Rust backend
-  src/lib.rs               Tauri command registry and state setup
-  src/db/                  SQLite pools, schema migrations and one DAO per table
-  src/steam|gog|epic|...   Per-store auth, sync and metadata
-  src/beta_stores/         Battle.net, EA, Xbox and itch.io integrations
-  src/downloads/           Direct, debrid, torrent and browser-resolver transfers
-  src/saves/               Save detection and .gisave snapshot engine
-  src/mods/                Mod manager and multi-source Discover
-  src/compatibility/       Proton/Wine runners, prefixes, GameScope
-  src/overlay.rs           In-game HUD window and telemetry bridge
-  src/capture/             Native recorder and replay buffer
-  src/game_watcher/        Process polling and session lifecycle
-  src/game_scraper/        IGDB, LaunchBox and review metadata
-  tauri.conf.json          Window and bundle configuration
+electron/                  Electron main + preload processes
+  main/index.ts            App lifecycle and boot order
+  main/ipc.ts              Single `invoke` router, events, window verbs
+  main/commands/           Backend command implementations (game library, settings, …)
+  main/surfaces/           Windows (main, splash, overlay, popout), tray, embedded webviews
+  preload/index.ts         `window.__giBridge` (contextBridge) contract
 ```
 
 For deeper architectural notes, see [`knowledge.md`](./knowledge.md); for the conventions this repo expects, see [`AGENTS.md`](./AGENTS.md).

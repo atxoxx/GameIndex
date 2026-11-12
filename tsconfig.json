@@ -15,6 +15,23 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
     "jsx": "react-jsx",
+    "types": ["node"],
+
+    /* The Tauri packages were removed; imports keep their old specifiers and
+       resolve to the local Electron shims (same aliases in the Vite configs). */
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-apps/api/core": ["./src/shims/tauri-core.ts"],
+      "@tauri-apps/api/event": ["./src/shims/tauri-event.ts"],
+      "@tauri-apps/api/window": ["./src/shims/tauri-window.ts"],
+      "@tauri-apps/api/webview": ["./src/shims/tauri-webview.ts"],
+      "@tauri-apps/api/app": ["./src/shims/tauri-app.ts"],
+      "@tauri-apps/api/dpi": ["./src/shims/tauri-dpi.ts"],
+      "@tauri-apps/plugin-dialog": ["./src/shims/tauri-plugin-dialog.ts"],
+      "@tauri-apps/plugin-opener": ["./src/shims/tauri-plugin-opener.ts"],
+      "@tauri-apps/plugin-process": ["./src/shims/tauri-plugin-process.ts"],
+      "@tauri-apps/plugin-updater": ["./src/shims/tauri-plugin-updater.ts"]
+    },
 
     /* Linting */
     "strict": true,
@@ -22,6 +39,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "electron"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

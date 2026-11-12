@@ -1,14 +1,22 @@
 # Project knowledge
 
+> **Native layer: Electron (converted from Tauri).** The Rust backend was removed
+> in the Electron port. Sections below that describe `src-tauri/`, `cargo`,
+> SQLite pools or Rust modules are **historical** and describe the reference
+> implementation the Electron handlers were ported from. Current architecture:
+> `electron/main` (main process + command registry), `electron/preload`
+> (`window.__giBridge`), `src/shims` (`@tauri-apps/*` compatibility layer).
+> See `electron/main/commands/PORTING.md` for per-command status.
+
 This file gives contributors and AI coding agents context about the project: goals, commands, conventions, and gotchas.
 
 ## Quickstart
-- **Stack:** Tauri v2 (Rust backend) + React 19 + TypeScript (Vite). Bundler: Vite 7. Dev port: `1420`.
+- **Stack:** Electron (Node/TypeScript main + preload) + React 19 + TypeScript (Vite). Bundler: electron-vite / Vite 7. Dev port: `1420`.
 - **Setup:** `npm install`
-- **Dev:** `npm run tauri dev` — starts Vite at `localhost:1420` and the native window.
-- **Build:** `npm run tauri build` — runs `tsc && vite build` then bundles via tauri.conf.json bundle targets.
-- **Typecheck:** `npx tsc --noEmit` (the `npm run build` script does `tsc && vite build`, so a fresh build also typechecks).
-- **Tests:** `npm test` (`vitest run`) — frontend unit tests (filters, Steam integration, units, color, game utils). Rust unit tests run via `cargo test` in `src-tauri` (some live-network tests are `#[ignore]`d).
+- **Dev:** `npm run dev:electron` - starts Vite at `localhost:1420` and the native window.
+- **Build:** `npm run build` - bundles main, preload and renderer into `out/`. `npm run dist` packages an installer via electron-builder.
+- **Typecheck:** `npx tsc --noEmit` (covers `src/` and `electron/`).
+- **Tests:** `npm test` (`vitest run`) - frontend unit tests (filters, Steam integration, units, color, game utils).
 - **Lint:** `npm run lint` (ESLint, `--max-warnings 0`). i18n key parity: `npm run audit:i18n`.
 - **Frontend-only (no Tauri shell):** `npm run dev` — useful for UI iteration; Tauri-injected APIs will be stubbed.
 
