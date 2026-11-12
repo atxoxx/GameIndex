@@ -14,9 +14,9 @@ Sample (`MetricSample`, one per ~3 s):
 | `cpu` | whole-machine CPU % (`os.cpus()` deltas) | always present |
 | `ram` | whole-machine RAM % (`os.freemem()`) | always present |
 | `gpu` | aggregate GPU % (Windows counter) | `0` (no reading; not counted in the average) |
-| `cpuTemp` / `gpuTemp` | °C from LibreHardwareMonitor | `0` (the persisted "no sensor" sentinel, as in Rust) |
-| `gpuClockMhz` | GPU core clock (MHz) | omitted |
-| `fps` | instantaneous FPS from RTSS | `null` (never fabricated `0`) |
+| `cpuTemp` / `gpuTemp` | °C from MSI Afterburner (MAHM) or LibreHardwareMonitor; GPU also falls back to nvidia-smi | `0` (the persisted "no sensor" sentinel, as in Rust) |
+| `gpuClockMhz` | GPU core clock (MHz) from MAHM/LHM/nvidia-smi | omitted |
+| `fps` | instantaneous FPS from Afterburner's MAHM `Framerate` sensor or RTSS | `null` (never fabricated `0`) |
 | `memMb` | game process working set (MB) | omitted |
 
 Snapshot (`SessionMetricsSnapshot`, final `metrics_json` + row columns):
@@ -67,12 +67,25 @@ RTSS is absent or has no entry for the game, FPS is `null`.
 `buildRtssHelperScript(sectionName)` accepts a test section name; the harness
 uses it to verify the real C# reader against a synthetic mapping.
 
-### Temperatures / clock — `./lhm.ts`
-`http://localhost:8085/data.json` (LibreHardwareMonitor / OpenHardwareMonitor),
-800 ms timeout, refreshed every 2 s, retried every 30 s when closed. Maps GPU
-core/hot-spot temperature, GPU core clock (memory clock excluded) and the CPU
-package/Tctl temperature. No LHM ⇒ `null` (no WMI namespace tricks, no admin
-prompt). A reading older than 15 s is treated as missing.
+### Temperatures / clock — `./mahm.ts`, `./lhm.ts`, `./nvidia.ts`
+Priority: **MAHM → LHM → nvidia-smi**.
+
+- `mahm.ts` reads MSI Afterburner's `MAHMSharedMemory` through a persistent
+  PowerShell/C# probe (the same source the Tauri build used). It is the only
+  source of **CPU temperature** when LHM is not running, and also carries GPU
+  temp/usage, clocks, power, VRAM and Afterburner's `Framerate` sensor. Only
+  started when `MSIAfterburner.exe` is running.
+- `lhm.ts` reads `http://localhost:8085/data.json` (LibreHardwareMonitor /
+  OpenHardwareMonitor), 800 ms timeout, refreshed every 2 s, retried every 30 s
+  when closed. Maps GPU core/hot-spot temperature, GPU core clock and the CPU
+  package/Tctl temperature.
+- `nvidia.ts` runs `nvidia-smi --query-gpu=...` every 2 s as a GPU-only fallback
+  (temperature, core clock, utilisation, VRAM). Needs no extra software, but
+  never provides CPU temperature.
+
+Without any of them, temperatures stay `null` and the UI shows "—": Windows has
+no user-mode CPU temperature API (`MSAcpi_ThermalZoneTemperature` is unsupported
+on most desktop boards and the thermal performance counters are absent).
 
 ## Persistence cadence
 

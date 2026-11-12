@@ -74,14 +74,14 @@ export function installSmokeTest(): void {
           for (const probe of probes) {
             // Give async sources (tasklist/typeperf/nvidia-smi children) a beat
             // to land before the next probe reads their cache.
-            await new Promise((resolve) => setTimeout(resolve, 350));
+            await new Promise((resolve) => setTimeout(resolve, 700));
             try {
               const value = await contents.executeJavaScript(
                 `window.__giBridge.invoke(${JSON.stringify(probe.cmd)}, ${JSON.stringify(probe.args)})`,
               );
               const serialized = JSON.stringify(value);
               log(
-                `[smoke:cmd] ${probe.cmd} => ${serialized === undefined ? "null" : serialized}`.slice(0, 400),
+                `[smoke:cmd] ${probe.cmd} => ${serialized === undefined ? "null" : serialized}`.slice(0, 2000),
               );
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);

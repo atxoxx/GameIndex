@@ -29,6 +29,13 @@ import {
   stopRtssHelper,
 } from "./rtss";
 import { nvidiaDiagnostics, peekNvidia, pumpNvidia } from "./nvidia";
+import {
+  ensureMahmHelper,
+  mahmDiagnostics,
+  peekMahm,
+  startMahmHelper,
+  stopMahmHelper,
+} from "./mahm";
 
 export interface TelemetryReadout {
   /** 0–100, or null when no GPU counter reading has landed yet. */
@@ -41,11 +48,11 @@ export interface TelemetryReadout {
   fpsMin: number | null;
   fpsMax: number | null;
   gpuAdapters: string[];
-  gpuSource: "typeperf" | "nvidia" | "none";
-  fpsSource: "rtss" | "none";
-  tempSource: "lhm" | "nvidia" | "none";
-  /** CPU temperatures have a single source (LHM); surfaced for UI hints. */
-  cpuTempSource: "lhm" | "none";
+  gpuSource: "typeperf" | "nvidia" | "mahm" | "none";
+  fpsSource: "mahm" | "rtss" | "none";
+  tempSource: "mahm" | "lhm" | "nvidia" | "none";
+  /** CPU temperatures come from MAHM (Afterburner) or LHM. */
+  cpuTempSource: "mahm" | "lhm" | "none";
 }
 
 /** Read the cached telemetry and nudge each source to refresh if stale. */
@@ -55,35 +62,48 @@ export function readTelemetry(exePath: string, pid: number): TelemetryReadout {
   pumpLhm();
   pumpNvidia();
   ensureRtssHelper();
+  ensureMahmHelper();
 
   const gpu = getCachedGpu();
   const hardware = peekLhm();
   const nvidia = peekNvidia();
-  const fps = lookupRtssFps(exePath, pid);
+  const mahm = peekMahm();
+  const rtss = lookupRtssFps(exePath, pid);
   const adapters = getGpuAdapterNames();
 
-  const gpuPercent = gpu.percent ?? nvidia.utilPercent;
-  const gpuTempC = hardware?.gpuTempC ?? nvidia.gpuTempC;
-  const gpuClockMhz = hardware?.gpuClockMhz ?? nvidia.gpuClockMhz;
-  const cpuTempC = hardware?.cpuTempC ?? null;
+  const gpuPercent = gpu.percent ?? mahm.gpuUsage ?? nvidia.utilPercent;
+  const gpuTempC = mahm.gpuTempC ?? hardware?.gpuTempC ?? nvidia.gpuTempC;
+  const gpuClockMhz = mahm.gpuClockMhz ?? hardware?.gpuClockMhz ?? nvidia.gpuClockMhz;
+  const cpuTempC = mahm.cpuTempC ?? hardware?.cpuTempC ?? null;
+  const fps = mahm.fps ?? rtss?.fps ?? null;
 
   return {
     gpuPercent,
     gpuTempC,
     gpuClockMhz,
     cpuTempC,
-    fps: fps ? fps.fps : null,
-    fpsMin: fps?.min ?? null,
-    fpsMax: fps?.max ?? null,
+    fps,
+    fpsMin: rtss?.min ?? null,
+    fpsMax: rtss?.max ?? null,
     gpuAdapters: adapters.length > 0 ? adapters : nvidia.adapters,
-    gpuSource: gpu.percent !== null ? "typeperf" : gpuPercent !== null ? "nvidia" : "none",
-    fpsSource: fps ? "rtss" : "none",
-    tempSource: hardware
-      ? "lhm"
-      : gpuTempC !== null || gpuClockMhz !== null
-        ? "nvidia"
-        : "none",
-    cpuTempSource: cpuTempC !== null ? "lhm" : "none",
+    gpuSource:
+      gpu.percent !== null
+        ? "typeperf"
+        : mahm.gpuUsage !== null
+          ? "mahm"
+          : gpuPercent !== null
+            ? "nvidia"
+            : "none",
+    fpsSource: mahm.fps !== null ? "mahm" : rtss ? "rtss" : "none",
+    tempSource:
+      mahm.gpuTempC !== null
+        ? "mahm"
+        : hardware
+          ? "lhm"
+          : gpuTempC !== null || gpuClockMhz !== null
+            ? "nvidia"
+            : "none",
+    cpuTempSource: mahm.cpuTempC !== null ? "mahm" : cpuTempC !== null ? "lhm" : "none",
   };
 }
 
@@ -94,11 +114,13 @@ export function startTelemetry(): void {
   pumpLhm();
   pumpNvidia();
   startRtssHelper();
+  startMahmHelper();
 }
 
 /** Stop every long-lived source (app quit). The FPS helper is killed. */
 export function stopTelemetry(): void {
   stopRtssHelper();
+  stopMahmHelper();
 }
 
 /** Diagnostics for harnesses and the smoke report (no side effects beyond pumps). */
@@ -107,11 +129,13 @@ export function telemetryDiagnostics(): {
   lhm: ReturnType<typeof lhmDiagnostics>;
   rtss: ReturnType<typeof rtssDiagnostics>;
   nvidia: ReturnType<typeof nvidiaDiagnostics>;
+  mahm: ReturnType<typeof mahmDiagnostics>;
 } {
   return {
     gpu: gpuDiagnostics(),
     lhm: lhmDiagnostics(),
     rtss: rtssDiagnostics(),
     nvidia: nvidiaDiagnostics(),
+    mahm: mahmDiagnostics(),
   };
 }
