@@ -100,6 +100,9 @@ export function argNumber(
 ): number | null {
   for (const key of keys) {
     const value = args[key];
+    // `null`/`undefined`/`""` mean "no constraint"; `Number(null)` is 0, which
+    // used to turn "no year filter" into "first_release_date <= 1970".
+    if (value === null || value === undefined || value === "") continue;
     const n = typeof value === "number" ? value : Number(value);
     if (Number.isFinite(n)) return n;
   }
@@ -127,6 +130,7 @@ export function argNumberArray(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   const out: number[] = [];
   for (const item of value) {
+    if (item === null || item === undefined || item === "") continue;
     const n = typeof item === "number" ? item : Number(item);
     if (Number.isFinite(n)) out.push(n);
   }

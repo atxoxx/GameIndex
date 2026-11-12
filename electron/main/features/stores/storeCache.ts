@@ -240,6 +240,11 @@ function page<T>(rows: T[], offset: number, limit: number): T[] {
 
 /** `fetch_store_games`: cached category page, filtered and paged locally. */
 const CATALOGUE_TTL_MS = 10 * 60_000;
+/**
+ * Bump when the IGDB query semantics change (sorting, filters, field mapping):
+ * pages cached under the old semantics are then ignored instead of served.
+ */
+const CATALOGUE_KEY_VERSION = 3;
 
 /** Cache key for one IGDB catalogue page (every facet in the query). */
 function catalogueKey(
@@ -250,6 +255,7 @@ function catalogueKey(
   limit: number,
 ): string {
   return [
+    `v${CATALOGUE_KEY_VERSION}`,
     kind,
     name,
     filters.genres.join("+"),

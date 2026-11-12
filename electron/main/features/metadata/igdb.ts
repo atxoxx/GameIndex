@@ -270,6 +270,9 @@ async function igdbPost<T>(endpoint: string, body: string): Promise<T> {
 }
 
 async function igdbQueryGames(body: string): Promise<IgdbGameRaw[]> {
+  if (process.env.GI_IGDB_DEBUG === "1") {
+    console.log("[igdb] query:", body.slice(0, 800));
+  }
   return igdbPost<IgdbGameRaw[]>("games", body);
 }
 
@@ -663,7 +666,10 @@ export async function fetchIgdbStoreGames(query: StoreGamesQuery): Promise<Store
 
   const sortMap: Record<string, string> = {
     popularity: "total_rating_count desc",
-    rating: "rating desc",
+    // `rating` is the raw community score: a game with one 100 % vote would
+    // outrank everything. `total_rating` is IGDB's vote-weighted score, and the
+    // clause below drops titles with too few votes to be meaningful.
+    rating: "total_rating desc",
     trending: "hypes desc",
     follows: "follows desc",
     release_new: "first_release_date desc",
@@ -672,6 +678,20 @@ export async function fetchIgdbStoreGames(query: StoreGamesQuery): Promise<Store
     name_desc: "name desc",
   };
   const sort = query.sort && sortMap[query.sort] ? sortMap[query.sort] : categorySort;
+
+  if (query.sort === "rating") {
+    // `total_rating` is vote-weighted, but IGDB still reports 100 for titles
+    // with a handful of votes; requiring 100+ votes keeps genuine classics.
+    clauses.push("total_rating_count > 100");
+  }
+  if (query.sort === "release_new" || query.sort === "release_old") {
+    // Undated and placeholder-future titles (IGDB has 2041 dates) must not lead
+    // the list.
+    clauses.push("first_release_date != null");
+  }
+  if (query.sort === "release_new") {
+    clauses.push(`first_release_date <= ${Math.floor(Date.now() / 1000)}`);
+  }
 
   if (query.genres?.length) {
     const ids = query.genres.map((name) => GENRE_IDS[name]).filter((id): id is number => Boolean(id));

@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { StoreCache, StoreCacheEntry, StoreGameSummary, GameMetadataResult } from "../types/game";
-import { STORE_CACHE_TTL_MS, STORE_SEARCH_CACHE_TTL_MS } from "../types/game";
+import {
+  STORE_CACHE_TTL_MS,
+  STORE_CACHE_VERSION,
+  STORE_SEARCH_CACHE_TTL_MS,
+} from "../types/game";
 
 /** Empty cache factory — used as initial state and when cache is absent. */
 function emptyCache(): StoreCache {
-  return { categories: {}, detailCache: {} };
+  return { version: STORE_CACHE_VERSION, categories: {}, detailCache: {} };
 }
 
 // ─── In-memory search cache (10 min TTL) ───────────────────────────────────
@@ -134,7 +138,13 @@ export function useStoreCache() {
         if (raw) {
           try {
             const parsed: StoreCache = JSON.parse(raw);
-            setCache(parsed);
+            if (parsed.version !== STORE_CACHE_VERSION) {
+              // Cached with older catalogue/filter semantics: drop it so the
+              // grid cannot keep showing results the backend no longer returns.
+              setCache(emptyCache());
+            } else {
+              setCache(parsed);
+            }
           } catch {
             // Corrupt cache — start fresh
             setCache(emptyCache());
@@ -150,10 +160,11 @@ export function useStoreCache() {
   // ── Save helper — writes the full cache to disk ────────────────────────
   const saveCache = useCallback(
     async (newCache: StoreCache) => {
-      setCache(newCache);
+      const payload: StoreCache = { ...newCache, version: STORE_CACHE_VERSION };
+      setCache(payload);
       try {
         await invoke("save_store_cache", {
-          data: JSON.stringify(newCache),
+          data: JSON.stringify(payload),
         });
       } catch (err) {
         console.error("Failed to save store cache:", err);

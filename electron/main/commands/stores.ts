@@ -337,8 +337,18 @@ const commands: Record<string, CommandHandler> = {
     saveStoreCacheRaw(argString(args, "data"));
     return null;
   },
-  fetch_store_games: (args) => fetchStoreGames(args),
-  search_store_games: (args) => searchStoreGames(args),
+  fetch_store_games: (args) => {
+    if (process.env.GI_IGDB_DEBUG === "1") {
+      console.log("[store] fetch_store_games args:", JSON.stringify(args));
+    }
+    return fetchStoreGames(args);
+  },
+  search_store_games: (args) => {
+    if (process.env.GI_IGDB_DEBUG === "1") {
+      console.log("[store] search_store_games args:", JSON.stringify(args));
+    }
+    return searchStoreGames(args);
+  },
   get_store_game_detail: (args) => getStoreGameDetail(argString(args, "slug")),
   get_random_store_games: (args) =>
     getRandomStoreGames(positiveInt(argNumber(args, "limit"), 10)),

@@ -1657,12 +1657,20 @@ export interface StoreCacheEntry<T> {
 
 /** Full store cache structure persisted to disk. */
 export interface StoreCache {
+  /** Cache format version; a mismatch discards all cached pages. */
+  version?: number;
   categories: Record<string, StoreCacheEntry<StoreGameSummary[]>>;
   detailCache: Record<string, StoreCacheEntry<GameMetadataResult>>;
 }
 
 /** 6-hour cache TTL in milliseconds. */
 export const STORE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Bump when the catalogue semantics change (filters, sorting, IGDB mapping):
+ * older cached pages are discarded instead of being shown until their TTL.
+ */
+export const STORE_CACHE_VERSION = 3;
 
 /** TTL for in-memory search results (10 min). Avoids repeat IGDB for same query. */
 export const STORE_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
