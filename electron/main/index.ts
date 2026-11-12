@@ -90,6 +90,20 @@ if (!singleInstance) {
         { override: true },
       );
 
+      // Packaging check: proves a runtime dependency really loads from the
+      // asar (dynamic ESM imports such as webtorrent / parse-torrent are easy
+      // to break with a `files` filter).
+      registerCommand(
+        "__module_probe",
+        async (args) => {
+          const name = String(args.name ?? "");
+          if (!name) throw new Error("__module_probe expects a module name");
+          const loaded = (await import(name)) as Record<string, unknown>;
+          return { module: name, exports: Object.keys(loaded).slice(0, 24) };
+        },
+        { override: true },
+      );
+
       await createSurfaces();
       registerCommandHandlers();
       // Warm the telemetry probes while the app boots, so the first game does

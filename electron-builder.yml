@@ -28,6 +28,26 @@ win:
       arch:
         - x64
   icon: build/icon.ico
+  # Native modules ship prebuilds for every OS; only Windows x64 is loadable
+  # here. Exclude the rest (and SQLite's build-only sources), then re-include
+  # the one binary each module needs.
+  files:
+    - out/**/*
+    - package.json
+    - "!**/*.map"
+    - "!node_modules/better-sqlite3/deps/**"
+    - "!node_modules/better-sqlite3/src/**"
+    - "!node_modules/better-sqlite3/build/**"
+    - "!node_modules/better-sqlite3/prebuilds/darwin-*.node"
+    - "!node_modules/better-sqlite3/prebuilds/linux*.node"
+    - "!node_modules/better-sqlite3/prebuilds/win32-arm64.node"
+    - "!node_modules/utp-native/prebuilds/darwin-*/**"
+    - "!node_modules/utp-native/prebuilds/linux-*/**"
+    - "!node_modules/utp-native/prebuilds/win32-ia32/**"
+    - "!node_modules/fs-native-extensions/prebuilds/android-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/darwin-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/linux-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/win32-arm64/**"
 
 nsis:
   oneClick: false
