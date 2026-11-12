@@ -36,6 +36,12 @@ import { registerCompatibilityCommands } from "./compatibility";
 import { registerPluginCommands } from "./plugins";
 import { registerAchievementCommands } from "./achievements";
 import { registerFriendsCommands } from "./friends";
+import { registerEmulatorCommands } from "./emulators";
+import { registerSavesEngineCommands } from "./savesEngine";
+import { registerBackupCommands } from "./backup";
+import { registerCaptureCommands } from "./capture";
+import { registerMediaCommands } from "./media";
+import { registerExtrasCommands } from "./extras";
 
 export function registerCommandHandlers(): void {
   registerCommands(settingsCommands, { override: true });
@@ -62,6 +68,12 @@ export function registerCommandHandlers(): void {
   registerPluginCommands();
   registerAchievementCommands();
   registerFriendsCommands();
+  registerEmulatorCommands();
+  registerSavesEngineCommands();
+  registerBackupCommands();
+  registerCaptureCommands();
+  registerMediaCommands();
+  registerExtrasCommands();
   registerStubCommands();
 }
 

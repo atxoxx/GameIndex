@@ -1,9 +1,17 @@
 # Backend command porting notes (Electron / Node)
 
-This pass makes the **library shell** genuinely usable: the renderer can save
-and hydrate its game library, open a game detail record, read/write sessions,
-notes, shelves, wishlists, setup state and small settings, and use the cheap
-filesystem/storage helpers. Everything else still goes through the catalog-wide
+> **Status: complete.** All 520 catalogued command names now have real handlers
+> (0 stubs). The tables below describe the first wave; later passes added
+> emulators/ROMs, the save engine, whole-app backups, capture/reels, media,
+> store extras, plugins, achievements, MO2/mod compatibility and friends/Nostr.
+> Per-feature notes live in `electron/main/features/*/README.md`; the boot
+> smoke harness (`GI_SMOKE_TEST=1`, `GI_SMOKE_COMMANDS=a,b,c`) is the quickest
+> way to inspect a command's real return shape.
+
+This first pass made the **library shell** genuinely usable: the renderer could
+save and hydrate its game library, open a game detail record, read/write
+sessions, notes, shelves, wishlists, setup state and small settings, and use the
+cheap filesystem/storage helpers. Everything else went through the catalog-wide
 rejecting stub registered last in `commands/index.ts`.
 
 > The generated `commandCatalog.ts` / `COMMANDS.txt` list is the source of
