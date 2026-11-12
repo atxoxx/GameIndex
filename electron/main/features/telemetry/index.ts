@@ -28,6 +28,7 @@ import {
   startRtssHelper,
   stopRtssHelper,
 } from "./rtss";
+import { nvidiaDiagnostics, peekNvidia, pumpNvidia } from "./nvidia";
 
 export interface TelemetryReadout {
   /** 0–100, or null when no GPU counter reading has landed yet. */
@@ -40,9 +41,11 @@ export interface TelemetryReadout {
   fpsMin: number | null;
   fpsMax: number | null;
   gpuAdapters: string[];
-  gpuSource: "typeperf" | "none";
+  gpuSource: "typeperf" | "nvidia" | "none";
   fpsSource: "rtss" | "none";
-  tempSource: "lhm" | "none";
+  tempSource: "lhm" | "nvidia" | "none";
+  /** CPU temperatures have a single source (LHM); surfaced for UI hints. */
+  cpuTempSource: "lhm" | "none";
 }
 
 /** Read the cached telemetry and nudge each source to refresh if stale. */
@@ -50,25 +53,37 @@ export function readTelemetry(exePath: string, pid: number): TelemetryReadout {
   pumpGpuCounters();
   pumpGpuAdapters();
   pumpLhm();
+  pumpNvidia();
   ensureRtssHelper();
 
   const gpu = getCachedGpu();
   const hardware = peekLhm();
+  const nvidia = peekNvidia();
   const fps = lookupRtssFps(exePath, pid);
   const adapters = getGpuAdapterNames();
 
+  const gpuPercent = gpu.percent ?? nvidia.utilPercent;
+  const gpuTempC = hardware?.gpuTempC ?? nvidia.gpuTempC;
+  const gpuClockMhz = hardware?.gpuClockMhz ?? nvidia.gpuClockMhz;
+  const cpuTempC = hardware?.cpuTempC ?? null;
+
   return {
-    gpuPercent: gpu.percent,
-    gpuTempC: hardware?.gpuTempC ?? null,
-    gpuClockMhz: hardware?.gpuClockMhz ?? null,
-    cpuTempC: hardware?.cpuTempC ?? null,
+    gpuPercent,
+    gpuTempC,
+    gpuClockMhz,
+    cpuTempC,
     fps: fps ? fps.fps : null,
     fpsMin: fps?.min ?? null,
     fpsMax: fps?.max ?? null,
-    gpuAdapters: adapters,
-    gpuSource: gpu.percent !== null ? "typeperf" : "none",
+    gpuAdapters: adapters.length > 0 ? adapters : nvidia.adapters,
+    gpuSource: gpu.percent !== null ? "typeperf" : gpuPercent !== null ? "nvidia" : "none",
     fpsSource: fps ? "rtss" : "none",
-    tempSource: hardware ? "lhm" : "none",
+    tempSource: hardware
+      ? "lhm"
+      : gpuTempC !== null || gpuClockMhz !== null
+        ? "nvidia"
+        : "none",
+    cpuTempSource: cpuTempC !== null ? "lhm" : "none",
   };
 }
 
@@ -77,6 +92,7 @@ export function startTelemetry(): void {
   pumpGpuCounters();
   pumpGpuAdapters();
   pumpLhm();
+  pumpNvidia();
   startRtssHelper();
 }
 
@@ -90,10 +106,12 @@ export function telemetryDiagnostics(): {
   gpu: ReturnType<typeof gpuDiagnostics>;
   lhm: ReturnType<typeof lhmDiagnostics>;
   rtss: ReturnType<typeof rtssDiagnostics>;
+  nvidia: ReturnType<typeof nvidiaDiagnostics>;
 } {
   return {
     gpu: gpuDiagnostics(),
     lhm: lhmDiagnostics(),
     rtss: rtssDiagnostics(),
+    nvidia: nvidiaDiagnostics(),
   };
 }

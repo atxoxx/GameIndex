@@ -13,6 +13,7 @@ import { installAssetProtocol, registerAssetScheme } from "./assetProtocol";
 import { emit, registerCommand, registerIpcHandlers } from "./ipc";
 import { markQuitting } from "./quitState";
 import { createSurfaces, getSurfaces } from "./surfaces";
+import { readTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
 import { allowMainWindowClose } from "./surfaces/mainWindow";
 import { registerCommandHandlers } from "./commands";
 import { installSmokeTest } from "./smoke";
@@ -45,6 +46,21 @@ if (!singleInstance) {
 
       // Internal helpers that are not part of the migrated command list.
       registerCommand("__app_version", () => app.getVersion(), { override: true });
+      // Diagnostics probe used by the smoke harness: shows what the telemetry
+      // sources currently report (`GI_SMOKE_COMMANDS|__telemetry_readout`).
+      registerCommand(
+        "__telemetry_readout",
+        (args) => {
+          const exePath = typeof args.exePath === "string" ? args.exePath : "";
+          const pid = Number(args.pid ?? 0) || 0;
+          startTelemetry();
+          return {
+            ...readTelemetry(exePath, pid),
+            diagnostics: telemetryDiagnostics(),
+          };
+        },
+        { override: true },
+      );
       registerCommand(
         "__app_paths",
         () => ({

@@ -72,6 +72,9 @@ export function installSmokeTest(): void {
         if (getWindowLabel(win) !== "main") return;
         void (async () => {
           for (const probe of probes) {
+            // Give async sources (tasklist/typeperf/nvidia-smi children) a beat
+            // to land before the next probe reads their cache.
+            await new Promise((resolve) => setTimeout(resolve, 350));
             try {
               const value = await contents.executeJavaScript(
                 `window.__giBridge.invoke(${JSON.stringify(probe.cmd)}, ${JSON.stringify(probe.args)})`,
