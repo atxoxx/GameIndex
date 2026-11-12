@@ -35,6 +35,7 @@ import { registerMo2Commands } from "./mo2";
 import { registerCompatibilityCommands } from "./compatibility";
 import { registerPluginCommands } from "./plugins";
 import { registerAchievementCommands } from "./achievements";
+import { registerFriendsCommands } from "./friends";
 
 export function registerCommandHandlers(): void {
   registerCommands(settingsCommands, { override: true });
@@ -60,6 +61,7 @@ export function registerCommandHandlers(): void {
   registerCompatibilityCommands();
   registerPluginCommands();
   registerAchievementCommands();
+  registerFriendsCommands();
   registerStubCommands();
 }
 

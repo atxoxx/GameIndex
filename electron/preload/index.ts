@@ -40,6 +40,37 @@ const invokeRaw = (cmd: string, args?: unknown): Promise<unknown> =>
 
 let dragDepth = 0;
 
+/**
+ * One IPC listener for every renderer subscription.
+ *
+ * Attaching a fresh `ipcRenderer.on("gi:event")` per `listen()` call tripped
+ * Node's MaxListeners warning (the UI legitimately subscribes to a dozen
+ * events). Fanning out from a single listener keeps the count at one and lets
+ * handlers be added/removed without touching the Electron emitter.
+ */
+type EventHandler = (payload: unknown) => void;
+const eventHandlers = new Map<string, Set<EventHandler>>();
+let eventDispatcherInstalled = false;
+
+function ensureEventDispatcher(): void {
+  if (eventDispatcherInstalled) return;
+  eventDispatcherInstalled = true;
+  ipcRenderer.on(
+    "gi:event",
+    (_event: Electron.IpcRendererEvent, message: { event: string; payload: unknown }) => {
+      const name = message?.event;
+      if (!name) return;
+      for (const handler of eventHandlers.get(name) ?? []) {
+        try {
+          handler(message.payload);
+        } catch (error) {
+          console.error(`[bridge] event handler for "${name}" failed:`, error);
+        }
+      }
+    },
+  );
+}
+
 function installDragDrop(handler: (state: DropState) => void): () => void {
   const pathsOf = (event: DragEvent): string[] => {
     const files = Array.from(event.dataTransfer?.files ?? []);
@@ -97,15 +128,17 @@ const bridge: GiBridge = {
   invoke: (cmd, args) => invokeRaw(cmd, args),
 
   listen: async (event, handler) => {
-    const channel = "gi:event";
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      message: { event: string; payload: unknown },
-    ) => {
-      if (message?.event === event) handler(message.payload);
+    ensureEventDispatcher();
+    let handlers = eventHandlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      eventHandlers.set(event, handlers);
+    }
+    handlers.add(handler);
+    return () => {
+      handlers?.delete(handler);
+      if (handlers && handlers.size === 0) eventHandlers.delete(event);
     };
-    ipcRenderer.on(channel, listener);
-    return () => ipcRenderer.removeListener(channel, listener);
   },
 
   emit: (event, payload) => ipcRenderer.invoke("gi:emit", { event, payload }),
