@@ -9,7 +9,7 @@
  */
 import { getSecret } from "../../lib/secrets";
 import { httpJson, httpText } from "../../lib/http";
-import { cached, cacheGet, cacheSet, TTL } from "./cache";
+import { cached, cacheDelete, cacheGet, cacheSet, TTL } from "./cache";
 import {
   cleanGameName,
   extractYear,
@@ -542,19 +542,41 @@ export async function fetchIgdbGameBySteamAppid(appid: number): Promise<Metadata
   return igdbId ? fetchIgdbGameById(igdbId) : null;
 }
 
+/**
+ * One IGDB `/platforms` row. Rows are filtered to the fields the filter
+ * sidebar needs, and anything that is not a well-formed row is dropped so a
+ * malformed payload can never reach the renderer as `null`.
+ */
+function normalizePlatforms(rows: unknown): { id: number; name: string }[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter(
+      (row): row is { id: number; name: string } =>
+        !!row &&
+        typeof (row as { id?: unknown }).id === "number" &&
+        typeof (row as { name?: unknown }).name === "string",
+    )
+    .map((row) => ({ id: row.id, name: row.name }));
+}
+
 export async function fetchIgdbPlatforms(): Promise<{ id: number; name: string }[]> {
   requireIgdbCredentials();
-  return cached("igdb", "platforms", TTL.igdb, async () => {
-    const rows = await igdbPost<{ id?: number; name?: string }[]>(
-      "platforms",
-      "fields name; sort name asc; limit 500;",
+  const load = () =>
+    cached<unknown>("igdb", "platforms", TTL.igdb, async () =>
+      igdbPost<unknown>("platforms", "fields name; sort name asc; limit 500;"),
     );
-    return rows
-      .filter((row): row is { id: number; name: string } =>
-        typeof row.id === "number" && typeof row.name === "string",
-      )
-      .map((row) => ({ id: row.id, name: row.name }));
-  });
+
+  let rows = await load();
+  // Older builds (and the Rust app this replaced, where the command returned
+  // `Option<Vec<_>>`) could persist `null` under this key. The cache serves a
+  // non-`undefined` value as-is, so that `null` reached the Store filter
+  // sidebar and crashed the page on `platforms.map(...)`. Drop such an entry
+  // and fetch again instead of serving it for the rest of its 24 h TTL.
+  if (!Array.isArray(rows)) {
+    cacheDelete("igdb", "platforms");
+    rows = await load();
+  }
+  return normalizePlatforms(rows);
 }
 
 const STORE_SUMMARY_FIELDS =

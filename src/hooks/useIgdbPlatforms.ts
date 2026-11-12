@@ -30,7 +30,11 @@ export function useIgdbPlatforms(): IgdbPlatform[] {
       });
     }
     cache.then((list) => {
-      if (!cancelled) setPlatforms(list);
+      if (cancelled) return;
+      // The state must stay an array: the Store filter sidebar maps over it,
+      // and a `null` payload (an old cache entry, or a backend that answered
+      // with nothing) used to crash the whole page.
+      setPlatforms(Array.isArray(list) ? list : []);
     });
     return () => {
       cancelled = true;
