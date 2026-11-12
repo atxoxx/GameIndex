@@ -785,9 +785,12 @@ export const STEAM_REACTIONS: Record<
 };
 
 /** Path to the bundled static reaction image for a Steam reaction type.
- *  Returns null for unknown types (renderer falls back to the emoji). */
+ *  Returns null for unknown types (renderer falls back to the emoji).
+ *  Relative on purpose: the packaged renderer loads from `file://`, where a
+ *  leading slash would point at the drive root. Render it through
+ *  `resolvePublicAssetUrl`. */
 export function reactionImagePath(reactionType: number): string | null {
-  return STEAM_REACTIONS[reactionType] ? `/reactions/${reactionType}.png` : null;
+  return STEAM_REACTIONS[reactionType] ? `reactions/${reactionType}.png` : null;
 }
 
 /** Options controlling a Steam reviews query. Mirrors the params the

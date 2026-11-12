@@ -13,6 +13,7 @@ import {
   reactionImagePath,
   STEAM_REACTIONS,
 } from "../../types/game";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 
 const STEAM_PROFILE_URL = "https://steamcommunity.com/profiles";
 
@@ -52,13 +53,14 @@ function ReactionBadge({ reactionType, count }: { reactionType: number; count: n
   const [imgErr, setImgErr] = useState(false);
   const meta = STEAM_REACTIONS[reactionType] ?? { emoji: "❓", label: `Reaction ${reactionType}`, description: "" };
   const imgPath = reactionImagePath(reactionType);
+  const imgSrc = resolvePublicAssetUrl(imgPath);
 
   return (
     <span className="rv-reaction-badge" title={`${meta.label}: ${count.toLocaleString()}`}>
       {imgPath && !imgErr ? (
         <img
           className="rv-reaction-img"
-          src={imgPath}
+          src={imgSrc}
           alt={meta.label}
           onError={() => setImgErr(true)}
         />

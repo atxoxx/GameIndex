@@ -30,6 +30,7 @@ import {
 } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
 import type { Game } from "../../types/game";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 import BigScreenBackHeader from "./BigScreenBackHeader";
 import BigScreenModal from "./BigScreenModal";
 
@@ -98,7 +99,7 @@ export default function BigScreenEmulatorsPage() {
         name: emu?.name ?? k.name,
         platform: k.platform,
         glyph: k.glyph,
-        logo: emu?.iconUrl ?? k.logo,
+        logo: resolvePublicAssetUrl(emu?.iconUrl) ?? resolvePublicAssetUrl(k.logo),
         accent: k.accent,
         added: !!emu,
         configured: !!emu?.executablePath,
@@ -114,7 +115,7 @@ export default function BigScreenEmulatorsPage() {
         name: e.name,
         platform: e.platform,
         glyph: "",
-        logo: e.iconUrl,
+        logo: resolvePublicAssetUrl(e.iconUrl),
         accent: accentForPlatform(e.platform),
         added: true,
         configured: !!e.executablePath,

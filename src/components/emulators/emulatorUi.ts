@@ -1,5 +1,6 @@
 import type { Game } from "../../types/game";
 import type { Emulator, BiosBoardEntry } from "../../types/emulator";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 import {
   accentForPlatform,
   matchKnownEmulator,
@@ -252,19 +253,24 @@ export function groupMultiDiscRoms(games: Game[]): GroupedRoms {
   return { games: display, groups, discCounts };
 }
 
-/** Accent, glyph and logo for an emulator, reusing the catalog when it matches. */export function emulatorVisual(emulator: Emulator): EmulatorVisual {
+/** Accent, glyph and logo for an emulator, reusing the catalog when it matches. */
+export function emulatorVisual(emulator: Emulator): EmulatorVisual {
+  // Stored icons may still carry the old root-absolute catalog path
+  // (`/emulator-logos/...`), which does not load from the packaged
+  // `file://` renderer - normalise whatever the row holds.
+  const icon = resolvePublicAssetUrl(emulator.iconUrl);
   const known = matchKnownEmulator(emulator);
   if (known) {
     return {
       accent: known.accent,
       glyph: known.glyph,
-      logo: emulator.iconUrl ?? known.logo,
+      logo: icon ?? resolvePublicAssetUrl(known.logo),
       known,
     };
   }
   return {
     accent: accentForPlatform(emulator.platform),
     glyph: "🎮",
-    logo: emulator.iconUrl,
+    logo: icon,
   };
 }

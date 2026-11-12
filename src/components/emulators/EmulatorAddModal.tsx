@@ -14,6 +14,7 @@ import {
   type KnownEmulator,
   type PlatformCategory,
 } from "../../types/emulator";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 
 interface AddModalProps {
   emulators: Emulator[];                 // already-configured emulators, for "added" badges
@@ -287,7 +288,7 @@ export default function EmulatorAddModal({
                         {k.logo ? (
                           <img
                             className="emu-add-row-glyph-img"
-                            src={k.logo}
+                            src={resolvePublicAssetUrl(k.logo)}
                             alt=""
                             draggable={false}
                             loading="lazy"

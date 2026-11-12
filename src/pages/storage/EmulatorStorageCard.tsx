@@ -11,6 +11,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { accentForPlatform, KNOWN_EMULATORS } from "../../types/emulator";
 import { Badge, Button } from "../../components/ui";
 import { GameThumbnail } from "../../components/activity/GameThumbnail";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 
 interface Props {
   emulator: Emulator;
@@ -39,6 +40,8 @@ export function EmulatorStorageCard({
   const globalBytes = (installBytes ?? 0) + romBytes;
   const accent = accentForPlatform(emulator.platform);
   const known = KNOWN_EMULATORS.find((k) => k.name === emulator.name);
+  const logo =
+    resolvePublicAssetUrl(known?.logo) ?? resolvePublicAssetUrl(emulator.iconUrl);
   const bodyId = `emu-storage-body-${emulator.id}`;
 
   const filteredRoms = useMemo(() => {
@@ -70,8 +73,8 @@ export function EmulatorStorageCard({
           aria-controls={bodyId}
         >
           <div className="emu-storage-card-glyph" aria-hidden="true">
-            {known?.logo || emulator.iconUrl ? (
-              <img src={known?.logo ?? emulator.iconUrl} alt="" />
+            {logo ? (
+              <img src={logo} alt="" />
             ) : (
               <span className="emu-glyph-fallback">{emulator.name.charAt(0)}</span>
             )}

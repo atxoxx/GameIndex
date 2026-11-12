@@ -23,6 +23,7 @@ import {
   type TorrentDownload,
 } from "../../types/download";
 import { Button } from "../ui";
+import { resolvePublicAssetUrl } from "../../utils/publicAsset";
 
 interface Props {
   onClose: () => void;
@@ -307,7 +308,7 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
       return (
         <img
           className="download-emulator-row-glyph-img"
-          src={known.logo}
+          src={resolvePublicAssetUrl(known.logo)}
           alt=""
           draggable={false}
         />

@@ -29,6 +29,7 @@ import {
   linuxLaunchPresets,
 } from "../types/emulator";
 import { Button } from "../components/ui";
+import { resolvePublicAssetUrl } from "../utils/publicAsset";
 import "../styles/emulator-editor.css";
 
 interface Props {
@@ -263,7 +264,7 @@ export default function EmulatorEditorModal({
         <header className="emu-editor__head">
           <div className="emu-editor__mark" aria-hidden>
             {selectedKnown?.logo ? (
-              <img src={selectedKnown.logo} alt="" />
+              <img src={resolvePublicAssetUrl(selectedKnown.logo)} alt="" />
             ) : selectedKnown ? (
               <span>{selectedKnown.glyph}</span>
             ) : (
@@ -330,7 +331,7 @@ export default function EmulatorEditorModal({
                 <div className="emu-editor__known">
                   <div className="emu-editor__known-mark" aria-hidden>
                     {selectedKnown.logo ? (
-                      <img src={selectedKnown.logo} alt="" />
+                      <img src={resolvePublicAssetUrl(selectedKnown.logo)} alt="" />
                     ) : (
                       <span>{selectedKnown.glyph}</span>
                     )}
