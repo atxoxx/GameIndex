@@ -620,6 +620,8 @@ export class DownloadManager {
       kbpsToBps(limits.uploadKbps),
       limits.disableUpload,
     );
+    // "Disable upload" also means no seeding: stop active seeds immediately.
+    if (limits.disableUpload) this.stopAllSeeding();
   }
 
   private downloadLimitBps(): number {
@@ -1764,6 +1766,28 @@ export class DownloadManager {
 
   setSeedConfig(enabled: boolean): void {
     this.state = updateState((state) => ({ ...state, seedAfterComplete: enabled }));
+    // Turning the setting off must also stop torrents that are seeding right
+    // now; previously it only applied to future completions, so "disable
+    // sharing" left every finished torrent uploading.
+    if (!enabled) this.stopAllSeeding();
+  }
+
+  /** Stop every record that is currently seeding (keeps the files on disk). */
+  private stopAllSeeding(): void {
+    let changed = false;
+    for (const record of this.records.values()) {
+      if (record.status.kind !== "seeding") continue;
+      record.status = { kind: "completed" };
+      record.shouldSeed = false;
+      record.uploadSpeed = 0;
+      void this.torrent.stop(record.id);
+      changed = true;
+    }
+    if (changed) {
+      this.markDirty();
+      this.persistNow();
+      this.emitProgress(true);
+    }
   }
 
   setSeedLimits(ratio: number, minutes: number): void {

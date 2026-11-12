@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { httpBuffer } from "../../lib/http";
+import { clampFileProgress } from "./progress";
 
 /* Minimal structural types for the parts of WebTorrent we touch. */
 interface WtFile {
@@ -377,13 +378,18 @@ export class TorrentEngine {
         Number.isFinite(torrent.timeRemaining ?? Infinity) && (torrent.timeRemaining ?? 0) > 0
           ? Math.round((torrent.timeRemaining ?? 0) / 1000)
           : null,
-      files: torrent.files.map((file) => ({
-        name: file.path || file.name,
-        path: file.path || file.name,
-        length: file.length,
-        downloaded: file.downloaded,
-        progress: file.progress,
-      })),
+      files: torrent.files.map((file) => {
+        // Tiny files sharing a piece can report negative bytes; see
+        // `progress.ts` and the "-201151 %" bug.
+        const clamped = clampFileProgress(file.downloaded, file.length);
+        return {
+          name: file.path || file.name,
+          path: file.path || file.name,
+          length: clamped.length,
+          downloaded: clamped.downloaded,
+          progress: clamped.progress,
+        };
+      }),
       trackers: torrent.announce ?? [],
       wires: torrent.wires ?? [],
     };
