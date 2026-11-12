@@ -679,10 +679,17 @@ export async function fetchIgdbStoreGames(query: StoreGamesQuery): Promise<Store
   }
   if (query.platforms?.length) clauses.push(`platforms = (${query.platforms.join(",")})`);
   if (query.yearMin != null) {
-    clauses.push(`first_release_date >= ${Date.UTC(query.yearMin, 0, 1) / 1000}`);
+    // IGDB rejects negative Unix timestamps (`first_release_date >= -2208988800`
+    // for 1900 is a 400). Anything at or before 1970 is "no lower bound".
+    const year = Math.max(1970, Math.trunc(query.yearMin));
+    if (year > 1970) {
+      clauses.push(`first_release_date >= ${Math.floor(Date.UTC(year, 0, 1) / 1000)}`);
+    }
   }
   if (query.yearMax != null) {
-    clauses.push(`first_release_date <= ${Date.UTC(query.yearMax, 11, 31, 23, 59, 59) / 1000}`);
+    const year = Math.max(1970, Math.trunc(query.yearMax));
+    const end = Math.floor(Date.UTC(year, 11, 31, 23, 59, 59) / 1000);
+    if (end > 0) clauses.push(`first_release_date <= ${end}`);
   }
   if (query.ratingMin != null) clauses.push(`rating >= ${query.ratingMin}`);
 
