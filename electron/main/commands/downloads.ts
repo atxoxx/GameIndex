@@ -10,7 +10,6 @@
  */
 import { BrowserWindow, dialog } from "electron";
 import {
-  emit,
   getWindowLabel,
   registerCommands,
   type CommandHandler,
@@ -20,6 +19,11 @@ import {
   getDownloadManager,
   type AddDebridOptions,
 } from "../features/downloads/manager";
+import {
+  parseDownloadSearchRequest,
+  searchDownloadSources,
+  streamDownloadSearch,
+} from "../features/downloads/searchHost";
 import {
   normalizeDownloadSettings,
   normalizeSchedulerConfig,
@@ -76,6 +80,24 @@ function postActions(args: Record<string, unknown>, key = "postActions"): PostAc
   return out;
 }
 
+/** `checksums` arrives as `[{algo, value}]` from a plugin result. */
+function checksumList(
+  args: Record<string, unknown>,
+  key: string,
+): Array<{ algo: string; value: string }> | null {
+  const value = args[key];
+  if (!Array.isArray(value)) return null;
+  const out: Array<{ algo: string; value: string }> = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const entry = raw as Record<string, unknown>;
+    const algo = typeof entry.algo === "string" ? entry.algo.trim() : "";
+    const digest = typeof entry.value === "string" ? entry.value.trim() : "";
+    if (algo && digest) out.push({ algo, value: digest });
+  }
+  return out.length > 0 ? out : null;
+}
+
 function pickFolder(window: BrowserWindow | null): Promise<string | null> {
   const options = {
     title: "Select download folder",
@@ -104,6 +126,7 @@ export const downloadCommands: Record<string, CommandHandler> = {
       uris: indexOrStringList(args, "uris"),
       referer: optionalText(args, "referer"),
       extraHeaders: args.extraHeaders,
+      checksums: checksumList(args, "checksums"),
       postActions: postActions(args),
     });
   },
@@ -140,7 +163,10 @@ export const downloadCommands: Record<string, CommandHandler> = {
 
   test_debrid_key: async (args) => {
     const provider = debridProvider(text(args, "provider"));
-    return provider.testKey(text(args, "apikey"));
+    const info = await provider.testKey(text(args, "apikey"));
+    // The Settings page declares `premium_until` (snake_case); send both
+    // spellings so the Tauri-era call site keeps reading what it expects.
+    return { ...info, premium_until: info.premiumUntil };
   },
 
   debrid_check_cache: async (args) => {
@@ -344,24 +370,20 @@ export const downloadCommands: Record<string, CommandHandler> = {
 
   download_history_clear: () => getDownloadManager().clearHistory(),
 
-  // ── Download search (sources/plugins are not part of this build) ────
-  search_downloads: () => [],
+  // ── Download search (custom sources + every enabled plugin) ─────────
+  //
+  // Ported from `src-tauri/src/plugins/mod.rs` (`search_downloads` and
+  // `search_downloads_stream`). The renderer calls the streaming variant from
+  // the download modal and the plain one from the update checker; both merge
+  // the cached custom-source index with every enabled plugin.
+  search_downloads: (args) => searchDownloadSources(parseDownloadSearchRequest(args)),
+
   search_downloads_stream: (args) => {
     // The renderer subscribes to `search-downloads-progress` with a searchId
-    // it generates; emit one terminal progress frame so the modal leaves its
-    // "checking" state instead of spinning forever.
-    const searchId = text(args, "searchId");
-    if (searchId) {
-      emit("search-downloads-progress", {
-        searchId,
-        sourceName: "",
-        completedSources: 0,
-        totalSources: 0,
-        newResults: [],
-        isDone: true,
-      });
-    }
-    return [];
+    // it generates; frames are emitted per source and the run always ends with
+    // an `isDone` frame, so the modal never spins. Passing `cancel: true` with
+    // the same searchId aborts a running search instead of starting a new one.
+    return streamDownloadSearch(parseDownloadSearchRequest(args));
   },
 
   close_download_resolver: (args) => {

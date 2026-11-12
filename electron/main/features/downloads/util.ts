@@ -61,8 +61,11 @@ export function configAllowsStart(
   nowMin: number,
   weekday: number,
 ): boolean {
-  if (!config.enabled) return true;
+  // An explicit per-download start time gates the start even when the
+  // scheduler itself is disabled — otherwise "start at 02:00" would fire
+  // immediately for every user who never enabled the window scheduler.
   if (scheduledStartAt !== undefined && scheduledStartAt > now) return false;
+  if (!config.enabled) return true;
   if (
     config.windowEnabled &&
     !inWindow(config.windowStart, config.windowEnd, config.days, nowMin, weekday)

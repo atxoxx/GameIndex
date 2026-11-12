@@ -125,6 +125,14 @@ export interface DownloadRecord {
   onlyFiles?: number[];
   /** Provider-side debrid transfer id (AllDebrid/TorBox/…) for resume. */
   debridTransferId?: string;
+  /** Expected hashes for a direct download, verified after the transfer. */
+  checksums?: ChecksumSpec[];
+}
+
+/** One expected checksum (from a plugin result) for a downloaded file. */
+export interface ChecksumSpec {
+  algo: string;
+  value: string;
 }
 
 /** One row of `download_history_get` (renderer `DownloadHistory`). */

@@ -43,6 +43,10 @@ export const sessionCommands: Record<string, CommandHandler> = {
   get_sessions: () =>
     listFinishedSessions().map((row) => ({
       ...row,
+      // The renderer's Activity mapper reads `startedAt`/`endedAt` (epoch ms).
+      // Keep the explicit `*Ms` names too so other callers keep working.
+      startedAt: row.startedAtMs,
+      endedAt: row.endedAtMs ?? null,
       metricsJson: stripSamples(row.metricsJson),
     })),
 

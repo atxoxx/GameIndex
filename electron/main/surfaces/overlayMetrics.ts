@@ -1,24 +1,32 @@
 /**
  * Live telemetry for the in-game overlay.
  *
- * NOTE(electron-port): this is a deliberately small stand-in for the Rust
- * `metrics_collector`. It samples what Node can read without native code —
- * whole-machine CPU utilisation and RAM pressure — and emits them as
- * `overlay:metrics` samples at the configured interval.
+ * Sampling is delegated to `features/telemetry` (the same source the session
+ * recorder uses): whole-machine CPU/RAM here, plus GPU load from Windows GPU
+ * Engine counters, FPS from RTSS shared memory and temperatures/clocks from
+ * LibreHardwareMonitor when those tools are running.
  *
- * GPU load, VRAM, temperatures, power, clocks and FPS are NOT sampled: they
- * need vendor SDKs / shared-memory readers (NVML, D3DKMT, RTSS) that the
- * Electron build does not ship. Their keys are omitted from the payload rather
- * than sent as zeros, because the overlay widgets render every missing metric
- * as "—" (see `PerformanceWidget`) and a fabricated 0% would read as real
- * telemetry.
+ * Missing sources are omitted from the payload rather than sent as zeros: the
+ * overlay widgets render every missing metric as "—" (see `PerformanceWidget`),
+ * so a fabricated 0 % would read as real telemetry.
  */
 import os from "node:os";
+import {
+  readTelemetry,
+  startTelemetry,
+  stopTelemetry,
+} from "../features/telemetry";
 
 export interface OverlayMetricsSample {
   cpu: number;
   ram: number;
   [key: string]: number | undefined;
+}
+
+export interface OverlaySampleTarget {
+  /** Executable of the running game, used to look up its RTSS FPS entry. */
+  exePath?: string | null;
+  pid?: number | null;
 }
 
 interface CpuTimes {
@@ -46,7 +54,7 @@ let timer: NodeJS.Timeout | null = null;
 let lastCpu: CpuTimes | null = null;
 
 /** One sample, measured against the previous one for CPU utilisation. */
-export function readSample(): OverlayMetricsSample {
+export function readSample(target?: OverlaySampleTarget): OverlayMetricsSample {
   const current = readCpuTimes();
   let cpu = 0;
   if (lastCpu) {
@@ -59,21 +67,46 @@ export function readSample(): OverlayMetricsSample {
   const totalMem = os.totalmem();
   const ram = totalMem > 0 ? (1 - os.freemem() / totalMem) * 100 : 0;
 
-  return { cpu: clampPercent(cpu), ram: clampPercent(ram) };
+  const sample: OverlayMetricsSample = {
+    cpu: clampPercent(cpu),
+    ram: clampPercent(ram),
+  };
+
+  try {
+    const telemetry = readTelemetry(target?.exePath ?? "", target?.pid ?? 0);
+    if (telemetry.gpuPercent !== null) sample.gpu = telemetry.gpuPercent;
+    if (telemetry.fps !== null) sample.fps = telemetry.fps;
+    if (telemetry.cpuTempC !== null && telemetry.cpuTempC > 0) {
+      sample.cpuTemp = telemetry.cpuTempC;
+    }
+    if (telemetry.gpuTempC !== null && telemetry.gpuTempC > 0) {
+      sample.gpuTemp = telemetry.gpuTempC;
+    }
+    if (telemetry.gpuClockMhz !== null && telemetry.gpuClockMhz > 0) {
+      sample.gpuClock = telemetry.gpuClockMhz;
+    }
+  } catch (error) {
+    // A failing auxiliary source must never stop CPU/RAM sampling.
+    console.error("[overlay] telemetry read failed:", error);
+  }
+
+  return sample;
 }
 
 /** Start (or restart) the sampler. Callbacks fire on the Node event loop. */
 export function startLiveMetrics(
   intervalMs: number,
   onSample: (sample: OverlayMetricsSample) => void,
+  target?: OverlaySampleTarget,
 ): void {
   stopLiveMetrics();
   // Seed the baseline so the first emitted sample covers one real interval.
   lastCpu = readCpuTimes();
+  startTelemetry();
   const interval = Math.max(100, Math.round(intervalMs) || 1000);
   timer = setInterval(() => {
     try {
-      onSample(readSample());
+      onSample(readSample(target));
     } catch (error) {
       console.error("[overlay] metrics sample failed:", error);
     }
@@ -88,6 +121,7 @@ export function stopLiveMetrics(): void {
     timer = null;
   }
   lastCpu = null;
+  stopTelemetry();
 }
 
 export function isLiveMetricsRunning(): boolean {

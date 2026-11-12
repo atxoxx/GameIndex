@@ -12,8 +12,12 @@
  */
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { DEFAULT_USER_AGENT } from "../../lib/http";
+import type { ChecksumSpec } from "./types";
+
+export type { ChecksumSpec };
 
 export interface StreamDownloadOptions {
   url: string;
@@ -158,6 +162,7 @@ export async function streamToFile(
   };
 
   let out: fs.WriteStream | null = null;
+  let expectedTotal: number | null = null;
   try {
     resetIdle();
     const response = await fetch(url, {
@@ -185,6 +190,7 @@ export async function streamToFile(
     const total = append
       ? parseTotal(response.headers.get("content-range"), null)
       : parseTotal(null, response.headers.get("content-length"));
+    expectedTotal = total;
     let bytes = startOffset;
 
     out = fs.createWriteStream(temp, { flags: append ? "a" : "w" });
@@ -215,6 +221,24 @@ export async function streamToFile(
     };
   } catch (error) {
     if (signal.aborted) throw new Error("Download cancelled");
+    // Some hosts close a keep-alive socket while we are still draining a
+    // throttled response; undici reports `terminated` even though every
+    // advertised byte reached the `.part`. That is a complete transfer.
+    if (expectedTotal !== null && expectedTotal > 0) {
+      // Close the write stream first: Windows refuses to rename an open file.
+      if (out) {
+        await new Promise<void>((resolve) => out?.end(() => resolve()));
+        out = null;
+      }
+      const size = await fsp
+        .stat(temp)
+        .then((stats) => stats.size)
+        .catch(() => 0);
+      if (size >= expectedTotal) {
+        await fsp.rename(temp, destination);
+        return { path: destination, bytes: size, total: expectedTotal, contentType: null };
+      }
+    }
     if (internal.signal.aborted) {
       throw new Error(`Download stalled for ${Math.round(idleMs / 1000)}s — retry to resume.`);
     }
@@ -226,6 +250,72 @@ export async function streamToFile(
       await new Promise<void>((resolve) => out?.end(() => resolve()));
     }
   }
+}
+
+/** One expected checksum supplied by a plugin result / the renderer. */
+const SUPPORTED_HASH_ALGOS: Record<string, "md5" | "sha1" | "sha256" | "sha512"> = {
+  md5: "md5",
+  sha1: "sha1",
+  sha256: "sha256",
+  sha512: "sha512",
+};
+
+/**
+ * Tolerant checksum normalisation: accepts `{algo, value}` rows from a plugin
+ * result (algo may be `SHA-256`, `sha256`, …) and drops anything we cannot
+ * verify, instead of silently claiming the file is intact.
+ */
+export function normalizeChecksums(value: unknown): ChecksumSpec[] {
+  if (!Array.isArray(value)) return [];
+  const out: ChecksumSpec[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as Record<string, unknown>;
+    const algo = typeof row.algo === "string" ? row.algo.trim().toLowerCase().replace(/[-_\s]/g, "") : "";
+    const digest = typeof row.value === "string" ? row.value.trim() : "";
+    if (!algo || !digest) continue;
+    out.push({ algo, value: digest });
+  }
+  return out;
+}
+
+function hashFile(file: string, algo: "md5" | "sha1" | "sha256" | "sha512"): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash(algo);
+    const stream = fs.createReadStream(file);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
+/**
+ * Verify the first checksum whose algorithm we support. Throws a user-facing
+ * error on a mismatch (the caller deletes the corrupt file); returns `null`
+ * when no usable checksum was supplied.
+ */
+export async function verifyFileChecksum(
+  file: string,
+  checksums: ChecksumSpec[] | null | undefined,
+): Promise<{ algo: string; expected: string; actual: string } | null> {
+  if (!checksums || checksums.length === 0) return null;
+  for (const spec of checksums) {
+    const algo = SUPPORTED_HASH_ALGOS[spec.algo] ?? SUPPORTED_HASH_ALGOS[`sha${spec.algo}`];
+    if (!algo) continue;
+    const actual = await hashFile(file, algo);
+    if (actual.toLowerCase() !== spec.value.toLowerCase()) {
+      throw new Error(
+        `Checksum mismatch (${algo}): expected ${spec.value}, got ${actual}. The file was removed — retry the download.`,
+      );
+    }
+    return { algo, expected: spec.value, actual };
+  }
+  console.warn(
+    `[downloads] no supported checksum algorithm in ${checksums
+      .map((spec) => spec.algo)
+      .join(", ")} — skipping verification`,
+  );
+  return null;
 }
 
 /** Delete a download's target + partial (best effort). */

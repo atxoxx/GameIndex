@@ -17,13 +17,15 @@
 import { app, dialog, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { emit } from "../../ipc";
+import { emit, onEvent } from "../../ipc";
 import { kbpsToBps } from "./util";
 import { clearHistory, listHistory, recordHistory } from "./history";
 import {
   ensureDiskSpace,
+  normalizeChecksums,
   removeDownloadFile,
   streamToFile,
+  verifyFileChecksum,
 } from "./httpDownload";
 import { debridProvider, resolveFileUrl } from "./debrid";
 import { TorrentEngine, TorrentEngineUnavailableError, parseTorrentFiles } from "./torrentEngine";
@@ -39,6 +41,7 @@ import {
 } from "./state";
 import {
   PENDING_METADATA_NAME,
+  type ChecksumSpec,
   type DebridResolvedFile,
   type DownloadFile,
   type DownloadHistoryRow,
@@ -129,6 +132,8 @@ export interface AddDirectOptions {
   uris?: string[] | null;
   referer?: string | null;
   extraHeaders?: unknown;
+  /** Expected hashes from a plugin result; verified after the transfer. */
+  checksums?: ChecksumSpec[] | null;
   postActions?: DownloadRecord["postActions"];
 }
 
@@ -154,7 +159,15 @@ export class DownloadManager {
   private readonly workerRuns = new Map<string, Promise<void>>();
   private readonly generations = new Map<string, number>();
   private readonly debridParams = new Map<string, DebridCredentials>();
-  private readonly automationPaused = new Map<string, "window">();
+  private readonly automationPaused = new Map<string, "window" | "game">();
+  /** Games currently running (from the session workstream's events). */
+  private readonly runningGames = new Set<string>();
+  /**
+   * Set when a `game-exited` reported another session still running. Covers a
+   * session that started before this manager booted (so its `game-started`
+   * event was never seen).
+   */
+  private otherGamesRunning = false;
   private readonly requested = new Set<string>();
   private readonly postActionRan = new Set<string>();
   private readonly samples = new Map<string, { bytes: number; at: number; speed: number }>();
@@ -201,9 +214,20 @@ export class DownloadManager {
     }, TICK_INTERVAL_MS);
     this.timer.unref?.();
 
+    // `pauseOnGame` needs to know when a game is running; the session
+    // workstream broadcasts these two events on the main-process bus.
+    const stopGameStarted = onEvent("game-started", (payload) =>
+      this.noteGameSession(payload, true),
+    );
+    const stopGameExited = onEvent("game-exited", (payload) =>
+      this.noteGameSession(payload, false),
+    );
+
     app.once("before-quit", () => {
       this.disposed = true;
       if (this.timer) clearInterval(this.timer);
+      stopGameStarted();
+      stopGameExited();
       this.persistNow();
       void this.torrent.destroy();
     });
@@ -475,6 +499,8 @@ export class DownloadManager {
       !config.enabled ||
       !config.windowEnabled ||
       this.schedulerWindowOpen(config, parts.nowMin, parts.weekday);
+    const gameRunning =
+      config.enabled && config.pauseOnGame && this.anyGameRunning();
 
     if (config.enabled && config.windowEnabled && config.pauseOutsideWindow && !windowOpen) {
       for (const record of [...this.records.values()]) {
@@ -482,9 +508,25 @@ export class DownloadManager {
         this.automationPaused.set(record.id, "window");
         void this.pause(record.id);
       }
-    } else if (windowOpen && this.automationPaused.size > 0) {
+    } else if (windowOpen && !gameRunning && this.automationPaused.size > 0) {
       for (const [id, trigger] of [...this.automationPaused.entries()]) {
         if (trigger !== "window") continue;
+        this.automationPaused.delete(id);
+        const record = this.records.get(id);
+        if (record && record.status.kind === "paused") void this.requestStart(id);
+      }
+    }
+
+    // `pauseOnGame`: hold transfers while a game runs, resume when it exits.
+    if (gameRunning) {
+      for (const record of [...this.records.values()]) {
+        if (!isActiveRecord(record)) continue;
+        this.automationPaused.set(record.id, "game");
+        void this.pause(record.id);
+      }
+    } else if (windowOpen && this.automationPaused.size > 0) {
+      for (const [id, trigger] of [...this.automationPaused.entries()]) {
+        if (trigger !== "game") continue;
         this.automationPaused.delete(id);
         const record = this.records.get(id);
         if (record && record.status.kind === "paused") void this.requestStart(id);
@@ -526,6 +568,33 @@ export class DownloadManager {
     weekday: number,
   ): boolean {
     return inWindow(config.windowStart, config.windowEnd, config.days, nowMin, weekday);
+  }
+
+  /** True when at least one game session is known to be running. */
+  private anyGameRunning(): boolean {
+    return this.runningGames.size > 0 || this.otherGamesRunning;
+  }
+
+  /**
+   * Track `game-started` / `game-exited` from the session workstream so the
+   * scheduler's `pauseOnGame` toggle actually pauses transfers while a game
+   * runs (it used to be a stored-but-unused flag).
+   */
+  private noteGameSession(payload: unknown, started: boolean): void {
+    const record =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const gameId =
+      typeof record.gameId === "string" && record.gameId.trim() ? record.gameId : "unknown";
+    if (started) {
+      this.runningGames.add(gameId);
+      this.otherGamesRunning = true;
+    } else {
+      this.runningGames.delete(gameId);
+      const remaining = record.remainingGameName;
+      this.otherGamesRunning =
+        typeof remaining === "string" && remaining.trim().length > 0;
+    }
+    if (this.state.scheduler.pauseOnGame) this.applyScheduler();
   }
 
   private effectiveLimits(): SpeedLimitSettings {
@@ -683,6 +752,15 @@ export class DownloadManager {
             },
           });
           if (!this.isCurrent(record.id, generation)) return;
+          try {
+            await verifyFileChecksum(result.path, record.checksums);
+          } catch (error) {
+            removeDownloadFile(record.savePath);
+            if (this.isCurrent(record.id, generation)) {
+              this.fail(record, statusMessage(error));
+            }
+            return;
+          }
           this.finishTransfer(record, result.bytes, result.total);
           return;
         } catch (error) {
@@ -1202,6 +1280,7 @@ export class DownloadManager {
       uris: options.uris && options.uris.length > 0 ? options.uris : undefined,
       referer: options.referer ?? undefined,
       extraHeaders: extraHeadersToRecord(options.extraHeaders),
+      checksums: normalizeChecksums(options.checksums),
       postActions: options.postActions ?? undefined,
       priority: 0,
       uploaded: 0,
@@ -1378,9 +1457,20 @@ export class DownloadManager {
   async pause(id: string): Promise<void> {
     const record = this.record(id);
     if (!record) throw new Error(`Download not found: ${id}`);
-    if (record.status.kind === "completed" || record.status.kind === "seeding") {
-      // Pausing a seeding torrent is a no-op at the record level; seeding is
-      // stopped through `setSeeding`.
+    if (record.status.kind === "completed") return;
+    if (record.status.kind === "seeding") {
+      // "Seed only while downloading": pausing a seeding torrent stops the
+      // uploads and drops it back to completed (the files stay on disk).
+      // `download_set_seeding` is the explicit toggle for the same transition.
+      record.status = { kind: "completed" };
+      record.shouldSeed = false;
+      record.downloadSpeed = 0;
+      record.uploadSpeed = 0;
+      this.abortWorker(record.id);
+      await this.torrent.stop(record.id);
+      this.markDirty();
+      this.persistNow();
+      this.emitProgress(true);
       return;
     }
     record.status = { kind: "paused" };
@@ -1599,8 +1689,22 @@ export class DownloadManager {
     const record = this.record(id);
     if (!record) throw new Error(`Download not found: ${id}`);
     record.scheduledStartAt = startAt ?? undefined;
-    const due = startAt === null || startAt <= unixNow();
+    const now = unixNow();
+    const due = startAt === null || startAt <= now;
     const startable = record.status.kind === "paused" || record.status.kind === "queued";
+    if (!due && startable) {
+      // A future start time parks the download in the queue so the scheduler
+      // (and the Scheduled tab) can pick it up when the time arrives; leaving
+      // it paused made the schedule a silent no-op.
+      record.status = { kind: "queued" };
+      record.queuePosition = undefined;
+      record.downloadSpeed = 0;
+      record.uploadSpeed = 0;
+      this.markDirty();
+      this.persistNow();
+      this.emitProgress(true);
+      return;
+    }
     this.markDirty();
     this.persistNow();
     this.emitProgress(true);

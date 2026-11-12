@@ -46,9 +46,20 @@ export function installSmokeTest(): void {
   const fatal: string[] = [];
   const consoleErrors: string[] = [];
   const probes = (process.env.GI_SMOKE_COMMANDS ?? "")
-    .split(",")
+    .split("|")
     .map((name) => name.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((entry) => {
+      // `cmd` or `cmd:{"json":"args"}` — arguments after the first colon.
+      const index = entry.indexOf(":");
+      if (index <= 0) return { cmd: entry, args: undefined };
+      const raw = entry.slice(index + 1);
+      try {
+        return { cmd: entry.slice(0, index), args: JSON.parse(raw) as unknown };
+      } catch {
+        return { cmd: entry, args: undefined };
+      }
+    });
 
   app.on("browser-window-created", (_event, win) => {
     const contents = win.webContents;
@@ -60,15 +71,18 @@ export function installSmokeTest(): void {
       contents.once("did-finish-load", () => {
         if (getWindowLabel(win) !== "main") return;
         void (async () => {
-          for (const cmd of probes) {
+          for (const probe of probes) {
             try {
               const value = await contents.executeJavaScript(
-                `window.__giBridge.invoke(${JSON.stringify(cmd)})`,
+                `window.__giBridge.invoke(${JSON.stringify(probe.cmd)}, ${JSON.stringify(probe.args)})`,
               );
-              log(`[smoke:cmd] ${cmd} => ${JSON.stringify(value)?.slice(0, 400)}`);
+              const serialized = JSON.stringify(value);
+              log(
+                `[smoke:cmd] ${probe.cmd} => ${serialized === undefined ? "null" : serialized}`.slice(0, 400),
+              );
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
-              log(`[smoke:cmd] ${cmd} !! ${message.slice(0, 300)}`);
+              log(`[smoke:cmd] ${probe.cmd} !! ${message.slice(0, 300)}`);
             }
           }
         })();

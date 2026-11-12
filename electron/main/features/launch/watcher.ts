@@ -43,6 +43,7 @@ import {
   type ActiveSession,
 } from "./sessions";
 import { steamGameInstallPath } from "./steam";
+import { stopTelemetry } from "../telemetry";
 import type { GameRef, GameRefInput, ProcessInfo, WatcherIndexDocument } from "./types";
 import { setPollWakeHandler } from "./wake";
 
@@ -54,6 +55,14 @@ const POLL_INTERVAL_FAST_MS = 2_000;
 const POLL_INTERVAL_ACTIVE_MS = 3_000;
 /** Relaxed poll with no session (passive detection only). */
 const POLL_INTERVAL_IDLE_MS = 15_000;
+/**
+ * With an empty index there is nothing to match, but the loop must not die:
+ * a slow/failed first renderer push would otherwise leave passive detection
+ * off for the whole boot. One cheap `tasklist` a minute is harmless.
+ */
+const POLL_INTERVAL_EMPTY_MS = 60_000;
+/** Full-path passive sweep cadence when the cheap name index finds nothing. */
+const DEEP_SCAN_INTERVAL_MS = 60_000;
 /** Grace before a missing process ends the session. */
 const SESSION_LOST_GRACE_MS = 3_000;
 /**
@@ -101,6 +110,7 @@ let timer: NodeJS.Timeout | null = null;
 let polling = false;
 let started = false;
 let persistedIndexLoaded = false;
+let lastDeepScanAt = 0;
 
 function addToMap<K>(map: Map<K, GameRef[]>, key: K, ref: GameRef): void {
   const list = map.get(key);
@@ -269,6 +279,11 @@ export function ensureWatcherStarted(): void {
   started = true;
   setPollWakeHandler(() => requestPoll(0));
   loadPersistedIndex();
+  // A persisted index already knows games, so passive detection can start
+  // immediately — even if the renderer's `rebuild_watcher_index` push is late
+  // or fails this boot. An empty index still schedules its slow retry in
+  // `nextDelayMs`, so the loop never silently stops.
+  if (index.games.length > 0) requestPoll(0);
 }
 
 /** Stop the poll loop (app quit / diagnostics). */
@@ -279,6 +294,7 @@ export function stopWatcher(): void {
   }
   started = false;
   setPollWakeHandler(null);
+  stopTelemetry();
 }
 
 /** Schedule the next poll, replacing any pending one. */
@@ -294,7 +310,7 @@ export function requestPoll(delayMs: number): void {
 
 function nextDelayMs(): number {
   if (activeSessions.size === 0) {
-    return index.games.length === 0 ? -1 : POLL_INTERVAL_IDLE_MS;
+    return index.games.length === 0 ? POLL_INTERVAL_EMPTY_MS : POLL_INTERVAL_IDLE_MS;
   }
   for (const session of activeSessions.values()) {
     if (session.lastPid === 0 || session.lostAt !== null) return POLL_INTERVAL_FAST_MS;
@@ -531,7 +547,11 @@ async function detectPassiveGames(base: ProcessInfo[]): Promise<void> {
     if (refs.every((ref) => tracked.has(ref.gameId))) continue;
     candidates.push(process);
   }
-  if (candidates.length === 0) return;
+
+  if (candidates.length === 0) {
+    await deepScanPassiveGames(tracked, claimedPids);
+    return;
+  }
 
   const detailed = await listProcessesDetailed();
   const byPid = new Map(detailed.map((process) => [process.pid, process]));
@@ -544,6 +564,49 @@ async function detectPassiveGames(base: ProcessInfo[]): Promise<void> {
     startPassiveSession(match, info);
     tracked.add(match.gameId);
     claimedPids.add(info.pid);
+  }
+}
+
+/**
+ * Path-based passive sweep for the cases the cheap name index cannot see:
+ * the library's exe path is a launcher/stub and the real game binary has a
+ * different name, or the running process lives inside an indexed install dir
+ * under an unexpected image name.
+ *
+ * One `Get-CimInstance Win32_Process` call, at most once a minute, and only
+ * while nothing is being tracked — never during gameplay.
+ */
+async function deepScanPassiveGames(
+  tracked: Set<string>,
+  claimedPids: Set<number>,
+): Promise<void> {
+  if (activeSessions.size > 0) return;
+  const now = Date.now();
+  if (now - lastDeepScanAt < DEEP_SCAN_INTERVAL_MS) return;
+  lastDeepScanAt = now;
+
+  let processes: ProcessInfo[];
+  try {
+    processes = await listProcessesDetailed();
+  } catch {
+    return;
+  }
+  const systemRoot = normalizePathLower(process.env.SystemRoot ?? "C:\\Windows");
+  for (const process of processes) {
+    if (process.pid <= 0 || claimedPids.has(process.pid)) continue;
+    if (!process.exePath) continue;
+    if (isSkipName(process.name)) continue;
+    const pathNorm = normalizePathLower(process.exePath);
+    // A directory-prefix match is only meaningful for a real game folder.
+    // Windows' own tree (and packaged-app aliases inside it) is never a game,
+    // and matching by prefix there would claim the first OS binary instead.
+    if (systemRoot && isInsideDir(pathNorm, systemRoot)) continue;
+    if (pathNorm.includes("\\windowsapps\\")) continue;
+    const match = matchProcessToGame(process, tracked, claimedPids);
+    if (!match || activeSessions.has(match.gameId)) continue;
+    startPassiveSession(match, process);
+    tracked.add(match.gameId);
+    claimedPids.add(process.pid);
   }
 }
 
@@ -564,15 +627,9 @@ export async function pollOnce(): Promise<void> {
     console.error("[launch] watcher poll failed:", error);
   } finally {
     polling = false;
-    const delay = nextDelayMs();
-    if (delay < 0) {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      return;
-    }
-    requestPoll(delay);
+    // Always schedule the next cycle: an empty index, a failed rebuild or a
+    // transient WMI error must never be able to stop passive detection.
+    if (started) requestPoll(nextDelayMs());
   }
 }
 
@@ -597,4 +654,9 @@ export function installLaunchLifecycle(): void {
     stopWatcher();
     finalizeSessionsOnQuit();
   });
+  // Boot: start the poll loop even before the renderer pushes the index. The
+  // persisted index (or `rebuild_watcher_index`) supplies the games; either
+  // way an empty index retries slowly instead of parking the watcher forever.
+  ensureWatcherStarted();
+  requestPoll(0);
 }

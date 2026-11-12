@@ -32,6 +32,39 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
+/** Provider label for user-facing errors, derived from the API host. */
+function providerLabel(url: string): string {
+  if (url.includes("alldebrid")) return "AllDebrid";
+  if (url.includes("real-debrid")) return "Real-Debrid";
+  if (url.includes("torbox")) return "TorBox";
+  if (url.includes("premiumize")) return "Premiumize";
+  return "The debrid provider";
+}
+
+/**
+ * Turn an HTTP failure into something the Settings page can show. A rejected
+ * key is by far the most common failure, and "HTTP 403 — {"error":"bad_token"}"
+ * is not an answer a user can act on.
+ */
+function describeHttpFailure(status: number, body: string, url: string): string {
+  const provider = providerLabel(url);
+  const detail = body.trim().replace(/\s+/g, " ").slice(0, 160);
+  const suffix = detail ? ` (${detail})` : "";
+  if (status === 401 || status === 403) {
+    return `${provider} rejected the API key — check it in Settings → Downloads.${suffix}`;
+  }
+  if (status === 404) {
+    return `${provider} does not recognise this resource (HTTP 404).${suffix}`;
+  }
+  if (status === 429) {
+    return `${provider} is rate-limiting requests — wait a minute and try again.${suffix}`;
+  }
+  if (status >= 500) {
+    return `${provider} is unavailable right now (HTTP ${status}) — try again later.${suffix}`;
+  }
+  return `${provider} request failed (HTTP ${status}).${suffix}`;
+}
+
 async function requestJson<T>(url: string, options: RequestOptions = {}): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 30_000);
@@ -45,13 +78,18 @@ async function requestJson<T>(url: string, options: RequestOptions = {}): Promis
     });
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status} — ${text.slice(0, 300)}`);
+      throw new Error(describeHttpFailure(response.status, text, url));
     }
     try {
       return JSON.parse(text) as T;
     } catch {
       throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`);
     }
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`${providerLabel(url)} did not answer in time — check your connection and try again.`);
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -88,6 +126,25 @@ function encodeQuery(params: Array<[string, string]>): string {
     .join("&");
 }
 
+/**
+ * Unix seconds from a provider expiry field, which may be a Unix timestamp,
+ * an ISO-8601 date, or absent. Returns null when the provider does not say.
+ */
+function premiumExpiry(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return Math.trunc(raw > 10_000_000_000 ? raw / 1000 : raw);
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return Math.trunc(numeric > 10_000_000_000 ? numeric / 1000 : numeric);
+    }
+    const parsed = Date.parse(raw);
+    if (Number.isFinite(parsed)) return Math.floor(parsed / 1000);
+  }
+  return null;
+}
+
 // ─── AllDebrid ──────────────────────────────────────────────────────────────
 
 interface AllDebridEnvelope<T> {
@@ -111,7 +168,18 @@ async function allDebridCall<T>(
     },
   );
   if (envelope.status !== "success") {
-    throw new Error(envelope.error?.message || "Unknown AllDebrid error");
+    const code = envelope.error?.code ?? "";
+    const message = envelope.error?.message ?? "";
+    if (code === "AUTH_BAD_APIKEY" || /invalid api ?key/i.test(message)) {
+      throw new Error("AllDebrid rejected the API key — check it in Settings → Downloads.");
+    }
+    if (code === "AUTH_USER_BANNED") {
+      throw new Error("This AllDebrid account is banned.");
+    }
+    if (code === "MAGNET_INVALID_URI") {
+      throw new Error("AllDebrid could not read this magnet link.");
+    }
+    throw new Error(message || code || "Unknown AllDebrid error");
   }
   return envelope.data as T;
 }
@@ -341,6 +409,14 @@ interface TorBoxEnvelope<T> {
 function torBoxError(body: TorBoxEnvelope<unknown>, fallback: string): Error {
   const detail = asString(body.detail);
   const code = asString(body.error);
+  if (
+    /token|auth|api.?key/i.test(code) ||
+    /invalid.*(token|key)|(token|key).*(invalid|expired)/i.test(detail)
+  ) {
+    return new Error(
+      `TorBox rejected the API key — check it in Settings → Downloads.${code ? ` (${code})` : ""}`,
+    );
+  }
   if (detail && code) return new Error(`${detail} [${code}]`);
   if (detail) return new Error(detail);
   if (code) return new Error(`${fallback} [${code}]`);
@@ -398,14 +474,12 @@ const TORBOX: DebridProvider = {
   id: "torbox",
 
   async testKey(apikey) {
-    const data = asRecord(
-      await torBoxJson<unknown>("/user/me", apikey),
-    );
+    const data = asRecord(await torBoxJson<unknown>("/user/me", apikey));
     const premium =
       asBool(data.is_premium) || asBool(data.is_subscribed) || asNumber(data.plan) > 0;
     return {
       username: asString(data.email, "TorBox user"),
-      premiumUntil: premium ? Number.MAX_SAFE_INTEGER : null,
+      premiumUntil: premium ? premiumExpiry(data.premium_until ?? data.premium_expires_at) : null,
     };
   },
 
@@ -579,7 +653,7 @@ const REALDEBRID: DebridProvider = {
     const premium = asNumber(user.premium) > 0 || Boolean(user.expiration);
     return {
       username: asString(user.username, "Real-Debrid user"),
-      premiumUntil: premium ? Number.MAX_SAFE_INTEGER : null,
+      premiumUntil: premium ? premiumExpiry(user.expiration) : null,
     };
   },
 

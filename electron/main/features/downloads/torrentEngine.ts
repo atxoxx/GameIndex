@@ -58,6 +58,10 @@ interface WtTorrent {
   files: WtFile[];
   announce?: string[];
   wires: WtWire[];
+  /** torrent-discovery instance (tracker + DHT); not in WebTorrent's typings. */
+  discovery?: {
+    tracker?: { update?: (opts?: Record<string, unknown>) => void };
+  };
   metadata?: Uint8Array | null;
   torrentFile?: Uint8Array | null;
   timeRemaining?: number;
@@ -271,7 +275,7 @@ export class TorrentEngine {
         } else {
           existing.files.forEach((file) => file.select());
         }
-        existing.resume();
+        this.resume(recordId);
       }
       return this.snapshot(recordId);
     }
@@ -283,7 +287,7 @@ export class TorrentEngine {
       path: savePath,
       deselect: options.listOnly || Boolean(options.onlyFiles && options.onlyFiles.length > 0),
       // Pausing at construction prevents metadata fetch; the list-only path
-      // pauses right after metadata instead (see below).
+      // keeps the torrent live but fully deselected instead (see below).
       paused: false,
       // Keep files when the record is removed; the manager deletes on demand.
       destroyStoreOnDestroy: false,
@@ -306,7 +310,10 @@ export class TorrentEngine {
         files,
       });
       if (options.listOnly) {
-        torrent.pause();
+        // Do NOT pause: WebTorrent drops every peer candidate while a torrent
+        // is paused (`_addPeer` ignores them) and only re-announces on the
+        // tracker interval, so a paused list-only torrent would resume with an
+        // empty swarm. Deselecting every file already guarantees zero bytes.
         torrent.files.forEach((file) => file.deselect());
       } else if (options.onlyFiles && options.onlyFiles.length > 0) {
         this.selectFiles(recordId, options.onlyFiles);
@@ -324,7 +331,6 @@ export class TorrentEngine {
         console.warn(`[downloads] list-only metadata timeout for ${recordId}:`, error);
       }
       if (torrent.metadata) {
-        torrent.pause();
         torrent.files.forEach((file) => file.deselect());
       }
     } else if (torrent.metadata) {
@@ -409,7 +415,17 @@ export class TorrentEngine {
   }
 
   resume(recordId: string): void {
-    this.torrents.get(recordId)?.resume();
+    const torrent = this.torrents.get(recordId);
+    if (!torrent) return;
+    torrent.resume();
+    // WebTorrent ignored every peer candidate while the torrent was paused and
+    // only re-announces on the tracker's interval (often 30 min). Force one
+    // announce so resume actually reconnects to the swarm.
+    try {
+      torrent.discovery?.tracker?.update?.({});
+    } catch (error) {
+      console.warn(`[downloads] could not refresh trackers for ${recordId}:`, error);
+    }
   }
 
   selectFiles(recordId: string, onlyFiles: number[]): void {
@@ -490,15 +506,20 @@ export async function parseTorrentFiles(
 
   const specifier = "parse-torrent";
   const mod = (await import(specifier)) as {
+    // parse-torrent v11's default export is async (it decodes in a microtask);
+    // awaiting works for both it and a synchronous future version.
     default?: (input: Uint8Array) => unknown;
   };
   const parse = mod.default;
   if (typeof parse !== "function") throw new Error("parse-torrent failed to load");
-  const parsed = parse(bytes) as {
+  const parsed = (await parse(bytes)) as {
     name?: string;
     files?: Array<{ name?: string; path?: string; length?: number }>;
     length?: number;
-  };
+  } | null;
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("parse-torrent returned no data for this torrent");
+  }
   const files = parsed.files ?? [];
   if (files.length === 0) {
     return [{ name: parsed.name ?? path.basename(trimmed), size: parsed.length ?? 0 }];

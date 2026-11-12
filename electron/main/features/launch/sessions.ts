@@ -13,6 +13,7 @@
 import { emit } from "../../ipc";
 import { setLastPlayed } from "../../state/libraryStore";
 import { appendSample, finishSession, startSession } from "../../state/sessionsStore";
+import { startTelemetry, stopTelemetry } from "../telemetry";
 import { createSessionMetrics, type SessionMetrics } from "./metrics";
 import { getGameRootDir } from "./paths";
 import { resolveProcessDetails } from "./processes";
@@ -31,11 +32,17 @@ import type {
 /** A session that ran shorter than this is treated as a doomed launch. */
 export const HEAL_SHORT_RUN_SECS = 15;
 
-/** Heartbeat cadence for `game-progress` + a crash-safe metric checkpoint. */
+/** Heartbeat cadence for `game-progress` (+ a crash-safe metric checkpoint). */
 export const HEARTBEAT_INTERVAL_MS = 30_000;
 
-/** Telemetry sample cadence (in-memory; flushed to disk on the heartbeat). */
-export const SAMPLE_INTERVAL_MS = 5_000;
+/**
+ * Telemetry sample cadence. Samples are persisted as they are taken (not only
+ * on the 30 s heartbeat), so a crash loses at most one interval and the
+ * Activity charts get a dense series instead of one point per half minute.
+ * The watcher polls every 3 s while a session runs, so a 2.5 s threshold makes
+ * almost every poll take a real sample.
+ */
+export const SAMPLE_INTERVAL_MS = 2_500;
 
 export interface ActiveSession {
   gameId: string;
@@ -179,6 +186,9 @@ export function attachSession(session: ActiveSession, process: ProcessInfo): voi
     session.metrics = createSessionMetrics();
     session.lastSampleAt = Date.now();
     session.lastHeartbeatAt = Date.now();
+    // Kick the long-lived telemetry sources (RTSS probe, GPU counter cache,
+    // adapter list). GPU/LHM/SMART probes are throttled and non-blocking.
+    startTelemetry();
     try {
       session.sessionRowId = startSession({
         gameId: session.gameId,
@@ -268,7 +278,9 @@ export async function finalizeSession(
       finishSession(session.sessionRowId, {
         endedAtMs: finishedAt,
         elapsedSeconds: elapsed,
+        avgFps: snapshot?.avgFps ?? null,
         avgCpu: snapshot?.avgCpuUsage ?? null,
+        avgGpu: snapshot?.avgGpuUsage ?? null,
         avgRam: snapshot?.avgRamUsage ?? null,
         metricsJson: snapshot ? JSON.stringify(snapshot) : null,
       });
@@ -285,14 +297,23 @@ export async function finalizeSession(
   };
   if (snapshot && snapshot.samples.length > 0) {
     payload.metrics = {
+      avgFps: snapshot.avgFps,
+      minFps: snapshot.minFps,
+      maxFps: snapshot.maxFps,
       avgCpuUsage: snapshot.avgCpuUsage,
+      avgGpuUsage: snapshot.avgGpuUsage,
       avgRamUsage: snapshot.avgRamUsage,
+      avgCpuTemp: snapshot.avgCpuTemp,
+      avgGpuTemp: snapshot.avgGpuTemp,
       avgProcessRamMb: snapshot.avgProcessRamMb,
       sampleCount: snapshot.samples.length,
     };
   }
   if (remainingGameName) payload.remainingGameName = remainingGameName;
   emit("game-exited", payload);
+
+  // Last session ended: tear down the RTSS probe so it cannot outlive play.
+  if (activeSessions.size === 0) stopTelemetry();
 
   if (!options.killedByUser && elapsed < HEAL_SHORT_RUN_SECS) {
     const failure: GameFailurePayload = {
@@ -308,9 +329,12 @@ export async function finalizeSession(
 }
 
 /**
- * Periodic work for each live session: sample telemetry (throttled) and emit
- * the `game-progress` heartbeat, persisting one crash-safe sample per beat.
- * `workingSetFor` supplies the freshest process memory reading, when known.
+ * Periodic work for each live session: sample telemetry (throttled), append
+ * the fresh samples to the running row, and emit the `game-progress`
+ * heartbeat. Streaming the samples (rather than only the newest on each 30 s
+ * beat) keeps the on-disk series dense enough for the Activity charts and
+ * survives an app crash mid-session. `workingSetFor` supplies the freshest
+ * process memory reading, when known.
  */
 export function runSessionPeriodic(
   workingSetFor: (session: ActiveSession) => number | null,
@@ -324,7 +348,21 @@ export function runSessionPeriodic(
       session.lastSampleAt = now;
       const workingSet = workingSetFor(session);
       if (workingSet && workingSet > 0) session.lastWorkingSetBytes = workingSet;
-      session.metrics.sample(session.lastWorkingSetBytes || null);
+      session.metrics.sample(session.lastWorkingSetBytes || null, {
+        exePath: session.matchedExe,
+        pid: session.lastPid,
+      });
+
+      if (session.sessionRowId !== null) {
+        const pending = session.metrics.drainPending();
+        if (pending.length > 0) {
+          try {
+            for (const sample of pending) appendSample(session.sessionRowId, sample);
+          } catch (error) {
+            console.error(`[launch] could not persist samples for ${session.gameId}:`, error);
+          }
+        }
+      }
     }
 
     if (now - session.lastHeartbeatAt >= HEARTBEAT_INTERVAL_MS) {
@@ -336,16 +374,6 @@ export function runSessionPeriodic(
         elapsedSeconds: elapsed,
       };
       emit("game-progress", payload);
-
-      const pending = session.metrics.drainPending();
-      const newest = pending[pending.length - 1];
-      if (newest && session.sessionRowId !== null) {
-        try {
-          appendSample(session.sessionRowId, newest);
-        } catch (error) {
-          console.error(`[launch] could not checkpoint session ${session.gameId}:`, error);
-        }
-      }
     }
   }
 }
@@ -356,6 +384,7 @@ export function runSessionPeriodic(
  * are skipped (there is no time to await them).
  */
 export function finalizeSessionsOnQuit(): void {
+  stopTelemetry();
   if (activeSessions.size === 0) return;
   const now = Date.now();
   for (const session of activeSessions.values()) {
@@ -366,7 +395,9 @@ export function finalizeSessionsOnQuit(): void {
       finishSession(session.sessionRowId, {
         endedAtMs: now,
         elapsedSeconds: elapsed,
+        avgFps: snapshot?.avgFps ?? null,
         avgCpu: snapshot?.avgCpuUsage ?? null,
+        avgGpu: snapshot?.avgGpuUsage ?? null,
         avgRam: snapshot?.avgRamUsage ?? null,
         metricsJson: snapshot ? JSON.stringify(snapshot) : null,
       });

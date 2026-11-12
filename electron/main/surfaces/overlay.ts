@@ -68,6 +68,8 @@ export interface OverlaySession {
   startedAt: number;
   /** Process id of the game, or `0` while the launch is still pending. */
   pid?: number;
+  /** Detected executable, used to match the RTSS FPS entry. */
+  exePath?: string;
   /** Display name, when the launch event carried one. */
   name?: string;
 }
@@ -477,11 +479,15 @@ export function startOverlayLiveMetrics(options: {
     typeof options.intervalMs === "number" && Number.isFinite(options.intervalMs)
       ? options.intervalMs
       : settings.pollIntervalMs;
-  startLiveMetrics(interval, (sample) => {
-    const target = getOverlayWindow();
-    if (!target) return;
-    emitTo(target, EVENT_METRICS, sample);
-  });
+  startLiveMetrics(
+    interval,
+    (sample) => {
+      const target = getOverlayWindow();
+      if (!target) return;
+      emitTo(target, EVENT_METRICS, sample);
+    },
+    { exePath: session?.exePath ?? null, pid: session?.pid ?? null },
+  );
 }
 
 export function stopOverlayLiveMetrics(): void {
@@ -965,6 +971,10 @@ function onGameStarted(payload: unknown): void {
     gameId,
     name: typeof value.gameName === "string" ? value.gameName : undefined,
     pid: typeof value.pid === "number" ? value.pid : 0,
+    exePath:
+      typeof value.detectedExe === "string" && value.detectedExe
+        ? value.detectedExe
+        : undefined,
     startedAt: Date.now(),
   });
 }
