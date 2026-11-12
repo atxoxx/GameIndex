@@ -10,7 +10,7 @@
  * No ownership is ever fabricated: `gamesImported` counts real installs, and
  * the auth-required commands answer with an explicit "not configured" error.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import type { EpicSyncResult } from "../../../../src/types/epic";
 import type { GogSyncResult } from "../../../../src/types/gog";
 import type { HumbleSettings, HumbleSyncResult } from "../../../../src/types/humble";
@@ -29,9 +29,10 @@ interface StoreSettingsDocument {
   humble: HumbleSettings;
 }
 
-const settingsStore = createJsonStore<StoreSettingsDocument>(
-  "store-settings.json",
-  () => ({
+const settingsStore = createSqliteStore<StoreSettingsDocument>({
+  domain: "kv",
+  document: "store-settings",
+  createDefault: () => ({
     version: 1,
     uplay: { importInstalledGames: true, importUninstalledGames: true },
     humble: {
@@ -44,7 +45,7 @@ const settingsStore = createJsonStore<StoreSettingsDocument>(
       launchViaHumbleApp: false,
     },
   }),
-  (value) => ({
+  normalize: (value) => ({
     version: 1,
     uplay: {
       importInstalledGames: value.uplay?.importInstalledGames !== false,
@@ -60,7 +61,7 @@ const settingsStore = createJsonStore<StoreSettingsDocument>(
       launchViaHumbleApp: value.humble?.launchViaHumbleApp === true,
     },
   }),
-);
+});
 
 export function getUplaySettings(): UplaySettings {
   return settingsStore.read().uplay;

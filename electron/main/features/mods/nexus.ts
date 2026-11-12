@@ -13,7 +13,7 @@
  *  - `GET /v1/games/{domain}/mods/{id}/files/{fileId}/download_link.json` — Premium only.
  *  - `GET /v1/games/{domain}/mods/{latest_added|latest_updated|trending}.json` — browse feeds.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { httpJson } from "../../lib/http";
 import type { NexusStatus, RemoteModFile, RemoteModSearch, RemoteModSummary } from "./types";
 
@@ -23,11 +23,12 @@ interface NexusKeyDocument {
   apiKey: string;
 }
 
-export const nexusKeyStore = createJsonStore<NexusKeyDocument>(
-  "nexus.json",
-  () => ({ apiKey: "" }),
-  (value) => ({ apiKey: typeof value.apiKey === "string" ? value.apiKey : "" }),
-);
+export const nexusKeyStore = createSqliteStore<NexusKeyDocument>({
+  domain: "mods",
+  document: "nexus",
+  createDefault: () => ({ apiKey: "" }),
+  normalize: (value) => ({ apiKey: typeof value.apiKey === "string" ? value.apiKey : "" }),
+});
 
 export function getApiKey(): string | null {
   try {

@@ -17,7 +17,8 @@ import os from "node:os";
 import path from "node:path";
 
 import { userDataPath } from "../../lib/paths";
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
+import { loadOverlayStore } from "../../surfaces/overlaySettings";
 
 export interface MediaFileRef {
   path: string;
@@ -30,19 +31,19 @@ interface MediaRootsDocument {
   roots: string[];
 }
 
-const MEDIA_ROOTS_FILE = "media-roots.json";
 const MAX_ROOTS = 128;
 
-const rootsStore = createJsonStore<MediaRootsDocument>(
-  MEDIA_ROOTS_FILE,
-  () => ({ version: 1, roots: [] }),
-  (value) => ({
+const rootsStore = createSqliteStore<MediaRootsDocument>({
+  domain: "kv",
+  document: "media-roots",
+  createDefault: () => ({ version: 1, roots: [] }),
+  normalize: (value) => ({
     version: 1,
     roots: Array.isArray(value.roots)
       ? value.roots.filter((entry): entry is string => typeof entry === "string")
       : [],
   }),
-);
+});
 
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "bmp", "webp"]);
 const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "mkv"]);
@@ -171,13 +172,7 @@ function configuredRoots(): string[] {
     push(path.join(os.homedir(), "Videos", "Captures"));
   }
   try {
-    const raw = fs.readFileSync(path.join(app.getPath("userData"), "overlay.json"), "utf8");
-    const parsed = JSON.parse(raw) as {
-      settings?: { screenshotFolder?: unknown; videoFolder?: unknown };
-      screenshotFolder?: unknown;
-      videoFolder?: unknown;
-    };
-    const settings = parsed.settings ?? parsed;
+    const { settings } = loadOverlayStore();
     if (typeof settings.screenshotFolder === "string") push(settings.screenshotFolder);
     if (typeof settings.videoFolder === "string") push(settings.videoFolder);
   } catch {

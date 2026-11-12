@@ -1,18 +1,19 @@
 /**
  * Persistence for the downloads engine.
  *
- * Documents (all under Electron's `userData`):
- *   downloads-state.json    settings, scheduler, seeding + speed limits
- *   downloads-queue.json    live download records (restart resume)
- *   downloads-history.json  append-only download-history ledger
- *   downloads-secrets.json  debrid API key (safeStorage-encrypted when available)
+ * Documents (all under Electron's `userData`, stored in `downloads.db`):
+ *   downloads-state    settings, scheduler, seeding + speed limits
+ *   downloads-queue    live download records (restart resume)
+ *   downloads-history  append-only download-history ledger (`download_history` table)
+ *   downloads-secrets  debrid API key (safeStorage-encrypted when available)
  *
  * The Rust build kept these in its SQLite `kv` store, the `download_history`
- * table and the OS keychain. JSON documents keep the same durability model the
- * rest of this port uses (atomic temp + rename, corrupt files quarantined).
+ * table and the OS keychain; this pass uses one domain database and keeps the
+ * same synchronous durability model.
  */
 import { safeStorage } from "electron";
-import { createJsonStore } from "../../state/jsonStore";
+import { downloadHistoryCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import {
   DEFAULT_DOWNLOAD_SETTINGS,
   DEFAULT_SCHEDULER_CONFIG,
@@ -203,16 +204,18 @@ function normalizeState(value: unknown): DownloadsState {
   };
 }
 
-const stateStore = createJsonStore<DownloadsState>(
-  "downloads-state.json",
-  () => ({ ...DEFAULT_STATE, settings: { ...DEFAULT_DOWNLOAD_SETTINGS }, scheduler: { ...DEFAULT_SCHEDULER_CONFIG } }),
-  normalizeState,
-);
+const stateStore = createSqliteStore<DownloadsState>({
+  domain: "downloads",
+  document: "downloads-state",
+  createDefault: () => ({ ...DEFAULT_STATE, settings: { ...DEFAULT_DOWNLOAD_SETTINGS }, scheduler: { ...DEFAULT_SCHEDULER_CONFIG } }),
+  normalize: normalizeState,
+});
 
-const queueStore = createJsonStore<DownloadsQueue>(
-  "downloads-queue.json",
-  () => ({ version: 1, downloads: [] }),
-  (value) => {
+const queueStore = createSqliteStore<DownloadsQueue>({
+  domain: "downloads",
+  document: "downloads-queue",
+  createDefault: () => ({ version: 1, downloads: [] }),
+  normalize: (value) => {
     const raw = asRecord(value);
     return {
       version: 1,
@@ -223,12 +226,13 @@ const queueStore = createJsonStore<DownloadsQueue>(
         : [],
     };
   },
-);
+});
 
-const historyStore = createJsonStore<DownloadsHistoryDocument>(
-  "downloads-history.json",
-  () => ({ version: 1, nextId: 1, rows: [] }),
-  (value) => {
+const historyStore = createSqliteStore<DownloadsHistoryDocument>({
+  domain: "downloads",
+  document: "downloads-history",
+  createDefault: () => ({ version: 1, nextId: 1, rows: [] }),
+  normalize: (value) => {
     const raw = asRecord(value);
     const rows = Array.isArray(raw.rows)
       ? (raw.rows as DownloadHistoryRow[]).filter(
@@ -243,12 +247,14 @@ const historyStore = createJsonStore<DownloadsHistoryDocument>(
       rows,
     };
   },
-);
+  codec: downloadHistoryCodec,
+});
 
-const secretStore = createJsonStore<SecretDocument>(
-  "downloads-secrets.json",
-  () => ({ version: 1, debridApiKey: null }),
-  (value) => {
+const secretStore = createSqliteStore<SecretDocument>({
+  domain: "downloads",
+  document: "downloads-secrets",
+  createDefault: () => ({ version: 1, debridApiKey: null }),
+  normalize: (value) => {
     const raw = asRecord(value);
     const key = asRecord(raw.debridApiKey);
     const valid =
@@ -257,7 +263,7 @@ const secretStore = createJsonStore<SecretDocument>(
         : null;
     return { version: 1, debridApiKey: valid };
   },
-);
+});
 
 export function readState(): DownloadsState {
   return stateStore.read();

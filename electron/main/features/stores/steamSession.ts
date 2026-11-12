@@ -15,9 +15,8 @@
  * inferred from a name when the id is missing.
  */
 import { safeStorage } from "electron";
-import fs from "node:fs";
 import path from "node:path";
-import { app } from "electron";
+import { deleteDocument, readDocumentText, writeDocumentText } from "../../state/db/documents";
 import { fetchOwnedGames, fetchPlayerSummaries, fallbackSteamApiKey } from "./steamApi";
 import { steamInstallScan as steamInstallScanRaw } from "./steamSync";
 import { resolveExecutable } from "./exe";
@@ -36,14 +35,16 @@ interface StoredSession {
   savedAt: string;
 }
 
-function sessionFile(): string {
-  return path.join(app.getPath("userData"), "steam-session.json");
+const SESSION_DOCUMENT = "steam-session";
+
+function readStoredSession(): string {
+  return readDocumentText("kv", SESSION_DOCUMENT, "");
 }
 
 export function loadSteamSession(): SteamSession | null {
   let stored: StoredSession;
   try {
-    stored = JSON.parse(fs.readFileSync(sessionFile(), "utf8")) as StoredSession;
+    stored = JSON.parse(readStoredSession()) as StoredSession;
   } catch {
     return null;
   }
@@ -81,19 +82,11 @@ export function saveSteamSession(session: SteamSession): void {
       : json,
     savedAt: new Date().toISOString(),
   };
-  const file = sessionFile();
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(document, null, 2), "utf8");
-  fs.renameSync(tmp, file);
+  writeDocumentText("kv", SESSION_DOCUMENT, JSON.stringify(document, null, 2));
 }
 
 export function clearSteamSession(): void {
-  try {
-    fs.rmSync(sessionFile(), { force: true });
-  } catch {
-    /* already gone */
-  }
+  deleteDocument("kv", SESSION_DOCUMENT);
 }
 
 /** `steam_connect`: validate the pair against GetPlayerSummaries. */

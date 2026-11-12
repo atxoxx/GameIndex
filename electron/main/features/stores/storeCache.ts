@@ -12,7 +12,8 @@
  * returns `[]`, and a detail with no cached entry returns `null` — the same
  * empty states the renderer already renders.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { storeCacheCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import type { GameMetadataResult, StoreGameSummary } from "../../../../src/types/game";
 import { argNumber, argString, argStringArray } from "./types";
 
@@ -30,10 +31,11 @@ function emptyCache(): StoreCacheDocument {
   return { categories: {}, detailCache: {} };
 }
 
-const cacheStore = createJsonStore<StoreCacheDocument>(
-  "store-cache.json",
-  emptyCache,
-  (value) => {
+const cacheStore = createSqliteStore<StoreCacheDocument>({
+  domain: "store_cache",
+  document: "store-cache",
+  createDefault: emptyCache,
+  normalize: (value) => {
     const categories: Record<string, CacheEntry<StoreGameSummary[]>> = {};
     const detailCache: Record<string, CacheEntry<GameMetadataResult>> = {};
     if (value.categories && typeof value.categories === "object") {
@@ -60,7 +62,8 @@ const cacheStore = createJsonStore<StoreCacheDocument>(
     }
     return { categories, detailCache };
   },
-);
+  codec: storeCacheCodec,
+});
 
 /** Raw JSON string the renderer hydrates from (`load_store_cache`). */
 export function loadStoreCacheRaw(): string {

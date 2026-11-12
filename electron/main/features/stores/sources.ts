@@ -3,18 +3,20 @@
  *
  * Port of `src-tauri/src/source_manager.rs` + `src-tauri/src/db/sources.rs`.
  * The Rust build persisted metadata to SQLite and indexed downloads in FTS5.
- * This wave keeps a single JSON document (`sources.json`) with the metadata and
- * each source's fetched catalogue, which is enough for CRUD, refresh, toggle
- * and offline search. The renderer's availability map keeps its own file
- * (`source_cache.json`) through `save_source_cache` / `load_source_cache`.
+ * This pass keeps the metadata in `sources.db` (`sources` + `sources_cache`,
+ * one payload per fetched catalogue) which is enough for CRUD, refresh, toggle
+ * and offline search. The renderer's availability map lives in the same
+ * database as the `source_cache` document through `save_source_cache` /
+ * `load_source_cache`.
  *
  * Search is a pure local pass over the cached catalogues (the plugin runtime
  * is not wired into this build); when no catalogue has been fetched yet the
  * command returns `[]` and logs the reason, exactly like the "no plugin engine"
  * degradation contract.
  */
-import { createJsonStore } from "../../state/jsonStore";
-import { readUserDataText, writeUserDataText } from "../../state/jsonStore";
+import { sourcesCodec } from "../../state/db/codecs";
+import { readDocumentText, writeDocumentText } from "../../state/db/documents";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { httpText } from "../../lib/http";
 import type {
   BulkAddResult,
@@ -40,10 +42,11 @@ interface SourcesDocument {
   cache: Record<string, CachedSourceEntry>;
 }
 
-const sourcesStore = createJsonStore<SourcesDocument>(
-  "sources.json",
-  () => ({ version: 1, sources: [], cache: {} }),
-  (value) => ({
+const sourcesStore = createSqliteStore<SourcesDocument>({
+  domain: "sources",
+  document: "sources",
+  createDefault: () => ({ version: 1, sources: [], cache: {} }),
+  normalize: (value) => ({
     version: 1,
     sources: Array.isArray(value.sources)
       ? value.sources.filter(
@@ -54,7 +57,8 @@ const sourcesStore = createJsonStore<SourcesDocument>(
     cache:
       value.cache && typeof value.cache === "object" ? value.cache : {},
   }),
-);
+  codec: sourcesCodec,
+});
 
 let sourceCounter = 0;
 
@@ -436,7 +440,7 @@ export function searchSources(query: string): MatchedDownload[] {
 // ── Renderer availability cache (`source_cache.json`) ─────────────────
 
 export function loadSourceCacheRaw(): string {
-  return readUserDataText("source_cache.json", "");
+  return readDocumentText("sources", "source_cache", "");
 }
 
 export function saveSourceCacheRaw(data: string): void {
@@ -456,7 +460,7 @@ export function saveSourceCacheRaw(data: string): void {
       );
     }
   }
-  writeUserDataText("source_cache.json", data);
+  writeDocumentText("sources", "source_cache", data);
 }
 
 /** Drop a source's cached catalogue (used by remove, and after a failed add). */

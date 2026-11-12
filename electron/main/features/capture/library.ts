@@ -3,9 +3,8 @@
  *
  * Ported from `src-tauri/src/db/clips.rs` (the `clips` / `reels` / `reel_items`
  * SQL schema) plus `capture/listing.rs` (folder discovery / deletion / reveal).
- * The Rust build kept this in `clips.db` (SQLite); the Electron pass stores the
- * same rows in one small JSON document, `userData/clips.json`, because the
- * documents only change on explicit user actions and reels are cheap playlists.
+ * The Rust build kept this in `clips.db` (SQLite); this pass does the same, with
+ * the three tables behind `state/sqliteStore.ts`.
  *
  * Behaviour deliberately matched to the SQL DAO:
  *   • registering the same file path updates metadata instead of duplicating
@@ -24,7 +23,8 @@ import { app, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { createJsonStore } from "../../state/jsonStore";
+import { clipsCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { getOverlaySettings } from "../../surfaces/overlay";
 import type {
   ClipRow,
@@ -34,8 +34,6 @@ import type {
   UpdateClipPayload,
 } from "./types";
 
-const STORE_FILE = "clips.json";
-/** Ceiling on the recent-clips list handed to the renderer. */
 const MAX_RECENT_CLIPS = 500;
 /** Extensions `capture/listing.rs` recognised, plus `ts` (our kill-safe
  *  transport stream, which is promoted to mp4 on a clean stop). */
@@ -137,7 +135,13 @@ function normalizeDocument(value: unknown): ClipsDocument {
   };
 }
 
-const store = createJsonStore<ClipsDocument>(STORE_FILE, emptyDocument, normalizeDocument);
+const store = createSqliteStore<ClipsDocument>({
+  domain: "clips",
+  document: "clips",
+  createDefault: emptyDocument,
+  normalize: normalizeDocument,
+  codec: clipsCodec,
+});
 
 function nowMs(): number {
   return Date.now();

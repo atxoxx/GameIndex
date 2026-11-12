@@ -2,10 +2,11 @@
  * Compatibility settings persistence.
  *
  * The Rust build stored one JSON blob in `compatibility.db`. This port keeps
- * the same document in `<userData>/compatibility.json` through the shared JSON
- * store, plus the custom prefix list the settings tab registers.
+ * the same document in `compatibility.db` (`compatibility_settings` rows) plus
+ * the custom prefix list the settings tab registers.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { compatibilityCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import type { CompatibilitySettings } from "./types";
 
 export const DEFAULT_COMPATIBILITY_SETTINGS: CompatibilitySettings = {
@@ -165,11 +166,13 @@ function normalizeDocument(value: CompatibilityDocument): CompatibilityDocument 
   };
 }
 
-export const compatibilityStore = createJsonStore<CompatibilityDocument>(
-  "compatibility.json",
-  emptyDocument,
-  normalizeDocument,
-);
+export const compatibilityStore = createSqliteStore<CompatibilityDocument>({
+  domain: "compatibility",
+  document: "compatibility",
+  createDefault: emptyDocument,
+  normalize: normalizeDocument,
+  codec: compatibilityCodec,
+});
 
 export function getCompatibilitySettings(): CompatibilitySettings {
   return compatibilityStore.read().settings;

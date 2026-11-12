@@ -13,7 +13,7 @@
  * actually installed on this PC. Nothing is fabricated: when a client is not
  * detected, connect fails with an actionable message.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import {
   scanBattlenet,
   scanEa,
@@ -67,14 +67,15 @@ interface BetaDocument {
   stores: Partial<Record<BetaKey, BetaRecord>>;
 }
 
-const store = createJsonStore<BetaDocument>(
-  "beta-integrations.json",
-  () => ({ stores: {} }),
-  (doc) => {
+const store = createSqliteStore<BetaDocument>({
+  domain: "kv",
+  document: "beta-integrations",
+  createDefault: () => ({ stores: {} }),
+  normalize: (doc) => {
     if (!doc.stores || typeof doc.stores !== "object") doc.stores = {};
     return doc;
   },
-);
+});
 
 function record(key: BetaKey): BetaRecord {
   return store.read().stores[key] ?? { session: null, settings: { ...DEFAULT_SETTINGS } };

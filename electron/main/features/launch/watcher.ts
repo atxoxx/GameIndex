@@ -16,7 +16,7 @@
  * empty — nothing could match, so there is nothing to poll for.
  */
 import { app } from "electron";
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { resolveGameExe } from "./exeResolve";
 import {
   exeStemLower,
@@ -85,15 +85,16 @@ function emptyIndex(): WatcherIndex {
   };
 }
 
-const indexStore = createJsonStore<WatcherIndexDocument>(
-  "watcher-index.json",
-  () => ({ version: WATCHER_VERSION, updatedAt: new Date().toISOString(), games: [] }),
-  (doc) => {
+const indexStore = createSqliteStore<WatcherIndexDocument>({
+  domain: "kv",
+  document: "watcher-index",
+  createDefault: () => ({ version: WATCHER_VERSION, updatedAt: new Date().toISOString(), games: [] }),
+  normalize: (doc) => {
     if (!Array.isArray(doc.games)) doc.games = [];
     doc.version = WATCHER_VERSION;
     return doc;
   },
-);
+});
 
 let index: WatcherIndex = emptyIndex();
 let timer: NodeJS.Timeout | null = null;

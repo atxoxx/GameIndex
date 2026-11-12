@@ -7,7 +7,6 @@
  * `src-tauri/src/db/schema_sessions.sql`: one row per session, `ended_at` NULL
  * while it runs, samples kept as compact JSON in `metrics_json`.
  */
-import { readUserDataText } from "./jsonStore";
 import {
   appendSessionSample,
   closeAllDatabases,
@@ -112,5 +111,8 @@ export function relinkSessionsForGame(
 
 /** Legacy `sessions.json` migration source (read-only, original array shape). */
 export function readLegacySessions(): string {
-  return readUserDataText("sessions.json", "[]");
+  // The pre-SQLite document is parked on first run (`state/legacyJson.ts`);
+  // sessions themselves now come from `get_sessions` (sessions.db). Nothing is
+  // left to migrate, so the renderer's fallback sees an empty array.
+  return "[]";
 }

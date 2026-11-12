@@ -22,7 +22,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { emit } from "../../ipc";
 import { downloadToFile } from "../../lib/http";
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { getDownloadManager } from "../downloads/manager";
 import type { DownloadRecord } from "../downloads/types";
 import { catalogEntry } from "./catalog";
@@ -38,10 +38,11 @@ const SPEC_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const WATCH_INTERVAL_MS = 500;
 const WATCH_TIMEOUT_MS = 30 * 60 * 1000;
 
-const installStore = createJsonStore<EmulatorInstallsDocument>(
-  "emulator-installs.json",
-  () => ({ version: 1, installs: {} }),
-  (value) => {
+const installStore = createSqliteStore<EmulatorInstallsDocument>({
+  domain: "emulators",
+  document: "emulator-installs",
+  createDefault: () => ({ version: 1, installs: {} }),
+  normalize: (value) => {
     const raw = value as { installs?: unknown } | null;
     const installs: Record<string, EmulatorInstallSpec> = {};
     const now = Date.now();
@@ -65,7 +66,7 @@ const installStore = createJsonStore<EmulatorInstallsDocument>(
     }
     return { version: 1, installs };
   },
-);
+});
 
 function specFor(downloadId: string): EmulatorInstallSpec | null {
   return installStore.read().installs[downloadId] ?? null;

@@ -1,14 +1,16 @@
 /**
  * Durable news store.
  *
- * Mirrors `db/news.rs` + `news.rs` on top of `state/jsonStore.ts`:
- * feeds, merged article rows, read links, bookmarks, reading history and
- * reader preferences live in one document (`userData/news.json`).
+ * Mirrors `db/news.rs` + `news.rs` on top of `state/sqliteStore.ts`: feeds,
+ * merged article rows, read links, bookmarks, reading history and reader
+ * preferences live in `news.db` (`news_feeds`, `news_articles`, `news_read`,
+ * `news_saved`, `news_history`, `news_prefs`).
  *
  * Article bodies are stored but omitted from `news_snapshot`/`news_ingest`
  * responses; the reader fetches the one body it opens through `news_article`.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { newsCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 
 export interface NewsFeedRecord {
   url: string;
@@ -106,21 +108,27 @@ function emptyDocument(): NewsDocument {
   };
 }
 
-const store = createJsonStore<NewsDocument>("news.json", emptyDocument, (value) => {
-  const document = value as Partial<NewsDocument>;
-  return {
-    version: 1,
-    updatedAt: document.updatedAt ?? new Date().toISOString(),
-    feeds: Array.isArray(document.feeds) ? document.feeds : [],
-    articles: Array.isArray(document.articles) ? document.articles : [],
-    read: Array.isArray(document.read) ? document.read : [],
-    saved: Array.isArray(document.saved) ? document.saved : [],
-    history: Array.isArray(document.history) ? document.history : [],
-    prefs:
-      document.prefs && typeof document.prefs === "object" && !Array.isArray(document.prefs)
-        ? document.prefs
-        : {},
-  };
+const store = createSqliteStore<NewsDocument>({
+  domain: "news",
+  document: "news",
+  createDefault: emptyDocument,
+  normalize: (value) => {
+    const document = value as Partial<NewsDocument>;
+    return {
+      version: 1,
+      updatedAt: document.updatedAt ?? new Date().toISOString(),
+      feeds: Array.isArray(document.feeds) ? document.feeds : [],
+      articles: Array.isArray(document.articles) ? document.articles : [],
+      read: Array.isArray(document.read) ? document.read : [],
+      saved: Array.isArray(document.saved) ? document.saved : [],
+      history: Array.isArray(document.history) ? document.history : [],
+      prefs:
+        document.prefs && typeof document.prefs === "object" && !Array.isArray(document.prefs)
+          ? document.prefs
+          : {},
+    };
+  },
+  codec: newsCodec,
 });
 
 function nowSeconds(): number {

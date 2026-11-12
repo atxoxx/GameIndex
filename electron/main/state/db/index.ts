@@ -10,10 +10,14 @@
 import { importDomainIfNeeded } from "./importLegacy";
 import { openDb } from "./sqlite";
 import type { DbDomain } from "./schema";
+import { parkLegacyJsonDocuments } from "../legacyJson";
 
 const prepared = new Set<DbDomain>();
 
 export function ensureStorage(domain: DbDomain): void {
+  // Before anything can import from the old JSON documents, park them: this
+  // build starts from SQLite and the old bytes are kept in `json-backup-*`.
+  parkLegacyJsonDocuments();
   try {
     if (!prepared.has(domain)) {
       openDb(domain);
@@ -139,3 +143,29 @@ export {
 export type { SaveBackup, SaveLocation, SavesSettingsBlob } from "./saves";
 
 export { importDomainIfNeeded, migrationKey } from "./importLegacy";
+
+export {
+  deleteDocument,
+  readDocumentJson,
+  readDocumentRow,
+  readDocumentText,
+  writeDocumentJson,
+  writeDocumentText,
+} from "./documents";
+
+export {
+  achievementLinksCodec,
+  achievementsCacheCodec,
+  clipsCodec,
+  compatibilityCodec,
+  downloadHistoryCodec,
+  emulatorsCodec,
+  mergePluginConfigValues,
+  modsCodec,
+  newsCodec,
+  pluginsCodec,
+  readPluginConfigValues,
+  sourcesCodec,
+  storeCacheCodec,
+  writePluginConfigValues,
+} from "./codecs";

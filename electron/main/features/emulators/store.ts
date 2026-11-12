@@ -1,10 +1,9 @@
 /**
- * Emulator registry — `userData/emulators.json`.
+ * Emulator registry — `emulators.db`.
  *
  * The Rust build kept this in `emulators.db` (`src-tauri/src/db/emulators.rs`).
- * The Electron port keeps the same one-row-per-configured-emulator model in a
- * feature-local JSON document (no new SQLite tables this wave), which is the
- * documented approach in `commands/PORTING.md`.
+ * This port keeps the same one-row-per-configured-emulator model, now in the
+ * real `emulators` table (unknown fields ride along in `extra_json`).
  *
  * Behaviour kept from the DAO / `emulation.rs`:
  *  • `list_emulators` is ordered by display name (case-insensitive).
@@ -21,7 +20,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { createJsonStore } from "../../state/jsonStore";
+import { emulatorsCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { getGame, listGames, upsertGames } from "../../state/libraryStore";
 import type {
   EmulatorRow,
@@ -33,11 +33,13 @@ import type {
 const MAX_EMULATORS = 500;
 const DOCUMENT_VERSION = 1 as const;
 
-const store = createJsonStore<EmulatorsDocument>(
-  "emulators.json",
-  () => ({ version: DOCUMENT_VERSION, emulators: [] }),
-  (value) => normalizeDocument(value),
-);
+const store = createSqliteStore<EmulatorsDocument>({
+  domain: "emulators",
+  document: "emulators",
+  createDefault: () => ({ version: DOCUMENT_VERSION, emulators: [] }),
+  normalize: (value) => normalizeDocument(value),
+  codec: emulatorsCodec,
+});
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

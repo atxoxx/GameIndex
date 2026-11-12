@@ -7,13 +7,16 @@
  * field is optional at the wire level: unknown keys are ignored and missing
  * ones fall back to the defaults below, so older/partial payloads still load.
  *
- * Storage lives in `<userData>/overlay.json` — the Tauri build used two
- * `kv_store` rows (`overlay.settings.v1` / `overlay.history.v1`); one JSON file
- * keeps the pair atomic without a database.
+ * Storage lives in `kv.db` (`documents` row `overlay`). The retired Tauri build
+ * used two `kv_store` rows; this port keeps settings and the opaque history blob
+ * in one SQLite document so they update atomically. A legacy `overlay.json` is
+ * imported once on first read and then renamed to `*.migrated`.
  */
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { readDocumentJson } from "../state/db/documents";
+import { createSqliteStore } from "../state/sqliteStore";
 
 export type OverlayCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
@@ -193,8 +196,39 @@ export interface OverlayStore {
 
 const STORE_FILE = "overlay.json";
 
-function storePath(): string {
+function legacyPath(): string {
   return path.join(app.getPath("userData"), STORE_FILE);
+}
+
+const store = createSqliteStore<OverlayStore>({
+  domain: "kv",
+  document: "overlay",
+  fileName: STORE_FILE,
+  createDefault: () => ({
+    settings: { ...DEFAULT_OVERLAY_SETTINGS },
+    history: null,
+  }),
+});
+
+let migrationChecked = false;
+
+/** Import the retired JSON document once, then park it. */
+function ensureLegacyImported(): void {
+  if (migrationChecked) return;
+  migrationChecked = true;
+  try {
+    if (readDocumentJson("kv", "overlay") !== null) return;
+    const legacy = legacyPath();
+    if (!fs.existsSync(legacy)) return;
+    const parsed = JSON.parse(fs.readFileSync(legacy, "utf8")) as Partial<OverlayStore>;
+    store.write({
+      settings: normalizeOverlaySettings(parsed.settings),
+      history: typeof parsed.history === "string" ? parsed.history : null,
+    });
+    fs.renameSync(legacy, `${legacy}.migrated`);
+  } catch (error) {
+    console.error("[overlay] legacy settings import failed:", error);
+  }
 }
 
 export function isOverlayCorner(value: unknown): value is OverlayCorner {
@@ -225,9 +259,9 @@ export function normalizeOverlaySettings(
 
 /** Read the persisted store, falling back cleanly on absence/corruption. */
 export function loadOverlayStore(): OverlayStore {
+  ensureLegacyImported();
   try {
-    const raw = fs.readFileSync(storePath(), "utf8");
-    const parsed = JSON.parse(raw) as Partial<OverlayStore>;
+    const parsed = store.read();
     const settings = normalizeOverlaySettings(parsed.settings);
     // Session-scoped flags must never survive a restart: the recorder is not
     // running, so a persisted `true` would leave the settings mirror lying.
@@ -242,14 +276,11 @@ export function loadOverlayStore(): OverlayStore {
   }
 }
 
-/** Atomic-ish write (temp + rename) so a crash cannot truncate the file. */
-export function persistOverlayStore(store: OverlayStore): void {
-  const target = storePath();
-  const tmp = `${target}.tmp`;
+/** Persist the store. SQLite writes are synchronous and durable. */
+export function persistOverlayStore(next: OverlayStore): void {
+  ensureLegacyImported();
   try {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(tmp, JSON.stringify(store, null, 2), "utf8");
-    fs.renameSync(tmp, target);
+    store.write(next);
   } catch (error) {
     console.error("[overlay] failed to persist settings:", error);
   }

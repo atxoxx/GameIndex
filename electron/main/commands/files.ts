@@ -11,7 +11,7 @@ import fs from "node:fs";
 import type { Dirent } from "node:fs";
 import path from "node:path";
 import type { CommandHandler } from "../ipc";
-import { createJsonStore } from "../state/jsonStore";
+import { createSqliteStore } from "../state/sqliteStore";
 
 // ── Small argument helpers ────────────────────────────────────────────
 function stringArg(args: Record<string, unknown>, ...keys: string[]): string {
@@ -618,18 +618,19 @@ interface StorageHistory {
   snapshots: SizeSnapshot[];
 }
 
-const storageHistoryStore = createJsonStore<StorageHistory>(
-  "storage-history.json",
-  () => ({
+const storageHistoryStore = createSqliteStore<StorageHistory>({
+  domain: "kv",
+  document: "storage-history",
+  createDefault: () => ({
     events: [],
     snapshots: [],
   }),
-  (doc) => {
+  normalize: (doc) => {
     if (!Array.isArray(doc.events)) doc.events = [];
     if (!Array.isArray(doc.snapshots)) doc.snapshots = [];
     return doc;
   },
-);
+});
 
 function trimStart<T>(items: T[], limit: number): T[] {
   return items.length > limit ? items.slice(items.length - limit) : items;

@@ -2,12 +2,11 @@
  * Achievements cache + achievement-links persistence.
  *
  * Port of `src-tauri/src/db/achievements.rs` and
- * `src-tauri/src/db/achievement_links.rs` onto the dependency-free JSON stores
- * this build uses. The Rust build kept one row per game in SQLite; here the
- * whole map lives in two small documents under `userData`:
+ * `src-tauri/src/db/achievement_links.rs` onto the shared SQLite store. The
+ * Rust build kept one row per game in SQLite; this port does the same:
  *
- *   achievements.json        `{ version, games: { <gameId>: GameAchievementData } }`
- *   achievement-links.json   `{ version, links: { <gameId>: { <source>: AchievementLink } } }`
+ *   achievements.db   achievements_cache      `{ version, games: { <gameId>: GameAchievementData } }`
+ *   achievements.db   achievement_links       `{ version, links: { <gameId>: { <source>: AchievementLink } } }`
  *
  * Write rules are the Rust ones, because the renderer depends on them:
  *
@@ -27,7 +26,8 @@ import type {
   AchievementSource,
   GameAchievementData,
 } from "../../../../src/types/game";
-import { createJsonStore } from "../../state/jsonStore";
+import { achievementLinksCodec, achievementsCacheCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { apiNameKey, clampPercent, normalizeLastSynced, nowSeconds } from "./util";
 
 const SOURCES: readonly AchievementSource[] = ["steam", "retro", "manual", "gog", "epic"];
@@ -119,11 +119,13 @@ export interface AchievementsDocument {
   games: Record<string, GameAchievementData>;
 }
 
-const cacheStore = createJsonStore<AchievementsDocument>(
-  "achievements.json",
-  () => ({ version: 1, games: {} }),
-  normalizeDocument,
-);
+const cacheStore = createSqliteStore<AchievementsDocument>({
+  domain: "achievements",
+  document: "achievements",
+  createDefault: () => ({ version: 1, games: {} }),
+  normalize: normalizeDocument,
+  codec: achievementsCacheCodec,
+});
 
 // ── Cache reads ───────────────────────────────────────────────────────
 
@@ -373,11 +375,13 @@ function normalizeLinksDocument(raw: unknown): LinksDocument {
   return { version: 1, links };
 }
 
-const linksStore = createJsonStore<LinksDocument>(
-  "achievement-links.json",
-  () => ({ version: 1, links: {} }),
-  normalizeLinksDocument,
-);
+const linksStore = createSqliteStore<LinksDocument>({
+  domain: "achievements",
+  document: "achievement-links",
+  createDefault: () => ({ version: 1, links: {} }),
+  normalize: normalizeLinksDocument,
+  codec: achievementLinksCodec,
+});
 
 /** `achievement_links_list`: `{ <gameId>: AchievementLink[] }`. */
 export function listAllLinks(): Record<string, AchievementLink[]> {

@@ -4,7 +4,7 @@
  * Ported from `review_quotes.rs`; the Rust build kept a bounded JSON array in
  * the kv domain, so this uses the same `state/jsonStore.ts` pattern.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 
 export type ReviewQuoteKind = "review" | "excerpt";
 
@@ -31,9 +31,14 @@ interface QuotesDocument {
 const MAX_QUOTES = 500;
 const MAX_EXCERPT_CHARS = 4000;
 
-const store = createJsonStore<QuotesDocument>("review-quotes.json", () => ({ quotes: [] }), (value) => ({
-  quotes: Array.isArray(value.quotes) ? value.quotes : [],
-}));
+const store = createSqliteStore<QuotesDocument>({
+  domain: "kv",
+  document: "review-quotes",
+  createDefault: () => ({ quotes: [] }),
+  normalize: (value) => ({
+    quotes: Array.isArray(value.quotes) ? value.quotes : [],
+  }),
+});
 
 function normalize(input: Partial<ReviewQuote>): ReviewQuote {
   const now = Date.now();

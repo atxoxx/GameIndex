@@ -4,15 +4,15 @@
  * Layout under `app.getPath("userData")`:
  *
  * ```
- * plugins.json                     ← index (state/jsonStore.ts)
+ * <sqlite> plugins.db              ← index (`plugins` table) + secrets (`plugin_config`)
  * plugins/<id>/manifest.json       ← validated descriptor (no secrets)
  * plugins/<id>/plugin.js           ← the source that is evaluated
- * plugins/<id>/config.json         ← per-plugin user config (secrets encrypted)
  * ```
  *
- * The document adapter is injected so this module stays free of Electron and
- * can be exercised outside the app. Directories are created through a temp
- * folder + rename, so a half-written plugin never appears installed.
+ * The document adapter and the config adapter are injected so this module stays
+ * free of Electron and can be exercised outside the app. Directories are
+ * created through a temp folder + rename, so a half-written plugin never
+ * appears installed.
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -45,11 +45,22 @@ export interface SecretCipher {
   decrypt(cipherText: string): string;
 }
 
+/**
+ * Optional per-plugin config persistence. The Electron wiring stores the
+ * values in `plugins.db` (`plugin_config`); without an adapter the registry
+ * falls back to `plugins/<id>/config.json` for harnesses and tests.
+ */
+export interface PluginConfigStore {
+  read(pluginId: string): Record<string, string>;
+  write(pluginId: string, values: Record<string, string>): void;
+}
+
 export interface PluginRegistryOptions {
   /** `userData/plugins`. */
   baseDir: string;
   document: PluginDocumentStore;
   cipher?: SecretCipher | null;
+  configStore?: PluginConfigStore;
   now?: () => number;
   logger?: (...args: unknown[]) => void;
 }
@@ -140,6 +151,7 @@ export class PluginRegistry {
   private readonly baseDir: string;
   private readonly document: PluginDocumentStore;
   private readonly cipher: SecretCipher | null;
+  private readonly configStore: PluginConfigStore | null;
   private readonly now: () => number;
   private readonly logger: (...args: unknown[]) => void;
 
@@ -147,6 +159,7 @@ export class PluginRegistry {
     this.baseDir = options.baseDir;
     this.document = options.document;
     this.cipher = options.cipher ?? null;
+    this.configStore = options.configStore ?? null;
     this.now = options.now ?? unixNow;
     this.logger = options.logger ?? ((...args) => console.warn(...args));
     fs.mkdirSync(this.baseDir, { recursive: true });
@@ -382,6 +395,14 @@ export class PluginRegistry {
   }
 
   private readConfigDocument(id: string): StoredConfig {
+    if (this.configStore) {
+      try {
+        return { version: 1, values: { ...this.configStore.read(id) } };
+      } catch (error) {
+        this.logger(`[plugins] ignoring unreadable config for ${id}:`, error);
+        return { version: 1, values: {} };
+      }
+    }
     const file = this.configPath(id);
     try {
       const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<StoredConfig>;
@@ -402,6 +423,18 @@ export class PluginRegistry {
   }
 
   private writeConfigDocument(id: string, config: StoredConfig): void {
+    if (this.configStore) {
+      try {
+        this.configStore.write(id, config.values);
+      } catch (error) {
+        throw new Error(
+          `write plugin config for ${id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      return;
+    }
     try {
       this.writeFileAtomic(this.configPath(id), JSON.stringify(config, null, 2));
     } catch (error) {

@@ -1,17 +1,19 @@
 /**
- * Tiny JSON-document store used by the ported domain backends.
+ * Legacy JSON-document store — superseded by `state/sqliteStore.ts`.
  *
- * The Rust build kept each domain (sessions, notes, shelves, saves, …) in its
- * own SQLite database. The Electron pass deliberately keeps this first wave
- * dependency-free: every domain is a single JSON document under
- * `app.getPath('userData')`, read once into memory and written back atomically.
+ * Everything that used to call `createJsonStore` now creates a SQLite store
+ * instead (see `STORAGE.md`). The module is kept because `JsonStore<T>` is the
+ * shared interface and because `appSettings.ts`/`surfaces/` still own plain
+ * files; nothing in `electron/main` calls these writers for domain data any
+ * more. Do not add new call sites.
  *
- * Writes are synchronous on purpose. The documents here are small (a few
- * hundred KB at most) and only change on explicit user actions, so the simpler
- * durability model — temp file then rename, throwing on failure — is preferable
- * to a debounce that could lose the last edit on quit. The game library, which
- * *is* large and written on every enrichment tick, has its own coalescing store
- * in `libraryStore.ts`.
+ * History: the Rust build kept each domain (sessions, notes, shelves, saves, …)
+ * in its own SQLite database. The first Electron pass kept each domain as one
+ * JSON document; that pass is over, and `legacyJson.ts` parks those documents on
+ * first run.
+ *
+ * Writes are synchronous on purpose, exactly like the SQLite store, so callers
+ * can keep treating a returned write as durable.
  */
 import { app } from "electron";
 import fs from "node:fs";

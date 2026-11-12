@@ -33,7 +33,7 @@ import type {
   RetroSettingsUpdate,
 } from "../../../../src/types/game";
 import { httpText } from "../../lib/http";
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { getGame } from "../../state/libraryStore";
 import {
   deleteLink,
@@ -241,15 +241,16 @@ function normalizeSettings(raw: unknown): SettingsDocument {
   };
 }
 
-const settingsStore = createJsonStore<SettingsDocument>(
-  "achievement-settings.json",
-  () => ({
+const settingsStore = createSqliteStore<SettingsDocument>({
+  domain: "kv",
+  document: "achievement-settings",
+  createDefault: () => ({
     version: 1,
     localAchievementsEnabled: true,
     retro: defaultRetroState(),
   }),
-  normalizeSettings,
-);
+  normalize: normalizeSettings,
+});
 
 function updateSettings(mutate: (doc: SettingsDocument) => SettingsDocument): void {
   settingsStore.update((current) => {

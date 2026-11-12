@@ -32,6 +32,7 @@ import {
 import {
   PluginRegistry,
   sha256Hex,
+  type PluginConfigStore,
   type PluginDocumentStore,
   type SecretCipher,
 } from "./registry";
@@ -73,6 +74,8 @@ export interface PluginRuntimeOptions {
   baseDir: string;
   document: PluginDocumentStore;
   cipher?: SecretCipher | null;
+  /** Where secret config values live (SQLite in the app, file in tests). */
+  configStore?: PluginConfigStore;
   httpText?: HttpTextFn;
   limits?: SandboxLimits;
   logger?: (...args: unknown[]) => void;
@@ -133,6 +136,7 @@ export class PluginRuntime {
       baseDir: options.baseDir,
       document: options.document,
       cipher: options.cipher ?? null,
+      configStore: options.configStore,
       now: options.now,
       logger: this.logger,
     });

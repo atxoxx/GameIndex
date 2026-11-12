@@ -7,13 +7,12 @@
  *
  * The Nostr signing key is the one sensitive value: losing it rotates the
  * user's identity, so it is encrypted with Electron's `safeStorage` when the OS
- * keyring is available and stored under `userData`. Nothing is ever written to
- * `localStorage`.
+ * keyring is available and stored in `kv.db` (`documents`). Nothing is ever
+ * written to `localStorage`.
  */
 import { safeStorage } from "electron";
-import fs from "node:fs";
-import path from "node:path";
-import { createJsonStore } from "../../state/jsonStore";
+import { deleteDocument, readDocumentText, writeDocumentText } from "../../state/db/documents";
+import { createSqliteStore } from "../../state/sqliteStore";
 import { userDataPath } from "../../lib/paths";
 
 const DB_FILE = "friends-db.json";
@@ -22,12 +21,14 @@ interface SecretDocument {
   nostrPrivkey: string | null;
 }
 
-const secrets = createJsonStore<SecretDocument>(
-  "friends-secrets.json",
-  () => ({ nostrPrivkey: null }),
-  (doc) => (doc && typeof doc === "object" ? doc : { nostrPrivkey: null }),
-);
+const secrets = createSqliteStore<SecretDocument>({
+  domain: "kv",
+  document: "friends-secrets",
+  createDefault: () => ({ nostrPrivkey: null }),
+  normalize: (doc) => (doc && typeof doc === "object" ? doc : { nostrPrivkey: null }),
+});
 
+/** Location of the pre-SQLite renderer document (parked on first run). */
 export function friendsDbPath(): string {
   return userDataPath(DB_FILE);
 }
@@ -35,9 +36,8 @@ export function friendsDbPath(): string {
 /** Raw JSON text, exactly as the renderer round-trips it. */
 export function loadFriendsDb(): string {
   try {
-    return fs.readFileSync(friendsDbPath(), "utf8");
+    return readDocumentText("kv", "friends-db", "");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
     console.error("[friends] failed to read database:", error);
     return "";
   }
@@ -45,11 +45,12 @@ export function loadFriendsDb(): string {
 
 export function saveFriendsDb(content: unknown): void {
   const text = typeof content === "string" ? content : JSON.stringify(content ?? {});
-  const target = friendsDbPath();
-  const tmp = `${target}.${process.pid}.tmp`;
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.writeFileSync(tmp, text, "utf8");
-  fs.renameSync(tmp, target);
+  writeDocumentText("kv", "friends-db", text);
+}
+
+/** Drop the stored graph (used when the renderer resets friends). */
+export function clearFriendsDb(): void {
+  deleteDocument("kv", "friends-db");
 }
 
 function canEncrypt(): boolean {

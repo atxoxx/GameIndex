@@ -3,15 +3,20 @@
  *
  * The renderer keeps most UI preferences in `localStorage`, but a handful are
  * consumed by the main process *before* a window exists (boot splash, close to
- * tray, autostart, accent/theme for the splash page). Those live here in
- * `app-settings.json` under `app.getPath('userData')`.
+ * tray, autostart, accent/theme for the splash page). Those live in `kv.db`
+ * (`documents` row `app-settings`), matching every other domain now that the
+ * JSON store is gone.
  *
- * Values are intentionally kept in the same snake_case shape the Rust backend
- * used so the renderer commands can stay drop-in replacements.
+ * The one-time migration reads the retired `app-settings.json` so an existing
+ * profile keeps its theme, accent, language and toggles, then renames the file
+ * to `*.migrated`. Values are kept in the same snake_case shape the Rust
+ * backend used so the renderer commands stay drop-in replacements.
  */
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { readDocumentJson } from "./db/documents";
+import { createSqliteStore } from "./sqliteStore";
 
 export interface AppSettings {
   theme: string;
@@ -42,21 +47,37 @@ const DEFAULTS: AppSettings = {
   local_achievements: true,
 };
 
-let cache: AppSettings | null = null;
+const store = createSqliteStore<AppSettings>({
+  domain: "kv",
+  document: "app-settings",
+  fileName: "app-settings.json",
+  createDefault: () => ({ ...DEFAULTS }),
+  normalize: (value) => ({ ...DEFAULTS, ...(value ?? {}) }),
+});
 
-function settingsFile(): string {
-  return path.join(app.getPath("userData"), "app-settings.json");
+let migrationChecked = false;
+
+/** Import the retired JSON document once, then park it. */
+function ensureLegacyImported(): void {
+  if (migrationChecked) return;
+  migrationChecked = true;
+  try {
+    // A document already in SQLite is authoritative (possible mid-migration
+    // crash before the rename below).
+    if (readDocumentJson("kv", "app-settings") !== null) return;
+    const legacy = path.join(app.getPath("userData"), "app-settings.json");
+    if (!fs.existsSync(legacy)) return;
+    const parsed = JSON.parse(fs.readFileSync(legacy, "utf8")) as Partial<AppSettings>;
+    store.write({ ...DEFAULTS, ...parsed });
+    fs.renameSync(legacy, `${legacy}.migrated`);
+  } catch (error) {
+    console.error("[app-settings] legacy import failed:", error);
+  }
 }
 
 export function loadAppSettings(): AppSettings {
-  if (cache) return cache;
-  try {
-    const raw = fs.readFileSync(settingsFile(), "utf8");
-    cache = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<AppSettings>) };
-  } catch {
-    cache = { ...DEFAULTS };
-  }
-  return cache;
+  ensureLegacyImported();
+  return store.read();
 }
 
 export function getAppSetting<K extends keyof AppSettings>(key: K): AppSettings[K] {
@@ -67,31 +88,28 @@ export function getAllAppSettings(): AppSettings {
   return { ...loadAppSettings() };
 }
 
-/** Atomic-ish write: temp file then rename, so a crash cannot truncate it. */
 export function saveAppSettings(): void {
-  if (!cache) return;
-  const target = settingsFile();
-  const tmp = `${target}.tmp`;
-  try {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(tmp, JSON.stringify(cache, null, 2), "utf8");
-    fs.renameSync(tmp, target);
-  } catch (error) {
-    console.error("[app-settings] failed to persist:", error);
-  }
+  // SQLite writes are synchronous and durable; keep the export for callers that
+  // still ask for an explicit flush.
+  ensureLegacyImported();
+  store.write(store.read());
 }
 
 export function setAppSetting<K extends keyof AppSettings>(
   key: K,
   value: AppSettings[K],
 ): void {
-  const settings = loadAppSettings();
-  settings[key] = value;
-  saveAppSettings();
+  ensureLegacyImported();
+  store.update((settings) => {
+    settings[key] = value;
+    return settings;
+  });
 }
 
 export function patchAppSettings(patch: Partial<AppSettings>): void {
-  const settings = loadAppSettings();
-  Object.assign(settings, patch);
-  saveAppSettings();
+  ensureLegacyImported();
+  store.update((settings) => {
+    Object.assign(settings, patch);
+    return settings;
+  });
 }

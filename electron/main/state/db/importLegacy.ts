@@ -846,6 +846,10 @@ function runImport(domain: DbDomain): string[] {
       return importSaves();
     case "kv":
       return importKv();
+    default:
+      // Feature domains own no legacy Tauri tables; their JSON is parked before
+      // this runs (`state/legacyJson.ts`), so there is nothing to import.
+      return [];
   }
 }
 

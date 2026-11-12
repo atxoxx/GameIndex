@@ -12,7 +12,7 @@
  *   2. Steam / Epic — exact store id only. Name-based ownership is never
  *      fabricated; the row explains that the id is needed instead.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 
 export interface StoreOwnership {
   store: string;
@@ -34,15 +34,16 @@ interface OwnershipDocument {
   updatedAt: string;
 }
 
-const ownershipStore = createJsonStore<OwnershipDocument>(
-  "store-ownership.json",
-  () => ({
+const ownershipStore = createSqliteStore<OwnershipDocument>({
+  domain: "kv",
+  document: "store-ownership",
+  createDefault: () => ({
     version: 1,
     steamAppIds: [],
     epicOwnedIds: [],
     updatedAt: new Date().toISOString(),
   }),
-  (value) => ({
+  normalize: (value) => ({
     version: 1,
     steamAppIds: Array.isArray(value.steamAppIds)
       ? value.steamAppIds.map(Number).filter((id) => Number.isFinite(id))
@@ -53,7 +54,7 @@ const ownershipStore = createJsonStore<OwnershipDocument>(
     updatedAt:
       typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString(),
   }),
-);
+});
 
 function steamSet(): Set<number> {
   return new Set(ownershipStore.read().steamAppIds);

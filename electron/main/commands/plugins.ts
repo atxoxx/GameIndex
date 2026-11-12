@@ -12,15 +12,15 @@
  *   load_plugin_availability_cache
  */
 import { registerCommands, type CommandHandler } from "../ipc";
-import { readUserDataText, writeUserDataText } from "../state/jsonStore";
+import { readDocumentText, writeDocumentText } from "../state/db/documents";
 import {
   getPluginRuntime,
   type InstallPluginArgs,
   type PluginCandidate,
 } from "../features/plugins";
 
-/** Renderer-owned availability map, same file the Rust backend wrote. */
-const AVAILABILITY_CACHE_FILE = "plugin_availability_cache.json";
+/** Renderer-owned availability map, now a `kv.db` document. */
+const AVAILABILITY_CACHE_DOCUMENT = "plugin_availability_cache";
 
 function stringArg(args: Record<string, unknown>, key: string, label = key): string {
   const value = args[key];
@@ -125,13 +125,13 @@ export const pluginCommands: Record<string, CommandHandler> = {
         throw new Error("save_plugin_availability_cache expects a JSON object");
       }
     }
-    writeUserDataText(AVAILABILITY_CACHE_FILE, data);
+    writeDocumentText("kv", AVAILABILITY_CACHE_DOCUMENT, data);
     return null;
   },
 
   /** Empty string on first run, matching the Rust command and the hook. */
   load_plugin_availability_cache: () =>
-    readUserDataText(AVAILABILITY_CACHE_FILE, ""),
+    readDocumentText("kv", AVAILABILITY_CACHE_DOCUMENT, ""),
 };
 
 export function registerPluginCommands(): void {

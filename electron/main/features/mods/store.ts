@@ -2,11 +2,12 @@
  * Persisted mod-manager index.
  *
  * The Rust build kept mods in SQLite (`db/mods.rs`). This wave stores the same
- * rows in `<userData>/mods.json` through `state/jsonStore.ts`: one document with
- * the detected mod rows, per-game settings, saved profiles, source links and
- * Discover install history. Row/field names match the DAO exactly.
+ * rows in `mods.db` through `state/sqliteStore.ts`: detected mods, per-game
+ * settings, saved profiles, source links and Discover install history, one
+ * table each, with row/field names matching the DAO exactly.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { modsCodec } from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import type {
   GameModSettingsRow,
   ModProfileRow,
@@ -45,7 +46,13 @@ function normalizeDocument(value: ModsDocument): ModsDocument {
   };
 }
 
-export const modsStore = createJsonStore<ModsDocument>("mods.json", emptyDocument, normalizeDocument);
+export const modsStore = createSqliteStore<ModsDocument>({
+  domain: "mods",
+  document: "mods",
+  createDefault: emptyDocument,
+  normalize: normalizeDocument,
+  codec: modsCodec,
+});
 
 function touch(doc: ModsDocument): ModsDocument {
   return { ...doc, updatedAt: nowSecs() };

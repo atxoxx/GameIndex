@@ -3,13 +3,18 @@
  *
  * Kept separate from `runtime.ts` so the manager, sandbox and registry can be
  * exercised outside Electron (the `%TEMP%` harness). This module owns the
- * `userData` paths, the `plugins.json` document and `safeStorage` encryption
+ * `userData` paths, the `plugins.db` documents and `safeStorage` encryption
  * for secret config values.
  */
 import { safeStorage } from "electron";
 
 import { ensureDir, userDataPath } from "../../lib/paths";
-import { createJsonStore } from "../../state/jsonStore";
+import {
+  pluginsCodec,
+  readPluginConfigValues,
+  writePluginConfigValues,
+} from "../../state/db/codecs";
+import { createSqliteStore } from "../../state/sqliteStore";
 import {
   emptyPluginDocument,
   normalizePluginDocument,
@@ -48,11 +53,13 @@ let runtime: PluginRuntime | null = null;
 
 export function getPluginRuntime(): PluginRuntime {
   if (runtime) return runtime;
-  const store = createJsonStore<PluginDocument>(
-    "plugins.json",
-    emptyPluginDocument,
-    normalizePluginDocument,
-  );
+  const store = createSqliteStore<PluginDocument>({
+    domain: "plugins",
+    document: "plugins",
+    createDefault: emptyPluginDocument,
+    normalize: normalizePluginDocument,
+    codec: pluginsCodec,
+  });
   const document: PluginDocumentStore = {
     read: () => store.read(),
     write: (value) => store.write(value),
@@ -61,6 +68,12 @@ export function getPluginRuntime(): PluginRuntime {
     baseDir: ensureDir(userDataPath("plugins")),
     document,
     cipher: safeStorageCipher(),
+    // Secret config lives in `plugins.db` (`plugin_config`), never in a plain
+    // `plugins/<id>/config.json`.
+    configStore: {
+      read: (id) => readPluginConfigValues(id),
+      write: (id, values) => writePluginConfigValues(id, values),
+    },
   });
   return runtime;
 }

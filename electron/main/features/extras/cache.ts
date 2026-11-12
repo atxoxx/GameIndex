@@ -11,9 +11,9 @@
  *  • explicit negative results (`null`) are cached just like data, so a title
  *    the provider does not know is not re-scraped on every render.
  *
- * File: `<userData>/extras-cache.json`.
+ * File: `kv.db` (`documents` → `extras-cache`; see `state/STORAGE.md`).
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 
 interface CacheEnvelope {
   at: number;
@@ -27,17 +27,18 @@ interface CacheDocument {
 
 const MAX_ENTRIES = 800;
 
-const store = createJsonStore<CacheDocument>(
-  "extras-cache.json",
-  () => ({ version: 1, entries: {} }),
-  (value) => ({
+const store = createSqliteStore<CacheDocument>({
+  domain: "kv",
+  document: "extras-cache",
+  createDefault: () => ({ version: 1, entries: {} }),
+  normalize: (value) => ({
     version: 1,
     entries:
       value.entries && typeof value.entries === "object" && !Array.isArray(value.entries)
         ? (value.entries as Record<string, CacheEnvelope>)
         : {},
   }),
-);
+});
 
 export interface CacheHit<T> {
   value: T;

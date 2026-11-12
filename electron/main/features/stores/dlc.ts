@@ -12,7 +12,7 @@
  * response is cached in memory for 6 hours; a store outage falls back to the
  * stale blob so the tab still renders.
  */
-import { createJsonStore } from "../../state/jsonStore";
+import { createSqliteStore } from "../../state/sqliteStore";
 import type {
   SteamDlcItem,
   SteamFamilyShareInfo,
@@ -34,17 +34,18 @@ interface DlcState {
   watched: number[];
 }
 
-const dlcStore = createJsonStore<DlcState>(
-  "steam-dlc.json",
-  () => ({ version: 1, owned: {}, watched: [] }),
-  (value) => ({
+const dlcStore = createSqliteStore<DlcState>({
+  domain: "kv",
+  document: "steam-dlc",
+  createDefault: () => ({ version: 1, owned: {}, watched: [] }),
+  normalize: (value) => ({
     version: 1,
     owned: value.owned && typeof value.owned === "object" ? value.owned : {},
     watched: Array.isArray(value.watched)
       ? value.watched.map(Number).filter((id) => Number.isFinite(id))
       : [],
   }),
-);
+});
 
 interface CacheEntry {
   at: number;
