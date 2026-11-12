@@ -22,9 +22,19 @@ extraResources:
 
 asar: true
 
+# Native modules ship N-API prebuilds that load in both Node and Electron (the
+# packaged app is smoke-tested with them). Running @electron/rebuild would
+# compile them with node-gyp, which refuses a project path containing spaces
+# ("Attempting to build a module with a space in the path"). Skip it; the
+# prebuilt binaries are what we ship and test.
+npmRebuild: false
+
 win:
   target:
     - target: nsis
+      arch:
+        - x64
+    - target: portable
       arch:
         - x64
   icon: build/icon.ico
