@@ -8,7 +8,7 @@
  *   4. backend commands (real implementations, then stubs for the rest)
  *   5. windows (boot splash + main window)
  */
-import { BrowserWindow, app, dialog, shell } from "electron";
+import { BrowserWindow, app, dialog, net, shell } from "electron";
 import { installAssetProtocol, registerAssetScheme } from "./assetProtocol";
 import { emit, registerCommand, registerIpcHandlers } from "./ipc";
 import { markQuitting } from "./quitState";
@@ -70,6 +70,23 @@ if (!singleInstance) {
           pictures: app.getPath("pictures"),
           videos: app.getPath("videos"),
         }),
+        { override: true },
+      );
+
+      // Smoke-harness helper: verify that the giasset:// protocol really serves
+      // a stored artwork file (the renderer-side URL rewriting is only half).
+      registerCommand(
+        "__asset_probe",
+        async (args) => {
+          const url = String(args.url ?? "");
+          const response = await net.fetch(url);
+          const buffer = await response.arrayBuffer();
+          return {
+            status: response.status,
+            bytes: buffer.byteLength,
+            type: response.headers.get("content-type"),
+          };
+        },
         { override: true },
       );
 

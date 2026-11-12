@@ -41,7 +41,12 @@ export const HEAVY_GAME_FIELDS = [
   "steamAchievements",
 ] as const;
 
+import { normalizeAssetUrl } from "../../lib/assetUrl";
+
 export const HEAVY_GAME_FIELD_SET: ReadonlySet<string> = new Set(HEAVY_GAME_FIELDS);
+
+/** URL columns that may still hold a retired Tauri asset URL. */
+const ASSET_URL_FIELDS = new Set(["coverArtUrl", "iconUrl", "bannerUrl", "logoUrl"]);
 
 /** Every column, in Rust `GAMES_SELECT_SQL` order. `id` first. */
 export const GAME_COLUMNS: readonly GameColumn[] = [
@@ -233,7 +238,9 @@ export function encodeGame(game: Game): EncodedGameRow {
   }
 
   for (const column of GAME_COLUMNS) {
-    const raw = source[column.field];
+    const raw = ASSET_URL_FIELDS.has(column.field)
+      ? (normalizeAssetUrl(source[column.field]) ?? undefined)
+      : source[column.field];
     if (raw === undefined) {
       values[column.column] = column.fallback ?? null;
       continue;
@@ -282,7 +289,9 @@ export function decodeGame(row: Record<string, unknown>, summary = false): Game 
     if (raw === null || raw === undefined) continue;
     const decoded = decodeValue(column.kind, raw);
     if (decoded === SKIP) continue;
-    game[column.field] = decoded;
+    game[column.field] = ASSET_URL_FIELDS.has(column.field)
+      ? normalizeAssetUrl(decoded)
+      : decoded;
   }
 
   const extra = parseExtra(row.extra_json);

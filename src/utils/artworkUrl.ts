@@ -13,12 +13,25 @@ export function isUsableImageUrl(u: string | undefined | null): boolean {
   if (!u) return false;
   return (
     u.startsWith("data:") ||
+    u.startsWith("giasset:") ||
     u.startsWith("asset:") ||
     u.startsWith("asset.localhost/") ||
     u.startsWith("http://asset.localhost/") ||
     u.startsWith("https://asset.localhost/") ||
     /^https?:\/\//i.test(u)
   );
+}
+
+const TAURI_ASSET_URL =
+  /^(?:https?:\/\/asset\.localhost|asset:\/\/localhost|https?:\/\/asset\.localhost)\/(.*)$/i;
+
+/**
+ * Rewrite a residual Tauri asset URL (`http://asset.localhost/…`) onto the
+ * Electron `giasset://` scheme. Everything else is returned unchanged.
+ */
+export function normalizeAssetScheme(u: string): string {
+  const match = TAURI_ASSET_URL.exec(u);
+  return match ? `giasset://local/${match[1]}` : u;
 }
 
 /**
@@ -54,7 +67,14 @@ export function normalizeGameArtworkUrls(game: Game): Game {
   const next = { ...game };
   for (const field of ARTWORK_FIELDS) {
     const value = next[field];
-    if (typeof value === "string" && value.startsWith("file://")) {
+    if (typeof value !== "string") continue;
+    const normalized = normalizeAssetScheme(value);
+    if (normalized !== value) {
+      next[field] = normalized;
+      changed = true;
+      continue;
+    }
+    if (value.startsWith("file://")) {
       next[field] = toWebviewAssetUrl(value);
       changed = true;
     }
@@ -77,20 +97,20 @@ export function safeArtworkUrl(u: string | undefined | null): string | null {
   if (trimmed.startsWith("file://")) {
     return toWebviewAssetUrl(trimmed);
   }
+  const normalized = normalizeAssetScheme(trimmed);
   if (
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("asset:") ||
-    trimmed.startsWith("asset.localhost/") ||
-    trimmed.startsWith("http://asset.localhost/") ||
-    trimmed.startsWith("https://asset.localhost/") ||
-    /^https?:\/\//i.test(trimmed)
+    normalized.startsWith("data:") ||
+    normalized.startsWith("giasset:") ||
+    normalized.startsWith("asset:") ||
+    normalized.startsWith("asset.localhost/") ||
+    /^https?:\/\//i.test(normalized)
   ) {
-    return trimmed;
+    return normalized;
   }
   try {
-    return convertFileSrc(trimmed);
+    return convertFileSrc(normalized);
   } catch {
-    return trimmed;
+    return normalized;
   }
 }
 
@@ -106,20 +126,23 @@ const THUMB_BASENAME = /^(cover|banner|hero)\.([a-z0-9]+)$/i;
  */
 export function thumbVariantUrl(url: string | undefined | null): string | null {
   if (!url || typeof url !== "string") return null;
+  const normalized = normalizeAssetScheme(url);
   const steamThumb = /^https:\/\/[^/]*steamstatic\.com\/steam\/apps\/(\d+)\/library_600x900_2x\.jpg$/i.exec(
-    url
+    normalized
   );
   if (steamThumb) {
     return `https://cdn.akamai.steamstatic.com/steam/apps/${steamThumb[1]}/library_600x900.jpg`;
   }
   const isLocalAsset =
-    url.startsWith("asset:") ||
-    url.startsWith("asset.localhost/") ||
-    url.startsWith("http://asset.localhost/") ||
-    url.startsWith("https://asset.localhost/") ||
-    /^[a-zA-Z]:[\\/]/.test(url) ||
-    url.startsWith("/");
+    normalized.startsWith("giasset:") ||
+    normalized.startsWith("asset:") ||
+    normalized.startsWith("asset.localhost/") ||
+    normalized.startsWith("http://asset.localhost/") ||
+    normalized.startsWith("https://asset.localhost/") ||
+    /^[a-zA-Z]:[\\/]/.test(normalized) ||
+    normalized.startsWith("/");
   if (!isLocalAsset) return null;
+  url = normalized;
   // `convertFileSrc` percent-encodes the whole path on Windows, so a separator
   // can be `/`, `\`, `%2F` (1 char) or `%5C` (3 chars). Track where the last
   // one actually ends so the basename is sliced at the right offset.

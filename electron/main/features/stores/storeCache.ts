@@ -14,6 +14,7 @@
  */
 import { storeCacheCodec } from "../../state/db/codecs";
 import { createSqliteStore } from "../../state/sqliteStore";
+import { fetchIgdbGameBySlug, fetchIgdbStoreGames } from "../metadata/igdb";
 import type { GameMetadataResult, StoreGameSummary } from "../../../../src/types/game";
 import { argNumber, argString, argStringArray } from "./types";
 
@@ -238,17 +239,85 @@ function page<T>(rows: T[], offset: number, limit: number): T[] {
 }
 
 /** `fetch_store_games`: cached category page, filtered and paged locally. */
-export function fetchStoreGames(args: Record<string, unknown>): StoreGameSummary[] {
+const CATALOGUE_TTL_MS = 10 * 60_000;
+
+/** Cache key for one IGDB catalogue page (every facet in the query). */
+function catalogueKey(
+  kind: "cat" | "search",
+  name: string,
+  filters: Filters,
+  offset: number,
+  limit: number,
+): string {
+  return [
+    kind,
+    name,
+    filters.genres.join("+"),
+    filters.platforms.join("+"),
+    filters.yearMin ?? "",
+    filters.yearMax ?? "",
+    filters.ratingMin ?? "",
+    filters.sort ?? "",
+    offset,
+    limit,
+  ].join("|");
+}
+
+function storeCacheWrite(key: string, rows: StoreGameSummary[]): void {
+  try {
+    cacheStore.update((doc) => {
+      doc.categories[key] = { data: rows, fetchedAt: Date.now() };
+      return doc;
+    });
+  } catch (error) {
+    console.warn("[store] could not persist the catalogue cache:", error);
+  }
+}
+
+/** IGDB marks `logoUrl` optional; the renderer contract requires null. */
+function fromIgdb(rows: Awaited<ReturnType<typeof fetchIgdbStoreGames>>): StoreGameSummary[] {
+  return rows.map((row) => ({ ...row, logoUrl: row.logoUrl ?? null }));
+}
+
+export async function fetchStoreGames(
+  args: Record<string, unknown>,
+): Promise<StoreGameSummary[]> {
   const category = argString(args, "category") || "all";
   const offset = argNumber(args, "offset") ?? 0;
   const limit = argNumber(args, "limit") ?? 20;
   const filters = parseFilters(args);
+  const key = catalogueKey("cat", category, filters, offset, limit);
 
-  const document = cacheStore.read();
-  const entry = document.categories[category];
-  const rows = entry ? entry.data : [];
-  const filtered = rows.filter((game) => matchesFilters(game, filters));
-  return page(sortGames(filtered, filters.sort), offset, limit);
+  const cached = cacheStore.read().categories[key];
+  if (cached && Date.now() - cached.fetchedAt < CATALOGUE_TTL_MS) {
+    return cached.data;
+  }
+
+  try {
+    // IGDB needs the genre *names* as the sidebar sends them; `filters.genres`
+    // is lower-cased for local matching only.
+    const rows = fromIgdb(await fetchIgdbStoreGames({
+      category,
+      offset,
+      limit,
+      genres: argStringArray(args.genres),
+      platforms: filters.platforms,
+      yearMin: filters.yearMin,
+      yearMax: filters.yearMax,
+      ratingMin: filters.ratingMin,
+      sort: filters.sort,
+    }));
+    storeCacheWrite(key, rows);
+    return rows;
+  } catch (error) {
+    console.warn(
+      "[store] IGDB catalogue fetch failed:",
+      error instanceof Error ? error.message : error,
+    );
+    // Offline/failed: serve the last successful page, else the cached pool.
+    if (cached?.data?.length) return cached.data;
+    return page(sortGames(allCachedSummaries().filter((g) => matchesFilters(g, filters)), filters.sort), offset, limit);
+  }
 }
 
 interface ScoredGame {
@@ -295,7 +364,9 @@ function scoreGame(game: StoreGameSummary, tokens: string[]): number {
 }
 
 /** `search_store_games`: local search over every cached category page. */
-export function searchStoreGames(args: Record<string, unknown>): StoreGameSummary[] {
+export async function searchStoreGames(
+  args: Record<string, unknown>,
+): Promise<StoreGameSummary[]> {
   const query = argString(args, "query").trim();
   if (!query) return [];
   const offset = argNumber(args, "offset") ?? 0;
@@ -304,6 +375,40 @@ export function searchStoreGames(args: Record<string, unknown>): StoreGameSummar
   const tokens = tokenize(query);
   if (tokens.length === 0) return [];
 
+  const key = catalogueKey("search", query.toLowerCase(), filters, offset, limit);
+  const cached = cacheStore.read().categories[key];
+  if (cached && Date.now() - cached.fetchedAt < CATALOGUE_TTL_MS) {
+    return cached.data;
+  }
+
+  try {
+    const rows = fromIgdb(await fetchIgdbStoreGames({
+      query,
+      offset,
+      limit: limit + 10,
+      genres: argStringArray(args.genres),
+      platforms: filters.platforms,
+      yearMin: filters.yearMin,
+      yearMax: filters.yearMax,
+      ratingMin: filters.ratingMin,
+      sort: filters.sort,
+    }));
+    // IGDB's `search` clause ignores facets, so apply them locally.
+    const pageRows = page(
+      rows.filter((game) => matchesFilters(game, filters)),
+      offset,
+      limit,
+    );
+    storeCacheWrite(key, pageRows);
+    return pageRows;
+  } catch (error) {
+    console.warn(
+      "[store] IGDB search failed, using the cached catalogue:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  // Offline fallback: score everything already cached.
   const scored: ScoredGame[] = [];
   for (const game of allCachedSummaries()) {
     if (!matchesFilters(game, filters)) continue;
@@ -323,10 +428,30 @@ export function searchStoreGames(args: Record<string, unknown>): StoreGameSummar
 }
 
 /** `get_store_game_detail`: cached detail payload, or `null`. */
-export function getStoreGameDetail(slug: string): GameMetadataResult | null {
+export async function getStoreGameDetail(
+  slug: string,
+): Promise<GameMetadataResult | null> {
   if (!slug) return null;
-  const document = cacheStore.read();
-  return document.detailCache[slug]?.data ?? null;
+  const cached = cacheStore.read().detailCache[slug];
+  if (cached && Date.now() - cached.fetchedAt < CATALOGUE_TTL_MS) {
+    return cached.data;
+  }
+  try {
+    const fetched = await fetchIgdbGameBySlug(slug);
+    if (!fetched) return cached?.data ?? null;
+    const data = fetched as unknown as GameMetadataResult;
+    cacheStore.update((doc) => {
+      doc.detailCache[slug] = { data, fetchedAt: Date.now() };
+      return doc;
+    });
+    return data;
+  } catch (error) {
+    console.warn(
+      "[store] IGDB detail fetch failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return cached?.data ?? null;
+  }
 }
 
 /** `get_random_store_games`: random cached summaries (never invented rows). */

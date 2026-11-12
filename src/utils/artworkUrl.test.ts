@@ -83,7 +83,7 @@ describe("normalizeGameArtworkUrls", () => {
   });
 
   it("returns the same object when nothing needs repair", () => {
-    const game: Game = { ...baseGame, coverArtUrl: "asset://localhost/x.png" };
+    const game: Game = { ...baseGame, coverArtUrl: "giasset://local/x.png" };
     expect(normalizeGameArtworkUrls(game)).toBe(game);
   });
 });
@@ -102,9 +102,9 @@ describe("safeArtworkUrl", () => {
     );
   });
 
-  it("leaves http, https, data, and asset URLs untouched", () => {
+  it("leaves http, https and data URLs untouched, and rewrites Tauri asset URLs", () => {
     expect(safeArtworkUrl("https://images.example.com/art.jpg")).toBe("https://images.example.com/art.jpg");
-    expect(safeArtworkUrl("http://asset.localhost/art.jpg")).toBe("http://asset.localhost/art.jpg");
+    expect(safeArtworkUrl("http://asset.localhost/art.jpg")).toBe("giasset://local/art.jpg");
     expect(safeArtworkUrl("data:image/png;base64,123")).toBe("data:image/png;base64,123");
   });
 
@@ -118,17 +118,17 @@ describe("safeArtworkUrl", () => {
 describe("thumbVariantUrl", () => {
   it("rewrites a local grid cover to its _thumb.webp sibling", () => {
     expect(thumbVariantUrl("asset://localhost/artwork/g1/cover.png")).toBe(
-      "asset://localhost/artwork/g1/cover_thumb.webp"
+      "giasset://local/artwork/g1/cover_thumb.webp"
     );
     expect(thumbVariantUrl("http://asset.localhost/artwork/g1/banner.jpg")).toBe(
-      "http://asset.localhost/artwork/g1/banner_thumb.webp"
+      "giasset://local/artwork/g1/banner_thumb.webp"
     );
   });
 
   it("handles percent-encoded Windows separators from convertFileSrc", () => {
     const url = "asset://localhost/" + encodeURIComponent("C:\\app\\artwork\\g1\\cover.jpg");
     expect(thumbVariantUrl(url)).toBe(
-      "asset://localhost/" + encodeURIComponent("C:\\app\\artwork\\g1\\") + "cover_thumb.webp"
+      "giasset://local/" + encodeURIComponent("C:\\app\\artwork\\g1\\") + "cover_thumb.webp"
     );
   });
 

@@ -692,9 +692,24 @@ export async function fetchIgdbStoreGames(query: StoreGamesQuery): Promise<Store
     : where
       ? `where ${where};`
       : "";
-  const body = `fields ${STORE_SUMMARY_FIELDS}; ${text} sort ${sort}; limit ${limit}; offset ${offset};`;
+  // IGDB rejects any `sort` clause combined with `search` (HTTP 406); search
+  // results are already relevance-ordered, so the sort is only applied to the
+  // category/filter path.
+  const body = query.query?.trim()
+    ? `fields ${STORE_SUMMARY_FIELDS}; ${text} limit ${limit}; offset ${offset};`
+    : `fields ${STORE_SUMMARY_FIELDS}; ${text} sort ${sort}; limit ${limit}; offset ${offset};`;
   const rows = await igdbQueryGames(body);
   return rows.map(mapIgdbSummary);
+}
+
+/** One game by IGDB slug (store detail page). */
+export async function fetchIgdbGameBySlug(slug: string): Promise<MetadataResult | null> {
+  const trimmed = slug.trim();
+  if (!trimmed) return null;
+  requireIgdbCredentials();
+  const body = `fields ${IGDB_GAME_FIELDS}; where slug = "${trimmed.replace(/"/g, '\\"')}"; limit 1;`;
+  const rows = await igdbQueryGames(body);
+  return rows[0] ? mapIgdbGame(rows[0]) : null;
 }
 
 /** Enrich an ordered list of Steam appids into IGDB store summaries. */
