@@ -24,8 +24,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { getGame } from "../../state/libraryStore";
+import { getAppSetting } from "../../state/appSettings";
 import { userDataPath } from "../../lib/paths";
 import { splitLaunchArgs } from "../launch/scripts";
+import { mangohudLogDir } from "../telemetry/linux";
 import { wineLogPathForGame } from "./logs";
 import {
   commandAvailable,
@@ -52,6 +54,7 @@ export interface CompatProfile {
   customWinePrefix?: string;
   arch?: "win64" | "win32";
   workingDir?: string;
+  preLaunchWrapper?: string | null;
   useSpecificGpu?: boolean | null;
   enableDxvk?: boolean | null;
   enableVkd3d?: boolean | null;
@@ -255,6 +258,14 @@ function resolvePrefix(
   return path.join(base, gameId);
 }
 
+/** True unless hardware monitoring or FPS capture is explicitly disabled. */
+function fpsCaptureEnabled(): boolean {
+  const raw = getAppSetting("metrics_config");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return true;
+  const config = raw as Record<string, unknown>;
+  return config.enabled !== false && config.captureFps !== false;
+}
+
 async function resolveRunner(
   settings: CompatibilitySettings,
   profile: CompatProfile | null,
@@ -407,10 +418,14 @@ export async function launchWithCompatibility(
     env.DXVK_ASYNC = "1";
   }
   if (pick(profile?.enableWayland, settings.enableWayland)) {
+    // Proton maps its own toggle, while plain Wine reads WINE_ENABLE_WAYLAND.
     env.WINE_ENABLE_WAYLAND = "1";
+    if (isProton) env.PROTON_ENABLE_WAYLAND = "1";
   }
   if (pick(profile?.enableWow64, settings.enableWow64)) {
     env.WINE_NEW_WOW64 = "1";
+    // Proton only enables its WoW64 build through PROTON_USE_WOW64.
+    if (isProton) env.PROTON_USE_WOW64 = "1";
   }
   if (pick(profile?.enableLargeAddressAware, settings.enableLargeAddressAware)) {
     env.WINE_LARGE_ADDRESS_AWARE = "1";
@@ -455,8 +470,12 @@ export async function launchWithCompatibility(
   }
   if (enableVkd3d && !("d3d12" in dllMap)) dllMap.d3d12 = "n,b";
   if (enableVkd3d && enableVkd3dHeap) {
+    // `PROTON_VKD3D_HEAP` is a legacy hint; modern Proton/vkd3d-proton read
+    // the feature through VKD3D_CONFIG, so set both.
     if (isProton) env.PROTON_VKD3D_HEAP = "1";
-    else env.VKD3D_CONFIG = "descriptor_heap";
+    const existing = (env.VKD3D_CONFIG ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+    if (!existing.includes("descriptor_heap")) existing.push("descriptor_heap");
+    env.VKD3D_CONFIG = existing.join(",");
   }
   if (Object.keys(dllMap).length > 0) env.WINEDLLOVERRIDES = dllOverrideString(dllMap);
 
@@ -498,17 +517,38 @@ export async function launchWithCompatibility(
   }
 
   const tokens: string[] = [];
+  const wrapper = profileString(profile?.preLaunchWrapper);
+  if (wrapper) tokens.push(...splitLaunchArgs(wrapper));
   tokens.push(...gamescopeTokens(settings, profile));
   if (pick(profile?.enableGameMode, settings.enableGameMode) && commandAvailable("gamemoderun")) {
     tokens.push("gamemoderun");
   }
-  if (pick(profile?.enableMangoHud, settings.enableMangoHud) && commandAvailable("mangohud")) {
-    tokens.push("mangohud");
-    if (pick(profile?.mangohudHidden, settings.mangohudHidden)) {
-      env.MANGOHUD_CONFIG = env.MANGOHUD_CONFIG
-        ? `${env.MANGOHUD_CONFIG},no_display`
-        : "no_display";
+  // MangoHud doubles as the Linux FPS sampler: its CSV log is the only
+  // reliable per-process FPS source here. Run it hidden for telemetry even
+  // when the user did not enable the on-screen HUD.
+  const mangoWanted = pick(profile?.enableMangoHud, settings.enableMangoHud);
+  const useMango =
+    IS_LINUX && commandAvailable("mangohud") && (mangoWanted || fpsCaptureEnabled());
+  if (useMango) {
+    const logDir = mangohudLogDir(input.gameId);
+    try {
+      fs.mkdirSync(logDir, { recursive: true });
+    } catch (error) {
+      console.warn("[compatibility] could not create the MangoHud log folder:", error);
     }
+    // `read_cfg` first so the user's own MangoHud.conf still applies.
+    const pieces = [
+      "read_cfg",
+      "log_interval=1000",
+      `output_folder=${logDir}`,
+      "autostart_log=1",
+    ];
+    if (env.MANGOHUD_CONFIG?.trim()) pieces.push(env.MANGOHUD_CONFIG.trim());
+    if (!mangoWanted || pick(profile?.mangohudHidden, settings.mangohudHidden)) {
+      pieces.push("no_display");
+    }
+    env.MANGOHUD_CONFIG = pieces.join(",");
+    tokens.push("mangohud");
   }
   if (useUmu && umuRun) {
     tokens.push(umuRun);

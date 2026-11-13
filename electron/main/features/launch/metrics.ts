@@ -59,6 +59,8 @@ export interface SessionMetricsSnapshot {
 export interface SampleTarget {
   exePath?: string;
   pid?: number;
+  /** Scopes Linux MangoHud CSV lookup to this game. */
+  gameId?: string;
 }
 
 /** Samples kept in memory per session (≈3.4 h at one sample / 3 s). */
@@ -176,7 +178,7 @@ export interface SessionMetrics {
 
 /** Create a sampler for one session. `source` is injectable for harnesses. */
 export function createSessionMetrics(
-  source: (exePath: string, pid: number) => TelemetryReadout | null = readTelemetry,
+  source: (exePath: string, pid: number, gameId?: string) => TelemetryReadout | null = readTelemetry,
 ): SessionMetrics {
   const startedAt = Date.now();
   let lastCpu = readCpuTimes();
@@ -215,7 +217,9 @@ export function createSessionMetrics(
     const totalMem = os.totalmem();
     const ram = totalMem > 0 ? (1 - os.freemem() / totalMem) * 100 : 0;
 
-    const telemetry = target ? source(target.exePath ?? "", target.pid ?? 0) : null;
+    const telemetry = target
+      ? source(target.exePath ?? "", target.pid ?? 0, target.gameId)
+      : null;
     if (telemetry && telemetry.gpuAdapters.length > 0) gpuAdapters = telemetry.gpuAdapters;
 
     const entry: MetricSample = {

@@ -20,6 +20,7 @@
  */
 import { execFile } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { baseNameLower, isInsideDir, normalizePathLower, trimPathSeparators } from "./paths";
 import type { ProcessInfo } from "./types";
 
@@ -244,13 +245,17 @@ async function listProcessBasePosix(): Promise<ProcessInfo[]> {
       const rssKib = Number.parseInt(match[3], 10);
       const command = match[4].trim();
       if (!Number.isFinite(pid) || pid <= 0) continue;
-      const name = baseNameLower(command) || command;
+      // `/proc/<pid>/exe` is the loader (`wine`, `python3`, …) for a Wine
+      // title; the real game `.exe` is only present in argv. Resolve that
+      // first so liveness, passive detection and force-close see the game.
+      const gameExe = process.platform === "linux" ? cmdlineGameExe(pid) : null;
+      const name = (gameExe ? baseNameLower(gameExe) : baseNameLower(command)) || command;
       if (isIgnorableSystemExe(name)) continue;
       processes.push({
         pid,
         ppid: Number.isFinite(ppid) ? ppid : 0,
         name,
-        exePath: isWindowsPathLike(command) ? command : "",
+        exePath: gameExe ?? (isWindowsPathLike(command) ? command : ""),
         workingSetBytes: Number.isFinite(rssKib) ? rssKib * 1024 : 0,
       });
     }
@@ -259,6 +264,65 @@ async function listProcessBasePosix(): Promise<ProcessInfo[]> {
     console.error("[launch] ps failed:", error);
     return [];
   }
+}
+
+function readCmdline(pid: number): string[] | null {
+  try {
+    const raw = fs.readFileSync(`/proc/${pid}/cmdline`, "utf8");
+    const args = raw.split("\0").filter((arg) => arg.length > 0);
+    return args.length > 0 ? args : null;
+  } catch {
+    return null;
+  }
+}
+
+function isExeArgument(arg: string): boolean {
+  return arg.length >= 4 && arg.slice(-4).toLowerCase() === ".exe";
+}
+
+/**
+ * The real game executable from a Wine/Proton command line.
+ *
+ * Prefers an argv `.exe` that resolves to an existing host file (relative
+ * arguments are resolved against the process cwd), matching the Rust
+ * `pick_wine_exe_arg`; otherwise the last `.exe` argument is returned so a
+ * Windows-style `Z:\…` path still identifies the title.
+ */
+export function pickWineExeArg(args: string[], cwd: string | null): string | null {
+  let last: string | null = null;
+  let existing: string | null = null;
+  for (const arg of args) {
+    if (!isExeArgument(arg)) continue;
+    last = arg;
+    const absolute = path.isAbsolute(arg)
+      ? arg
+      : cwd
+        ? path.join(cwd, arg)
+        : null;
+    if (absolute) {
+      try {
+        if (fs.statSync(absolute).isFile()) existing = path.normalize(absolute);
+      } catch {
+        /* keep looking */
+      }
+    }
+  }
+  return existing ?? last;
+}
+
+function cmdlineGameExe(pid: number): string | null {
+  const args = readCmdline(pid);
+  if (!args) return null;
+  const hasRelativeExe = args.some((arg) => isExeArgument(arg) && !path.isAbsolute(arg));
+  let cwd: string | null = null;
+  if (hasRelativeExe) {
+    try {
+      cwd = fs.readlinkSync(`/proc/${pid}/cwd`);
+    } catch {
+      cwd = null;
+    }
+  }
+  return pickWineExeArg(args, cwd);
 }
 
 interface ProcessDetail {
@@ -302,7 +366,10 @@ const PS_PREFIX =
  */
 function linuxProcessDetail(pid: number): ProcessDetail | null {
   try {
-    const exePath = fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "");
+    // Argv first: `/proc/<pid>/exe` is the Wine loader/script interpreter.
+    const exePath =
+      cmdlineGameExe(pid) ??
+      fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "");
     const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
     // `pid (comm) state ppid …` - comm may contain spaces and parentheses.
     const close = stat.lastIndexOf(")");

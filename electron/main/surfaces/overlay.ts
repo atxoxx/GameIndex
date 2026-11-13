@@ -22,8 +22,7 @@ import { BrowserWindow, app, globalShortcut, screen } from "electron";
 import { emit, emitTo, getWindowLabel, onEvent, setWindowLabel } from "../ipc";
 import { revealMainWindow } from "./mainWindow";
 import { attachWindowEvents } from "./events";
-import { loadRenderer, preloadPath } from "./renderer";
-import {
+import { loadRenderer, preloadPath } from "./renderer";import {
   deleteScreenshotFile,
   listRecentScreenshots,
   openCaptureLocation,
@@ -52,6 +51,15 @@ import {
 } from "./overlaySettings";
 
 export type { OverlayCorner, OverlaySettings };
+
+/** True when Chromium is running with its native Wayland backend. */
+function isWaylandSession(): boolean {
+  return (
+    process.platform === "linux" &&
+    (process.env.XDG_SESSION_TYPE === "wayland" ||
+      Boolean(process.env.WAYLAND_DISPLAY))
+  );
+}
 
 /** Events (kept as consts so the renderer contract has one source of truth). */
 export const EVENT_METRICS = "overlay:metrics";
@@ -350,7 +358,13 @@ export function presentOverlay(isCollapsed: boolean): void {
   applyGeometry(win, settings, isCollapsed);
   // Deliberately no focus(): yanking focus from a running game can drop its
   // input. The HUD is always-on-top; clicking the ticker expands it.
-  win.showInactive();
+  // `showInactive` is unsupported on native Wayland and can leave the window
+  // hidden, so use a plain show there.
+  if (isWaylandSession()) win.show();
+  else win.showInactive();
+  // Some compositors ignore `showInactive`; fall back to a plain show so an
+  // enabled overlay is never silently left hidden.
+  if (!win.isVisible()) win.show();
   win.setAlwaysOnTop(true, "screen-saver");
   applyInteraction(win, settings, isCollapsed);
 
@@ -486,7 +500,7 @@ export function startOverlayLiveMetrics(options: {
       if (!target) return;
       emitTo(target, EVENT_METRICS, sample);
     },
-    { exePath: session?.exePath ?? null, pid: session?.pid ?? null },
+    { exePath: session?.exePath ?? null, pid: session?.pid ?? null, gameId: session?.gameId ?? null },
   );
 }
 
@@ -1013,7 +1027,15 @@ export function installOverlay(): void {
     emitHotkeyError("toggle", settings.hotkey, error);
   }
 
-  onEvent("game-started", onGameStarted);
+  onEvent("game-started", (payload) => {
+    onGameStarted(payload);
+    // The global hotkey alone is not a reliable trigger (Wayland portal gaps,
+    // compositor grabs, users who never learned the binding). When the overlay
+    // is enabled, show the ticker with the game.
+    if (!getOverlaySettings().enabled) return;
+    const win = getOverlayWindow();
+    if (!win?.isVisible()) presentOverlay(true);
+  });
   onEvent("game-exited", onGameExited);
 
   // Never leave an OS-wide hotkey behind after the app exits.

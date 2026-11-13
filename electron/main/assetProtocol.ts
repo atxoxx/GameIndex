@@ -14,8 +14,8 @@
  * roots the way `tauri.conf.json` did.
  */
 import { net, protocol } from "electron";
-import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { filePathFromAssetUrl } from "./lib/assetPath";
 
 export const ASSET_SCHEME = "giasset";
 
@@ -40,12 +40,10 @@ export function registerAssetScheme(): void {
 export function installAssetProtocol(): void {
   protocol.handle(ASSET_SCHEME, async (request) => {
     try {
-      const url = new URL(request.url);
-      const raw = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-      if (!raw) {
+      const filePath = filePathFromAssetUrl(request.url);
+      if (!filePath) {
         return new Response("Missing asset path", { status: 400 });
       }
-      const filePath = path.normalize(raw);
       const fileUrl = pathToFileURL(filePath).toString();
       return await net.fetch(fileUrl, {
         headers: request.headers,

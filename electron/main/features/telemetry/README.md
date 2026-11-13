@@ -13,10 +13,10 @@ Sample (`MetricSample`, one per ~3 s):
 | `t` | **elapsed seconds** since the session sampler started | always present |
 | `cpu` | whole-machine CPU % (`os.cpus()` deltas) | always present |
 | `ram` | whole-machine RAM % (`os.freemem()`) | always present |
-| `gpu` | aggregate GPU % (Windows counter) | `0` (no reading; not counted in the average) |
-| `cpuTemp` / `gpuTemp` | °C from MSI Afterburner (MAHM) or LibreHardwareMonitor; GPU also falls back to nvidia-smi | `0` (the persisted "no sensor" sentinel, as in Rust) |
-| `gpuClockMhz` | GPU core clock (MHz) from MAHM/LHM/nvidia-smi | omitted |
-| `fps` | instantaneous FPS from Afterburner's MAHM `Framerate` sensor or RTSS | `null` (never fabricated `0`) |
+| `gpu` | aggregate GPU % (Windows counter, `nvidia-smi` or MangoHud/sysfs on Linux) | `0` (no reading; not counted in the average) |
+| `cpuTemp` / `gpuTemp` | °C from MAHM/LHM/nvidia-smi on Windows; hwmon/nvidia-smi/MangoHud on Linux | `0` (the persisted "no sensor" sentinel, as in Rust) |
+| `gpuClockMhz` | GPU core clock (MHz) from MAHM/LHM/nvidia-smi, sysfs or MangoHud | omitted |
+| `fps` | instantaneous FPS from MAHM, RTSS or the MangoHud CSV log | `null` (never fabricated `0`) |
 | `memMb` | game process working set (MB) | omitted |
 
 Snapshot (`SessionMetricsSnapshot`, final `metrics_json` + row columns):
@@ -113,7 +113,7 @@ a known install dir — except Windows' own tree, which is never a game.
 
 ## Not covered here
 
-`electron/main/surfaces/overlayMetrics.ts` (and `surfaces/overlay.ts`) still
-sample only CPU/RAM for the in-game HUD. That folder is outside this
-workstream's write scope; wiring the overlay to `readTelemetry()` is the
-remaining step (GPU %, temps, FPS keys are already produced here).
+Platform-specific sources live in `./gpu.ts`, `./lhm.ts`, `./nvidia.ts`,
+`./rtss.ts`, `./mahm.ts` (Windows) and `./linux.ts` (hwmon, AMD sysfs,
+MangoHud CSV). `surfaces/overlayMetrics.ts` consumes `readTelemetry()`, so the
+HUD shows GPU/temp/FPS automatically on both platforms.

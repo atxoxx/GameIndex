@@ -205,16 +205,10 @@ function SidebarGameItemBase({
                 img.src = thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl;
                 return;
               }
-              // Icon and cover both fail (e.g. an artwork file was removed):
-              // drop the dead URLs so lazy enrichment can refill them instead
-              // of leaving the browser's broken-image glyph behind.
-              attemptedArtRef.current.delete(`${game.id}:icon`);
-              attemptedArtRef.current.delete(`${game.id}:cover`);
-              updateGame(game.id, {
-                iconUrl: undefined,
-                coverArtUrl: undefined,
-                coverSourceUrl: undefined,
-              });
+              // Icon and cover both fail (e.g. an artwork file was removed).
+              // Clear only the dead icon; the cover branch handles its own
+              // failure and the attempt marks stop this from looping.
+              updateGame(game.id, { iconUrl: undefined });
             }}
           />
         ) : game.coverArtUrl ? (
@@ -236,9 +230,7 @@ function SidebarGameItemBase({
                   return;
                 }
               }
-              attemptedArtRef.current.delete(`${game.id}:cover`);
-              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
-            }}
+              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });            }}
           />
         ) : game.logoUrl ? (
           <img
@@ -248,7 +240,6 @@ function SidebarGameItemBase({
             decoding="async"
             className="sidebar-game-logo"
             onError={() => {
-              attemptedArtRef.current.delete(`${game.id}:logo`);
               updateGame(game.id, { logoUrl: undefined, logoSourceUrl: undefined });
             }}
           />

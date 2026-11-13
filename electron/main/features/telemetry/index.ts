@@ -1,13 +1,14 @@
 /**
  * Session telemetry aggregation point.
  *
- * Three independent Windows sources feed one synchronous readout:
+ * Windows has three independent sources:
+ *    • GPU %      — `GPU Engine` performance counters (`typeperf`).
+ *    • Temps/clk  — LibreHardwareMonitor / Afterburner shared memory.
+ *    • FPS        — RTSS shared memory.
  *
- *  • GPU %      — Windows `GPU Engine` performance counters (`typeperf`),
- *                 cached and refreshed in the background (`./gpu`).
- *  • Temps/clk  — LibreHardwareMonitor's localhost JSON, when it runs (`./lhm`).
- *  • FPS        — RTSS shared memory through a persistent PowerShell probe
- *                 (`./rtss`).
+ * Linux uses `./linux`: CPU temperature from hwmon, AMD GPU from sysfs,
+ * NVIDIA through the cross-platform `nvidia-smi` source, and FPS from the
+ * MangoHud CSV log written by the compatibility launcher.
  *
  * Every getter is synchronous: the sampler must never await a child process
  * or an HTTP request while the watcher poll loop is running. Missing sources
@@ -21,6 +22,8 @@ import {
   pumpGpuCounters,
 } from "./gpu";
 import { lhmDiagnostics, peekLhm, pumpLhm } from "./lhm";
+import { linuxDiagnostics, sampleLinux } from "./linux";
+import { IS_WINDOWS } from "./proc";
 import {
   ensureRtssHelper,
   lookupRtssFps,
@@ -48,15 +51,76 @@ export interface TelemetryReadout {
   fpsMin: number | null;
   fpsMax: number | null;
   gpuAdapters: string[];
-  gpuSource: "typeperf" | "nvidia" | "mahm" | "none";
-  fpsSource: "mahm" | "rtss" | "none";
-  tempSource: "mahm" | "lhm" | "nvidia" | "none";
-  /** CPU temperatures come from MAHM (Afterburner) or LHM. */
-  cpuTempSource: "mahm" | "lhm" | "none";
+  gpuSource: "typeperf" | "nvidia" | "mahm" | "linux" | "none";
+  fpsSource: "mahm" | "rtss" | "mangohud" | "none";
+  tempSource: "mahm" | "lhm" | "nvidia" | "linux" | "none";
+  /** CPU temperatures come from MAHM (Afterburner), LHM or Linux hwmon. */
+  cpuTempSource: "mahm" | "lhm" | "linux" | "none";
+}
+
+function readLinuxTelemetry(gameId?: string): TelemetryReadout {
+  // nvidia-smi is cross-platform and already handles a missing binary.
+  pumpNvidia();
+  const nvidia = peekNvidia();
+  const linux = sampleLinux(gameId);
+  const mangohud = linux.mangohud;
+
+  const nvidiaPercent = nvidia.utilPercent;
+  const amdPercent = linux.gpuPercent;
+  let gpuPercent: number | null;
+  let gpuSource: TelemetryReadout["gpuSource"];
+  if (mangohud?.gpuLoad !== null && mangohud?.gpuLoad !== undefined) {
+    gpuPercent = mangohud.gpuLoad;
+    gpuSource = "linux";
+  } else if (nvidiaPercent !== null && (amdPercent === null || nvidiaPercent >= amdPercent)) {
+    gpuPercent = nvidiaPercent;
+    gpuSource = "nvidia";
+  } else if (amdPercent !== null) {
+    gpuPercent = amdPercent;
+    gpuSource = "linux";
+  } else {
+    gpuPercent = null;
+    gpuSource = "none";
+  }
+
+  const gpuTempC =
+    mangohud?.gpuTempC ?? nvidia.gpuTempC ?? linux.gpuTempC ?? null;
+  const gpuClockMhz =
+    mangohud?.gpuClockMhz ?? nvidia.gpuClockMhz ?? linux.gpuClockMhz ?? null;
+  const cpuTempC = linux.cpuTempC ?? null;
+  const fps = mangohud?.fps ?? null;
+
+  return {
+    gpuPercent,
+    gpuTempC,
+    gpuClockMhz,
+    cpuTempC,
+    fps,
+    fpsMin: null,
+    fpsMax: null,
+    gpuAdapters: nvidia.adapters.length > 0 ? nvidia.adapters : linux.gpuAdapters,
+    gpuSource,
+    fpsSource: fps !== null ? "mangohud" : "none",
+    tempSource:
+      mangohud?.gpuTempC != null
+        ? "linux"
+        : nvidia.gpuTempC !== null
+          ? "nvidia"
+          : linux.gpuTempC !== null
+            ? "linux"
+            : "none",
+    cpuTempSource: cpuTempC !== null ? "linux" : "none",
+  };
 }
 
 /** Read the cached telemetry and nudge each source to refresh if stale. */
-export function readTelemetry(exePath: string, pid: number): TelemetryReadout {
+export function readTelemetry(
+  exePath: string,
+  pid: number,
+  gameId?: string,
+): TelemetryReadout {
+  if (!IS_WINDOWS) return readLinuxTelemetry(gameId);
+
   pumpGpuCounters();
   pumpGpuAdapters();
   pumpLhm();
@@ -109,12 +173,14 @@ export function readTelemetry(exePath: string, pid: number): TelemetryReadout {
 
 /** Start the long-lived sources for a new session (idempotent). */
 export function startTelemetry(): void {
-  pumpGpuCounters();
-  pumpGpuAdapters();
-  pumpLhm();
+  if (IS_WINDOWS) {
+    pumpGpuCounters();
+    pumpGpuAdapters();
+    pumpLhm();
+    startRtssHelper();
+    startMahmHelper();
+  }
   pumpNvidia();
-  startRtssHelper();
-  startMahmHelper();
 }
 
 /**
@@ -139,12 +205,14 @@ export function telemetryDiagnostics(): {
   rtss: ReturnType<typeof rtssDiagnostics>;
   nvidia: ReturnType<typeof nvidiaDiagnostics>;
   mahm: ReturnType<typeof mahmDiagnostics>;
+  linux?: ReturnType<typeof linuxDiagnostics>;
 } {
-  return {
+  const diagnostics = {
     gpu: gpuDiagnostics(),
     lhm: lhmDiagnostics(),
     rtss: rtssDiagnostics(),
     nvidia: nvidiaDiagnostics(),
     mahm: mahmDiagnostics(),
   };
+  return IS_WINDOWS ? diagnostics : { ...diagnostics, linux: linuxDiagnostics() };
 }

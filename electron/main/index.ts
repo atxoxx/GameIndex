@@ -57,9 +57,10 @@ if (!singleInstance) {
         (args) => {
           const exePath = typeof args.exePath === "string" ? args.exePath : "";
           const pid = Number(args.pid ?? 0) || 0;
+          const gameId = typeof args.gameId === "string" ? args.gameId : undefined;
           startTelemetry();
           return {
-            ...readTelemetry(exePath, pid),
+            ...readTelemetry(exePath, pid, gameId),
             diagnostics: telemetryDiagnostics(),
           };
         },

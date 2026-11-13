@@ -358,6 +358,7 @@ export function runSessionPeriodic(
       session.metrics.sample(session.lastWorkingSetBytes || null, {
         exePath: session.matchedExe,
         pid: session.lastPid,
+        gameId: session.gameId,
       });
 
       if (session.sessionRowId !== null) {

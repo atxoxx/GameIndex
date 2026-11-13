@@ -252,6 +252,10 @@ export default function Splashscreen({
 
   const [palette, setPalette] = useState<VibrantPalette | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
+  // A single dead/legacy artwork URL must not blank the launch hero or logo.
+  const [heroFallback, setHeroFallback] = useState(false);
+  const [heroBroken, setHeroBroken] = useState(false);
+  const [logoBroken, setLogoBroken] = useState(false);
 
   // ── Event-driven launch steps ──────────────────────────────────────
   const startAnimator = useCallback(() => {
@@ -419,7 +423,29 @@ export default function Splashscreen({
   }, [record, close]);
 
   // ── Artwork palette extraction ─────────────────────────────────────
-  const heroSrc = record?.game.bannerUrl || record?.game.coverArtUrl || null;
+  const bannerUrl = record?.game.bannerUrl ?? null;
+  const coverUrl = record?.game.coverArtUrl ?? null;
+  const heroSrc = heroBroken
+    ? null
+    : heroFallback
+      ? coverUrl
+      : bannerUrl ?? coverUrl;
+
+  // A new launch inside the reused splash window starts with fresh fallbacks.
+  useEffect(() => {
+    setHeroFallback(false);
+    setHeroBroken(false);
+    setLogoBroken(false);
+  }, [record?.game.id]);
+
+  const handleHeroError = () => {
+    if (!heroFallback && coverUrl && coverUrl !== bannerUrl) {
+      setHeroFallback(true);
+      return;
+    }
+    setHeroBroken(true);
+  };
+
   useEffect(() => {
     if (!heroSrc) {
       setPalette(null);
@@ -464,6 +490,7 @@ export default function Splashscreen({
   if (!record) return null;
 
   const game: Game = record.game;
+  const logoUrl = logoBroken ? null : game.logoUrl ?? null;
   const playTimeStr = game.playTime ? formatPlayTimeCompact(game.playTime) : "";
   const hasPlayTime = playTimeStr && playTimeStr !== "0h";
   const primaryGenre = game.genres && game.genres.length > 0 ? game.genres[0] : null;
@@ -501,6 +528,7 @@ export default function Splashscreen({
             src={heroSrc}
             alt=""
             className="splashscreen-ambient-art"
+            onError={handleHeroError}
           />
         )}
         <div className="splashscreen-ambient-glow-primary" />
@@ -527,6 +555,7 @@ export default function Splashscreen({
               src={heroSrc}
               alt=""
               className="splashscreen-hero-img"
+              onError={handleHeroError}
             />
           ) : (
             <div className="splashscreen-hero-gradient" />
@@ -565,11 +594,12 @@ export default function Splashscreen({
 
           {/* Bottom logo or display title */}
           <div className="splashscreen-hero-bottom">
-            {game.logoUrl ? (
+            {logoUrl ? (
               <img
-                src={game.logoUrl}
+                src={logoUrl}
                 alt={gameDisplayName(game)}
                 className="splashscreen-logo"
+                onError={() => setLogoBroken(true)}
               />
             ) : (
               <h2 className="splashscreen-display-title">{gameDisplayName(game)}</h2>
@@ -582,7 +612,7 @@ export default function Splashscreen({
           {/* Title & subtitle credits */}
           <div className="splashscreen-info-row">
             <div className="splashscreen-info-titles">
-              {game.logoUrl && (
+              {logoUrl && (
                 <h2 className="splashscreen-title">{gameDisplayName(game)}</h2>
               )}
               {(game.developer || game.publisher) && (

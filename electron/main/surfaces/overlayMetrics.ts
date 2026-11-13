@@ -27,6 +27,8 @@ export interface OverlaySampleTarget {
   /** Executable of the running game, used to look up its RTSS FPS entry. */
   exePath?: string | null;
   pid?: number | null;
+  /** Scopes Linux MangoHud CSV lookup to the running game. */
+  gameId?: string | null;
 }
 
 interface CpuTimes {
@@ -73,7 +75,11 @@ export function readSample(target?: OverlaySampleTarget): OverlayMetricsSample {
   };
 
   try {
-    const telemetry = readTelemetry(target?.exePath ?? "", target?.pid ?? 0);
+    const telemetry = readTelemetry(
+      target?.exePath ?? "",
+      target?.pid ?? 0,
+      target?.gameId ?? undefined,
+    );
     if (telemetry.gpuPercent !== null) sample.gpu = telemetry.gpuPercent;
     if (telemetry.fps !== null) sample.fps = telemetry.fps;
     if (telemetry.cpuTempC !== null && telemetry.cpuTempC > 0) {
