@@ -40,3 +40,12 @@ jobs:
           test -f out/preload/index.cjs
           test -f out/renderer/index.html
           node scripts/check-bundle.mjs
+
+      # Packaging check for the Linux target the release workflow ships. The
+      # `--dir` stage builds the asar, applies the linux `files` filter and runs
+      # the `beforePack` native-architecture guard without needing AppImage/deb
+      # tooling, so a broken package layout fails the PR instead of the tag.
+      - name: Package Linux (unpacked)
+        run: npx electron-builder --linux --dir
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"

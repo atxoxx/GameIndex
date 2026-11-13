@@ -6,6 +6,7 @@
   "main": "out/main/index.cjs",
   "description": "A unified game library application",
   "author": "GameIndex",
+  "desktopName": "gameindex.desktop",
   "scripts": {
     "dev": "vite",
     "dev:electron": "electron-vite dev",

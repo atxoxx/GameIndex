@@ -29,6 +29,11 @@ asar: true
 # prebuilt binaries are what we ship and test.
 npmRebuild: false
 
+# Refuse to package a native addon built for another OS (the cross-build trap:
+# node-datachannel compiles one binary per host, so a Linux AppImage produced on
+# a Windows checkout ships a Windows .node and WebRTC/torrents break).
+beforePack: scripts/before-pack.cjs
+
 win:
   target:
     - target: nsis
@@ -70,7 +75,34 @@ linux:
     - AppImage
     - deb
   category: Game
+  # The Linux targets need a >= 512px icon (build/icon.png is 1024x1024, taken
+  # from the macOS icns); a 256px source is rejected by app-builder.
   icon: build/icon.png
+  executableName: gameindex
+  # deb refuses to build without a maintainer, and electron-builder needs an
+  # address (the package.json author carries none).
+  maintainer: GameIndex <noreply@gameindex.app>
+  # Electron derives WM_CLASS from the desktop file name; without this the
+  # running window is not associated with the launcher entry (icon/taskbar).
+  syncDesktopName: true
+  # Mirror of the Windows prebuild filter: only the binaries loadable on Linux
+  # are shipped. The platform `files` list replaces the base one, so the app
+  # entries are repeated here (see the note under `win.files`).
+  files:
+    - out/**/*
+    - package.json
+    - "!**/*.map"
+    - "!node_modules/better-sqlite3/deps/**"
+    - "!node_modules/better-sqlite3/src/**"
+    - "!node_modules/better-sqlite3/build/**"
+    - "!node_modules/better-sqlite3/prebuilds/darwin-*.node"
+    - "!node_modules/better-sqlite3/prebuilds/win32*.node"
+    - "!node_modules/utp-native/prebuilds/darwin-*/**"
+    - "!node_modules/utp-native/prebuilds/win32-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/android-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/darwin-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/ios-*/**"
+    - "!node_modules/fs-native-extensions/prebuilds/win32-*/**"
 
 mac:
   target:
