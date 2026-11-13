@@ -15,7 +15,7 @@ import { setLastPlayed } from "../../state/libraryStore";
 import { appendSample, finishSession, startSession } from "../../state/sessionsStore";
 import { shutdownTelemetry, startTelemetry } from "../telemetry";
 import { createSessionMetrics, type SessionMetrics } from "./metrics";
-import { getGameRootDir } from "./paths";
+import { getGameRootDir, baseNameLower } from "./paths";
 import { resolveProcessDetails } from "./processes";
 import { runScriptBlocking } from "./scripts";
 import { requestImmediatePoll } from "./wake";
@@ -164,6 +164,12 @@ async function refreshSessionProcessPath(
     const details = await resolveProcessDetails([pid]);
     const resolved = details.get(pid)?.exePath ?? "";
     if (!resolved) return;
+    // On Linux the PID of a Windows game resolves to the Wine loader, not the
+    // game .exe; adopting that path would point the session (and its install
+    // tree) at /usr/bin. Only take the OS path when it is the same binary.
+    const tracked = baseNameLower(session.matchedExe ?? "");
+    const found = baseNameLower(resolved);
+    if (tracked && found && tracked !== found) return;
     if (activeSessions.get(session.gameId) !== session) return;
     session.matchedExe = resolved;
     const root = getGameRootDir(resolved);

@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Game } from "../../../../src/types/game";
+import { compatibilityPrefixCandidates } from "../compatibility/launch";
 import { lookupCurated, normalizeName } from "./registry";
 import type { DetectedLocation } from "./types";
 
@@ -381,6 +382,20 @@ export function detectForGame(game: Game, options: DetectOptions = {}): Detected
   if (roots.home) {
     const wineUsers = path.join(roots.home, ".wine", "drive_c", "users");
     if (isDir(wineUsers)) scanWinePrefix(wineUsers, candidates, collector);
+  }
+  // 4b. The prefix GameIndex launches this game with: a per-game override, the
+  // global default, or the generated `<base>/<gameId>` folder. Steam's
+  // compatdata above only covers titles Steam itself launched.
+  for (const prefix of compatibilityPrefixCandidates(game.id)) {
+    for (const users of [
+      path.join(prefix, "pfx", "drive_c", "users"),
+      path.join(prefix, "drive_c", "users"),
+    ]) {
+      if (isDir(users)) {
+        scanWinePrefix(users, candidates, collector);
+        break;
+      }
+    }
   }
 
   // 5. Heuristic name scan across the standard roots.

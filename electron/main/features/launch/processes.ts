@@ -19,6 +19,7 @@
  * matching then falls back to image names. Windows is the verified target.
  */
 import { execFile } from "node:child_process";
+import fs from "node:fs";
 import { baseNameLower, isInsideDir, normalizePathLower, trimPathSeparators } from "./paths";
 import type { ProcessInfo } from "./types";
 
@@ -293,6 +294,26 @@ function parsePowerShellJson(stdout: string): ProcessDetail[] {
 const PS_PREFIX =
   "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ";
 
+/**
+ * Linux process detail from `/proc`: full executable (the symlink resolves
+ * through the launcher, so Wine processes report the wine binary) and the
+ * parent PID from `stat`. Cheap enough for the few hundred PIDs a snapshot
+ * contains, and the only way the watcher can match by path on Linux.
+ */
+function linuxProcessDetail(pid: number): ProcessDetail | null {
+  try {
+    const exePath = fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "");
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+    // `pid (comm) state ppid …` - comm may contain spaces and parentheses.
+    const close = stat.lastIndexOf(")");
+    const fields = close >= 0 ? stat.slice(close + 2).split(" ") : [];
+    const ppid = Number.parseInt(fields[1] ?? "", 10);
+    return { pid, ppid: Number.isFinite(ppid) ? ppid : 0, exePath };
+  } catch {
+    return null;
+  }
+}
+
 function chunk<T>(values: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
@@ -307,7 +328,14 @@ export async function resolveProcessDetails(pids: number[]): Promise<Map<number,
   const unique = [...new Set(pids.filter((pid) => Number.isFinite(pid) && pid > 0))];
   const details = new Map<number, ProcessDetail>();
   if (unique.length === 0) return details;
-  if (!IS_WINDOWS) return details;
+  if (!IS_WINDOWS) {
+    if (process.platform !== "linux") return details;
+    for (const pid of unique) {
+      const detail = linuxProcessDetail(pid);
+      if (detail) details.set(pid, detail);
+    }
+    return details;
+  }
 
   for (const group of chunk(unique, 40)) {
     const filter = group.map((pid) => `ProcessId=${pid}`).join(" or ");
@@ -335,7 +363,16 @@ export async function resolveProcessDetails(pids: number[]): Promise<Map<number,
  * poll can search the install tree for a hand-off.
  */
 export async function listProcessesDetailed(): Promise<ProcessInfo[]> {
-  if (!IS_WINDOWS) return listProcessBase();
+  if (!IS_WINDOWS) {
+    const base = await listProcessBasePosix();
+    if (process.platform !== "linux") return base;
+    for (const row of base) {
+      const detail = linuxProcessDetail(row.pid);
+      if (detail && !row.exePath) row.exePath = detail.exePath;
+      if (detail && !row.ppid) row.ppid = detail.ppid;
+    }
+    return base;
+  }
   const script =
     PS_PREFIX +
     "Get-CimInstance Win32_Process | " +
@@ -390,13 +427,16 @@ export async function pidMatchesExe(pid: number, expectedExe: string): Promise<b
   const expectedNorm = normalizePathLower(expectedExe);
   const details = await resolveProcessDetails([pid]);
   const detail = details.get(pid);
-  if (detail?.exePath) {
-    return expectedNorm !== "" && normalizePathLower(detail.exePath) === expectedNorm;
+  if (detail?.exePath && expectedNorm !== "") {
+    if (normalizePathLower(detail.exePath) === expectedNorm) return true;
+    // Linux: `/proc/<pid>/exe` points at the Wine loader for a Windows game, so
+    // an exact-path miss falls through to the name check below.
+    if (process.platform !== "linux") return false;
   }
   const snapshot = await listProcessBase();
-  const process = snapshot.find((entry) => entry.pid === pid);
-  if (!process) return false;
-  return processNameMatches(process, expectedExe);
+  const entry = snapshot.find((item) => item.pid === pid);
+  if (!entry) return false;
+  return processNameMatches(entry, expectedExe);
 }
 
 async function killPidWindows(pid: number): Promise<boolean> {
@@ -460,8 +500,15 @@ export async function killMatchingProcesses(
     if (!path) continue;
     const pathNorm = normalizePathLower(path);
     const pathName = baseNameLower(path);
-    if (expectedName && pathName !== expectedName) continue;
-    if (dirNorm && !isInsideDir(pathNorm, dirNorm)) continue;
+    // Linux reports the Wine loader as the executable of a Windows game; the
+    // candidate list is already name-filtered, and Wine renames the process to
+    // the game .exe, so a verified name is enough there.
+    const nameVerified =
+      !!expectedName && candidate.name.toLowerCase() === expectedName;
+    const nameOnly =
+      process.platform === "linux" && nameVerified && pathName !== expectedName;
+    if (expectedName && pathName !== expectedName && !nameOnly) continue;
+    if (dirNorm && !isInsideDir(pathNorm, dirNorm) && !nameOnly) continue;
     if (await killProcessTree(candidate.pid)) killed = true;
   }
   return killed;

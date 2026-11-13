@@ -92,6 +92,12 @@ function findUmuRun(): string | null {
   return candidates.find(exists) ?? null;
 }
 
+/** `umu-run` executable, or null when umu-launcher is not installed. */
+export function umuRunPath(): string | null {
+  if (commandAvailable("umu-run")) return "umu-run";
+  return findUmuRun();
+}
+
 function steamCandidateRoots(): string[] {
   const home = homeDir();
   const roots = [
@@ -102,6 +108,11 @@ function steamCandidateRoots(): string[] {
     "/snap/steam/common/.steam/steam",
   ];
   return roots.filter(isDir);
+}
+
+/** Steam install roots that exist on this machine, most specific first. */
+export function steamRoots(): string[] {
+  return steamCandidateRoots();
 }
 
 function parseLibraryFolders(raw: string): string[] {

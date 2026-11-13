@@ -18,6 +18,7 @@
  * behind.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { isWindows, programFilesX86, regQueryValues } from "./proc";
 import { parseAppManifest, parseLibraryFolders, type SteamAppManifest } from "./vdf";
@@ -66,6 +67,26 @@ export async function findSteamRoot(): Promise<SteamRoots> {
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "Steam"),
     "C:\\Steam",
   ];
+
+  // Linux/macOS keep Steam under the home directory: the native package, the
+  // Steam Deck / Flatpak layout and the snap sandbox each use a different path.
+  // There is no registry, so probing `steamapps` is the only check that works.
+  if (!isWindows) {
+    const home = process.env.HOME || os.homedir();
+    const posixCandidates = [
+      path.join(home, ".steam", "steam"),
+      path.join(home, ".steam", "root"),
+      path.join(home, ".local", "share", "Steam"),
+      path.join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+      "/snap/steam/common/.steam/steam",
+    ];
+    for (const candidate of posixCandidates) {
+      probed.push(candidate);
+      if (await hasSteamApps(candidate)) return { root: candidate, probed };
+    }
+    return { root: null, probed };
+  }
+
   for (const candidate of defaults) {
     probed.push(candidate);
     if (fs.existsSync(path.join(candidate, "steam.exe"))) {
@@ -91,8 +112,10 @@ async function hasSteamApps(root: string): Promise<boolean> {
 
 /** Every library root, primary install first, de-duplicated. */
 export async function steamLibraries(root: string): Promise<SteamLibrary[]> {
+  const key = (value: string): string =>
+    isWindows ? path.resolve(value).toLowerCase() : path.resolve(value);
   const libraries: SteamLibrary[] = [{ root, steamApps: path.join(root, "steamapps") }];
-  const seen = new Set([path.resolve(root).toLowerCase()]);
+  const seen = new Set([key(root)]);
 
   const vdfPath = path.join(root, "steamapps", "libraryfolders.vdf");
   let raw = "";
@@ -104,8 +127,8 @@ export async function steamLibraries(root: string): Promise<SteamLibrary[]> {
 
   for (const folder of parseLibraryFolders(raw)) {
     const resolved = path.resolve(folder.path);
-    if (seen.has(resolved.toLowerCase())) continue;
-    seen.add(resolved.toLowerCase());
+    if (seen.has(key(resolved))) continue;
+    seen.add(key(resolved));
     libraries.push({ root: resolved, steamApps: path.join(resolved, "steamapps") });
   }
 

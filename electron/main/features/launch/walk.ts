@@ -17,7 +17,7 @@ export interface WalkOptions {
   /** Return false to prune a subdirectory. */
   shouldDescend?: (name: string, depth: number) => boolean;
   /** Called for every non-symlink file entry. */
-  onFile?: (filePath: string, size: number, mtimeMs: number, depth: number) => void | Promise<void>;
+  onFile?: (filePath: string, size: number, mtimeMs: number, depth: number, executable: boolean) => void | Promise<void>;
   /** Polled between entries; return true to stop the walk. */
   isCancelled?: () => boolean;
   /** Directories read concurrently (default 8). */
@@ -92,15 +92,19 @@ export async function walkDirectory(root: string, options: WalkOptions): Promise
         if (!entry.isFile()) continue;
         let size = 0;
         let mtimeMs = 0;
+        let executable = false;
         try {
           const stat = await fs.stat(entryPath);
           size = stat.size;
           mtimeMs = stat.mtimeMs;
+          // POSIX games are extension-less ELF binaries; the execute bit is
+          // the only reliable signal that a file is launchable.
+          executable = process.platform !== "win32" && (stat.mode & 0o111) !== 0;
         } catch {
           continue;
         }
         result.filesExamined += 1;
-        await options.onFile?.(entryPath, size, mtimeMs, depth);
+        await options.onFile?.(entryPath, size, mtimeMs, depth, executable);
       }
       // Yield between directories so IPC and timers keep running.
       await new Promise((resolve) => setImmediate(resolve));

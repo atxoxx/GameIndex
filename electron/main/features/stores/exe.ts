@@ -140,14 +140,21 @@ export async function resolveExecutable(
         continue;
       }
       if (!entry.isFile()) continue;
-      if (!/\.exe$/i.test(entry.name)) continue;
       if (isSkippedExe(entry.name)) continue;
+      if (/\.(so|dll|dylib)$/i.test(entry.name)) continue;
       let size = 0;
+      let executable = false;
       try {
-        size = (await fs.promises.stat(full)).size;
+        const stats = await fs.promises.stat(full);
+        size = stats.size;
+        // POSIX games ship extension-less ELF binaries; the execute bit is what
+        // distinguishes them from data files. Windows keeps the `.exe` filter.
+        executable = process.platform !== "win32" && (stats.mode & 0o111) !== 0;
       } catch {
         size = 0;
       }
+      const isExeName = /\.exe$/i.test(entry.name);
+      if (process.platform === "win32" ? !isExeName : !isExeName && !executable) continue;
       const stem = path.basename(entry.name, path.extname(entry.name));
       found.push({
         path: full,

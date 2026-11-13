@@ -26,6 +26,11 @@ import { getGameRootDir } from "./paths";
 import { registerLaunchedSession } from "./sessions";
 import { runScriptBlocking, spawnCompanion, splitLaunchArgs } from "./scripts";
 import { steamGameInstallPath, steamLaunchUrl } from "./steam";
+import {
+  gameCompatibilityProfile,
+  launchWithCompatibility,
+  shouldUseCompatibility,
+} from "../compatibility/launch";
 import type { CompanionApp, LaunchProgressPayload } from "./types";
 
 const IS_WINDOWS = process.platform === "win32";
@@ -337,7 +342,23 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
     }
     const cwd = path.dirname(gamePath);
 
-    if (runAsAdmin) {
+    // Linux: a Windows executable (or a game that names a runner) goes through
+    // Wine/Proton instead of being spawned directly. Windows keeps the direct
+    // spawn below.
+    const compatProfile = IS_WINDOWS ? null : gameCompatibilityProfile(gameId);
+    if (compatProfile && shouldUseCompatibility(gamePath, compatProfile)) {
+      emitProgress(gameId, "compatibilityRunner");
+      const result = await launchWithCompatibility({
+        gameId,
+        gameName,
+        exePath: gamePath,
+        workingDir: cwd,
+        launchArguments,
+        profile: compatProfile,
+        steamAppId,
+      });
+      initialPid = result.pid;
+    } else if (runAsAdmin) {
       emitProgress(gameId, "elevating");
       initialPid = await launchElevated(gamePath, cwd, launchArguments);
     } else {

@@ -141,15 +141,24 @@ export async function scanFoldersForExes(
         maxDepth: 25,
         shouldDescend,
         isCancelled: () => state.cancelled,
-        onFile: (filePath, size, mtimeMs) => {
+        onFile: (filePath, size, mtimeMs, _depth, executable) => {
           if (state.cancelled) return;
-          const extension = filePath.slice(filePath.lastIndexOf(".") + 1);
-          if (!isProgramExtension(extension)) {
+          const lastDot = filePath.lastIndexOf(".");
+          const name = filePath.replace(/^.*[\\/]/, "");
+          if (name.startsWith(".")) {
             maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
             return;
           }
-          const name = filePath.replace(/^.*[\\/]/, "");
-          const stem = name.slice(0, Math.max(0, name.lastIndexOf(".")));
+          const extension = lastDot > filePath.length - name.length
+            ? filePath.slice(lastDot + 1)
+            : "";
+          // POSIX titles ship extension-less binaries; accept any executable
+          // file there, plus the Windows/script extensions everywhere.
+          if (!isProgramExtension(extension) && !executable) {
+            maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
+            return;
+          }
+          const stem = extension ? name.slice(0, Math.max(0, name.lastIndexOf("."))) : name;
           if (isSkipName(stem)) {
             maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
             return;
