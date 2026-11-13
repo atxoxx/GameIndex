@@ -1,3 +1,4 @@
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   mangohudLogDir,
@@ -63,7 +64,7 @@ describe("MangoHud log folders", () => {
   it("writes per-game logs under GameIndex and sanitizes the id", () => {
     process.env.XDG_DATA_HOME = "/tmp/gi-xdg";
     expect(mangohudLogDir("game/with spaces")).toBe(
-      "/tmp/gi-xdg/MangoHud/GameIndex/game_with_spaces",
+      path.join("/tmp/gi-xdg", "MangoHud", "GameIndex", "game_with_spaces"),
     );
   });
 });

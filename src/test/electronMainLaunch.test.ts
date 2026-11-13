@@ -12,18 +12,18 @@ afterAll(async () => {
 });
 
 describe("giasset path resolution", () => {
-  it("keeps POSIX artwork paths absolute", () => {
+  it("keeps artwork paths absolute", () => {
     expect(
       filePathFromAssetUrl("giasset://local/%2Fhome%2Fseth%2F.config%2FGameIndex%2Fartwork%2Fg1%2Fhero.jpg"),
-    ).toBe("/home/seth/.config/GameIndex/artwork/g1/hero.jpg");
+    ).toBe(path.normalize("/home/seth/.config/GameIndex/artwork/g1/hero.jpg"));
   });
 
   it("decodes spaces and Windows drive paths", () => {
     expect(filePathFromAssetUrl("giasset://local/%2Fhome%2Fa%20b%2Fcover.png")).toBe(
-      "/home/a b/cover.png",
+      path.normalize("/home/a b/cover.png"),
     );
     expect(filePathFromAssetUrl("giasset://local/C%3A%5CUsers%5Cseth%5Ccover.png")).toBe(
-      "C:\\Users\\seth\\cover.png",
+      path.normalize("C:\\Users\\seth\\cover.png"),
     );
   });
 
