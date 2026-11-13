@@ -90,4 +90,14 @@ describe("SidebarGameItem", () => {
     expect(container.querySelector(".sidebar-game-pin-btn.is-pinned")).toBeInTheDocument();
     expect(container.querySelector(".sidebar-game-item.is-pinned")).toBeInTheDocument();
   });
+
+  it("falls back to a clear logo when no icon or cover exists", () => {
+    const { container } = renderRow({
+      game: game({ iconUrl: undefined, coverArtUrl: undefined, logoUrl: "/art/logo.png" }),
+    });
+    const logo = container.querySelector("img.sidebar-game-logo");
+    expect(logo).toBeInTheDocument();
+    expect(logo).toHaveAttribute("src", "/art/logo.png");
+    expect(container.querySelector(".sidebar-game-item.has-logo")).toBeInTheDocument();
+  });
 });

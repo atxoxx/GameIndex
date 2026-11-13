@@ -1,24 +1,24 @@
 /**
- * Host hardware / platform probes that are trivial in Node.
+ * Host hardware / platform probes.
  *
- * `get_system_ram_gb` and `get_system_info` are read by the Activity and
- * Settings surfaces on mount. CPU model + RAM come straight from `node:os`.
+ * `get_system_ram_gb`, `get_system_info` and `detect_gpus` are read by the
+ * Activity, Settings → Hardware, GamePage and Diagnostics surfaces on mount.
+ * CPU model + RAM come from `node:os`; GPU enumeration lives in
+ * `features/hardware/detect` (sysfs/pci.ids on Linux, WMI on Windows,
+ * system_profiler on macOS).
  *
- * GPU enumeration (WMI on Windows, sysfs/lspci on Linux) is NOT ported in this
- * pass. `detect_gpus` returns `[]` and `get_system_info` reports an empty GPU
- * list; the renderer falls back to its own cached adapter list, and the
- * Hardware page simply shows no adapters until the detector lands.
+ * The summary is cached in the detector because GPU probing may spawn helper
+ * binaries; `refresh_hardware` clears that cache.
  */
 import os from "node:os";
 import type { CommandHandler } from "../ipc";
+import {
+  getHardwareSummary,
+  refreshHardware,
+} from "../features/hardware/detect";
 
 function ramGb(): number {
   return Math.round(os.totalmem() / (1024 * 1024 * 1024));
-}
-
-function cpuName(): string {
-  const model = os.cpus()[0]?.model?.trim();
-  return model && model.length > 0 ? model : "Unknown CPU";
 }
 
 function platformName(): string {
@@ -37,17 +37,11 @@ function platformName(): string {
 export const systemCommands: Record<string, CommandHandler> = {
   get_system_ram_gb: () => ramGb(),
 
-  get_system_info: () => ({
-    cpuName: cpuName(),
-    ramGb: ramGb(),
-    gpus: [],
-  }),
+  get_system_info: () => getHardwareSummary(),
 
-  /** GPU detector not ported — see the module note. */
-  detect_gpus: () => [],
+  detect_gpus: () => getHardwareSummary().gpus,
 
-  /** No hardware cache to invalidate in this build. */
-  refresh_hardware: () => null,
+  refresh_hardware: () => refreshHardware(),
 
   get_platform: () => platformName(),
 };

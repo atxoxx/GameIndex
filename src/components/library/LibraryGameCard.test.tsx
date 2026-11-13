@@ -5,6 +5,16 @@ import type { Game } from "../../types/game";
 
 const launchGame = vi.fn();
 
+const art = vi.hoisted(() => ({
+  value: {
+    displayUrl: null as string | null,
+    staticPosterUrl: null as string | null,
+    animatedPosterUrl: null as string | null,
+    isIcon: false,
+    handleError: () => undefined,
+  },
+}));
+
 vi.mock("../../context/GameContext", () => ({
   NO_IGDB_MATCH_SOURCE: "none",
   useGameCardActions: () => ({
@@ -55,13 +65,7 @@ vi.mock("../../context/SettingsContext", () => ({
 }));
 
 vi.mock("../../hooks/useGameCardArt", () => ({
-  useGameCardArt: () => ({
-    displayUrl: null,
-    staticPosterUrl: null,
-    animatedPosterUrl: null,
-    isIcon: false,
-    handleError: vi.fn(),
-  }),
+  useGameCardArt: () => art.value,
 }));
 
 vi.mock("../../hooks/useSharedViewportVisibility", () => ({
@@ -107,9 +111,38 @@ function renderCard(props: Partial<React.ComponentProps<typeof LibraryGameCard>>
 afterEach(() => {
   cleanup();
   launchGame.mockClear();
+  art.value = {
+    displayUrl: null,
+    staticPosterUrl: null,
+    animatedPosterUrl: null,
+    isIcon: false,
+    handleError: () => undefined,
+  };
 });
 
 describe("LibraryGameCard", () => {
+  it("mounts the animated cover only while hovering", () => {
+    art.value = {
+      displayUrl: "/art/cover.webp",
+      staticPosterUrl: "/art/cover.webp",
+      animatedPosterUrl: "/art/cover-animated.webp",
+      isIcon: false,
+      handleError: () => undefined,
+    };
+    renderCard();
+
+    const card = screen.getByRole("button", { name: "Hades II" });
+    const animated = () => card.querySelector("img.lib-card-cover-animated");
+    expect(animated()).toBeNull();
+
+    fireEvent.mouseEnter(card);
+    expect(animated()).not.toBeNull();
+    expect(animated()).toHaveAttribute("src", "/art/cover-animated.webp");
+
+    fireEvent.mouseLeave(card);
+    expect(animated()).toBeNull();
+  });
+
   it("shows the poster metadata as chips and launches from the hover action", () => {
     const { onLaunch, onClick } = renderCard();
 

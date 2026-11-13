@@ -30,6 +30,10 @@ export function gameNeedsEnrichment(game: Game): boolean {
     if (game.steamAppId && (!game.genres || game.genres.length === 0)) {
       return true;
     }
+    // SteamGridDB can still provide artwork by title even when IGDB has no
+    // match, so retry a no-match row that has no cover at all. The
+    // per-session attempt cap keeps this from looping forever.
+    if (!game.coverArtUrl) return true;
     return false;
   }
   // Missing basic metadata or relations or genres
@@ -107,6 +111,18 @@ async function fetchAllImages(images: { icon?: string | null; cover?: string | n
   };
 }
 
+interface EnrichQueueItem {
+  id: string;
+  name: string;
+  steamAppId?: number;
+  /**
+   * How many times the item was put back because the game record was not in
+   * `gamesRef` yet. Add flows enqueue in the same tick as `setGames`, so the
+   * first pass can legitimately miss a brand-new row.
+   */
+  missingTries?: number;
+}
+
 export function useEnrich(options: {
   gamesRef: React.MutableRefObject<Game[]>;
   updateGame: (id: string, updates: Partial<Game>) => void;
@@ -115,7 +131,7 @@ export function useEnrich(options: {
   const { gamesRef, updateGame, loadGameDetail } = options;
 
   // Background auto-enrichment queue
-  const queueRef = useRef<{ id: string; name: string; steamAppId?: number }[]>([]);
+  const queueRef = useRef<EnrichQueueItem[]>([]);
   const queuedIdsRef = useRef<Set<string>>(new Set());
   const isProcessingRef = useRef<boolean>(false);
 
@@ -130,7 +146,6 @@ export function useEnrich(options: {
 
     const previousAttempts = enrichAttemptsThisSession.get(gameId) ?? 0;
     if (previousAttempts >= MAX_ENRICH_ATTEMPTS) return;
-    enrichAttemptsThisSession.set(gameId, previousAttempts + 1);
 
     try {
       // Enrichment writes heavy fields (screenshots, videos, reviews, …);
@@ -138,6 +153,9 @@ export function useEnrich(options: {
       const full = await loadGameDetail(gameId);
       const current = full ?? gamesRef.current.find((g) => g.id === gameId);
       if (!current) return;
+      // Only count an attempt once the row actually exists: a miss here is
+      // the add-time race, and the queue will retry it.
+      enrichAttemptsThisSession.set(gameId, previousAttempts + 1);
 
       let resolvedSteamAppId =
         steamAppId ??
@@ -196,17 +214,64 @@ export function useEnrich(options: {
         const mergedGenres = deduplicateAndMergeTags(latest.genres, steamTags);
         const timeToBeat = mergeTimeToBeat(latest.timeToBeat, hltb);
 
+        // IGDB/Steam had no metadata, but SteamGridDB can still find the game
+        // by title (or by appid). Without this, a non-Steam/local game stayed
+        // on the placeholder cover forever — "no IGDB match" also meant "no
+        // artwork download".
+        const artPatch: Partial<Game> = {};
+        try {
+          const sgdb = await invoke<SgdbAssets | null>("sgdb_get_assets", {
+            steamAppId: resolvedSteamAppId ?? null,
+            gameName: gameName || undefined,
+          });
+          if (sgdb) {
+            const wantCover = !isFrontendUsableImage(latest.coverArtUrl) && !!sgdb.gridUrl;
+            const wantHero =
+              !isFrontendUsableImage(latest.bannerUrl) &&
+              !!(sgdb.heroUrl ?? sgdb.gridUrl);
+            const wantLogo = !isFrontendUsableImage(latest.logoUrl) && !!sgdb.logoUrl;
+            const wantIcon = !isFrontendUsableImage(latest.iconUrl) && !!sgdb.iconUrl;
+            const [cover, hero, logo, icon] = await Promise.all([
+              wantCover ? downloadArtworkSafe(gameId, "cover", sgdb.gridUrl) : undefined,
+              wantHero
+                ? downloadArtworkSafe(gameId, "hero", sgdb.heroUrl ?? sgdb.gridUrl)
+                : undefined,
+              wantLogo ? downloadArtworkSafe(gameId, "logo", sgdb.logoUrl) : undefined,
+              wantIcon ? downloadArtworkSafe(gameId, "icon", sgdb.iconUrl) : undefined,
+            ]);
+            if (cover) {
+              artPatch.coverArtUrl = cover;
+              artPatch.coverSourceUrl = discordAsset(sgdb.gridUrl);
+            }
+            if (hero) artPatch.bannerUrl = hero;
+            if (logo) {
+              artPatch.logoUrl = logo;
+              artPatch.logoSourceUrl = discordAsset(sgdb.logoUrl);
+            }
+            if (icon) artPatch.iconUrl = icon;
+          }
+        } catch (err) {
+          console.warn(`SteamGridDB fallback failed for ${gameName}:`, err);
+        }
+
+        // A download may take seconds; re-read once more so a concurrent edit
+        // is not overwritten.
+        latest = gamesRef.current.find((g) => g.id === gameId) ?? latest;
         const noMatchPatch: Partial<Game> = {
           metadataSource: latest.metadataSource ?? NO_IGDB_MATCH_SOURCE,
           steamAppId: resolvedSteamAppId,
           ...(mergedGenres.length > 0 ? { genres: mergedGenres } : {}),
           ...(timeToBeat ? { timeToBeat } : {}),
+          ...artPatch,
         };
         updateGame(gameId, noMatchPatch);
         invoke("save_game", { game: { ...latest, ...noMatchPatch } }).catch((err) =>
           console.warn(`Immediate persist (no-match) failed for ${gameName}:`, err)
         );
         enrichAttemptsThisSession.delete(gameId);
+        if (artPatch.coverArtUrl || artPatch.bannerUrl || artPatch.logoUrl || artPatch.iconUrl) {
+          console.log(`Enriched ${gameName} with SteamGridDB artwork`);
+        }
         return;
       }
 
@@ -278,6 +343,9 @@ export function useEnrich(options: {
       let sgdbIconUrl: string | undefined;
       let sgdbLogoUrl: string | undefined;
       let sgdbLogoSourceUrl: string | undefined;
+      let sgdbCoverUrl: string | undefined;
+      let sgdbCoverSourceUrl: string | undefined;
+      let sgdbHeroUrl: string | undefined;
       if (resolvedSteamAppId || gameName) {
         try {
           const sgdb = await invoke<SgdbAssets | null>("sgdb_get_assets", {
@@ -291,6 +359,28 @@ export function useEnrich(options: {
             }
             if (!isFrontendUsableImage(current.iconUrl) && sgdb.iconUrl) {
               sgdbIconUrl = await downloadArtworkSafe(gameId, "icon", sgdb.iconUrl);
+            }
+            // IGDB/Steam can miss a vertical cover or a wide hero even when
+            // the rest of the metadata matched. Fill those slots from SGDB
+            // while we are already here instead of leaving the card blank.
+            if (
+              !images.coverArtUrl &&
+              !isFrontendUsableImage(latestBeforeImages.coverArtUrl) &&
+              sgdb.gridUrl
+            ) {
+              sgdbCoverUrl = await downloadArtworkSafe(gameId, "cover", sgdb.gridUrl);
+              sgdbCoverSourceUrl = discordAsset(sgdb.gridUrl);
+            }
+            if (
+              !images.bannerUrl &&
+              !isFrontendUsableImage(latestBeforeImages.bannerUrl) &&
+              (sgdb.heroUrl ?? sgdb.gridUrl)
+            ) {
+              sgdbHeroUrl = await downloadArtworkSafe(
+                gameId,
+                "hero",
+                sgdb.heroUrl ?? sgdb.gridUrl,
+              );
             }
           }
         } catch (err) {
@@ -322,13 +412,13 @@ export function useEnrich(options: {
         genres: mergedGenres.length > 0 ? mergedGenres : latest.genres,
         coverArtUrl: isFrontendUsableImage(latest.coverArtUrl)
           ? latest.coverArtUrl
-          : (images.coverArtUrl ?? latest.coverArtUrl),
+          : (images.coverArtUrl ?? sgdbCoverUrl ?? latest.coverArtUrl),
         coverSourceUrl: isFrontendUsableImage(latest.coverArtUrl)
           ? latest.coverSourceUrl
-          : (images.coverSourceUrl ?? latest.coverSourceUrl),
+          : (images.coverSourceUrl ?? sgdbCoverSourceUrl ?? latest.coverSourceUrl),
         bannerUrl: isFrontendUsableImage(latest.bannerUrl)
           ? latest.bannerUrl
-          : (images.bannerUrl ?? latest.bannerUrl),
+          : (images.bannerUrl ?? sgdbHeroUrl ?? latest.bannerUrl),
         logoUrl: isFrontendUsableImage(latest.logoUrl)
           ? latest.logoUrl
           : (images.logoUrl ?? sgdbLogoUrl ?? latest.logoUrl),
@@ -373,6 +463,8 @@ export function useEnrich(options: {
         isFrontendUsableImage(images.logoUrl) ||
         isFrontendUsableImage(sgdbIconUrl) ||
         isFrontendUsableImage(sgdbLogoUrl) ||
+        isFrontendUsableImage(sgdbCoverUrl) ||
+        isFrontendUsableImage(sgdbHeroUrl) ||
         !!current.coverArtUrl
       ) {
         enrichAttemptsThisSession.delete(gameId);
@@ -423,10 +515,27 @@ export function useEnrich(options: {
       while (queueRef.current.length > 0) {
         const item = queueRef.current.shift();
         if (!item) break;
-        queuedIdsRef.current.delete(item.id);
 
         const current = gamesRef.current.find((g) => g.id === item.id);
-        if (current && (enrichAttemptsThisSession.get(item.id) ?? 0) < MAX_ENRICH_ATTEMPTS) {
+        if (!current) {
+          // Add flows enqueue before React has committed the new row to
+          // `gamesRef`. Put the item back and give the render a moment
+          // instead of silently dropping it (the old behaviour, which meant
+          // artwork was never fetched at add time).
+          const tries = item.missingTries ?? 0;
+          if (tries < 20) {
+            queuedIdsRef.current.add(item.id);
+            queueRef.current.push({ ...item, missingTries: tries + 1 });
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            continue;
+          }
+          // The game was deleted while queued: release the reservation.
+          queuedIdsRef.current.delete(item.id);
+          continue;
+        }
+
+        queuedIdsRef.current.delete(item.id);
+        if ((enrichAttemptsThisSession.get(item.id) ?? 0) < MAX_ENRICH_ATTEMPTS) {
           try {
             await enrichGameMetadata(item.id, item.name, item.steamAppId);
           } catch (err) {

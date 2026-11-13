@@ -9,6 +9,7 @@
  */
 import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 
 export interface WalkOptions {
@@ -30,6 +31,48 @@ export interface WalkResult {
   foldersScanned: number;
   /** File entries handed to `onFile`. */
   filesExamined: number;
+}
+
+/** Kinds of real program headers we recognize without requiring an extension. */
+export type ProgramSignature = "elf" | "script" | "macho" | "pe" | null;
+
+/**
+ * Read the first bytes of `filePath` and classify the executable format.
+ *
+ * The execute bit alone is not trustworthy: NTFS/exFAT/SMB mounts commonly
+ * report 0755 for every file, so a folder scan that trusts `stat.mode` treats
+ * textures, DLLs and `.txt` files as launchable. Real programs carry a format
+ * signature (ELF, a shebang, Mach-O, or a PE `MZ` header).
+ */
+export async function programSignature(filePath: string): Promise<ProgramSignature> {
+  let handle: FileHandle | null = null;
+  try {
+    handle = await fs.open(filePath, "r");
+    const buffer = Buffer.alloc(128);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (bytesRead < 4) return null;
+    if (buffer[0] === 0x7f && buffer[1] === 0x45 && buffer[2] === 0x4c && buffer[3] === 0x46) {
+      return "elf";
+    }
+    if (buffer[0] === 0x23 && buffer[1] === 0x21) return "script"; // "#!"
+    if (buffer[0] === 0x4d && buffer[1] === 0x5a) return "pe"; // "MZ"
+    const magic = buffer.readUInt32BE(0);
+    if (
+      magic === 0xfeedface ||
+      magic === 0xfeedfacf ||
+      magic === 0xcefaedfe ||
+      magic === 0xcffaedfe ||
+      magic === 0xcafebabe ||
+      magic === 0xcafebabf
+    ) {
+      return "macho";
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 async function mapLimit<T>(

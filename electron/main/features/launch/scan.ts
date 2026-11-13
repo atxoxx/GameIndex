@@ -9,19 +9,8 @@
 import { emit } from "../../ipc";
 import { normalizePathLower } from "./paths";
 import { isSkipName } from "./processes";
+import { isLaunchableFile, extensionOf } from "./programFile";
 import { walkDirectory } from "./walk";
-
-/** Extensions the importer can turn into a game entry. */
-const PROGRAM_EXTENSIONS = new Set([
-  "exe",
-  "bat",
-  "cmd",
-  "com",
-  "ps1",
-  "sh",
-  "appimage",
-  "x86_64",
-]);
 
 export interface ExeInfo {
   path: string;
@@ -56,12 +45,19 @@ interface ScanState {
 /** Scans currently running, keyed by the renderer's `scanId`. */
 const activeScans = new Map<string, ScanState>();
 
-function isProgramExtension(extension: string): boolean {
-  return PROGRAM_EXTENSIONS.has(extension.toLowerCase());
-}
-
 function shouldDescend(name: string): boolean {
-  return !(name.startsWith(".") || name.startsWith("_") || name.startsWith("$"));
+  const lower = name.toLowerCase();
+  if (name.startsWith(".") || name.startsWith("_") || name.startsWith("$")) return false;
+  // Distribution/runtime payloads never contain the game's launch binary and
+  // can dominate a large install tree.
+  return ![
+    "redist",
+    "redistributables",
+    "vcredist",
+    "directx",
+    "__installer",
+    "dotnet",
+  ].includes(lower);
 }
 
 function emitProgress(
@@ -137,27 +133,24 @@ export async function scanFoldersForExes(
       if (state.cancelled) break;
       const folder = folders[index];
       const folderIndex = index + 1;
-      await walkDirectory(folder, {
+      const walk = await walkDirectory(folder, {
         maxDepth: 25,
         shouldDescend,
         isCancelled: () => state.cancelled,
-        onFile: (filePath, size, mtimeMs, _depth, executable) => {
+        onFile: async (filePath, size, mtimeMs, _depth, executable) => {
           if (state.cancelled) return;
-          const lastDot = filePath.lastIndexOf(".");
           const name = filePath.replace(/^.*[\\/]/, "");
           if (name.startsWith(".")) {
             maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
             return;
           }
-          const extension = lastDot > filePath.length - name.length
-            ? filePath.slice(lastDot + 1)
-            : "";
-          // POSIX titles ship extension-less binaries; accept any executable
-          // file there, plus the Windows/script extensions everywhere.
-          if (!isProgramExtension(extension) && !executable) {
+          const extension = extensionOf(filePath);
+
+          if (!(await isLaunchableFile(filePath, executable))) {
             maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
             return;
           }
+
           const stem = extension ? name.slice(0, Math.max(0, name.lastIndexOf("."))) : name;
           if (isSkipName(stem)) {
             maybeEmitProgress(id, state, folder, folderIndex, totalFolders);
@@ -173,6 +166,8 @@ export async function scanFoldersForExes(
           emitProgress(id, state, folder, folderIndex, totalFolders, false, false);
         },
       });
+      state.foldersScanned += walk.foldersScanned;
+      state.filesExamined += walk.filesExamined;
     }
     exes = [...state.exes].sort((a, b) => a.path.localeCompare(b.path));
   } finally {

@@ -149,9 +149,9 @@ toggles and updater placeholders are **existing** handlers in
 | Command | Status | Notes |
 | --- | --- | --- |
 | `get_system_ram_gb` | impl | `os.totalmem()` rounded to GB. |
-| `get_system_info` | impl | CPU model + RAM; `gpus: []` because GPU enumeration is not ported. |
-| `detect_gpus` | impl | Returns `[]`; the renderer falls back to its cached adapter list. |
-| `refresh_hardware` | impl | No cache to invalidate in this build. |
+| `get_system_info` | impl | CPU model + RAM + every GPU (sysfs/pci.ids on Linux, WMI on Windows, system_profiler on macOS). |
+| `detect_gpus` | impl | Cached GPU list from `features/hardware/detect` (PCI id/slot + Vulkan UUID/index on Linux). |
+| `refresh_hardware` | impl | Clears the cached hardware summary so the next probe re-detects. |
 | `get_platform` | impl | `windows` / `linux` / `macos` / `unknown`. |
 | `check_paths_exist` | impl | Parallel `fs.access` probe, `true` = exists. |
 | `disk_usage` | impl | `fs.statfs` → `{ total, free, available }`. Empty path probes `userData`. |
@@ -191,9 +191,11 @@ toggles and updater placeholders are **existing** handlers in
 - **Saves settings default shape.** Same field names/defaults as
   `SavesSettings`; the resolved `backupDir` is reported but only persisted when
   the renderer calls `saves_set_settings`.
-- **GPU detection.** Not ported. `detect_gpus` returns `[]` and
-  `get_system_info` reports an empty GPU list; this is deliberate and documented
-  rather than returning invented adapters. CPU/RAM are real.
+- **GPU detection.** Implemented in `features/hardware/detect`: Linux reads
+  `/sys/class/drm` and names adapters from `pci.ids`, enriching VRAM with
+  `nvidia-smi`/sysfs and UUIDs with `vulkaninfo`; Windows uses
+  `Win32_VideoController`; macOS uses `system_profiler`. The summary is cached
+  until `refresh_hardware`.
 - **`sources_list` / `download_history_get`** return `[]` because those are
   genuine “nothing configured / no engine” first-run states. They are not fake
   successful writes: all mutating source/download commands still reject.
@@ -223,7 +225,7 @@ Electron build yet” message. The largest stub areas:
 | Achievements / RetroAchievements | `get_achievement_overview`, `fetch_achievements`, `manual_*`, `retro_*`, `load_achievements_cache` | Cache/schema not ported; the provider logs a warning and shows no data. |
 | Emulation / ROM management | `list_emulators`, `scan_emulator_roms`, `rom_*`, `start_emulator_install` | Emulator DB, scanners and installers not ported. |
 | Mods / MO2 | `mods_*`, `mo2_*`, `nexus_*` | Large subdomain, not ported. |
-| Compatibility / Wine / Proton | `get_compatibility_settings`, `list_compatibility_runners`, `create_wine_prefix`, `run_wine_tool`, … | Linux/Wine tooling not ported. |
+| Compatibility / Wine / Proton | `get_compatibility_settings`, `list_compatibility_runners`, `create_wine_prefix`, `run_wine_tool`, `fetch_available_runners`, `install_compatibility_runner`, … | Implemented: runner detection, GitHub catalogue/download/extract with progress, prefixes, launch env, logs. |
 | Overlay / capture / reels / metrics | `overlay_*` (mostly owned by the surfaces agent), `capture_*`, `reel*`, `set_metrics_config` consumers | Native capture and metrics collection not ported. |
 | Hardware probes | `detect_gpus` beyond the empty result, `get_steam_page_features`, `get_steam_tags`, player counts | Requires WMI / network integrations. |
 | Backups / updater / plugins / friends | `backup_*`, `crashlog_*`, `plugins_*`, `friends_*`, `portable_update_download` | Separate subdomains not in this pass. |

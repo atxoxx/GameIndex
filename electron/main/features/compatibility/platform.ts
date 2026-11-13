@@ -9,7 +9,7 @@
  *
  * Reference: `src-tauri/src/compatibility/{runners,prefixes,wine}.rs`.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
@@ -17,6 +17,7 @@ import path from "node:path";
 import { userDataPath } from "../../lib/paths";
 import { listGamesSummary } from "../../state/libraryStore";
 import { getCompatibilitySettings, customPrefixes } from "./settings";
+import { parseVdfInstallPath, parseVdfValue } from "./vdf";
 import type {
   CompatibilityRunner,
   LinuxSystemStatus,
@@ -105,9 +106,121 @@ function steamCandidateRoots(): string[] {
     path.join(home, ".local", "share", "Steam"),
     path.join(home, ".steam", "steam"),
     path.join(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"),
+    path.join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
     "/snap/steam/common/.steam/steam",
   ];
   return roots.filter(isDir);
+}
+
+/**
+ * System-wide `compatibilitytools.d` directories.
+ *
+ * Steam searches these before the per-user root, and this is where distro
+ * packages install Proton builds — notably CachyOS's `proton-cachyos-slr`
+ * and `proton-cachyos-native` packages, which land in
+ * `/usr/share/steam/compatibilitytools.d`. They were previously invisible
+ * because only `~/.steam` and `~/.local/share/Steam` were scanned.
+ */
+function systemCompatibilityToolRoots(): string[] {
+  const extra = (process.env.STEAM_EXTRA_COMPAT_TOOLS_PATHS ?? "")
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return [
+    "/usr/share/steam/compatibilitytools.d",
+    "/usr/local/share/steam/compatibilitytools.d",
+    "/usr/lib/steam/compatibilitytools.d",
+    "/opt/steam/compatibilitytools.d",
+    ...extra,
+  ].filter(isDir);
+}
+
+/**
+ * Runner directories under a `compatibilitytools.d` root.
+ *
+ * Two layouts exist in the wild:
+ *  - a complete tool directory (`proton-cachyos-slr/proton`, …), and
+ *  - a bare manifest (`proton-cachyos.vdf`) whose `install_path` points at
+ *    the real tool elsewhere on disk (used by newer CachyOS packaging).
+ */
+function compatibilityToolsIn(root: string): string[] {
+  const found = new Set(listDirs(root));
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [...found];
+  }
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".vdf")) continue;
+    const manifest = path.join(root, entry.name);
+    let raw = "";
+    try {
+      raw = fs.readFileSync(manifest, "utf8");
+    } catch {
+      continue;
+    }
+    const installPath = parseVdfInstallPath(raw);
+    if (!installPath) continue;
+    const resolved = path.isAbsolute(installPath)
+      ? installPath
+      : path.resolve(root, installPath);
+    if (resolved !== root && isDir(resolved)) found.add(resolved);
+  }
+  return [...found];
+}
+
+/**
+ * Third-party Wine/Proton installs the old Rust detector also understood:
+ * Lutris, Heroic, Bottles and `/opt` builds (e.g. `wine-cachyos-opt`).
+ */
+function thirdPartyRunnerDirs(): string[] {
+  const home = homeDir();
+  const roots = [
+    path.join(home, ".local", "share", "lutris", "runners", "wine"),
+    path.join(home, ".config", "heroic", "tools", "wine"),
+    path.join(home, ".config", "heroic", "tools", "proton"),
+    path.join(
+      home,
+      ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "tools", "wine",
+    ),
+    path.join(
+      home,
+      ".var", "app", "com.heroicgameslauncher.hgl", "config", "heroic", "tools", "proton",
+    ),
+    path.join(home, ".local", "share", "bottles", "runners"),
+    path.join(
+      home,
+      ".var", "app", "com.usebottles.bottles", "data", "bottles", "runners",
+    ),
+  ];
+  const dirs: string[] = [];
+  for (const root of roots) {
+    if (!isDir(root)) continue;
+    for (const dir of listDirs(root)) dirs.push(dir);
+    // Lutris/Heroic store a single Wine build directly under the root when
+    // there is only one, so include the root itself when it looks like one.
+    if (exists(path.join(root, "bin", "wine"))) dirs.push(root);
+  }
+  return dirs;
+}
+
+/** Locate a system Wine binary (PATH + the usual distro prefixes). */
+export function systemWineBinary(): string | null {
+  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (!dir) continue;
+    const candidate = path.join(dir, "wine");
+    if (exists(candidate)) return candidate;
+  }
+  const home = homeDir();
+  const candidates = [
+    "/usr/bin/wine",
+    "/usr/local/bin/wine",
+    "/opt/wine-cachyos/bin/wine",
+    "/opt/wine/bin/wine",
+    path.join(home, ".local", "bin", "wine"),
+  ];
+  return candidates.find(exists) ?? null;
 }
 
 /** Steam install roots that exist on this machine, most specific first. */
@@ -179,7 +292,7 @@ export function systemStatus(): LinuxSystemStatus {
     mangohudAvailable: commandAvailable("mangohud"),
     gamescopeAvailable: commandAvailable("gamescope"),
     winetricksAvailable: commandAvailable("winetricks"),
-    umuAvailable: findUmuRun() !== null,
+    umuAvailable: umuRunPath() !== null,
     eacRuntimeAvailable: exists(
       path.join(userDataPath("anticheat"), "easyanticheat"),
     ),
@@ -194,27 +307,100 @@ function runnerKind(name: string, isProton: boolean): string {
   return isProton ? "proton" : "wine";
 }
 
-function runnerEntry(dir: string, kindHint?: string): CompatibilityRunner | null {
-  const name = path.basename(dir);
-  if (!name) return null;
+function runnerManifest(dir: string): { displayName: string | null; version: string | null } {
+  for (const fileName of ["compatibilitytool.vdf", "toolmanifest.vdf"]) {
+    let raw = "";
+    try {
+      raw = fs.readFileSync(path.join(dir, fileName), "utf8");
+    } catch {
+      continue;
+    }
+    const displayName = parseVdfValue(raw, "display_name");
+    const version = /(\d+(?:\.\d+)+)/.exec(displayName ?? "")?.[1] ?? null;
+    if (displayName || version) return { displayName, version };
+  }
+  return { displayName: null, version: null };
+}
+
+function runnerEntry(
+  dir: string,
+  kindHint?: string,
+  isDeletable = true,
+): CompatibilityRunner | null {
+  const baseName = path.basename(dir);
+  if (!baseName) return null;
+  const manifest = runnerManifest(dir);
+  const name = manifest.displayName?.replace(/\s*\([^)]*runtime[^)]*\)\s*$/i, "").trim() || baseName;
   const lower = name.toLowerCase();
   const isProton =
     kindHint === "proton" ||
     lower.startsWith("proton") ||
     lower.includes("ge-proton") ||
     lower.includes("cachyos") ||
-    isDir(path.join(dir, "files", "bin"));
-  const versionMatch = /(\d+(?:\.\d+)+)/.exec(name);
+    isDir(path.join(dir, "files", "bin")) ||
+    exists(path.join(dir, "proton"));
+  const versionMatch = /(\d+(?:\.\d+)+)/.exec(name ?? "");
   return {
     id: `runner-${dir.replace(/[\\/:]/g, "-")}`,
     name,
     path: dir,
     kind: kindHint ?? runnerKind(name, isProton),
-    version: versionMatch ? versionMatch[1] : null,
+    version: manifest.version ?? (versionMatch ? versionMatch[1] : null),
     isProton,
     sizeBytes: null,
-    isDeletable: true,
+    isDeletable,
     installDir: dir,
+  };
+}
+
+/** True when `dir` contains a Proton script or a Wine binary we can spawn. */
+function looksLikeRunnerDir(dir: string): boolean {
+  const base = path.basename(dir).toLowerCase();
+  if (
+    base.startsWith("proton") ||
+    base.startsWith("ge-proton") ||
+    base.includes("wine") ||
+    base.includes("cachyos")
+  ) {
+    return true;
+  }
+  return (
+    exists(path.join(dir, "proton")) ||
+    exists(path.join(dir, "files", "bin", "proton")) ||
+    exists(path.join(dir, "bin", "wine")) ||
+    exists(path.join(dir, "bin", "wine64")) ||
+    exists(path.join(dir, "files", "bin", "wine"))
+  );
+}
+
+/** Locate the system Wine binary and describe it as a runner. */
+export function systemWineRunner(): CompatibilityRunner | null {
+  const binary = systemWineBinary();
+  if (!binary) return null;
+  let version: string | null = null;
+  try {
+    const out = execFileSync(binary, ["--version"], {
+      encoding: "utf8",
+      timeout: 2500,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    version = /(\d+(?:\.\d+)+)/.exec(out)?.[1] ?? null;
+  } catch {
+    /* `wine --version` is best-effort */
+  }
+  const cachyos = /cachyos/i.test(binary);
+  return {
+    id: "runner-system-wine",
+    // Keep the name explicit so the Settings list distinguishes the distro
+    // package from a downloaded Proton/GE build.
+    name: cachyos ? "Wine (CachyOS)" : "System Wine",
+    path: binary,
+    kind: "wine",
+    version,
+    isProton: false,
+    sizeBytes: null,
+    isDeletable: false,
+    installDir: path.dirname(binary),
   };
 }
 
@@ -231,32 +417,44 @@ function listDirs(root: string): string[] {
 
 export async function listRunners(): Promise<CompatibilityRunner[]> {
   if (!IS_LINUX) return [];
-  const directories: string[] = [];
+
+  // `dir` → whether the user owns it (safe to delete from the UI).
+  const directories = new Map<string, boolean>();
+  const add = (dir: string, deletable: boolean) => {
+    if (!directories.has(dir)) directories.set(dir, deletable);
+  };
+
   for (const root of steamCandidateRoots()) {
-    directories.push(...listDirs(path.join(root, "compatibilitytools.d")));
+    for (const dir of compatibilityToolsIn(path.join(root, "compatibilitytools.d"))) {
+      add(dir, true);
+    }
+  }
+  // Distro packages (CachyOS Proton lives here) are not ours to delete.
+  for (const root of systemCompatibilityToolRoots()) {
+    for (const dir of compatibilityToolsIn(root)) add(dir, false);
   }
   for (const library of steamLibraryRoots()) {
-    directories.push(...listDirs(path.join(library, "steamapps", "common")));
+    for (const dir of listDirs(path.join(library, "steamapps", "common"))) {
+      add(dir, false);
+    }
   }
   for (const kind of ["proton", "wine"]) {
-    directories.push(...listDirs(path.join(homeDir(), ".local", "share", "GameIndex", "runners", kind)));
+    for (const dir of listDirs(
+      path.join(homeDir(), ".local", "share", "GameIndex", "runners", kind),
+    )) {
+      add(dir, true);
+    }
   }
+  for (const dir of thirdPartyRunnerDirs()) add(dir, false);
 
   const seen = new Set<string>();
   const runners: CompatibilityRunner[] = [];
-  for (const dir of directories) {
-    const base = path.basename(dir).toLowerCase();
-    const looksLikeRunner =
-      base.startsWith("proton") ||
-      base.startsWith("ge-proton") ||
-      base.includes("wine") ||
-      base.includes("cachyos") ||
-      isDir(path.join(dir, "files", "bin"));
-    if (!looksLikeRunner) continue;
+  for (const [dir, deletable] of directories) {
+    if (!looksLikeRunnerDir(dir)) continue;
     const key = dir.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const entry = runnerEntry(dir);
+    const entry = runnerEntry(dir, undefined, deletable);
     if (!entry) continue;
     try {
       const { bytes } = await dirStats(dir, 20_000);
@@ -266,6 +464,15 @@ export async function listRunners(): Promise<CompatibilityRunner[]> {
     }
     runners.push(entry);
   }
+
+  // The system Wine binary is a valid launch target even when no Proton build
+  // exists; surfacing it means the Settings list and default-runner picker
+  // show what the launcher will actually fall back to.
+  const systemWine = systemWineRunner();
+  if (systemWine && !seen.has(systemWine.path.toLowerCase())) {
+    runners.push(systemWine);
+  }
+
   runners.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   return runners;
 }
@@ -414,6 +621,28 @@ export async function clearPrefix(prefixPath: string): Promise<void> {
   }
 }
 
+/** Resolve a configured runner (binary, Proton script or tool directory). */
+export function resolveRunnerToolPath(runnerPath: string): string {
+  try {
+    if (fs.statSync(runnerPath).isDirectory()) {
+      const candidates = [
+        path.join(runnerPath, "proton"),
+        path.join(runnerPath, "files", "bin", "proton"),
+        path.join(runnerPath, "bin", "wine"),
+        path.join(runnerPath, "bin", "wine64"),
+        path.join(runnerPath, "files", "bin", "wine"),
+        path.join(runnerPath, "files", "bin", "wine64"),
+      ];
+      for (const candidate of candidates) {
+        if (exists(candidate)) return candidate;
+      }
+    }
+  } catch {
+    /* not a directory: keep the path/command as given */
+  }
+  return runnerPath;
+}
+
 export function runWineTool(
   prefixPath: string | null,
   runnerPath: string | null,
@@ -430,7 +659,9 @@ export function runWineTool(
     if (!prefix) prefix = path.join(prefixBaseDir(), gameId);
   }
   if (!prefix) prefix = settings.defaultPrefix?.trim() || path.join(defaultPrefixBase(), "default");
-  const runner = runnerPath?.trim() || settings.defaultRunnerPath?.trim() || "wine";
+  const runner = resolveRunnerToolPath(
+    runnerPath?.trim() || settings.defaultRunnerPath?.trim() || "wine",
+  );
   fs.mkdirSync(prefix, { recursive: true });
 
   const normalizedTool = tool.trim();

@@ -67,6 +67,34 @@ export interface CompatibilityRunner {
   installDir?: string | null;
 }
 
+/** One downloadable release from a runner source (GitHub). */
+export interface RemoteRunnerRelease {
+  id: string;
+  source: string;
+  tag: string;
+  name: string;
+  releaseDate: string;
+  publishedAt?: string;
+  downloadUrl: string;
+  filename: string;
+  sizeBytes: number | null;
+  targetType: "proton" | "wine";
+  isInstalled: boolean;
+  body: string | null;
+  htmlUrl?: string;
+}
+
+/** Progress payload emitted as `runner-install-progress`. */
+export interface RunnerInstallProgress {
+  runnerName: string;
+  status: "downloading" | "extracting" | "completed" | "failed" | "cancelled";
+  downloadedBytes: number;
+  totalBytes: number | null;
+  percent: number;
+  speedBytesPerSec: number;
+  error: string | null;
+}
+
 export interface WinePrefixInfo {
   id: string;
   name: string;

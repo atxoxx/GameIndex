@@ -1,9 +1,14 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useGames } from "../../context/GameContext";
 import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
+import {
+  PLAY_STATUS_DETAILS,
+  gameDisplayName,
+  gameIsVr,
+  type Game,
+} from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
 import { thumbVariantUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
@@ -42,66 +47,88 @@ function SidebarGameItemBase({
   onQuickPlay,
   onTogglePin,
 }: SidebarGameItemProps) {
-  const { updateGame, enqueueEnrich, getGame } = useGames();
+  const { updateGame, enqueueEnrich } = useGames();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const displayName = gameDisplayName(game);
   const isVr = gameIsVr(game);
 
   const [isNearViewport, setIsNearViewport] = useState(false);
-  const sgdb = useSteamGridArt(
-    isNearViewport && !game.iconUrl ? game.steamAppId : null
-  );
-  const attemptedIconAppIdRef = useRef<number | null>(null);
+  // Always ask SteamGridDB while the row is visible: the poster, hero and
+  // logo come from the same response as the icon. Previously the lookup was
+  // skipped whenever an icon existed, so scrolling never backfilled anything.
+  const sgdb = useSteamGridArt(isNearViewport ? game.steamAppId : null);
+  const attemptedArtRef = useRef<Set<string>>(new Set());
 
-  const canAutoFetchCover =
-    !game.coverArtUrl &&
-    (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
-    !!game.name;
+  const needsArtwork =
+    !!game.name &&
+    (!game.coverArtUrl ||
+      (!game.steamAppId && (!game.iconUrl || !game.logoUrl || !game.bannerUrl)));
 
+  // Fill any missing artwork slot from SteamGridDB. Each slot is attempted
+  // once per mounted row; a failed URL clears its mark so a later error/retry
+  // can refill it. Slots already present are never overwritten (the user's
+  // picked art wins).
   useEffect(() => {
-    if (game.iconUrl) return;
-    if (!game.steamAppId) return;
-    if (attemptedIconAppIdRef.current === game.steamAppId) return;
-    const iconUrl = sgdb?.iconUrl;
-    if (!iconUrl) {
-      if (sgdb) attemptedIconAppIdRef.current = game.steamAppId;
-      return;
-    }
-    attemptedIconAppIdRef.current = game.steamAppId;
+    if (!isNearViewport || !sgdb) return;
+    const candidates: Array<{
+      slot: "cover" | "hero" | "logo" | "icon";
+      field: "coverArtUrl" | "bannerUrl" | "logoUrl" | "iconUrl";
+      url: string | null;
+    }> = [
+      { slot: "cover", field: "coverArtUrl", url: sgdb.gridUrl },
+      { slot: "hero", field: "bannerUrl", url: sgdb.heroUrl ?? sgdb.gridUrl },
+      { slot: "logo", field: "logoUrl", url: sgdb.logoUrl },
+      { slot: "icon", field: "iconUrl", url: sgdb.iconUrl },
+    ];
     let cancelled = false;
-    invoke<string | null>("download_artwork", { gameId: game.id, slot: "icon", url: iconUrl })
-      .then(async (relativePath) => {
-        if (cancelled || !relativePath) return;
-        const assetUrl = toWebviewAssetUrl(
-          await invoke<string>("artwork_asset_url", { relativePath })
-        );
-        if (cancelled) return;
-        updateGame(game.id, { iconUrl: assetUrl });
-        // Patch just the icon column: the in-memory game may be a lightweight
-        // summary, so a full `save_game` here would clear the heavy columns.
-        invoke("patch_game", { id: game.id, patch: { iconUrl: assetUrl } }).catch(
-          (err) => console.warn(`Persist sidebar icon failed for ${game.name}:`, err)
-        );
-      })
-      .catch((err) =>
-        console.warn(`Sidebar icon download failed for ${game.name}:`, err)
+    void (async () => {
+      const patch: Partial<Game> = {};
+      for (const candidate of candidates) {
+        if (!candidate.url || game[candidate.field]) continue;
+        const key = `${game.id}:${candidate.slot}`;
+        if (attemptedArtRef.current.has(key)) continue;
+        attemptedArtRef.current.add(key);
+        try {
+          const relativePath = await invoke<string | null>("download_artwork", {
+            gameId: game.id,
+            slot: candidate.slot,
+            url: candidate.url,
+          });
+          if (cancelled || !relativePath) continue;
+          const assetUrl = toWebviewAssetUrl(
+            await invoke<string>("artwork_asset_url", { relativePath }),
+          );
+          if (cancelled) return;
+          Object.assign(patch, { [candidate.field]: assetUrl });
+        } catch (err) {
+          attemptedArtRef.current.delete(key);
+          console.warn(`Sidebar ${candidate.slot} download failed for ${game.name}:`, err);
+        }
+      }
+      if (cancelled || Object.keys(patch).length === 0) return;
+      updateGame(game.id, patch);
+      // Patch only the artwork columns: the row may be a lightweight summary,
+      // so a full `save_game` would clear its heavy fields.
+      invoke("patch_game", { id: game.id, patch }).catch((err) =>
+        console.warn(`Persist sidebar artwork failed for ${game.name}:`, err),
       );
+    })();
     return () => {
       cancelled = true;
     };
-  }, [sgdb, game, updateGame, getGame]);
+  }, [isNearViewport, sgdb, game, updateGame]);
 
   // Shared viewport observer (one instance app-wide): flips `isNearViewport`
-  // for the lazy SGDB icon and queues a missing cover for paced background
-  // enrichment — the sidebar renders a row per game, so per-item observers
+  // for the lazy artwork and queues background enrichment for rows that still
+  // lack art — the sidebar renders a row per game, so per-item observers
   // compounded fast.
   useSharedViewportVisibility({
     targetRef: coverRef,
     dep: game.id,
     onVisible: () => {
       setIsNearViewport(true);
-      if (canAutoFetchCover) {
+      if (needsArtwork) {
         enqueueEnrich(
           { id: game.id, name: game.name, steamAppId: game.steamAppId },
           true
@@ -138,6 +165,7 @@ function SidebarGameItemBase({
     isSelected ? "active" : "",
     bulkSelected ? "bulk-selected" : "",
     game.iconUrl ? "has-icon" : "",
+    !game.iconUrl && !game.coverArtUrl && game.logoUrl ? "has-logo" : "",
     isRandomHighlight ? "random-picked" : "",
     isPinned ? "is-pinned" : "",
   ]
@@ -180,6 +208,8 @@ function SidebarGameItemBase({
               // Icon and cover both fail (e.g. an artwork file was removed):
               // drop the dead URLs so lazy enrichment can refill them instead
               // of leaving the browser's broken-image glyph behind.
+              attemptedArtRef.current.delete(`${game.id}:icon`);
+              attemptedArtRef.current.delete(`${game.id}:cover`);
               updateGame(game.id, {
                 iconUrl: undefined,
                 coverArtUrl: undefined,
@@ -206,7 +236,20 @@ function SidebarGameItemBase({
                   return;
                 }
               }
+              attemptedArtRef.current.delete(`${game.id}:cover`);
               updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
+            }}
+          />
+        ) : game.logoUrl ? (
+          <img
+            src={game.logoUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="sidebar-game-logo"
+            onError={() => {
+              attemptedArtRef.current.delete(`${game.id}:logo`);
+              updateGame(game.id, { logoUrl: undefined, logoSourceUrl: undefined });
             }}
           />
         ) : (

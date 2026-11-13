@@ -102,10 +102,14 @@ export default function HardwareTab() {
     [compatSettings?.useSpecificGpu, setSelectedGpu, updateCompatSettings],
   );
 
+  // The chip list follows the shared GPU list so the top "Detected hardware"
+  // card updates after Refresh, instead of only the monitoring select below.
+  const detectedGpus = availableGpus.length > 0 ? availableGpus : (systemInfo?.gpus ?? []);
+
   // A restored selection can come from a cache written before the PCI id was
   // exposed — prefer the freshly detected entry for the same adapter.
   const selectedDetectedGpu =
-    systemInfo?.gpus.find((g) => g.id === selectedGpu?.id) ?? selectedGpu;
+    detectedGpus.find((g) => g.id === selectedGpu?.id) ?? selectedGpu;
   const selectedPciId = selectedDetectedGpu?.pciId ?? null;
   const selectedGpuKey =
     selectedDetectedGpu?.pciSlot ?? selectedDetectedGpu?.pciId ?? null;
@@ -199,23 +203,25 @@ export default function HardwareTab() {
             <div className="hw-spec-body">
               <span className="hw-spec-label">
                 {t("settingsPage.gpus")}
-                {systemInfo && systemInfo.gpus.length > 0 && (
-                  <span className="hw-spec-count">{systemInfo.gpus.length}</span>
+                {detectedGpus.length > 0 && (
+                  <span className="hw-spec-count">{detectedGpus.length}</span>
                 )}
               </span>
 
-              {(!systemInfo || systemInfo.gpus.length === 0) && (
+              {detectedGpus.length === 0 && (
                 <span className="hw-spec-empty">{t("settings.hardware.noGpus")}</span>
               )}
 
-              {systemInfo && systemInfo.gpus.length > 0 && (
+              {detectedGpus.length > 0 && (
                 <div className="hw-gpu-chips" role="listbox" aria-label={t("settings.hardware.gpuListAria")}>
-                  {systemInfo.gpus.map((g) => {
+                  {detectedGpus.map((g) => {
                     const isActive = selectedGpu?.id === g.id;
                     const vram =
                       g.vramMb >= 1024
                         ? `${(g.vramMb / 1024).toFixed(g.vramMb % 1024 === 0 ? 0 : 1)} GB`
-                        : `${g.vramMb} MB`;
+                        : g.vramMb > 0
+                          ? `${g.vramMb} MB`
+                          : "—";
                     return (
                       <button
                         key={g.id}
@@ -326,7 +332,12 @@ export default function HardwareTab() {
               <option value="">{t("settings.gpuPlaceholder")}</option>
               {availableGpus.map((gpu) => (
                 <option key={gpu.id} value={gpu.id}>
-                  {gpu.name} ({gpu.vramMb} MB{gpu.pciId ? ` · ${gpu.pciId}` : ""})
+                  {gpu.name}
+                  {gpu.vramMb > 0
+                    ? ` (${gpu.vramMb} MB${gpu.pciId ? ` · ${gpu.pciId}` : ""})`
+                    : gpu.pciId
+                      ? ` (${gpu.pciId})`
+                      : ""}
                 </option>
               ))}
             </select>

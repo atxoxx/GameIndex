@@ -285,7 +285,7 @@ export interface Game {
   /** When true, the game is excluded from playtime tracking and passive process detection. */
   untracked?: boolean;
   /** Wine / Proton / Linux compatibility profile and overrides */
-  compatibility?: CompatibilityProfile;
+  compatibility?: CompatibilityProfile | null;
   /** When true and MO2 is detected, the game is launched through Mod Organizer 2. */
   mo2LaunchEnabled?: boolean;
   /** The selected MO2 profile name to launch with (e.g. "Custom Hardcore 0.1"). */

@@ -450,6 +450,12 @@ html[data-game-accent] .sidebar {
   object-fit: cover;
 }
 
+/* Clear logos are wide/transparent: contain them instead of cropping. */
+.sidebar-game-icon img.sidebar-game-logo {
+  object-fit: contain;
+  padding: var(--space-xs);
+}
+
 .sidebar-game-info {
   flex: 1;
   min-width: 0;

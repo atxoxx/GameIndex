@@ -1569,6 +1569,9 @@
 
 .home-rail-card__cover-animated.is-active {
   opacity: 1;
+  /* Animated WebP overlays need their own compositor layer while visible;
+     see page-library.css. */
+  will-change: opacity, transform;
 }
 
 .home-rail-card__placeholder {

@@ -1277,6 +1277,62 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     const newSteamAppId =
       game.steamAppId ?? extractSteamAppIdFromWebsites(editWebsites) ?? undefined;
 
+    // `enabled` is the one field whose "unset" state must still be persisted:
+    // a game that defaults to the compatibility layer needs an explicit
+    // `false` to opt out, and the merge helper ignores `undefined`. Any other
+    // override also forces the object to be written.
+    const hasCompatOverride =
+      compatEnabled !== compatEnabledByDefault ||
+      compatRunnerType !== "default" ||
+      compatCustomRunner.trim() !== "" ||
+      compatPrefix.trim() !== "" ||
+      compatArch !== "win64" ||
+      compatWorkingDir.trim() !== "" ||
+      compatDxvk !== null ||
+      compatVkd3d !== null ||
+      compatVkd3dDescriptorHeap !== null ||
+      compatEsync !== null ||
+      compatFsync !== null ||
+      compatNvapi !== null ||
+      compatNtsync !== null ||
+      compatDxvkAsync !== null ||
+      compatWayland !== null ||
+      compatWow64 !== null ||
+      compatLargeAddress !== null ||
+      compatWineDebug.trim() !== "" ||
+      compatAudioDriver.trim() !== "" ||
+      compatVirtualDesktop !== null ||
+      compatVirtualDesktopRes.trim() !== "" ||
+      compatDxvkHud.trim() !== "" ||
+      compatMangoHud !== null ||
+      compatMangoHudHidden !== null ||
+      compatUmu !== null ||
+      compatController !== null ||
+      compatAnticheat !== null ||
+      compatGameMode !== null ||
+      compatGamescope !== null ||
+      compatGamescopeArgs.trim() !== "" ||
+      compatGamescopeMode.trim() !== "" ||
+      compatGamescopeGameWidth !== undefined ||
+      compatGamescopeGameHeight !== undefined ||
+      compatGamescopeWindowWidth !== undefined ||
+      compatGamescopeWindowHeight !== undefined ||
+      compatGamescopeFilter.trim() !== "" ||
+      compatGamescopeFsrSharpness !== undefined ||
+      compatGamescopeFpsLimit !== undefined ||
+      compatGamescopeRefreshRate !== undefined ||
+      compatGamescopeAdaptiveSync !== null ||
+      compatGamescopeHdr !== null ||
+      compatGamescopeStretch !== null ||
+      compatGamescopeForceWindowsFullscreen !== null ||
+      compatPrime !== null ||
+      compatUseSpecificGpu !== null ||
+      compatPreLaunch.trim() !== "" ||
+      compatEnvPairs.length > 0 ||
+      compatDllPairs.length > 0 ||
+      excludedGlobalEnv.length > 0 ||
+      excludedGlobalDlls.length > 0;
+
     updateGame(game.id, {
       name: newName,
       displayName: editDisplayName.trim() || undefined,
@@ -1380,57 +1436,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       purchaseCurrency: validEditCost
         ? editCurrency.trim().toUpperCase() || "USD"
         : undefined,
-      compatibility:
-        compatEnabled ||
-        compatRunnerType !== "default" ||
-        compatCustomRunner.trim() ||
-        compatPrefix.trim() ||
-        compatArch !== "win64" ||
-        compatWorkingDir.trim() ||
-        compatDxvk !== null ||
-        compatVkd3d !== null ||
-        compatVkd3dDescriptorHeap !== null ||
-        compatEsync !== null ||
-        compatFsync !== null ||
-        compatNvapi !== null ||
-        compatNtsync !== null ||
-        compatDxvkAsync !== null ||
-        compatWayland !== null ||
-        compatWow64 !== null ||
-        compatLargeAddress !== null ||
-        compatWineDebug.trim() ||
-        compatAudioDriver.trim() ||
-        compatVirtualDesktop !== null ||
-        compatVirtualDesktopRes.trim() ||
-        compatDxvkHud.trim() ||
-        compatMangoHud !== null ||
-        compatMangoHudHidden !== null ||
-        compatUmu !== null ||
-        compatController !== null ||
-        compatAnticheat !== null ||
-        compatGameMode !== null ||
-        compatGamescope !== null ||
-        compatGamescopeArgs.trim() ||
-        compatGamescopeMode.trim() ||
-        compatGamescopeGameWidth !== undefined ||
-        compatGamescopeGameHeight !== undefined ||
-        compatGamescopeWindowWidth !== undefined ||
-        compatGamescopeWindowHeight !== undefined ||
-        compatGamescopeFilter.trim() ||
-        compatGamescopeFsrSharpness !== undefined ||
-        compatGamescopeFpsLimit !== undefined ||
-        compatGamescopeRefreshRate !== undefined ||
-        compatGamescopeAdaptiveSync !== null ||
-        compatGamescopeHdr !== null ||
-        compatGamescopeStretch !== null ||
-        compatGamescopeForceWindowsFullscreen !== null ||
-        compatPrime !== null ||
-        compatUseSpecificGpu !== null ||
-        compatPreLaunch.trim() ||
-        compatEnvPairs.length > 0 ||
-        compatDllPairs.length > 0 ||
-        excludedGlobalEnv.length > 0 ||
-        excludedGlobalDlls.length > 0
+      compatibility: hasCompatOverride
           ? {
               enabled: compatEnabled,
               runnerType: compatRunnerType,
@@ -1489,7 +1495,9 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
               excludedGlobalEnv: excludedGlobalEnv.length > 0 ? excludedGlobalEnv : undefined,
               excludedGlobalDlls: excludedGlobalDlls.length > 0 ? excludedGlobalDlls : undefined,
             }
-          : undefined,
+          : game.compatibility
+            ? null
+            : undefined,
     });
     // Omitted keys keep their stored value: the helper merges, so an explicit
     // `undefined` would erase a previously saved instance path.

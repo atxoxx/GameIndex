@@ -351,6 +351,9 @@
 
 .lib-rail-cover-animated.is-active {
   opacity: 1;
+  /* Keep the per-frame animated WebP on its own layer (see the library
+     card rule; this is the same Chromium/Linux freeze). */
+  will-change: opacity, transform;
 }
 
 .lib-rail-card:hover .lib-rail-cover img {

@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Play } from "lucide-react";
 import type { Game, LibraryDensity } from "../../types/game";
 import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
-import { useGameCardActions, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useGameCardActions } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
@@ -92,10 +92,7 @@ function LibraryGameCardBase({
     isListOrSmall: isList,
   });
 
-  const canAutoFetchCover =
-    !game.coverArtUrl &&
-    (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
-    !!game.name;
+  const canAutoFetchCover = !game.coverArtUrl && !!game.name;
 
   // One shared observer for every mounted card (see the hook) instead of an
   // IntersectionObserver per card, and the missing-cover fetch rides the paced

@@ -255,6 +255,7 @@
 
 .bigscreen-game-card-cover-animated.is-active {
   opacity: 1;
+  will-change: opacity, transform;
 }
 
 .bigscreen-game-card-cover-placeholder {

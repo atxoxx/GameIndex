@@ -1081,6 +1081,12 @@
 
 .library-page .lib-card-cover-animated.is-active {
   opacity: 1;
+  /* An animated WebP repaints every frame. Promoting only the active overlay
+     keeps that repaint on its own compositor layer instead of re-rasterising
+     the card (which uses paint containment) every frame. The store cards
+     already do this; without it Chromium on Linux can leave the overlay on
+     its first painted frame. */
+  will-change: opacity, transform;
 }
 
 .library-page .lib-card-cover-scrim {

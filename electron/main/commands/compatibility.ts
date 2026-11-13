@@ -33,6 +33,12 @@ import {
   getGameWineLogs,
 } from "../features/compatibility/logs";
 import {
+  cancelRunnerInstall,
+  fetchAvailableRunners,
+  installCompatibilityRunner,
+  installRunnerFromArchive,
+} from "../features/compatibility/runners";
+import {
   getCompatibilitySettings,
   normalizeCompatibilitySettings,
   registerCustomPrefix,
@@ -84,6 +90,10 @@ function isManagedRunner(runnerPath: string): boolean {
     path.join(home, ".steam", "root", "compatibilitytools.d"),
     path.join(home, ".local", "share", "Steam", "compatibilitytools.d"),
     path.join(home, ".steam", "steam", "compatibilitytools.d"),
+    path.join(
+      home,
+      ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "compatibilitytools.d",
+    ),
   ].map((entry) => entry.toLowerCase());
   const target = runnerPath.toLowerCase();
   return roots.some((root) => target.startsWith(`${root}${path.sep}`));
@@ -135,28 +145,33 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
   },
 
   // ── Runner installation ───────────────────────────────────────────
-  fetch_available_runners: () => {
-    // The Tauri build scraped GitHub release feeds for GE-Proton etc. That is
-    // not ported; an empty list is the honest "nothing to offer" answer.
-    return [];
+  fetch_available_runners: (args) => {
+    const source = text(args, "source");
+    const forceRefresh = Boolean(args.forceRefresh ?? args.force_refresh);
+    if (!source) throw new Error("A runner source is required");
+    return fetchAvailableRunners(source, forceRefresh);
   },
 
-  install_compatibility_runner: () => {
+  install_compatibility_runner: (args) => {
     requireLinux("Installing a compatibility runner");
-    throw new Error(
-      "Runner installation is not available in the Electron build yet — install GE-Proton through Steam and pick it here.",
-    );
+    return installCompatibilityRunner({
+      downloadUrl: text(args, "downloadUrl"),
+      filename: text(args, "filename"),
+      runnerName: text(args, "runnerName"),
+      targetType: text(args, "targetType") || "proton",
+    });
   },
 
-  cancel_runner_install: () => {
+  cancel_runner_install: (args) => {
     requireLinux("Cancelling a runner install");
-    throw new Error("Runner installation is not available in the Electron build yet — nothing to cancel.");
+    return cancelRunnerInstall(text(args, "runnerName"));
   },
 
-  install_runner_from_archive: () => {
+  install_runner_from_archive: (args) => {
     requireLinux("Installing a runner from an archive");
-    throw new Error(
-      "Runner archive installation is not available in the Electron build yet — extract it into Steam's compatibilitytools.d folder.",
+    return installRunnerFromArchive(
+      text(args, "archivePath"),
+      text(args, "targetType") || "proton",
     );
   },
 
@@ -165,7 +180,12 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
     const runnerId = text(args, "runnerId");
     const requested = optionalText(args, "path");
     const runners = await listRunners();
-    const runner = runners.find((entry) => entry.id === runnerId);
+    const runner = runners.find(
+      (entry) => entry.id === runnerId || entry.path === requested || entry.installDir === requested,
+    );
+    if (runner && runner.isDeletable === false) {
+      throw new Error(`"${runner.path}" is managed by Steam or the system and is not managed by GameIndex`);
+    }
     const target = (requested ?? runner?.installDir ?? runner?.path ?? "").trim();
     if (!target) throw new Error("A runner path is required");
     if (!isManagedRunner(target)) {
@@ -173,6 +193,10 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
     }
     if (!fs.existsSync(target)) throw new Error(`Runner folder not found: ${target}`);
     fs.rmSync(target, { recursive: true, force: true });
+    const settings = getCompatibilitySettings();
+    if (settings.defaultRunnerPath === target || settings.defaultRunnerPath === runner?.path) {
+      setCompatibilitySettings({ ...settings, defaultRunnerPath: null });
+    }
     return null;
   },
 

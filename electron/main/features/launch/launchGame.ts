@@ -31,6 +31,7 @@ import {
   launchWithCompatibility,
   shouldUseCompatibility,
 } from "../compatibility/launch";
+import type { GpuSelection } from "../compatibility/gpuSelection";
 import type { CompanionApp, LaunchProgressPayload } from "./types";
 
 const IS_WINDOWS = process.platform === "win32";
@@ -72,8 +73,26 @@ function readNumber(args: Record<string, unknown>, key: string): number | null {
   return null;
 }
 
-function readCompanions(value: unknown): CompanionApp[] {
-  if (!Array.isArray(value)) return [];
+function readGpuSelection(value: unknown): GpuSelection | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const str = (key: string): string | null =>
+    typeof record[key] === "string" && (record[key] as string).trim()
+      ? (record[key] as string).trim()
+      : null;
+  const index = record.vulkanIndex;
+  return {
+    pciId: str("pciId"),
+    pciSlot: str("pciSlot"),
+    vulkanUuid: str("vulkanUuid"),
+    vulkanIndex:
+      typeof index === "number" && Number.isInteger(index) ? index : null,
+    vendor: str("vendor"),
+    nvidiaProvider: str("nvidiaProvider"),
+  };
+}
+
+function readCompanions(value: unknown): CompanionApp[] {  if (!Array.isArray(value)) return [];
   const apps: CompanionApp[] = [];
   for (const entry of value) {
     if (!entry || typeof entry !== "object") continue;
@@ -290,6 +309,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
   const postExitScript = readString(args, "postExitScript");
   const postExitAdmin = readBoolean(args, "postExitAdmin");
   const companionApps = readCompanions(args.companionApps);
+  const gpuSelection = readGpuSelection(args.gpuSelection);
   const showSteamSelection = readBoolean(args, "showSteamLaunchSelection");
   const disableElevation = Boolean(getAppSetting("disable_elevation_prompts"));
 
@@ -344,9 +364,11 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
 
     // Linux: a Windows executable (or a game that names a runner) goes through
     // Wine/Proton instead of being spawned directly. Windows keeps the direct
-    // spawn below.
+    // spawn below. `shouldUseCompatibility` is null-safe: a game with no saved
+    // profile still gets the global compatibility settings, and an explicit
+    // per-game `enabled: false` opts out.
     const compatProfile = IS_WINDOWS ? null : gameCompatibilityProfile(gameId);
-    if (compatProfile && shouldUseCompatibility(gamePath, compatProfile)) {
+    if (!IS_WINDOWS && shouldUseCompatibility(gamePath, compatProfile)) {
       emitProgress(gameId, "compatibilityRunner");
       const result = await launchWithCompatibility({
         gameId,
@@ -356,6 +378,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
         launchArguments,
         profile: compatProfile,
         steamAppId,
+        gpuSelection,
       });
       initialPid = result.pid;
     } else if (runAsAdmin) {

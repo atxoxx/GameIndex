@@ -89,11 +89,12 @@ function gameFolderForExe(exePath: string, rootPath: string): string {
   const normalizedRoot = rootPath.replace(/[\\/]$/, "");
   const rootParts = splitPath(normalizedRoot);
   const rel = splitPath(exePath).slice(rootParts.length);
+  const sep = normalizedRoot.includes("\\") ? "\\" : "/";
 
   if (rel.length <= 1) return normalizedRoot;
   const first = rel[0];
   if (!HELPER_DIRS.has(first.toLowerCase())) {
-    return [...rootParts, first].join("\\");
+    return [...rootParts, first].join(sep);
   }
   return normalizedRoot;
 }
@@ -104,7 +105,7 @@ function relDirOf(exePath: string, groupRoot: string): string {
   const rootParts = splitPath(groupRoot.replace(/[\\/]$/, ""));
   const parts = splitPath(exePath);
   parts.pop();
-  return parts.slice(rootParts.length).join("\\");
+  return parts.slice(rootParts.length).join(groupRoot.includes("\\") ? "\\" : "/");
 }
 
 /** Score an executable as the most likely "main" game exe of a folder. */

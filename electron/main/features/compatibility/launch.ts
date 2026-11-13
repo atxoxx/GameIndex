@@ -33,9 +33,11 @@ import {
   IS_LINUX,
   listRunners,
   steamRoots,
+  systemWineRunner,
   umuRunPath,
 } from "./platform";
 import { getCompatibilitySettings } from "./settings";
+import { specificGpuEnv, specificGpuSelection, type GpuSelection } from "./gpuSelection";
 import type { CompatibilitySettings } from "./types";
 
 /**
@@ -50,6 +52,7 @@ export interface CompatProfile {
   customWinePrefix?: string;
   arch?: "win64" | "win32";
   workingDir?: string;
+  useSpecificGpu?: boolean | null;
   enableDxvk?: boolean | null;
   enableVkd3d?: boolean | null;
   enableVkd3dDescriptorHeap?: boolean | null;
@@ -67,6 +70,7 @@ export interface CompatProfile {
   virtualDesktop?: boolean | null;
   virtualDesktopRes?: string | null;
   enableMangoHud?: boolean | null;
+  mangohudHidden?: boolean | null;
   enableUmuLauncher?: boolean | null;
   enableControllerSupport?: boolean | null;
   enableAnticheatSupport?: boolean | null;
@@ -101,6 +105,8 @@ export interface CompatibilityLaunchInput {
   launchArguments: string | null;
   profile: CompatProfile | null;
   steamAppId?: number | null;
+  /** GPU chosen in Settings → Hardware (shared by every launch). */
+  gpuSelection?: GpuSelection | null;
 }
 
 export interface CompatibilityLaunchResult {
@@ -215,8 +221,20 @@ function isProtonRunner(runnerPath: string): boolean {
 function runnerExecutable(runnerPath: string): string {
   try {
     if (fs.statSync(runnerPath).isDirectory()) {
-      const script = path.join(runnerPath, "proton");
-      return fs.existsSync(script) ? script : runnerPath;
+      // Proton keeps its script at the root; some packaged builds nest it
+      // under `files/bin`, and Wine trees put the binary in `bin/`.
+      const candidates = [
+        path.join(runnerPath, "proton"),
+        path.join(runnerPath, "files", "bin", "proton"),
+        path.join(runnerPath, "bin", "wine"),
+        path.join(runnerPath, "bin", "wine64"),
+        path.join(runnerPath, "files", "bin", "wine"),
+        path.join(runnerPath, "files", "bin", "wine64"),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) return candidate;
+      }
+      return runnerPath;
     }
   } catch {
     /* not a directory */
@@ -243,6 +261,22 @@ async function resolveRunner(
 ): Promise<string> {
   const custom = profileString(profile?.customRunnerPath);
   if (custom) return custom;
+
+  // The per-game Runner selector (Default / Proton / Wine / Custom) is an
+  // explicit override and must win over the global default runner.
+  if (profile?.runnerType === "wine") {
+    return systemWineRunner()?.path ?? "wine";
+  }
+  if (profile?.runnerType === "proton") {
+    try {
+      const runners = await listRunners();
+      const proton = runners.find((runner) => runner.isProton);
+      if (proton) return proton.path;
+    } catch {
+      /* fall through to the global default */
+    }
+  }
+
   const configured = profileString(settings.defaultRunnerPath);
   if (configured) return configured;
   try {
@@ -433,6 +467,12 @@ export async function launchWithCompatibility(
     env.__VK_LAYER_NV_optimus = "NVIDIA_only";
   }
 
+  // Explicit GPU pinning wins over the generic PRIME toggle above.
+  const gpuSelection = specificGpuSelection(settings, profile, input.gpuSelection);
+  if (gpuSelection) {
+    for (const [key, value] of specificGpuEnv(gpuSelection)) env[key] = value;
+  }
+
   const steamRoot = steamRoots()[0];
   if (isProton && !useUmu) {
     env.STEAM_COMPAT_DATA_PATH = prefix;
@@ -464,6 +504,11 @@ export async function launchWithCompatibility(
   }
   if (pick(profile?.enableMangoHud, settings.enableMangoHud) && commandAvailable("mangohud")) {
     tokens.push("mangohud");
+    if (pick(profile?.mangohudHidden, settings.mangohudHidden)) {
+      env.MANGOHUD_CONFIG = env.MANGOHUD_CONFIG
+        ? `${env.MANGOHUD_CONFIG},no_display`
+        : "no_display";
+    }
   }
   if (useUmu && umuRun) {
     tokens.push(umuRun);

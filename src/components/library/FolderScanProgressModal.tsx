@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { stripExecutableExtension } from "../../utils/executableTypes";
+import { commonParentDir } from "../../utils/exeDrop";
 import type { ExeInfo } from "../ImportModal";
 
 export interface FolderScanProgressModalProps {
@@ -169,7 +170,14 @@ export default function FolderScanProgressModal({
 
   if (!open) return null;
 
-  const rootPathForImport = folderPaths.length === 1 ? folderPaths[0] : "";
+  // Group the review list by game folder. For a multi-folder selection the
+  // common parent is the scan root, so each selected folder (and every
+  // sub-folder under it) becomes one group; previously the empty root made
+  // ImportModal treat every executable as its own game.
+  const rootPathForImport =
+    folderPaths.length === 1
+      ? folderPaths[0]
+      : commonParentDir(folderPaths) || folderPaths[0] || "";
   const isBusy = status === "scanning" || status === "cancelling";
 
   return createPortal(
