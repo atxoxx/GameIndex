@@ -228,6 +228,15 @@ npm run build:win      # NSIS setup + portable exe, renamed with _tauri_
 `npm run tauri build` still produces Tauri's default names; use the
 `build:linux` / `build:win` wrappers when you want release-ready artifacts.
 
+On rolling distributions whose system libraries use `.relr.dyn` (Arch,
+CachyOS), linuxdeploy's bundled `strip` can fail. Prefix the Linux command
+with `NO_STRIP=1` to skip that step locally; CI's Ubuntu runner uses its own
+supported toolchain.
+
+```bash
+NO_STRIP=1 npm run build:linux
+```
+
 Frontend-only iteration, with Tauri APIs stubbed:
 
 ```bash
