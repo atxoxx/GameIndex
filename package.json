@@ -8,6 +8,7 @@
   "author": "GameIndex",
   "desktopName": "gameindex.desktop",
   "scripts": {
+    "postinstall": "node scripts/ensure-electron.mjs",
     "dev": "vite",
     "dev:electron": "electron-vite dev",
     "build": "electron-vite build",
@@ -72,5 +73,16 @@
     "typescript-eslint": "^8.67.0",
     "vite": "^7.3.7",
     "vitest": "^4.1.12"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "better-sqlite3@13.1.1": true,
+    "node-datachannel@0.32.3": true,
+    "utp-native@2.5.3": true,
+    "bufferutil@4.2.0": true,
+    "utf-8-validate@6.0.6": true,
+    "electron-winstaller@5.4.0": true
   }
 }
