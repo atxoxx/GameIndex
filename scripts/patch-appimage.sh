@@ -15,10 +15,12 @@ if [[ ! -d "$appimage_dir" ]]; then
   exit 0
 fi
 appdir="$(find "$appimage_dir" -maxdepth 1 -type d -name '*.AppDir' -print -quit)"
-appimage="$(find "$appimage_dir" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
-if [[ -z "$appimage" ]]; then
-  version="$(python3 -c "import json;print(json.load(open('$repo_root/src-tauri/tauri.conf.json'))['version'])")"
-  appimage="$appimage_dir/GameIndex_${version}_amd64.AppImage"
+version="$(python3 -c "import json;print(json.load(open('$repo_root/src-tauri/tauri.conf.json'))['version'])")"
+# Prefer the exact name Tauri just emitted. A previous run's renamed
+# `GameIndex_tauri_...AppImage` must not be picked up and patched instead.
+appimage="$appimage_dir/GameIndex_${version}_amd64.AppImage"
+if [[ ! -f "$appimage" ]]; then
+  appimage="$(find "$appimage_dir" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
 fi
 linuxdeploy="${TAURI_LINUXDEPLOY:-${XDG_CACHE_HOME:-$HOME/.cache}/tauri/linuxdeploy-x86_64.AppImage}"
 

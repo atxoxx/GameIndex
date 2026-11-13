@@ -1,9 +1,9 @@
-name: "Release App"
+name: "Release Tauri App"
 
 on:
   push:
     tags:
-      - "v*"
+      - "v*-tauri"
   workflow_dispatch:
 
 jobs:
@@ -41,15 +41,15 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-layer-shell-dev libdbus-1-dev pkg-config patchelf
 
       # The release tag comes from package.json, not github.ref_name: on
-      # workflow_dispatch ref_name is a branch, while tauri-action always
-      # publishes to v<package version>.
+      # workflow_dispatch ref_name is a branch, while the release workflow
+      # publishes to v<package version>-tauri.
       - name: resolve release tag
         id: meta
         shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}-tauri" >> "$GITHUB_OUTPUT"
 
       # Tag pushes don't run ci.yml, so re-check here too: `tauri build` aborts
       # before compiling when the `tauri` crate and @tauri-apps/api drift apart.
@@ -73,9 +73,9 @@ jobs:
           OPENCRITIC_RAPIDAPI_KEY: ${{ secrets.OPENCRITIC_RAPIDAPI_KEY }}
           STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         with:
-          tagName: v__VERSION__ # tauri-action automatically replaces __VERSION__ with the package version
-          releaseName: "GameIndex v__VERSION__"
-          releaseBody: "See the assets below to download GameIndex."
+          tagName: ${{ steps.meta.outputs.tag }}
+          releaseName: "GameIndex Tauri v${{ steps.meta.outputs.version }}"
+          releaseBody: "See the assets below to download the Tauri build."
           generateReleaseNotes: false
           releaseDraft: true
           prerelease: false
@@ -84,64 +84,89 @@ jobs:
           # concurrently would drop whichever platform wrote first.
           includeUpdaterJson: false
 
-      # tauri-action always uploads the .sig files next to the bundles. They
-      # stay on the release until finalize-release embeds them in latest.json,
-      # which then strips the standalone assets.
-
-      # Tauri v2 has no post-bundle hook, so the AppImage display-stack patch
-      # is applied here, after tauri-action built+uploaded the bundle. The
-      # rebuilt (re-signed) AppImage and its signature replace the originals
-      # before finalize-release embeds the signature in latest.json.
+      # Tauri v2 has no artifact-name template, so tauri-action uploads the
+      # default names first. These steps rename the local bundles, upload the
+      # `_tauri_` names and remove the temporary defaults.
       - name: patch appimage display stack
         if: matrix.platform == 'ubuntu-latest'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bash scripts/patch-appimage.sh
+
+      - name: rename and upload Linux bundles
+        if: matrix.platform == 'ubuntu-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          bash scripts/patch-appimage.sh
+          node scripts/rename-tauri-artifacts.mjs
           tag="${{ steps.meta.outputs.tag }}"
           version="$(node -p "require('./package.json').version")"
-          appimage="src-tauri/target/release/bundle/appimage/GameIndex_${version}_amd64.AppImage"
-          gh release upload "$tag" "$appimage" "$appimage.sig" --clobber
+          appimage="src-tauri/target/release/bundle/appimage/GameIndex_tauri_${version}_amd64.AppImage"
+          deb="src-tauri/target/release/bundle/deb/GameIndex_tauri_${version}_amd64.deb"
 
-      # "portable" is not a valid Tauri bundle target, so the portable exe is a
-      # plain copy of the release binary. It is signed and uploaded here so
-      # finalize-release can embed its signature in latest.json.
-      - name: prepare portable executable
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $version = node -p "require('./package.json').version"
-          Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
+          files=("$appimage" "$deb")
+          for file in "${files[@]}"; do
+            [[ -f "$file" ]] || { echo "::error::Missing $file"; exit 1; }
+          done
+          for sig in "$appimage.sig" "$deb.sig"; do
+            if [[ -f "$sig" ]]; then files+=("$sig"); fi
+          done
 
-      # The updater rejects unsigned portable builds. `tauri signer sign` takes
-      # the file as a POSITIONAL argument in the CLI version pinned by
-      # package-lock.json (2.x); --file is not valid.
-      - name: sign portable executable
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          $version = node -p "require('./package.json').version"
-          npx tauri signer sign "GameIndex_${version}_x64_portable.exe"
+          gh release upload "$tag" "${files[@]}" --clobber
+          for old in \
+            "GameIndex_${version}_amd64.AppImage" \
+            "GameIndex_${version}_amd64.AppImage.sig" \
+            "GameIndex_${version}_amd64.deb" \
+            "GameIndex_${version}_amd64.deb.sig"; do
+            gh release delete-asset "$tag" "$old" --yes || true
+          done
 
-      - name: upload portable executable
+      - name: rename, sign and upload Windows bundles
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          $ErrorActionPreference = "Stop"
+          node scripts/rename-tauri-artifacts.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
           $tag = "${{ steps.meta.outputs.tag }}"
           $version = node -p "require('./package.json').version"
-          gh release upload $tag "GameIndex_${version}_x64_portable.exe" "GameIndex_${version}_x64_portable.exe.sig" --clobber
+          $setup = "src-tauri/target/release/bundle/nsis/GameIndex_tauri_${version}_x64-setup.exe"
+          $portable = "src-tauri/target/release/GameIndex_tauri_${version}_x64_portable.exe"
+
+          foreach ($file in @($setup, $portable)) {
+            if (-not (Test-Path $file)) { throw "Missing $file" }
+          }
+
+          # The updater rejects unsigned portable builds. `tauri signer sign`
+          # takes the file as a POSITIONAL argument in the pinned CLI.
+          npx tauri signer sign $portable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $files = @($setup, "$setup.sig", $portable, "$portable.sig")
+          gh release upload $tag $files --clobber
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          foreach ($old in @(
+            "GameIndex_${version}_x64-setup.exe",
+            "GameIndex_${version}_x64-setup.exe.sig"
+          )) {
+            gh release delete-asset $tag $old --yes
+            if ($LASTEXITCODE -ne 0) { Write-Host "No temporary asset $old" }
+          }
 
   # Runs after both platforms: builds the single latest.json manifest from the
-  # signed artifacts, strips the .sig assets and publishes the draft release.
+  # signed `_tauri_` artifacts, strips the .sig assets and publishes the draft
+  # release. The manifest is also copied to a rolling tauri-latest release so
+  # the Tauri updater has a stable URL even when an Electron release is newer.
   finalize-release:
     needs: build
     if: ${{ !cancelled() }}
@@ -163,7 +188,7 @@ jobs:
         run: |
           version="$(node -p "require('./package.json').version")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}-tauri" >> "$GITHUB_OUTPUT"
 
       - name: generate release notes
         env:
@@ -172,7 +197,12 @@ jobs:
           set -euo pipefail
           current="${{ steps.meta.outputs.tag }}"
           git fetch --tags --force
-          prev="$(git tag --sort=-v:refname | grep -E '^v[0-9]' | grep -vx "$current" | head -n1 || true)"
+          prev="$(git tag --sort=-v:refname | grep -E '^v[0-9].*-tauri$' | grep -vx "$current" | head -n1 || true)"
+          if [ -z "$prev" ]; then
+            # First Tauri-suffixed release: fall back to the last plain tag so
+            # the first release still shows a useful changelog.
+            prev="$(git tag --sort=-v:refname | grep -E '^v[0-9]+(\.[0-9]+)*$' | head -n1 || true)"
+          fi
           {
             echo "## What's Changed"
             echo
@@ -203,10 +233,10 @@ jobs:
           assets_dir="$(mktemp -d)"
           gh release view "$tag" --json assets -q '.assets[].name' > asset-names.txt
 
-          appimage="$(grep -E '\.AppImage$' asset-names.txt | head -n1 || true)"
-          deb="$(grep -E '_amd64\.deb$' asset-names.txt | head -n1 || true)"
-          setup="$(grep -E -- '-setup\.exe$' asset-names.txt | head -n1 || true)"
-          portable="GameIndex_${version}_x64_portable.exe"
+          appimage="$(grep -E '_tauri_.*\.AppImage$' asset-names.txt | head -n1 || true)"
+          deb="$(grep -E '_tauri_.*_amd64\.deb$' asset-names.txt | head -n1 || true)"
+          setup="$(grep -E '_tauri_.*-setup\.exe$' asset-names.txt | head -n1 || true)"
+          portable="GameIndex_tauri_${version}_x64_portable.exe"
           if ! grep -Fqx "$portable" asset-names.txt; then
             portable=""
           fi
@@ -257,3 +287,13 @@ jobs:
 
           gh release upload "$tag" latest.json --clobber
           gh release edit "$tag" --notes-file release_notes.md --draft=false
+
+          # Stable updater URL: releases/latest is shared with the Electron
+          # branch, so the Tauri endpoint points at this rolling release.
+          channel="tauri-latest"
+          gh release view "$channel" >/dev/null 2>&1 || \
+            gh release create "$channel" \
+              --prerelease \
+              --title "GameIndex Tauri updates" \
+              --notes "Rolling tauri-plugin-updater manifest for the Tauri build."
+          gh release upload "$channel" latest.json --clobber

@@ -48,6 +48,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check release naming script
+        run: node --check scripts/rename-tauri-artifacts.mjs
+
       # `tauri build` refuses to compile when the `tauri` crate and
       # `@tauri-apps/api` disagree on their major/minor version. Compare the
       # lockfiles here so a dependency bump fails the PR instead of the

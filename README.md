@@ -37,14 +37,16 @@ GameIndex is a native desktop app that gathers your Steam, GOG, Epic, Rockstar, 
 
 ## Download and install
 
-Head to the [latest release](https://github.com/atxoxx/GameIndex/releases/latest) and pick the file for your system.
+Head to the [releases page](https://github.com/atxoxx/GameIndex/releases) and open the Tauri release tagged `v<version>-tauri`.
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **Windows** | `GameIndex_<version>_x64-setup.exe` | Installer. Adds Start Menu shortcuts and in-app updates. |
-| **Windows** | `GameIndex_<version>_x64_portable.exe` | Single executable, nothing to install. Updates replace the file in place and restart the app. |
-| **Linux** | `GameIndex_<version>_amd64.AppImage` | `chmod +x` the file and run it. Works on most distributions and the Steam Deck. |
-| **Linux** | `GameIndex_<version>_amd64.deb` | For Debian/Ubuntu and derivatives: `sudo apt install ./GameIndex_<version>_amd64.deb`. |
+| **Windows** | `GameIndex_tauri_<version>_x64-setup.exe` | Installer. Adds Start Menu shortcuts and in-app updates. |
+| **Windows** | `GameIndex_tauri_<version>_x64_portable.exe` | Single executable, nothing to install. Updates replace the file in place and restart the app. |
+| **Linux** | `GameIndex_tauri_<version>_amd64.AppImage` | `chmod +x` the file and run it. Works on most distributions and the Steam Deck. |
+| **Linux** | `GameIndex_tauri_<version>_amd64.deb` | For Debian/Ubuntu and derivatives: `sudo apt install ./GameIndex_tauri_<version>_amd64.deb`. |
+
+The Electron build ships the same four formats as `GameIndex_electron_<version>_...`; look for the release tagged `v<version>-electron`.
 
 **Requirements:** Windows 10/11 (x64) or a modern x64 Linux distribution. Windows uses the WebView2 runtime, which ships with Windows 11 and is installed by the setup if missing. On Linux the AppImage bundles what it needs; the `.deb` pulls its dependencies through apt. There is currently **no macOS build**, and Linux support is still being ironed out — see [Linux and Steam Deck](#linux-and-steam-deck).
 
@@ -219,8 +221,12 @@ GameIndex treats Linux as a target platform rather than an afterthought. The com
 ```bash
 npm install
 npm run tauri dev      # native window with hot reload
-npm run tauri build    # production bundles
+npm run build:linux    # AppImage + deb, renamed with _tauri_
+npm run build:win      # NSIS setup + portable exe, renamed with _tauri_
 ```
+
+`npm run tauri build` still produces Tauri's default names; use the
+`build:linux` / `build:win` wrappers when you want release-ready artifacts.
 
 Frontend-only iteration, with Tauri APIs stubbed:
 
@@ -237,6 +243,11 @@ npm run dev            # http://localhost:1420
 | `npm test` | Vitest suite |
 | `npm run audit:i18n` | Verifies every UI string has all six translations |
 | `cargo check` | Rust backend, run inside `src-tauri/` |
+
+`npm run build:linux` writes `GameIndex_tauri_<version>_amd64.AppImage` and
+`GameIndex_tauri_<version>_amd64.deb`; `npm run build:win` writes
+`GameIndex_tauri_<version>_x64-setup.exe` and
+`GameIndex_tauri_<version>_x64_portable.exe`.
 
 `package.json` also holds scripts for plugin linting, Tauri version auditing and the AppImage build.
 
