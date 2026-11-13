@@ -16,8 +16,10 @@ jobs:
         include:
           - platform: "windows-latest"
             package: "dist:win"
+            artifact_target: "win32"
           - platform: "ubuntu-latest"
             package: "dist:linux"
+            artifact_target: "linux"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -69,7 +71,7 @@ jobs:
       # A changed artifactName template must fail here, not surface as a
       # release with the old names.
       - name: verify artifact names
-        run: node scripts/check-electron-artifacts.mjs
+        run: node scripts/check-electron-artifacts.mjs ${{ matrix.artifact_target }}
 
       - name: upload release assets
         uses: softprops/action-gh-release@v2

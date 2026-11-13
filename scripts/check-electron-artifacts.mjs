@@ -5,6 +5,9 @@
  * The release workflow uploads every `release/*` file, so a changed
  * `artifactName` template must fail loudly instead of silently shipping the
  * old default names. Run after `npm run dist:linux` or `npm run dist:win`.
+ *
+ * An optional target (`linux` or `win32`) lets a cross-build verify the
+ * artifacts it just produced instead of the host platform's defaults.
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -14,15 +17,21 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const release = join(root, "release");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
+const requested = process.argv[2];
+const target =
+  requested === "win" || requested === "windows"
+    ? "win32"
+    : requested || process.platform;
+
 const expected = [];
-if (process.platform === "linux") {
+if (target === "linux") {
   expected.push(`GameIndex_electron_${version}_amd64.AppImage`);
   expected.push(`GameIndex_electron_${version}_amd64.deb`);
-} else if (process.platform === "win32") {
+} else if (target === "win32") {
   expected.push(`GameIndex_electron_${version}_x64-setup.exe`);
   expected.push(`GameIndex_electron_${version}_x64_portable.exe`);
 } else {
-  console.log(`check-electron-artifacts: no packaged target for ${process.platform}`);
+  console.log(`check-electron-artifacts: no packaged target for ${target}`);
   process.exit(0);
 }
 
