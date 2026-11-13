@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { loadEnv } from "vite";
 import { tauriShimAliases } from "./src/shims/alias";
 import { rendererBuild, rendererPlugins } from "./vite.shared";
 
@@ -23,9 +24,22 @@ const BAKED_ENV_KEYS = [
   "TORBOX_KEY",
 ] as const;
 
-const bakedEnv = Object.fromEntries(
-  BAKED_ENV_KEYS.map((key) => [key, process.env[key] ?? ""]),
-);
+/**
+ * Values baked into the main bundle, matching the old Rust `build.rs`
+ * contract. `loadEnv` reads `.env`/`.env.local`/`.env.<mode>` from the project
+ * root so a local build ships the developer's keys, exactly like
+ * `cargo build` did; `process.env` still wins for CI.
+ *
+ * Without this the packaged app had every key empty: `secrets.ts` falls back
+ * to a `.env` file next to the *executable*, which only existed when the app
+ * happened to be launched from the repository directory.
+ */
+const buildBakedEnv = (mode: string): Record<string, string> => {
+  const fileEnv = loadEnv(mode, root, "");
+  return Object.fromEntries(
+    BAKED_ENV_KEYS.map((key) => [key, process.env[key] ?? fileEnv[key] ?? ""]),
+  );
+};
 
 /**
  * Three bundles:
@@ -33,7 +47,10 @@ const bakedEnv = Object.fromEntries(
  *   - preload → out/preload/index.cjs (isolated world bridge)
  *   - renderer→ out/renderer/index.html (the existing React app + shims)
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const bakedEnv = buildBakedEnv(mode);
+
+  return {
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
@@ -86,4 +103,5 @@ export default defineConfig({
       strictPort: false,
     },
   },
+  };
 });
