@@ -1843,7 +1843,7 @@ export function gameNameFromPath(filePath: string): string {
  *  local paths like `C:\…\app\12345\game.exe`. */
 export function extractSteamAppId(path: string): number | null {
   if (!path) return null;
-  const m = path.match(/steam:\/\/run\/(\d+)/);
+  const m = path.match(/steam:\/\/(?:run|launch|rungameid)\/(\d+)/i);
   if (m && m[1]) {
     const id = parseInt(m[1], 10);
     return Number.isFinite(id) ? id : null;
@@ -1886,6 +1886,11 @@ export function extractSteamAppIdFromWebsites(
 export function resolveSteamAppId(game: Game): number | null {
   if (typeof game.steamAppId === "number" && Number.isFinite(game.steamAppId)) {
     return game.steamAppId;
+  }
+  const fromId = /^steam[-:](\d+)$/i.exec(game.id?.trim?.() ?? "");
+  if (fromId) {
+    const id = Number.parseInt(fromId[1], 10);
+    if (Number.isFinite(id) && id > 0) return id;
   }
   const fromPath = extractSteamAppId(game.path);
   if (fromPath != null) return fromPath;

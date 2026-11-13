@@ -22,7 +22,7 @@ export function wineLogPathForGame(gameId: string): string {
   return path.join(wineLogsRoot(), `${gameId}.log`);
 }
 
-function steamWineLogDirForGame(gameId: string): string {
+export function steamWineLogDirForGame(gameId: string): string {
   const dir = path.join(wineLogsRoot(), gameId);
   fs.mkdirSync(dir, { recursive: true });
   return dir;

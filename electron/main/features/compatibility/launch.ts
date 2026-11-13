@@ -300,7 +300,7 @@ async function resolveRunner(
   return "wine";
 }
 
-function gamescopeTokens(
+export function gamescopeTokens(
   settings: CompatibilitySettings,
   profile: CompatProfile | null,
 ): string[] {

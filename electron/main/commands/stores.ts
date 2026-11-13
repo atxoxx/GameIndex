@@ -71,7 +71,6 @@ import { launchRockstarTitle } from "../features/stores/rockstar";
 import { detectRockstarClient } from "../features/stores/rockstar";
 import { detectUplayClient } from "../features/stores/uplay";
 import {
-  AUTH_FLOW_UNAVAILABLE,
   getHumbleSettings,
   getUplaySettings,
   saveHumbleSettings,
@@ -82,6 +81,23 @@ import {
   syncRockstarLibrary,
   syncUplayLibrary,
 } from "../features/stores/otherSync";
+import {
+  epicFinishLogin,
+  epicIsAuthenticated,
+  epicLogout,
+  epicLoginWithRefreshToken,
+  epicStartLogin,
+} from "../features/integrations/epicAuth";
+import {
+  gogIsAuthenticated,
+  gogLogout,
+  gogStartLogin,
+} from "../features/integrations/gogAuth";
+import {
+  humbleIsAuthenticated,
+  humbleLogout,
+  humbleStartLogin,
+} from "../features/integrations/humbleAuth";
 
 /** Read a Tauri-style camelCase arg that the renderer also spells snake_case. */
 function sessionArg(args: Record<string, unknown>): SteamSession | null {
@@ -194,11 +210,9 @@ const commands: Record<string, CommandHandler> = {
   steam_launch_options: () => [],
 
   // ── GOG ────────────────────────────────────────────────────────────
-  gog_is_authenticated: () => false,
-  gog_logout: () => null,
-  gog_start_login: () => {
-    throw new Error(AUTH_FLOW_UNAVAILABLE);
-  },
+  gog_is_authenticated: () => gogIsAuthenticated(),
+  gog_logout: () => gogLogout(),
+  gog_start_login: () => gogStartLogin(),
   gog_sync_library: async () => syncGogLibrary(),
   gog_fetch_achievements: (args) => {
     const games = Array.isArray(args.games) ? args.games : [];
@@ -210,17 +224,21 @@ const commands: Record<string, CommandHandler> = {
   },
 
   // ── Epic ───────────────────────────────────────────────────────────
-  epic_is_authenticated: () => false,
-  epic_logout: () => null,
-  epic_start_login: () => {
-    throw new Error(AUTH_FLOW_UNAVAILABLE);
+  epic_is_authenticated: () => epicIsAuthenticated(),
+  epic_logout: () => epicLogout(),
+  epic_start_login: () => epicStartLogin(),
+  epic_finish_login: (args) => {
+    const code = argString(args, "authCode", "auth_code");
+    if (!code) throw new Error("An Epic authorization code is required");
+    return epicFinishLogin(code);
   },
-  epic_finish_login: () => {
-    throw new Error(AUTH_FLOW_UNAVAILABLE);
-  },
-  epic_login_with_refresh_token: () => {
-    throw new Error(
-      "Epic refresh-token sign-in needs a token captured by the embedded browser, which is not available in the Electron build yet.",
+  epic_login_with_refresh_token: (args) => {
+    const refreshToken = argString(args, "refreshToken", "refresh_token");
+    if (!refreshToken) throw new Error("An Epic refresh token is required");
+    return epicLoginWithRefreshToken(
+      refreshToken,
+      argString(args, "accountId", "account_id"),
+      argString(args, "displayName", "display_name") || undefined,
     );
   },
   epic_sync_library: async () => syncEpicLibrary(),
@@ -239,11 +257,9 @@ const commands: Record<string, CommandHandler> = {
     const settings = (args.settings ?? args) as Parameters<typeof saveHumbleSettings>[0];
     return saveHumbleSettings(settings);
   },
-  humble_is_authenticated: () => false,
-  humble_logout: () => null,
-  humble_start_login: () => {
-    throw new Error(AUTH_FLOW_UNAVAILABLE);
-  },
+  humble_is_authenticated: () => humbleIsAuthenticated(),
+  humble_logout: () => humbleLogout(),
+  humble_start_login: () => humbleStartLogin(),
   humble_sync_library: async () => syncHumbleLibrary(),
 
   // ── Rockstar ───────────────────────────────────────────────────────

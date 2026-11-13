@@ -32,9 +32,14 @@ import {
   shouldUseCompatibility,
 } from "../compatibility/launch";
 import type { GpuSelection } from "../compatibility/gpuSelection";
+import { applySteamLaunchOptions, steamLaunchPrefixForGame } from "../compatibility/steamLaunchOptions";
+import { deriveSteamAppId } from "../compatibility/steamConfig";
+import { steamWineLogDirForGame } from "../compatibility/logs";
+import { resolveGameExe } from "./exeResolve";
 import type { CompanionApp, LaunchProgressPayload } from "./types";
 
 const IS_WINDOWS = process.platform === "win32";
+const IS_LINUX = process.platform === "linux";
 
 const ELEVATION_BLOCKED_RUN_AS_ADMIN =
   'Launch with admin elevation is blocked by Settings → Disable UAC elevation prompts. ' +
@@ -301,7 +306,8 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
   const gameName = readString(args, "gameName") ?? "Game";
   const gamePath = readString(args, "gamePath") ?? "";
   const platform = readString(args, "platform") ?? "";
-  const steamAppId = readNumber(args, "steamAppId");
+  const steamAppId =
+    readNumber(args, "steamAppId") ?? deriveSteamAppId(gameId, gamePath);
   const launchArguments = readString(args, "launchArguments");
   const runAsAdmin = readBoolean(args, "runAsAdmin");
   const preLaunchScript = readString(args, "preLaunchScript");
@@ -331,16 +337,45 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
   let initialPid = 0;
   let exePath: string | null = gamePath || null;
 
-  if (gamePath && isUri(gamePath)) {
+  if (platform !== "Steam" && gamePath && isUri(gamePath)) {
     // A game whose path is already a protocol URL (custom launcher, GOG, …).
     await openProtocol(gamePath, "launcher");
     exePath = null;
-  } else if (platform === "Steam" && showSteamSelection) {
+  } else if (platform === "Steam" && steamAppId) {
     const appId = requireSteamAppId(steamAppId);
-    await openProtocol(steamLaunchUrl(appId, true), "Steam");
-  } else if (platform === "Steam" && (!gamePath || !fs.existsSync(gamePath))) {
-    const appId = requireSteamAppId(steamAppId);
-    await openProtocol(steamLaunchUrl(appId, false), "Steam");
+
+    // Steam owns the launch, so Wine/Proton settings are persisted as the
+    // app's Steam launch options (`%command%` prefix) rather than inherited.
+    if (IS_LINUX) {
+      try {
+        const logDir = steamWineLogDirForGame(gameId);
+        // Start every launch with a fresh Proton log so Settings → Logs shows
+        // only the current run.
+        fs.rmSync(logDir, { recursive: true, force: true });
+        fs.mkdirSync(logDir, { recursive: true });
+        const profile = gameCompatibilityProfile(gameId);
+        const prefix =
+          profile?.enabled === false
+            ? ""
+            : steamLaunchPrefixForGame(gameId, profile, logDir);
+        applySteamLaunchOptions(appId, prefix);
+      } catch (error) {
+        console.warn("[launch] could not apply Steam launch options:", error);
+      }
+    }
+
+    // Resolve the installed exe before Steam starts so the watcher can attach
+    // to the real process without waiting for a path sweep.
+    if (!exePath || !fs.existsSync(exePath)) {
+      try {
+        const installDir = await steamGameInstallPath(appId);
+        if (installDir) exePath = await resolveGameExe(installDir, gameName);
+      } catch {
+        /* keep the stored path */
+      }
+    }
+
+    await openProtocol(steamLaunchUrl(appId, showSteamSelection), "Steam");
   } else if (platform === "Ubisoft" && !gamePath) {
     const uplayId = gameId.startsWith("uplay-") ? gameId.slice("uplay-".length) : "";
     if (!uplayId) throw new Error("Ubisoft games require a uplay-<id> game id");

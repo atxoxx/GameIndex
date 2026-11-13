@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Game, GameExecutable } from "../../types/game";
-import { gameDisplayName } from "../../types/game";
+import { gameDisplayName, resolveSteamAppId } from "../../types/game";
 import type { Mo2Instance } from "../../types/mo2";
 import { getGameMo2Config } from "../../utils/mo2Storage";
 import { resolveMo2Selection } from "../../utils/mo2Selection";
@@ -333,7 +333,7 @@ export function useLaunch(options: {
         gameName: game.name,
         gamePath,
         platform: game.platform,
-        steamAppId: game.steamAppId ?? null,
+        steamAppId: resolveSteamAppId(game),
         gpuId,
         gpuName,
         gpuSelection,

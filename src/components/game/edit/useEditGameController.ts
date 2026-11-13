@@ -19,6 +19,7 @@ import {
   formatPlayTime,
   parsePlayTime,
   type PlayStatus,
+  extractSteamAppId,
   extractSteamAppIdFromWebsites,
   gameDisplayName,
   gameIsVr,
@@ -1275,7 +1276,10 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     const newAlternativeNames = editAlternativeNames.filter(Boolean);
 
     const newSteamAppId =
-      game.steamAppId ?? extractSteamAppIdFromWebsites(editWebsites) ?? undefined;
+      game.steamAppId ??
+      extractSteamAppId(game.path || "") ??
+      extractSteamAppIdFromWebsites(editWebsites) ??
+      undefined;
 
     // `enabled` is the one field whose "unset" state must still be persisted:
     // a game that defaults to the compatibility layer needs an explicit

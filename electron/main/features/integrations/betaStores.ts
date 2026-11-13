@@ -13,6 +13,7 @@
  * actually installed on this PC. Nothing is fabricated: when a client is not
  * detected, connect fails with an actionable message.
  */
+import { betaLogout, betaStartLogin } from "./betaAuth";
 import { createSqliteStore } from "../../state/sqliteStore";
 import {
   scanBattlenet,
@@ -123,23 +124,15 @@ export interface BetaSessionResult {
 }
 
 export async function startBetaLogin(key: BetaKey): Promise<BetaSessionResult> {
-  const scan = await scanners[key]();
-  if (!scan.available) {
-    throw new Error(
-      `${DISPLAY_NAMES[key]} was not detected on this PC. Install the client, ` +
-        `or add its games with Import from the sidebar.`,
-    );
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const username = `Local library (${scan.installs.length} game${
-    scan.installs.length === 1 ? "" : "s"
-  })`;
+  const auth = await betaStartLogin(key);
+  const now = Math.floor(auth.loggedInAt / 1000);
+  const username = `${DISPLAY_NAMES[key]} account`;
   write(key, { ...record(key), session: { username, loggedInAt: now } });
   return { username, loggedInAt: now, beta: true };
 }
 
 export function logoutBeta(key: BetaKey): void {
+  betaLogout(key);
   write(key, { ...record(key), session: null });
 }
 

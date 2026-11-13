@@ -5,7 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatPlayTime, formatSyncedPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, formatSyncedPlayTime, resolveSteamAppId, type Game } from "../../types/game";
 import type { SteamAuthState, SteamFamilyGroup, SteamSession, SteamSettings, SteamSyncResult } from "../../types/steam";
 import { STEAM_SETTINGS_KEY } from "../../types/steam";
 
@@ -214,7 +214,9 @@ export function useSteamIntegration() {
         const a = result.achievementsSynced ?? 0;
 
         // Persist synced games to the library, skipping duplicates by Steam AppID
-        const existingAppIds = new Set(games.map((gm) => gm.steamAppId).filter(Boolean));
+        const existingAppIds = new Set(
+          games.map((gm) => resolveSteamAppId(gm)).filter((id): id is number => id != null),
+        );
         const installedSet = new Set(result.installedAppids ?? []);
         // Manifest presence = the game is still registered with Steam
         // (installed or mid-update). Absent + not installed = uninstalled
@@ -261,7 +263,7 @@ export function useSteamIntegration() {
         for (const entry of result.syncedGames ?? []) {
           if (shouldSkipFamilySharedEntry(steamSettings.syncFamilySharing, entry.familySharedBy)) continue;
           if (!existingAppIds.has(entry.appid)) continue;
-          const game = games.find((g) => g.steamAppId === entry.appid);
+          const game = games.find((g) => resolveSteamAppId(g) === entry.appid);
           if (!game) continue;
           const isInstalled = installedSet.has(entry.appid) || !!entry.exePath;
           if (shouldRemoveSteamLibraryEntry(game.installed, isInstalled, manifestSet.has(entry.appid))) {
@@ -269,6 +271,10 @@ export function useSteamIntegration() {
             continue;
           }
           const patch: Partial<Game> = {};
+          // Repair legacy Steam rows that were imported before the AppID was
+          // stored (or that only had it in `steam-<appid>`/`steam://` paths).
+          if (!game.steamAppId) patch.steamAppId = entry.appid;
+          if (game.platform !== "Steam") patch.platform = "Steam";
           if (game.installed !== isInstalled) patch.installed = isInstalled;
           if (entry.exePath && entry.exePath !== game.path) patch.path = entry.exePath;
           if (entry.sizeBytes !== undefined) {
@@ -295,7 +301,11 @@ export function useSteamIntegration() {
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
           if (!game.genres || game.genres.length === 0) {
-            missingGenreGames.push({ id: game.id, name: game.name, steamAppId: game.steamAppId });
+            missingGenreGames.push({
+            id: game.id,
+            name: game.name,
+            steamAppId: game.steamAppId ?? entry.appid,
+          });
           }
         }
 
@@ -304,7 +314,10 @@ export function useSteamIntegration() {
         }
 
         if (removedAppIds.length > 0) {
-          removeGames((g) => g.steamAppId !== undefined && removedAppIds.includes(g.steamAppId));
+          removeGames((g) => {
+            const appId = resolveSteamAppId(g);
+            return appId != null && removedAppIds.includes(appId);
+          });
           showToast(t("settings.steamUninstalledRemoved", { count: removedAppIds.length, plural: removedAppIds.length === 1 ? "" : "s" }), "info");
         }
 

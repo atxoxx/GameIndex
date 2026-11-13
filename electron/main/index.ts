@@ -15,6 +15,7 @@ import { markQuitting } from "./quitState";
 import { createSurfaces, getSurfaces } from "./surfaces";
 import { readTelemetry, shutdownTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
 import { allowMainWindowClose } from "./surfaces/mainWindow";
+import { isAuthWindowContents, isAuthWindowCreationInProgress } from "./surfaces/authWindow";
 import { registerCommandHandlers } from "./commands";
 import { startDiscordPresence } from "./features/discord/presence";
 import { installSmokeTest } from "./smoke";
@@ -159,6 +160,8 @@ app.on("activate", () => {
 // stay free to navigate the web (store pages, news readers, map previews).
 app.on("web-contents-created", (_event, contents) => {
   if (contents.getType() !== "window") return;
+  // Login windows install their own provider-scoped navigation policy.
+  if (isAuthWindowCreationInProgress() || isAuthWindowContents(contents)) return;
 
   contents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
