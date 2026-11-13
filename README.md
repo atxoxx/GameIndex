@@ -37,14 +37,16 @@ GameIndex is a native desktop app that gathers your Steam, GOG, Epic, Rockstar, 
 
 ## Download and install
 
-Head to the [latest release](https://github.com/atxoxx/GameIndex/releases/latest) and pick the file for your system.
+Head to the [releases page](https://github.com/atxoxx/GameIndex/releases) and open the Electron release tagged `v<version>-electron`.
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **Windows** | `GameIndex_<version>_x64-setup.exe` | Installer. Adds Start Menu shortcuts and in-app updates. |
-| **Windows** | `GameIndex_<version>_x64_portable.exe` | Single executable, nothing to install. Updates replace the file in place and restart the app. |
-| **Linux** | `GameIndex_<version>_amd64.AppImage` | `chmod +x` the file and run it. Works on most distributions and the Steam Deck. |
-| **Linux** | `GameIndex_<version>_amd64.deb` | For Debian/Ubuntu and derivatives: `sudo apt install ./GameIndex_<version>_amd64.deb`. |
+| **Windows** | `GameIndex_electron_<version>_x64-setup.exe` | Installer. Adds Start Menu shortcuts and in-app updates. |
+| **Windows** | `GameIndex_electron_<version>_x64_portable.exe` | Single executable, nothing to install. Updates replace the file in place and restart the app. |
+| **Linux** | `GameIndex_electron_<version>_amd64.AppImage` | `chmod +x` the file and run it. Works on most distributions and the Steam Deck. |
+| **Linux** | `GameIndex_electron_<version>_amd64.deb` | For Debian/Ubuntu and derivatives: `sudo apt install ./GameIndex_electron_<version>_amd64.deb`. |
+
+The Tauri build ships the same four formats as `GameIndex_tauri_<version>_...`; look for the release tagged `v<version>-tauri`.
 
 **Requirements:** Windows 10/11 (x64) or a modern x64 Linux distribution. Windows uses the WebView2 runtime, which ships with Windows 11 and is installed by the setup if missing. On Linux the AppImage bundles what it needs; the `.deb` pulls its dependencies through apt. There is currently **no macOS build**, and Linux support is still being ironed out — see [Linux and Steam Deck](#linux-and-steam-deck).
 
@@ -253,6 +255,12 @@ naming the variable.
 | `npm run audit:i18n` | Verifies every UI string has all six translations |
 | `npm run build` | electron-vite build into `out/` |
 | `npm run dist:win` / `dist:linux` | Packaged installers (`release/`) |
+| `npm run verify:artifacts` | Checks that the packaged files use the expected `GameIndex_electron_...` names |
+
+`npm run dist:linux` writes `GameIndex_electron_<version>_amd64.AppImage` and
+`GameIndex_electron_<version>_amd64.deb`; `npm run dist:win` writes
+`GameIndex_electron_<version>_x64-setup.exe` and
+`GameIndex_electron_<version>_x64_portable.exe`.
 
 `package.json` also holds scripts for plugin linting and the web-only build.
 

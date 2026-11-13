@@ -1,9 +1,9 @@
-name: "Release App"
+name: "Release Electron App"
 
 on:
   push:
     tags:
-      - "v*"
+      - "v*-electron"
   workflow_dispatch:
 
 jobs:
@@ -34,6 +34,16 @@ jobs:
       - name: install dependencies
         run: npm ci
 
+      # Both the tag and the artifact version come from package.json: on
+      # workflow_dispatch github.ref_name is a branch, not a release tag.
+      - name: resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}-electron" >> "$GITHUB_OUTPUT"
+
       - name: typecheck
         run: npm run typecheck
 
@@ -56,9 +66,17 @@ jobs:
           NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
         run: npm run ${{ matrix.package }}
 
+      # A changed artifactName template must fail here, not surface as a
+      # release with the old names.
+      - name: verify artifact names
+        run: node scripts/check-electron-artifacts.mjs
+
       - name: upload release assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: "GameIndex Electron v${{ steps.meta.outputs.version }}"
           draft: true
           generate_release_notes: true
           files: |
@@ -72,8 +90,56 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# NOTE(electron-port): the Tauri job also published a signed `latest.json` for
-# `tauri-plugin-updater`. The Electron build uses `electron-updater`, which
-# consumes the `latest*.yml` files electron-builder emits above. Until the
-# updater is wired (`src/shims/tauri-plugin-updater.ts` is a stub), those files
-# are uploaded but unused.
+  # electron-updater consumes latest*.yml, not the Tauri latest.json. Publish
+  # those files to a rolling channel release so the Electron feed has a stable
+  # URL while the versioned release stays a human-reviewed draft.
+  finalize-release:
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+
+      - name: resolve release tag
+        id: meta
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}-electron" >> "$GITHUB_OUTPUT"
+
+      - name: publish updater channel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          channel="electron-latest"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            echo "::warning::Release $tag does not exist; nothing to finalize."
+            exit 0
+          fi
+
+          gh release view "$channel" >/dev/null 2>&1 || \
+            gh release create "$channel" \
+              --prerelease \
+              --title "GameIndex Electron updates" \
+              --notes "Rolling electron-updater metadata for the Electron build."
+
+          metadata="$(mktemp -d)"
+          gh release download "$tag" -p 'latest*.yml' -D "$metadata" --clobber
+
+          if compgen -G "$metadata/latest*.yml" >/dev/null; then
+            gh release upload "$channel" "$metadata"/latest*.yml --clobber
+          else
+            echo "::warning::No latest*.yml assets found on $tag"
+          fi

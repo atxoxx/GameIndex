@@ -69,12 +69,19 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  artifactName: ${productName}_electron_${version}_x64-setup.${ext}
+
+portable:
+  artifactName: ${productName}_electron_${version}_x64_portable.${ext}
 
 linux:
   target:
     - AppImage
     - deb
   category: Game
+  # The Linux build is x64 only; keep the Debian arch token (`amd64`) in both
+  # the AppImage and deb names so the two branches ship identical patterns.
+  artifactName: ${productName}_electron_${version}_amd64.${ext}
   # The Linux targets need a >= 512px icon (build/icon.png is 1024x1024, taken
   # from the macOS icns); a 256px source is rejected by app-builder.
   icon: build/icon.png
