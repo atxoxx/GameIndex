@@ -16,6 +16,7 @@ import { createSurfaces, getSurfaces } from "./surfaces";
 import { readTelemetry, shutdownTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
 import { allowMainWindowClose } from "./surfaces/mainWindow";
 import { registerCommandHandlers } from "./commands";
+import { startDiscordPresence } from "./features/discord/presence";
 import { installSmokeTest } from "./smoke";
 
 /** Must run before the app is ready. */
@@ -43,6 +44,9 @@ if (!singleInstance) {
     .then(async () => {
       installAssetProtocol();
       registerIpcHandlers();
+      // Discord Rich Presence owns the IPC pipe to the desktop client; the
+      // renderer only decides what to advertise.
+      startDiscordPresence();
 
       // Internal helpers that are not part of the migrated command list.
       registerCommand("__app_version", () => app.getVersion(), { override: true });

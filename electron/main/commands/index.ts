@@ -11,6 +11,7 @@ import { app, shell } from "electron";
 import { hasCommand, registerCommands, registerCommand, type CommandHandler } from "../ipc";
 import { getAllAppSettings, setAppSetting } from "../state/appSettings";
 import { getSurfaces } from "../surfaces";
+import { setDiscordPresenceEnabled } from "../features/discord/presence";
 import { COMMAND_CATALOG } from "./commandCatalog";
 
 /** Implemented commands, grouped by concern. Extend as features are ported. */
@@ -167,7 +168,9 @@ const surfaceCommands: Record<string, CommandHandler> = {
     return null;
   },
   set_discord_presence_enabled: (args) => {
-    setAppSetting("discord_presence", Boolean(args.enabled));
+    const enabled = Boolean(args.enabled);
+    setAppSetting("discord_presence", enabled);
+    setDiscordPresenceEnabled(enabled);
     return null;
   },
   set_local_achievements_enabled: (args) => {
