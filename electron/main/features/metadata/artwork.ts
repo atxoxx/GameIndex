@@ -14,7 +14,9 @@ import { pathToFileURL } from "node:url";
 import { userDataPath } from "../../lib/paths";
 import { httpBuffer } from "../../lib/http";
 
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export function artworkRoot(): string {
   return userDataPath("artwork");
@@ -57,6 +59,44 @@ function thumbRelativePath(gameId: string, slot: string): string | null {
   return `artwork/${safeArtworkComponent(gameId)}/${safeArtworkComponent(slot)}_thumb.webp`;
 }
 
+/** Read the first bytes of a file without loading the whole image. */
+function readHead(file: string, length = 8192): Buffer {
+  const handle = fs.openSync(file, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    const read = fs.readSync(handle, buffer, 0, length, 0);
+    return buffer.subarray(0, read);
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+/**
+ * True when the file carries more than one frame: GIF, APNG (an `acTL` chunk)
+ * or an animated WebP (`ANIM`/`ANMF` chunk).
+ *
+ * `nativeImage` decodes only the first frame, so running these through the
+ * thumbnail downscaler silently turned a community animated cover into a
+ * still image everywhere a card requested `_thumb.webp`.
+ */
+export function isAnimatedImageFile(file: string): boolean {
+  try {
+    const head = readHead(file);
+    if (head.length < 12) return false;
+    const ascii = head.toString("latin1");
+    if (ascii.startsWith("GIF8")) return true;
+    if (head.subarray(0, 8).equals(PNG_SIGNATURE)) {
+      return head.includes("acTL");
+    }
+    if (ascii.startsWith("RIFF") && head.subarray(8, 12).toString("latin1") === "WEBP") {
+      return head.includes("ANIM") || head.includes("ANMF");
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Downscale one image into the `_thumb.webp` sibling the renderer requests.
  *
@@ -64,12 +104,37 @@ function thumbRelativePath(gameId: string, slot: string): string | null {
  * are PNG in a `.webp` container name. Chromium sniffs the image payload and
  * renders it; if anything refuses it the card falls back to the full-size
  * artwork, which is the same fallback used when no thumbnail exists.
+ *
+ * Animated sources are copied verbatim instead of downscaled: a static
+ * thumbnail would replace the animation the user picked. The copy also
+ * replaces a still thumbnail written by an earlier build, so existing
+ * animated covers start playing again on the next start-up backfill.
  */
 function writeThumbnail(absoluteArtwork: string, gameId: string, slot: string): boolean {
   const spec = thumbSpec(slot);
   const relative = thumbRelativePath(gameId, slot);
   if (!spec || !relative) return false;
   const destination = path.join(app.getPath("userData"), relative);
+
+  if (isAnimatedImageFile(absoluteArtwork)) {
+    try {
+      if (
+        fs.existsSync(destination) &&
+        fs.statSync(destination).size === fs.statSync(absoluteArtwork).size
+      ) {
+        return false;
+      }
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      const temp = `${destination}.${process.pid}.tmp`;
+      fs.copyFileSync(absoluteArtwork, temp);
+      fs.renameSync(temp, destination);
+      return true;
+    } catch (error) {
+      console.warn(`[metadata] animated thumbnail failed for ${gameId}/${slot}:`, error);
+      return false;
+    }
+  }
+
   if (fs.existsSync(destination)) return false;
   try {
     const image = nativeImage.createFromPath(absoluteArtwork);
