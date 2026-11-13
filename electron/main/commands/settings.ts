@@ -8,6 +8,7 @@
  */
 import { app } from "electron";
 import type { CommandHandler } from "../ipc";
+import { linuxAutostartEnabled } from "../lib/autostart";
 import { getAppSetting, setAppSetting } from "../state/appSettings";
 
 const MAX_BIGSCREEN_PREFS_BYTES = 8 * 1024;
@@ -28,10 +29,10 @@ export const settingsCommands: Record<string, CommandHandler> = {
   /** Actual OS login-item state, not just the persisted preference. */
   is_autostart_enabled: () => {
     try {
-      // Electron's login-item API is only meaningful on Windows/macOS; the
-      // Linux setter in `commands/index.ts` deliberately persists the
-      // preference instead of installing a desktop entry.
-      if (process.platform === "linux") return Boolean(getAppSetting("autostart"));
+      // Electron's login-item API is only meaningful on Windows/macOS; Linux
+      // uses a freedesktop autostart entry (lib/autostart.ts) so the real file
+      // is the source of truth.
+      if (process.platform === "linux") return linuxAutostartEnabled();
       return Boolean(app.getLoginItemSettings().openAtLogin);
     } catch (error) {
       console.warn("[settings] could not read autostart state:", error);

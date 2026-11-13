@@ -12,6 +12,7 @@ import { hasCommand, registerCommands, registerCommand, type CommandHandler } fr
 import { getAllAppSettings, setAppSetting } from "../state/appSettings";
 import { getSurfaces } from "../surfaces";
 import { setDiscordPresenceEnabled } from "../features/discord/presence";
+import { setLinuxAutostart } from "../lib/autostart";
 import { COMMAND_CATALOG } from "./commandCatalog";
 
 /** Implemented commands, grouped by concern. Extend as features are ported. */
@@ -180,15 +181,27 @@ const surfaceCommands: Record<string, CommandHandler> = {
   set_autostart_enabled: (args) => {
     const enabled = Boolean(args.enabled);
     setAppSetting("autostart", enabled);
-    if (process.platform === "linux") return null;
+    if (process.platform === "linux") {
+      // Electron has no login-item API on Linux; write the freedesktop
+      // autostart entry ourselves (see lib/autostart.ts).
+      setLinuxAutostart(enabled);
+      return null;
+    }
     app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: false });
     return null;
   },
-  updater_install_info: () => ({
-    target: "windows-x86_64",
-    mode: "installer",
-    currentVersion: app.getVersion(),
-  }),
+  updater_install_info: () => {
+    // The in-app updater is still a stub, and `latest.json` publishes Windows
+    // artifacts only: reporting a Windows channel on Linux would make the
+    // update UI request an installer it cannot run. `dev` is a valid mode with
+    // no channel, so nothing is offered on non-Windows builds.
+    const windows = process.platform === "win32";
+    return {
+      target: windows ? "windows-x86_64" : null,
+      mode: "dev",
+      currentVersion: app.getVersion(),
+    };
+  },
   portable_update_apply: () => {
     getSurfaces().quit();
     return null;

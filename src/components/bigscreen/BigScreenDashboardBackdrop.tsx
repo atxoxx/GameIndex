@@ -10,7 +10,6 @@
 // `useGameBackdropArt` and pass the selected game id as `artKey`.
 
 import { useEffect, useRef, useState } from "react";
-import { useIsLinux } from "../../hooks/useIsLinux";
 
 export interface BigScreenDashboardBackdropProps {
   /** Best always-available static hero/banner/cover. */
@@ -71,7 +70,6 @@ export default function BigScreenDashboardBackdrop({
   artKey,
 }: BigScreenDashboardBackdropProps) {
   const key = artKey != null ? String(artKey) : (staticUrl ?? "");
-  const isLinux = useIsLinux();
   const currentRef = useRef<BackdropLayer | null>(null);
   const [current, setCurrent] = useState<BackdropLayer | null>(null);
   const [previous, setPrevious] = useState<BackdropLayer | null>(null);
@@ -87,7 +85,7 @@ export default function BigScreenDashboardBackdrop({
     const next: BackdropLayer = {
       key,
       staticUrl,
-      animatedUrl: isLinux ? null : animatedUrl ?? null,
+      animatedUrl: animatedUrl ?? null,
     };
     const prev = currentRef.current;
     currentRef.current = next;
@@ -100,9 +98,9 @@ export default function BigScreenDashboardBackdrop({
       return;
     }
 
-    if (prev && !isLinux) setPrevious(prev);
+    if (prev) setPrevious(prev);
     setCurrent(next);
-  }, [key, staticUrl, animatedUrl, isLinux]);
+  }, [key, staticUrl, animatedUrl]);
 
   // Safety net for reduced-motion (the CSS entry animation is
   // suppressed, so `animationend` never fires to drop the old layer).

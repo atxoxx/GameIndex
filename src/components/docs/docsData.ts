@@ -2163,15 +2163,16 @@ Configure Valve's micro-compositor directly inside GameIndex:
 - **The window disappeared after launching a game**: minimize-on-launch hid it; restore from the tray or enable restore-on-exit.
 - **Hotkeys do nothing in-game**: exclusive fullscreen can swallow global hotkeys — use borderless windowed mode or a controller.
 
-## High Memory Usage (Linux)
-The WebKit render process (\`WebKitWebProcess\`) is the app's largest memory consumer. The accelerated DMA-BUF renderer is a known WebKitGTK memory-growth source on some Mesa/NVIDIA and compositor combinations, not a GameIndex library problem, so GameIndex runs the lighter renderer on Linux by default. If your machine is stable on the accelerated path and you would rather have the zero-copy speed back:
+## High GPU / Memory Usage (Linux)
+The renderer is Chromium (Electron) on every platform, so the WebKitGTK memory workarounds from the 2.3 era no longer apply. If the window scrolls badly or the compositor struggles (common in virtual machines, remote desktops and some Wayland sessions), start the app with Chromium's software-rendering switch:
 
 \`\`\`
-GAMEINDEX_WEBKIT_RENDERER=accelerated ./GameIndex-*.AppImage
+./GameIndex-*.AppImage --disable-gpu
 \`\`\`
 
-- The default (unset) disables the DMA-BUF renderer; \`compositing-off\` also disables accelerated compositing (softest scrolling, lowest memory); \`accelerated\` restores WebKit's default.
-- Any \`WEBKIT_*\` variable you export yourself always wins, so the app never fights a manual override.
+- Transparent windows (the overlay and launch splash) need a compositing window manager; with compositing disabled they draw with a black background instead.
+- On Wayland the in-game overlay can be refused "always on top" by the compositor. Running the session through XWayland (\`--ozone-platform=x11\`) restores the behaviour games expect.
+- Audio/video capture uses \`ffmpeg\` and \`ffprobe\` from \`PATH\`; install them with your distribution's package manager (\`ffmpeg\`). Capture itself (gdigrab/dshow) is Windows-only in this build.
 
 ## Collecting diagnostics\n- Crash reports live in **Settings → Diagnostics**; preview or export them before restarting, because a restart can rotate the newest evidence away.\n- Try once with plugins and overlays disabled, then re-enable them one by one to find the culprit.\n- **Reset settings** restores defaults without touching your library, notes or playtime.\n- If the library itself misbehaves, back up first and run a database integrity check before any manual edit.\n- Game-specific hook output and Wine/Proton logs are kept per launch, so export the newest one when reporting a launch problem.`,
       },

@@ -38,7 +38,7 @@ describe("BigScreenDashboardBackdrop", () => {
     expect(animated?.classList.contains("is-loaded")).toBe(false);
   });
 
-  it("collapses to a single static layer on linux", () => {
+  it("keeps the animated layer on linux (Chromium runs there too)", () => {
     document.documentElement.dataset.platform = "linux";
     const { container, rerender } = render(
       <BigScreenDashboardBackdrop
@@ -47,8 +47,11 @@ describe("BigScreenDashboardBackdrop", () => {
         artKey="1"
       />,
     );
+    const animated = container.querySelector<HTMLImageElement>(
+      ".bigscreen-dashboard-backdrop-animated",
+    );
+    expect(animated?.src).toBe("https://cdn/one.webp");
     expect(container.querySelectorAll(".bigscreen-dashboard-backdrop-layer")).toHaveLength(1);
-    expect(container.querySelector(".bigscreen-dashboard-backdrop-animated")).toBeNull();
 
     rerender(
       <BigScreenDashboardBackdrop
@@ -57,6 +60,7 @@ describe("BigScreenDashboardBackdrop", () => {
         artKey="2"
       />,
     );
-    expect(container.querySelectorAll(".bigscreen-dashboard-backdrop-layer")).toHaveLength(1);
+    // Cross-fade: the previous layer stays mounted underneath the new one.
+    expect(container.querySelectorAll(".bigscreen-dashboard-backdrop-layer")).toHaveLength(2);
   });
 });
