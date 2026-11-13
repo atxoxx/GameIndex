@@ -12,6 +12,7 @@ import {
   type GameMetadataResult,
   type CompanionApp,
   type GameExecutable,
+  type OnlineFixInfo,
   type SimilarGame,
   type ReleaseDateInfo,
   type LanguageSupportInfo,
@@ -452,6 +453,27 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
   const [compatWorkingDir, setCompatWorkingDir] = useState(
     game.compatibility?.workingDir ?? ""
   );
+  const [compatOnlineFix, setCompatOnlineFix] = useState(
+    game.compatibility?.onlineFix === true
+  );
+  const [onlineFixInfo, setOnlineFixInfo] = useState<OnlineFixInfo | null>(null);
+  useEffect(() => {
+    if (!/\.exe$/i.test(game.path || "")) {
+      setOnlineFixInfo(null);
+      return;
+    }
+    let cancelled = false;
+    invoke<OnlineFixInfo>("detect_online_fix", { exePath: game.path })
+      .then((info) => {
+        if (!cancelled) setOnlineFixInfo(info);
+      })
+      .catch(() => {
+        if (!cancelled) setOnlineFixInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.path]);
   const [compatDxvk, setCompatDxvk] = useState<boolean | null>(
     game.compatibility?.enableDxvk ?? null
   );
@@ -1292,6 +1314,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       compatPrefix.trim() !== "" ||
       compatArch !== "win64" ||
       compatWorkingDir.trim() !== "" ||
+      compatOnlineFix ||
       compatDxvk !== null ||
       compatVkd3d !== null ||
       compatVkd3dDescriptorHeap !== null ||
@@ -1448,6 +1471,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
               customWinePrefix: compatPrefix.trim() || undefined,
               arch: compatArch,
               workingDir: compatWorkingDir.trim() || undefined,
+              onlineFix: compatOnlineFix || undefined,
               enableDxvk: compatDxvk,
               enableVkd3d: compatVkd3d,
               enableVkd3dDescriptorHeap: compatVkd3dDescriptorHeap,
@@ -1673,6 +1697,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     compatPrefix,
     compatArch,
     compatWorkingDir,
+    compatOnlineFix,
     compatWayland,
     compatWow64,
     compatLargeAddress,
@@ -1803,6 +1828,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     compatPrefix: setCompatPrefix,
     compatArch: setCompatArch,
     compatWorkingDir: setCompatWorkingDir,
+    compatOnlineFix: setCompatOnlineFix,
     compatWayland: setCompatWayland,
     compatWow64: setCompatWow64,
     compatLargeAddress: setCompatLargeAddress,
@@ -2038,6 +2064,9 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     setCompatArch,
     compatWorkingDir,
     setCompatWorkingDir,
+    compatOnlineFix,
+    setCompatOnlineFix,
+    onlineFixInfo,
     compatDxvk,
     setCompatDxvk,
     compatVkd3d,

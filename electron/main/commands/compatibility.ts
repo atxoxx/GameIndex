@@ -32,6 +32,7 @@ import {
   clearGameWineLogs,
   getGameWineLogs,
 } from "../features/compatibility/logs";
+import { detectOnlineFix } from "../features/compatibility/onlineFix";
 import {
   cancelRunnerInstall,
   fetchAvailableRunners,
@@ -128,6 +129,12 @@ export const compatibilityCommands: Record<string, CommandHandler> = {
   get_compatibility_system_status: () => systemStatus(),
 
   list_compatibility_runners: () => listRunners(),
+
+  detect_online_fix: (args) => {
+    const exePath = text(args, "exePath");
+    if (!exePath) throw new Error("A game executable path is required");
+    return detectOnlineFix(exePath);
+  },
 
   list_wine_prefixes: () => listPrefixes(),
 

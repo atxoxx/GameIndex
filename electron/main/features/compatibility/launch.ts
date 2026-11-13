@@ -40,6 +40,7 @@ import {
 } from "./platform";
 import { getCompatibilitySettings } from "./settings";
 import { specificGpuEnv, specificGpuSelection, type GpuSelection } from "./gpuSelection";
+import { ensureSteamRunning } from "./onlineFix";
 import type { CompatibilitySettings } from "./types";
 
 /**
@@ -54,6 +55,7 @@ export interface CompatProfile {
   customWinePrefix?: string;
   arch?: "win64" | "win32";
   workingDir?: string;
+  onlineFix?: boolean;
   preLaunchWrapper?: string | null;
   useSpecificGpu?: boolean | null;
   enableDxvk?: boolean | null;
@@ -108,6 +110,8 @@ export interface CompatibilityLaunchInput {
   launchArguments: string | null;
   profile: CompatProfile | null;
   steamAppId?: number | null;
+  /** Online-Fix/FreeTP: require Steam, use a Steam-aware Proton launch. */
+  onlineFix?: boolean;
   /** GPU chosen in Settings → Hardware (shared by every launch). */
   gpuSelection?: GpuSelection | null;
 }
@@ -368,11 +372,34 @@ export async function launchWithCompatibility(
 
   const settings = getCompatibilitySettings();
   const profile = input.profile;
+  const onlineFix = Boolean(input.onlineFix || profile?.onlineFix);
 
-  const runnerPath = await resolveRunner(settings, profile);
+  if (onlineFix) {
+    // The fix talks to the local Steam client; start it and wait for it.
+    await ensureSteamRunning();
+  }
+
+  let runnerPath = await resolveRunner(settings, profile);
   if (!runnerPath) throw new Error("No Wine/Proton runner configured");
+  if (onlineFix) {
+    // SOFL-style online-fix launching requires Proton (STEAM_COMPAT_*).
+    const currentRunner = runnerExecutable(runnerPath);
+    if (!isProtonRunner(currentRunner)) {
+      try {
+        const proton = (await listRunners()).find((entry) => entry.isProton);
+        if (proton) runnerPath = proton.path;
+      } catch {
+        /* keep the configured runner */
+      }
+    }
+  }
   const runner = runnerExecutable(runnerPath);
   const isProton = isProtonRunner(runner);
+  if (onlineFix && !isProton) {
+    throw new Error(
+      "Online-Fix/FreeTP mode needs a Proton runner. Install Proton or select one in Settings → Compatibility.",
+    );
+  }
   // `wine` is the PATH fallback from resolveRunner; make it actionable when the
   // binary is not actually installed instead of failing after the log header.
   if (runner === "wine" && !commandAvailable("wine")) {
@@ -381,7 +408,7 @@ export async function launchWithCompatibility(
     );
   }
 
-  const umuRun = pick(profile?.enableUmuLauncher, settings.enableUmuLauncher)
+  const umuRun = !onlineFix && pick(profile?.enableUmuLauncher, settings.enableUmuLauncher)
     ? umuRunPath()
     : null;
   const protonFolder = protonFolderForRunner(runner);
@@ -589,7 +616,7 @@ export async function launchWithCompatibility(
         `Executable: ${input.exePath}`,
         `Runner: ${runner}${isProton ? " (Proton)" : " (Wine)"}`,
         `Prefix: ${prefix}`,
-        `UMU: ${useUmu}, GameMode: ${tokens.includes("gamemoderun")}, MangoHud: ${tokens.includes("mangohud")}`,
+        `UMU: ${useUmu}, GameMode: ${tokens.includes("gamemoderun")}, MangoHud: ${tokens.includes("mangohud")}, Online-Fix: ${onlineFix}`,
         "--- environment ---",
         envLine,
         "--- command ---",

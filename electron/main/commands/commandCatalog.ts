@@ -86,6 +86,7 @@ export const COMMAND_CATALOG = [
   "detect_game_size",
   "detect_game_version",
   "detect_gpus",
+  "detect_online_fix",
   "detect_steam_screenshot_folders",
   "detect_system_screenshot_folders",
   "direct_download_start",

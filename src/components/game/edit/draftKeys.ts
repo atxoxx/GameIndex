@@ -109,6 +109,7 @@ export const SECTION_DRAFT_KEYS: Record<EditSectionKey, readonly string[]> = {
     "compatPrefix",
     "compatArch",
     "compatWorkingDir",
+    "compatOnlineFix",
     "compatWayland",
     "compatWow64",
     "compatLargeAddress",

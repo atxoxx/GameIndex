@@ -34,6 +34,7 @@ import {
 import type { GpuSelection } from "../compatibility/gpuSelection";
 import { applySteamLaunchOptions, steamLaunchPrefixForGame } from "../compatibility/steamLaunchOptions";
 import { deriveSteamAppId } from "../compatibility/steamConfig";
+import { readOnlineFixAppId } from "../compatibility/onlineFix";
 import { steamWineLogDirForGame } from "../compatibility/logs";
 import { resolveGameExe } from "./exeResolve";
 import type { CompanionApp, LaunchProgressPayload } from "./types";
@@ -306,7 +307,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
   const gameName = readString(args, "gameName") ?? "Game";
   const gamePath = readString(args, "gamePath") ?? "";
   const platform = readString(args, "platform") ?? "";
-  const steamAppId =
+  let steamAppId =
     readNumber(args, "steamAppId") ?? deriveSteamAppId(gameId, gamePath);
   const launchArguments = readString(args, "launchArguments");
   const runAsAdmin = readBoolean(args, "runAsAdmin");
@@ -336,8 +337,26 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
 
   let initialPid = 0;
   let exePath: string | null = gamePath || null;
+  const compatProfile = IS_WINDOWS ? null : gameCompatibilityProfile(gameId);
+  const onlineFix = !IS_WINDOWS && compatProfile?.onlineFix === true;
 
-  if (platform !== "Steam" && gamePath && isUri(gamePath)) {
+  if (IS_LINUX && onlineFix && gamePath && fs.existsSync(gamePath)) {
+    // Online-Fix / FreeTP: launch the local exe directly with a Steam-aware
+    // Proton environment (Steam must be running), never through steam://.
+    if (!steamAppId) steamAppId = readOnlineFixAppId(gamePath);
+    emitProgress(gameId, "compatibilityRunner");
+    const result = await launchWithCompatibility({
+      gameId,
+      gameName,
+      exePath: gamePath,
+      workingDir: path.dirname(gamePath),
+      launchArguments,
+      profile: compatProfile,
+      steamAppId,
+      onlineFix: true,
+    });
+    initialPid = result.pid;
+  } else if (platform !== "Steam" && gamePath && isUri(gamePath)) {
     // A game whose path is already a protocol URL (custom launcher, GOG, …).
     await openProtocol(gamePath, "launcher");
     exePath = null;
@@ -402,7 +421,6 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
     // spawn below. `shouldUseCompatibility` is null-safe: a game with no saved
     // profile still gets the global compatibility settings, and an explicit
     // per-game `enabled: false` opts out.
-    const compatProfile = IS_WINDOWS ? null : gameCompatibilityProfile(gameId);
     if (!IS_WINDOWS && shouldUseCompatibility(gamePath, compatProfile)) {
       emitProgress(gameId, "compatibilityRunner");
       const result = await launchWithCompatibility({

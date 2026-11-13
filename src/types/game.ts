@@ -331,8 +331,15 @@ export interface GameExecutable {
 }
 
 /** Per-game Wine / Proton / Linux compatibility profile overrides */
-export interface CompatibilityProfile {
-  /** Explicitly toggle compatibility layer on or off for this game */
+/** Read-only Online-Fix/FreeTP detection returned by `detect_online_fix`. */
+export interface OnlineFixInfo {
+  detected: boolean;
+  appId: number | null;
+  markers: string[];
+  root: string | null;
+}
+
+export interface CompatibilityProfile {  /** Explicitly toggle compatibility layer on or off for this game */
   enabled?: boolean;
   /** Runner choice override: default (use global settings), proton, wine, or custom */
   runnerType?: "default" | "proton" | "wine" | "custom";
@@ -344,6 +351,8 @@ export interface CompatibilityProfile {
   arch?: "win64" | "win32";
   /** Override working directory */
   workingDir?: string;
+  /** Launch a detected Online-Fix/FreeTP release with a Steam-aware Proton environment */
+  onlineFix?: boolean;
 
   /** DXVK (DirectX 9/10/11 -> Vulkan) override (null = use global) */
   enableDxvk?: boolean | null;

@@ -1,6 +1,6 @@
-import { FolderOpen, Settings2 } from "lucide-react";
+import { FolderOpen, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../../ui";
-import { Field, FieldGrid, SectionHeader, SettingCard } from "../EditFields";
+import { Field, FieldGrid, SectionHeader, SettingCard, ToggleCard } from "../EditFields";
 import { GlobalSettingHint, TriStateCard } from "../CompatibilityShared";
 import { useEditGame } from "../EditGameContext";
 
@@ -25,6 +25,9 @@ export function RunnerSection() {
     setCompatArch,
     compatWorkingDir,
     setCompatWorkingDir,
+    compatOnlineFix,
+    setCompatOnlineFix,
+    onlineFixInfo,
     handlePickWorkingDir,
     compatWayland,
     setCompatWayland,
@@ -141,6 +144,37 @@ export function RunnerSection() {
           </Button>
         </div>
       </SettingCard>
+
+      {(onlineFixInfo?.detected || compatOnlineFix) && (
+        <ToggleCard
+          id="compat-online-fix"
+          icon={<ShieldCheck size={17} aria-hidden="true" />}
+          title={t("gameEdit.compatibility.onlineFixTitle")}
+          description={t("gameEdit.compatibility.onlineFixDesc")}
+          checked={compatOnlineFix}
+          onChange={setCompatOnlineFix}
+          badge={
+            <span className="edit-badge is-on">
+              {t("gameEdit.compatibility.onlineFixBadge")}
+            </span>
+          }
+        >
+          <div className="edit-stack">
+            <span className="settings-helper-lead">
+              {t("gameEdit.compatibility.onlineFixDetected", {
+                markers: (onlineFixInfo?.markers ?? []).join(", "),
+              })}
+            </span>
+            <span className="settings-helper-lead">
+              {onlineFixInfo?.appId
+                ? t("gameEdit.compatibility.onlineFixAppId", {
+                    id: onlineFixInfo.appId,
+                  })
+                : t("gameEdit.compatibility.onlineFixNoAppId")}
+            </span>
+          </div>
+        </ToggleCard>
+      )}
 
       <FieldGrid>
         <SettingCard
