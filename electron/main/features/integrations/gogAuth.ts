@@ -121,6 +121,7 @@ export async function gogStartLogin(): Promise<GogSession> {
     url: GOG_AUTH_URL,
     title: "GOG Login",
     userAgent: AUTH_USER_AGENT,
+    resetSession: true,
     success: {
       kind: "code",
       matches: isGogRedirect,

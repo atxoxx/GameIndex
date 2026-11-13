@@ -33,6 +33,7 @@ interface BetaAuthSpec {
   partition: string;
   cookiesKey: string;
   sessionKey: string;
+  resetSession?: boolean;
 }
 
 const XBOX_CLIENT_ID = "38cd2fa8-66fd-4760-afb2-405eb65d5b0c";
@@ -89,6 +90,7 @@ const SPECS: Record<BetaAuthKey, BetaAuthSpec> = {
     partition: "persist:auth-itch",
     cookiesKey: "itch_cookies",
     sessionKey: "itch_session",
+    resetSession: true,
     success: {
       kind: "cookies",
       matches: isItchLoggedIn,
@@ -116,6 +118,7 @@ export async function betaStartLogin(key: BetaAuthKey): Promise<BetaAuthSession>
     title: spec.title,
     userAgent: AUTH_USER_AGENT,
     success: spec.success,
+    resetSession: spec.resetSession,
   });
   const cookies = result.cookies ?? [];
   if (cookies.length === 0) {

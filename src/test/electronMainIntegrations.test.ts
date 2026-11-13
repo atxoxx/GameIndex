@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractEpicAuthorizationCode,
   isBattleNetOverview,
   isEaLoggedIn,
   isEpicRedirect,
+  isEpicRedirectPage,
   isGogRedirect,
   isHumbleLibraryUrl,
   isItchLoggedIn,
@@ -12,6 +14,19 @@ import {
 const url = (value: string): URL => new URL(value);
 
 describe("store login success matching", () => {
+  it("matches Epic's launcher redirect page and reads its authorizationCode", () => {
+    const redirect = url(
+      "https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code",
+    );
+    expect(isEpicRedirectPage(redirect)).toBe(true);
+    expect(isEpicRedirectPage(url("https://www.epicgames.com/id/login"))).toBe(false);
+    expect(
+      extractEpicAuthorizationCode('{"authorizationCode":"abc123","accountId":"x"}'),
+    ).toBe("abc123");
+    expect(extractEpicAuthorizationCode('{"authorizationCode": "def"}')).toBe("def");
+    expect(extractEpicAuthorizationCode("not json")).toBeNull();
+  });
+
   it("accepts only loopback Epic launcher redirects with a code", () => {
     expect(isEpicRedirect(url("http://localhost/launcher/authorized?code=abc"))).toBe(true);
     expect(isEpicRedirect(url("http://127.0.0.1:8080/launcher/authorized?code=abc"))).toBe(true);
@@ -26,8 +41,9 @@ describe("store login success matching", () => {
     expect(isGogRedirect(url("https://evil.com/?next=https://embed.gog.com/on_login_success?code=x"))).toBe(false);
   });
 
-  it("matches Humble's library page on the real domain", () => {
+  it("matches Humble's authenticated pages on the real domain", () => {
     expect(isHumbleLibraryUrl(url("https://www.humblebundle.com/home/library"))).toBe(true);
+    expect(isHumbleLibraryUrl(url("https://www.humblebundle.com/user/settings"))).toBe(true);
     expect(isHumbleLibraryUrl(url("https://humblebundle.com.evil.com/home/library"))).toBe(false);
   });
 

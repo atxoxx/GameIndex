@@ -26,6 +26,13 @@ export type AuthSuccess =
       captureDomains?: string[];
     }
   | {
+      kind: "body";
+      matches: (url: URL) => boolean;
+      /** Extract the authorization code from the loaded page text. */
+      extract: (body: string) => string | null;
+      settleMs?: number;
+    }
+  | {
       kind: "cookies";
       matches: (url: URL) => boolean;
       domains: string[];
@@ -45,6 +52,8 @@ export interface AuthWindowOptions {
   userAgent?: string;
   success: AuthSuccess;
   timeoutMs?: number;
+  /** Clear the provider partition before opening (fresh challenge state). */
+  resetSession?: boolean;
 }
 
 export interface AuthWindowResult {
@@ -54,12 +63,27 @@ export interface AuthWindowResult {
   sentinel?: string;
 }
 
-const CHROME_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+export const AUTH_USER_AGENT = cleanChromeUserAgent();
 
 const active = new Map<string, BrowserWindow>();
 const authContents = new WeakSet<Electron.WebContents>();
 let creatingAuthWindow = 0;
+
+/**
+ * A clean, current Chrome UA. Cloudflare Turnstile (GOG/itch) rejects
+ * Electron's default `Electron/...` token, and an outdated Chrome major in a
+ * hand-written UA no longer matches the browser's Client Hints.
+ */
+export function cleanChromeUserAgent(): string {
+  const major = (process.versions.chrome ?? "140").split(".")[0];
+  const platform =
+    process.platform === "win32"
+      ? "Windows NT 10.0; Win64; x64"
+      : process.platform === "darwin"
+        ? "Macintosh; Intel Mac OS X 10_15_7"
+        : "X11; Linux x86_64";
+  return `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+}
 
 /** True for windows that install their own navigation policy. */
 export function isAuthWindowContents(contents: Electron.WebContents): boolean {
@@ -104,18 +128,37 @@ export function closeAuthWindow(provider: string): void {
  * Open the provider login page and resolve once `success` matches.
  * Rejects on timeout or when the user closes the window.
  */
-export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowResult> {
+export async function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowResult> {
   const provider = options.provider.trim().toLowerCase();
   const existing = active.get(provider);
   if (existing && !existing.isDestroyed()) {
     existing.focus();
-    return Promise.reject(new Error("A login window is already open"));
+    throw new Error("A login window is already open");
   }
 
   const partition = `persist:auth-${provider}`;
   const ses = session.fromPartition(partition, { cache: true });
-  ses.setUserAgent(options.userAgent ?? CHROME_UA);
-  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  if (options.resetSession) {
+    await ses.clearStorageData().catch(() => undefined);
+    await ses.clearCache().catch(() => undefined);
+  }
+  const userAgent = options.userAgent ?? cleanChromeUserAgent();
+  ses.setUserAgent(userAgent, "en-US,en");
+  // Cloudflare Turnstile's challenge iframe can request storage access in a
+  // partitioned third-party context; denying it makes the widget fail with
+  // "captcha invalid" after the user solves it. Everything sensitive stays
+  // denied.
+  const allowedPermissions = new Set([
+    "storage-access",
+    "top-level-storage-access",
+    "clipboard-sanitized-write",
+  ]);
+  ses.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(allowedPermissions.has(permission));
+  });
+  ses.setPermissionCheckHandler((_webContents, permission) =>
+    allowedPermissions.has(permission),
+  );
 
   const win = (() => {
     creatingAuthWindow += 1;
@@ -145,6 +188,7 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
   active.set(provider, win);
   setWindowLabel(win, `auth:${provider}`);
   authContents.add(win.webContents);
+  win.webContents.setUserAgent(userAgent);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     // Keep the login flow in this window; do not spawn uncontrolled popups
@@ -165,10 +209,16 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
       active.delete(provider);
       if (!win.isDestroyed()) win.destroy();
     };
+    let pollTimer: NodeJS.Timeout | null = null;
+    const stopPolling = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    };
 
     const finish = (result: AuthWindowResult) => {
       if (settled) return;
       settled = true;
+      stopPolling();
       cleanup();
       resolve(result);
     };
@@ -176,6 +226,7 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
+      stopPolling();
       cleanup();
       reject(error);
     };
@@ -190,6 +241,34 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
       }
       if (!options.success.matches(url)) return;
 
+      if (options.success.kind === "body") {
+        const queryCode =
+          url.searchParams.get("code") ??
+          url.searchParams.get("authorizationCode");
+        if (queryCode) {
+          finish({ callbackUrl: rawUrl, code: queryCode });
+          return;
+        }
+        try {
+          const settleMs = options.success.settleMs ?? 250;
+          if (settleMs > 0) {
+            await new Promise((resolveWait) => setTimeout(resolveWait, settleMs));
+          }
+          const body = (await win.webContents.executeJavaScript(
+            "document.body ? document.body.innerText : (document.documentElement ? document.documentElement.innerText : '')",
+          )) as string;
+          const code = options.success.extract(body);
+          if (code) {
+            console.info(`[auth] ${provider}: extracted authorization code`);
+            finish({ callbackUrl: rawUrl, code });
+          }
+        } catch (error) {
+          // The response page may still be replacing itself; the poll below
+          // retries until the window closes or the timeout fires.
+          console.warn("[auth] could not read the provider response page:", error);
+        }
+        return;
+      }
       if (options.success.kind === "code") {
         const param = options.success.param ?? "code";
         const code = url.searchParams.get(param);
@@ -232,8 +311,10 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
       })();
       if (matched) {
         // Keep the redirect from actually loading (for OAuth codes) and stop
-        // the page's own navigation; cookie flows wait for the load instead.
-        if (options.success.kind !== "cookies") event.preventDefault();
+        // the page's own navigation; body/cookie flows need the page to load.
+        if (options.success.kind === "code" || options.success.kind === "sentinel") {
+          event.preventDefault();
+        }
         void handleCandidate(url);
       }
     };
@@ -243,6 +324,23 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
     win.webContents.on("did-navigate", (_event, url) => {
       void handleCandidate(url);
     });
+    win.webContents.on("did-finish-load", () => {
+      void handleCandidate(win.webContents.getURL());
+    });
+    win.webContents.on("did-fail-load", (_event, _code, _desc, validatedURL) => {
+      // The Epic redirect page can point at localhost, which may fail to
+      // load after the code was already present in the URL.
+      void handleCandidate(validatedURL);
+    });
+
+    // Body flows (Epic's JSON redirect page) sometimes update without a
+    // navigation event; poll gently until the window settles.
+    if (options.success.kind === "body") {
+      pollTimer = setInterval(() => {
+        if (settled) return;
+        void handleCandidate(win.webContents.getURL());
+      }, 750);
+    }
 
     win.on("closed", () => {
       active.delete(provider);
@@ -257,8 +355,14 @@ export function openAuthWindow(options: AuthWindowOptions): Promise<AuthWindowRe
       fail(new Error(`Login timed out after ${Math.round((options.timeoutMs ?? 300_000) / 1000)} seconds`));
     }, options.timeoutMs ?? 300_000);
 
-    void win.loadURL(options.url).catch((error) => fail(error));
+    void win.loadURL(options.url).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      // A server redirect aborts the original loadURL promise with
+      // ERR_ABORTED; navigation continues and our redirect handlers take over.
+      if (message.includes("ERR_ABORTED") || (error as { code?: string })?.code === "ERR_ABORTED") {
+        return;
+      }
+      fail(error instanceof Error ? error : new Error(message));
+    });
   });
 }
-
-export const AUTH_USER_AGENT = CHROME_UA;

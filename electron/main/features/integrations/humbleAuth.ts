@@ -17,8 +17,7 @@ import {
 
 import { isHumbleLibraryUrl } from "./authMatch";
 
-const LOGIN_URL =
-  "https://www.humblebundle.com/login?goto=%2Fhome%2Flibrary&qs=hmb_source%3Dnavbar";
+const LOGIN_URL = "https://www.humblebundle.com/";
 const COOKIES_KEY = "humble_cookies";
 const SESSION_KEY = "humble_session";
 const PARTITION = "persist:auth-humble";

@@ -58,12 +58,34 @@ export interface TelemetryReadout {
   cpuTempSource: "mahm" | "lhm" | "linux" | "none";
 }
 
-function readLinuxTelemetry(gameId?: string): TelemetryReadout {
+/** Last real FPS per game/process, used across short MangoHud gaps. */
+const lastFpsByProcess = new Map<string, number>();
+
+function readLinuxTelemetry(
+  gameId: string | undefined,
+  exePath: string,
+  pid: number,
+): TelemetryReadout {
   // nvidia-smi is cross-platform and already handles a missing binary.
   pumpNvidia();
   const nvidia = peekNvidia();
   const linux = sampleLinux(gameId);
   const mangohud = linux.mangohud;
+
+  // MangoHud can briefly stop writing (alt-tab, loading screen, a pause) or
+  // rotate its CSV. Keep the last real reading for this game/process so the
+  // overlay and session curve do not drop FPS while the game is still running.
+  const fpsKey = `${gameId ?? ""}|${exePath}|${pid || 0}`;
+  const rawFps = mangohud?.fps ?? null;
+  if (rawFps !== null && pid > 0) lastFpsByProcess.set(fpsKey, rawFps);
+  let fps = rawFps;
+  if (fps === null && pid > 0) {
+    fps = lastFpsByProcess.get(fpsKey) ?? null;
+  }
+  if (lastFpsByProcess.size > 32) {
+    const oldest = lastFpsByProcess.keys().next().value;
+    if (oldest) lastFpsByProcess.delete(oldest);
+  }
 
   const nvidiaPercent = nvidia.utilPercent;
   const amdPercent = linux.gpuPercent;
@@ -88,7 +110,6 @@ function readLinuxTelemetry(gameId?: string): TelemetryReadout {
   const gpuClockMhz =
     mangohud?.gpuClockMhz ?? nvidia.gpuClockMhz ?? linux.gpuClockMhz ?? null;
   const cpuTempC = linux.cpuTempC ?? null;
-  const fps = mangohud?.fps ?? null;
 
   return {
     gpuPercent,
@@ -119,7 +140,7 @@ export function readTelemetry(
   pid: number,
   gameId?: string,
 ): TelemetryReadout {
-  if (!IS_WINDOWS) return readLinuxTelemetry(gameId);
+  if (!IS_WINDOWS) return readLinuxTelemetry(gameId, exePath, pid);
 
   pumpGpuCounters();
   pumpGpuAdapters();

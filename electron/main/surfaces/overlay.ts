@@ -20,6 +20,7 @@
  */
 import { BrowserWindow, app, globalShortcut, screen } from "electron";
 import { emit, emitTo, getWindowLabel, onEvent, setWindowLabel } from "../ipc";
+import { ensureKwinOverlayKeepAbove } from "../lib/kwin";
 import { revealMainWindow } from "./mainWindow";
 import { attachWindowEvents } from "./events";
 import { loadRenderer, preloadPath } from "./renderer";import {
@@ -1019,6 +1020,8 @@ function onGameExited(payload: unknown): void {
 export function installOverlay(): void {
   if (installed) return;
   installed = true;
+
+  void ensureKwinOverlayKeepAbove();
 
   const settings = getOverlaySettings();
   try {

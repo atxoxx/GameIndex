@@ -15,12 +15,16 @@ import { markQuitting } from "./quitState";
 import { createSurfaces, getSurfaces } from "./surfaces";
 import { readTelemetry, shutdownTelemetry, startTelemetry, telemetryDiagnostics } from "./features/telemetry";
 import { allowMainWindowClose } from "./surfaces/mainWindow";
-import { isAuthWindowContents, isAuthWindowCreationInProgress } from "./surfaces/authWindow";
+import { isAuthWindowContents, isAuthWindowCreationInProgress, cleanChromeUserAgent } from "./surfaces/authWindow";
 import { registerCommandHandlers } from "./commands";
 import { startDiscordPresence } from "./features/discord/presence";
 import { installSmokeTest } from "./smoke";
 
 /** Must run before the app is ready. */
+// Cloudflare Turnstile (GOG/itch logins) rejects Electron's default UA token
+// and a hand-written Chrome UA that disagrees with the browser's Client Hints.
+app.userAgentFallback = cleanChromeUserAgent();
+app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
 registerAssetScheme();
 installSmokeTest();
 

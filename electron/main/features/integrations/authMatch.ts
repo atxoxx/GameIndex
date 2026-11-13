@@ -16,6 +16,27 @@ export function isEpicRedirect(url: URL): boolean {
   );
 }
 
+export function isEpicRedirectPage(url: URL): boolean {
+  return (
+    url.hostname.toLowerCase() === "www.epicgames.com" &&
+    url.pathname.replace(/\/+$/, "") === "/id/api/redirect"
+  );
+}
+
+/** Extract `authorizationCode` from Epic's redirect JSON page. */
+export function extractEpicAuthorizationCode(body: string): string | null {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
+  const match = /"authorizationCode"\s*:\s*"([^"]+)"/i.exec(trimmed);
+  if (match?.[1]) return match[1];
+  try {
+    const parsed = JSON.parse(trimmed) as { authorizationCode?: unknown };
+    return typeof parsed.authorizationCode === "string" ? parsed.authorizationCode : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isGogRedirect(url: URL): boolean {
   return (
     url.hostname.toLowerCase() === "embed.gog.com" &&
@@ -26,10 +47,11 @@ export function isGogRedirect(url: URL): boolean {
 
 export function isHumbleLibraryUrl(url: URL): boolean {
   const host = url.hostname.toLowerCase();
-  return (
-    (host === "humblebundle.com" || host.endsWith(".humblebundle.com")) &&
-    url.pathname.startsWith("/home/library")
-  );
+  if (!(host === "humblebundle.com" || host.endsWith(".humblebundle.com"))) {
+    return false;
+  }
+  const path = url.pathname.replace(/\/+$/, "");
+  return path === "/home/library" || path === "/user/settings";
 }
 
 export function isBattleNetOverview(url: URL): boolean {

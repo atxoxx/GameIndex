@@ -22,6 +22,10 @@ import { scanHumble } from "./misc";
 import { detectRockstarClient, scanRockstar } from "./rockstar";
 import { detectUplayClient, scanUplay } from "./uplay";
 import { unixNow } from "./types";
+import { epicIsAuthenticated } from "../integrations/epicAuth";
+import { gogIsAuthenticated } from "../integrations/gogAuth";
+import { fetchEpicLibrary } from "../integrations/epicLibrary";
+import { fetchGogLibrary } from "../integrations/gogLibrary";
 
 interface StoreSettingsDocument {
   version: number;
@@ -97,44 +101,64 @@ export function saveHumbleSettings(settings: HumbleSettings): HumbleSettings {
   return normalized;
 }
 
-/** `gog_sync_library`: local installs (registry + Galaxy DB) with owned titles when the DB allows. */
+/** `gog_sync_library`: account library when connected, plus local installs. */
 export async function syncGogLibrary(): Promise<GogSyncResult> {
   const scan = await scanGog();
   const installedById = new Map(
     scan.installs.map((install) => [install.storeId, install] as const),
   );
-  const owned = await gogOwnedFromGalaxyDb();
   const errors = [...scan.errors];
 
-  if (!scan.available) {
-    errors.push(
-      "GOG is not installed on this machine — install GOG Galaxy or a GOG game, then sync again.",
-    );
-  }
+  const syncedById = new Map<string, GogSyncResult["syncedGames"][number]>();
 
-  const syncedGames: GogSyncResult["syncedGames"] = [];
-  const seen = new Set<string>();
-
+  const owned = await gogOwnedFromGalaxyDb();
   for (const entry of owned) {
-    if (seen.has(entry.gameId)) continue;
-    seen.add(entry.gameId);
-    const installed = installedById.get(entry.gameId);
-    syncedGames.push({
+    syncedById.set(entry.gameId, {
       id: `gog-${entry.gameId}`,
-      title: installed?.name ?? entry.title,
+      title: entry.title,
       gogGameId: entry.gameId,
-      isInstalled: Boolean(installed),
-      installPath: installed?.exePath ?? undefined,
-      installDir: installed?.installDir ?? undefined,
-      sizeBytes: installed?.sizeBytes,
-      sizeRootPath: installed?.installDir ?? undefined,
+      isInstalled: installedById.has(entry.gameId),
+      installPath: installedById.get(entry.gameId)?.exePath ?? undefined,
+      installDir: installedById.get(entry.gameId)?.installDir ?? undefined,
+      sizeBytes: installedById.get(entry.gameId)?.sizeBytes,
+      sizeRootPath: installedById.get(entry.gameId)?.installDir ?? undefined,
     });
   }
 
+  if (gogIsAuthenticated()) {
+    try {
+      const cloud = await fetchGogLibrary();
+      errors.push(...cloud.errors);
+      for (const game of cloud.games) {
+        const installed = installedById.get(game.gogGameId);
+        const local = syncedById.get(game.gogGameId);
+        syncedById.set(game.gogGameId, {
+          ...local,
+          ...game,
+          title: game.title || local?.title || `GOG Game ${game.gogGameId}`,
+          isInstalled: Boolean(installed),
+          installPath: installed?.exePath ?? undefined,
+          installDir: installed?.installDir ?? undefined,
+          sizeBytes: installed?.sizeBytes,
+          sizeRootPath: installed?.installDir ?? undefined,
+        });
+      }
+    } catch (error) {
+      errors.push(
+        `GOG account library could not be fetched: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  } else if (!scan.available) {
+    errors.push(
+      "GOG is not installed and no account is connected — connect your GOG account in Settings to import owned games.",
+    );
+  }
+
   for (const install of scan.installs) {
-    if (seen.has(install.storeId)) continue;
-    seen.add(install.storeId);
-    syncedGames.push({
+    if (syncedById.has(install.storeId)) continue;
+    syncedById.set(install.storeId, {
       id: `gog-${install.storeId}`,
       title: install.name,
       gogGameId: install.storeId,
@@ -146,9 +170,10 @@ export async function syncGogLibrary(): Promise<GogSyncResult> {
     });
   }
 
+  const syncedGames = [...syncedById.values()];
   return {
     success: true,
-    gamesImported: scan.installs.length,
+    gamesImported: syncedGames.length,
     gamesSkipped: 0,
     errors,
     lastSync: unixNow(),
@@ -156,27 +181,15 @@ export async function syncGogLibrary(): Promise<GogSyncResult> {
   };
 }
 
-/** `epic_sync_library`: installs recovered from Epic's `.item` manifests. */
+/** `epic_sync_library`: account library when connected, plus local installs. */
 export async function syncEpicLibrary(): Promise<EpicSyncResult> {
   const scan = await scanEpic();
   const errors = [...scan.errors];
-  if (!scan.available) {
-    errors.push(
-      "Epic Games Launcher is not installed on this machine — install it, then sync again.",
-    );
-  } else if (scan.installs.length === 0) {
-    errors.push(
-      "No Epic game installs were found — Epic's manifests list only engine components on this machine.",
-    );
-  }
+  const syncedById = new Map<string, EpicSyncResult["syncedGames"][number]>();
 
-  return {
-    success: true,
-    gamesImported: scan.installs.length,
-    gamesSkipped: 0,
-    errors,
-    lastSync: unixNow(),
-    syncedGames: scan.installs.map((install) => ({
+  for (const install of scan.installs) {
+    const key = `${install.namespace ?? ""}:${install.catalogItemId ?? install.storeId}`;
+    syncedById.set(key, {
       id: `epic-${install.namespace ?? "unknown"}-${install.catalogItemId ?? install.storeId}`,
       title: install.name,
       namespace: install.namespace ?? "",
@@ -185,7 +198,47 @@ export async function syncEpicLibrary(): Promise<EpicSyncResult> {
       installPath: install.exePath ?? undefined,
       sizeBytes: install.sizeBytes,
       sizeRootPath: install.installDir ?? undefined,
-    })),
+    });
+  }
+
+  if (epicIsAuthenticated()) {
+    try {
+      const cloud = await fetchEpicLibrary();
+      errors.push(...cloud.errors);
+      for (const game of cloud.games) {
+        const key = `${game.namespace}:${game.catalogItemId}`;
+        const local = syncedById.get(key);
+        syncedById.set(key, {
+          ...local,
+          ...game,
+          title: game.title || local?.title || game.catalogItemId,
+          isInstalled: Boolean(local?.isInstalled),
+          installPath: local?.installPath,
+          sizeBytes: local?.sizeBytes,
+          sizeRootPath: local?.sizeRootPath,
+        });
+      }
+    } catch (error) {
+      errors.push(
+        `Epic account library could not be fetched: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  } else if (!scan.available) {
+    errors.push(
+      "Epic Games Launcher is not installed and no account is connected — connect your Epic account in Settings to import owned games.",
+    );
+  }
+
+  const syncedGames = [...syncedById.values()];
+  return {
+    success: true,
+    gamesImported: syncedGames.length,
+    gamesSkipped: 0,
+    errors,
+    lastSync: unixNow(),
+    syncedGames,
   };
 }
 

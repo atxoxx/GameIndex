@@ -10,13 +10,21 @@ import { httpText, formBody } from "../../lib/http";
 import { deleteSecret, readSecret, writeSecret } from "../../lib/secureDocument";
 import { closeAuthWindow, openAuthWindow, AUTH_USER_AGENT } from "../../surfaces/authWindow";
 
-import { isEpicRedirect } from "./authMatch";
+import {
+  extractEpicAuthorizationCode,
+  isEpicRedirect,
+  isEpicRedirectPage,
+} from "./authMatch";
 
 const EPIC_AUTH_ENCODED =
   "MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=";
 const EPIC_TOKEN_URL =
   "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
-const EPIC_LOGIN_URL = "https://www.epicgames.com/id/login?responseType=code";
+const EPIC_LOGIN_URL =
+  "https://www.epicgames.com/id/login?redirectUrl=" +
+  encodeURIComponent(
+    "https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code",
+  );
 const TOKENS_KEY = "epic_tokens";
 const PARTITION = "persist:auth-epic";
 
@@ -79,8 +87,14 @@ export async function epicStartLogin(): Promise<string> {
     provider: "epic",
     url: EPIC_LOGIN_URL,
     title: "Epic Games Login",
-    userAgent: `${AUTH_USER_AGENT} EpicGamesLauncher`,
-    success: { kind: "code", matches: isEpicRedirect, param: "code" },
+    userAgent: AUTH_USER_AGENT,
+    resetSession: true,
+    success: {
+      kind: "body",
+      matches: (url) => isEpicRedirectPage(url) || isEpicRedirect(url),
+      extract: extractEpicAuthorizationCode,
+      settleMs: 400,
+    },
   });
   if (!result.code) throw new Error("Epic login did not return an authorization code");
   return result.code;
