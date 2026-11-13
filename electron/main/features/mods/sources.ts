@@ -19,6 +19,16 @@ import { getGame } from "../../state/libraryStore";
 import { installArchive } from "./manage";
 import * as nexus from "./nexus";
 import {
+  browseMultiSource,
+  detailMultiSource,
+  downloadMultiSource,
+  getSourceKey,
+  resolveMultiSource,
+  setSourceKey,
+  type MultiSourceId,
+} from "./multiSource";
+import { browseWorkshop, detailWorkshop, workshopKeyAvailable } from "./workshopSource";
+import {
   deleteSourceLink,
   getSettings,
   insertRemoteInstall,
@@ -36,11 +46,23 @@ import { nowSecs } from "./util";
 
 export const NEXUS_SOURCE = "nexus";
 export const WORKSHOP_SOURCE = "workshop";
+export const THUNDERSTORE_SOURCE = "thunderstore";
+export const GAMEBANANA_SOURCE = "gamebanana";
+export const MODDB_SOURCE = "moddb";
+export const CURSEFORGE_SOURCE = "curseforge";
+export const MODIO_SOURCE = "modio";
 
 const SOURCE_META: Record<string, { name: string; homepage: string }> = {
   nexus: { name: "Nexus Mods", homepage: "https://www.nexusmods.com" },
+  thunderstore: { name: "Thunderstore", homepage: "https://thunderstore.io" },
+  gamebanana: { name: "GameBanana", homepage: "https://gamebanana.com" },
+  moddb: { name: "Mod DB", homepage: "https://www.moddb.com" },
+  curseforge: { name: "CurseForge", homepage: "https://www.curseforge.com" },
+  modio: { name: "mod.io", homepage: "https://mod.io" },
   workshop: { name: "Steam Workshop", homepage: "https://steamcommunity.com/workshop/" },
 };
+
+const CREDENTIAL_SOURCES = new Set<string>(["nexus", "curseforge", "modio"]);
 
 function normalizeName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -70,6 +92,29 @@ export function storedDomain(gameId: string): string | null {
   if (link?.externalId) return link.externalId;
   const settings = getSettings(gameId);
   return settings?.nexusDomain?.trim() || null;
+}
+
+/** Persisted site match for any source. */
+export function storedExternalId(gameId: string, source: string): string | null {
+  const link = listSourceLinks(gameId).find((row) => row.source === source);
+  return link?.externalId ?? null;
+}
+
+/** Credential for a source (Nexus keeps its legacy store). */
+export function sourceCredential(source: string): string | null {
+  if (source === NEXUS_SOURCE) return nexus.getApiKey();
+  return getSourceKey(source);
+}
+
+export function setSourceCredential(source: string, key: string): void {
+  if (source === NEXUS_SOURCE) {
+    nexus.setApiKey(key);
+    return;
+  }
+  if (!CREDENTIAL_SOURCES.has(source)) {
+    throw new Error(`${source} does not use an API key`);
+  }
+  setSourceKey(source, key);
 }
 
 export function setSourceLink(
@@ -163,7 +208,12 @@ export async function detectSources(gameId: string, resolve: boolean): Promise<M
       ? String(game.steamAppId)
       : typeof game?.steamAppId === "string"
         ? game.steamAppId
-        : null;
+        : (() => {
+            const fromId = /^steam[-:](\d+)$/i.exec(game?.id ?? "");
+            if (fromId) return fromId[1];
+            const fromPath = /steam:\/\/(?:run|launch|rungameid)\/(\d+)/i.exec(game?.path ?? "");
+            return fromPath?.[1] ?? null;
+          })();
 
   const hasNexusKey = !!nexus.getApiKey();
   let domain = storedDomain(gameId);
@@ -186,22 +236,105 @@ export async function detectSources(gameId: string, resolve: boolean): Promise<M
           : { note: "Pick the game's Nexus domain (its URL slug) below." }
         : { note: "Add a Nexus Mods API key in Settings → Mods." }),
     },
+  ];
+
+  const candidates = [
+    game?.displayName,
+    game?.name,
+    ...(game?.alternativeNames ?? []),
+  ].filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+
+  const extraSources: Array<{
+    id: MultiSourceId;
+    requiresCredential: boolean;
+    directDownload: boolean;
+    note: string;
+  }> = [
     {
-      id: WORKSHOP_SOURCE,
-      name: SOURCE_META.workshop.name,
-      homepage: SOURCE_META.workshop.homepage,
+      id: "thunderstore",
       requiresCredential: false,
-      hasCredential: true,
-      // Browsing the Workshop catalogue needs Steam's Web API, which this
-      // build does not call. Installed Workshop items are still listed and
-      // toggled by the Mods scanner.
-      available: false,
-      ...(steamAppId ? { externalId: steamAppId, externalLabel: steamAppId } : {}),
+      directDownload: true,
+      note: "Match the game's Thunderstore community.",
+    },
+    {
+      id: "gamebanana",
+      requiresCredential: false,
+      directDownload: true,
+      note: "Match the game's GameBanana page.",
+    },
+    {
+      id: "moddb",
+      requiresCredential: false,
       directDownload: false,
-      supportsSearch: false,
-      note: "Workshop items are managed by Steam; GameIndex lists and toggles installed items but cannot browse or download them.",
+      note: "Match the game's Mod DB game page.",
+    },
+    {
+      id: "curseforge",
+      requiresCredential: true,
+      directDownload: true,
+      note: "Add a CurseForge API key in Settings → Mods.",
+    },
+    {
+      id: "modio",
+      requiresCredential: true,
+      directDownload: true,
+      note: "Add a mod.io API key in Settings → Mods.",
     },
   ];
+
+  const resolvedExtras = await Promise.all(
+    extraSources.map(async (entry) => {
+      const meta = SOURCE_META[entry.id];
+      const credential = sourceCredential(entry.id);
+      let externalId = storedExternalId(gameId, entry.id);
+      if (!externalId && resolve && (!entry.requiresCredential || credential) && candidates.length > 0) {
+        const match = await resolveMultiSource(entry.id, candidates).catch(() => null);
+        if (match) {
+          externalId = match.externalId;
+          setSourceLink(gameId, entry.id, match.externalId, match.label);
+        }
+      }
+      const available = (!entry.requiresCredential || !!credential) && !!externalId;
+      return {
+        id: entry.id,
+        name: meta.name,
+        homepage: meta.homepage,
+        requiresCredential: entry.requiresCredential,
+        hasCredential: entry.requiresCredential ? !!credential : true,
+        available,
+        ...(externalId
+          ? {
+              externalId,
+              externalLabel:
+                listSourceLinks(gameId).find((row) => row.source === entry.id)?.displayName ??
+                externalId,
+            }
+          : {}),
+        directDownload: entry.directDownload,
+        supportsSearch: true,
+        ...(available ? {} : { note: entry.note }),
+      } satisfies ModSourceInfo;
+    }),
+  );
+  sources.push(...resolvedExtras);
+
+  const workshopKey = workshopKeyAvailable();
+  sources.push({
+    id: WORKSHOP_SOURCE,
+    name: SOURCE_META.workshop.name,
+    homepage: SOURCE_META.workshop.homepage,
+    requiresCredential: false,
+    hasCredential: workshopKey,
+    available: !!steamAppId && workshopKey,
+    ...(steamAppId ? { externalId: steamAppId, externalLabel: steamAppId } : {}),
+    directDownload: false,
+    supportsSearch: workshopKey,
+    ...(steamAppId
+      ? workshopKey
+        ? {}
+        : { note: "Connect your Steam account to browse the Workshop catalogue." }
+      : { note: "This game has no Steam AppID, so its Workshop cannot be resolved." }),
+  });
 
   return sources;
 }
@@ -229,6 +362,19 @@ export async function browseSource(
     const key = nexusKeyOrThrow();
     return nexus.browse(key, normalizeDomain(externalId), query, sort, page, pageSize);
   }
+  if (source === WORKSHOP_SOURCE) {
+    return browseWorkshop(externalId, query, sort, page, pageSize);
+  }
+  if (source !== WORKSHOP_SOURCE) {
+    return browseMultiSource(
+      source as MultiSourceId,
+      externalId,
+      query,
+      sort,
+      page,
+      pageSize,
+    );
+  }
   return {
     source,
     query,
@@ -249,9 +395,10 @@ export async function detailSource(
     const key = nexusKeyOrThrow();
     return nexus.detail(key, normalizeDomain(externalId), modId);
   }
-  throw new Error(
-    `unsupported_source: ${source} mod details are not available in the Electron build yet`,
-  );
+  if (source === WORKSHOP_SOURCE) {
+    return detailWorkshop(externalId, modId);
+  }
+  return detailMultiSource(source as MultiSourceId, externalId, modId);
 }
 
 function safeArchiveName(filename: string, fallback: string): string {
@@ -295,6 +442,91 @@ export async function downloadSource(args: DownloadArgs): Promise<RemoteInstallR
     args.destination?.trim() || getSettings(args.gameId)?.customRoot || getSettings(args.gameId)?.modsRoot || null;
   if (!destination || !fs.existsSync(destination)) {
     throw new Error("install_target_missing: select a mods folder first");
+  }
+
+  if (args.source !== NEXUS_SOURCE) {
+    const plan = await downloadMultiSource(
+      args.source as MultiSourceId,
+      args.externalId,
+      args.modId,
+      args.fileId ?? null,
+    );
+    if (plan.kind !== "direct") {
+      return {
+        status: "external",
+        installedFiles: 0,
+        url: plan.url,
+        ...(plan.message ? { message: plan.message } : {}),
+      };
+    }
+    const label = args.name?.trim() || args.modId;
+    const archive = path.join(
+      modDownloadsDir(),
+      safeArchiveName(plan.filename ?? "", label),
+    );
+    emit("mods-remote-progress", {
+      source: args.source,
+      modId: args.modId,
+      phase: "downloading",
+      downloaded: 0,
+      total: null,
+    });
+    let bytes = 0;
+    try {
+      const result = await downloadToFile(plan.url, archive, {
+        timeoutMs: 120_000,
+        headers: { "user-agent": "GameIndex/2.4" },
+        onProgress: (downloaded) => {
+          bytes = downloaded;
+        },
+      });
+      bytes = result.bytes;
+    } catch (error) {
+      throw new Error(
+        `download_failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    emit("mods-remote-progress", {
+      source: args.source,
+      modId: args.modId,
+      phase: "installing",
+      downloaded: bytes,
+      total: bytes,
+    });
+    try {
+      const installedFiles = await installArchive(archive, destination);
+      emit("mods-remote-progress", {
+        source: args.source,
+        modId: args.modId,
+        phase: "complete",
+        downloaded: bytes,
+        total: bytes,
+      });
+      return {
+        status: "installed",
+        installedFiles,
+        installedPath: destination,
+      };
+    } catch (error) {
+      insertRemoteInstall({
+        id: `mri-${args.gameId}-${nowSecs()}-${Math.floor(Math.random() * 1000)}`,
+        gameId: args.gameId,
+        source: args.source,
+        sourceModId: args.modId,
+        ...(args.fileId ? { sourceFileId: args.fileId } : {}),
+        name: label,
+        ...(args.author ? { author: args.author } : {}),
+        ...(args.version ? { version: args.version } : {}),
+        remoteUrl: args.remoteUrl ?? plan.url,
+        installedAt: nowSecs(),
+      });
+      return {
+        status: "manual",
+        installedFiles: 0,
+        url: plan.url,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   const key = nexusKeyOrThrow();

@@ -66,6 +66,7 @@ import {
   detailSource,
   downloadSource,
   latestVersionFor,
+  setSourceCredential,
   setSourceLink,
   storedDomain,
   versionIsNewer,
@@ -605,10 +606,7 @@ export const mo2Commands: Record<string, CommandHandler> = {
   mods_source_set_credential: (args) => {
     const source = text(args, "source");
     const key = text(args, "key");
-    if (source !== "nexus") {
-      throw new Error(`${source} does not use an API key`);
-    }
-    modsNexus.setApiKey(key);
+    setSourceCredential(source, key);
     return null;
   },
 
