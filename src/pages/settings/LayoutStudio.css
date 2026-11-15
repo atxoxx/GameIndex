@@ -2502,7 +2502,7 @@
 
 .studio-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 7fr) minmax(300px, 3fr);
   gap: var(--space-xl);
   align-items: start;
 }

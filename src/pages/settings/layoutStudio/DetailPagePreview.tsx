@@ -41,23 +41,24 @@ import "./DetailPagePreview.css";
 /**
  * DetailPagePreview — a faithful schematic of the Game / Store detail page.
  *
- * The real pages are one shell: the floating top bar, a cinematic hero, a tab
- * strip, a quick-stats command bar, the hidden-sections note, then a
- * two-column body. Every card is its own `PageWidget`, and the preview carries
- * them in the exact regions the pages themselves use:
+ * The real pages share one shell: the floating top bar, a cinematic hero, a
+ * tab strip, then a two-column body. Every card is its own `PageWidget`, and
+ * the preview carries them in the exact regions the pages themselves use:
  *
- *   Full   gameHero · gameTabs · gameQuickStats   (+ the full-width note)
- *   Main   gameMedia · gameAbout · gameStoryline · gameSysReq · gameRelations
- *   Side   gamePulse (library only), then the sidebar cards:
- *          gameInfoKpi · gameDlcCard · gameSteamFeatures · gameValue (library
- *          only) · gameSaveBackup (library only) · gameRatings ·
- *          gameTimeToBeat · gameSpecsCard · gameProtonDb · gameCrackwatch ·
- *          gameReleases · gameLanguages
+ *   Full   gameHero · gameTabs · gameQuickStats (both pages)
+ *   Main   gameAbout · [gameSpecsCard · gameReleases · gameLanguages in the
+ *          library facts band] · gameMedia · gameStoryline · gameRelations ·
+ *          gameSysReq
+ *   Side   library: gameInfoKpi · gamePulse · gameSaveBackup, then the
+ *          reference cards. Store: a static purchase panel, then gameInfoKpi ·
+ *          gameRatings · gameTimeToBeat and the content / compatibility cards.
  *
  *   The live side column groups those cards into collapsible panels
  *   (`DetailRail` + `detailRailGroups`); the preview lists them flat because
  *   each card is a drag target here, and grouping would hide cards behind a
- *   panel the user is also trying to reorder.
+ *   panel the user is also trying to reorder. The library facts band is drawn
+ *   as one nested block because the page itself mounts those three cards
+ *   inside one panel.
  *
  *   Both scopes are fully widget-addressable: `game` (library detail) and
  *   `storeGame` (store detail) render the same `PageWidget` /
@@ -65,9 +66,8 @@ import "./DetailPagePreview.css";
  *   here for either page. The scope still drives what the mock draws, because
  *   the pages themselves differ: the store detail has no activity pulse, save
  *   backup or value card, its hero runs the compact profile without the
- *   playtime/achievement stats or the friends strip, its quick-stats row drops
- *   the value and last-played metrics, and its Info card hides the play-status
- *   tile and the executable path.
+ *   playtime/achievement stats or the friends strip, its quick-stats strip
+ *   stays full width, and its Info card hides the play-status tile.
  *
  * Reordering stays pointer-driven through the shared `useOrderDrag`: widget
  * rows carry `data-order-index` and the whole detail root is the drag
@@ -77,15 +77,43 @@ import "./DetailPagePreview.css";
 
 // ── Region maps (mirrors the real pages) ─────────────────────────────────────
 
-const GAME_FULL_WIDGETS: PageWidgetKey[] = ["gameHero", "gameTabs", "gameQuickStats"];
+/** Both detail pages keep the hero, tab strip and quick metrics full width;
+ *  the library's compact facts cards live inside the reading column. */
+const GAME_FULL_WIDGETS: PageWidgetKey[] = [
+  "gameHero",
+  "gameTabs",
+  "gameQuickStats",
+];
+const STORE_FULL_WIDGETS: PageWidgetKey[] = [
+  "gameHero",
+  "gameTabs",
+  "gameQuickStats",
+];
 /** Reading-column membership, in the order `.game-main-col` mounts them. The
  *  rendered order still comes from the persisted widget list. */
 const GAME_MAIN_WIDGETS: PageWidgetKey[] = [
-  "gameMedia",
   "gameAbout",
+  "gameSpecsCard",
+  "gameReleases",
+  "gameLanguages",
+  "gameMedia",
   "gameStoryline",
-  "gameSysReq",
   "gameRelations",
+  "gameSysReq",
+];
+/** The three cards that share the compact facts band in the reading column. */
+const GAME_FACT_WIDGETS: PageWidgetKey[] = [
+  "gameSpecsCard",
+  "gameReleases",
+  "gameLanguages",
+];
+/** The store detail's reading column still opens on About, then media. */
+const STORE_MAIN_WIDGETS: PageWidgetKey[] = [
+  "gameAbout",
+  "gameMedia",
+  "gameStoryline",
+  "gameRelations",
+  "gameSysReq",
 ];
 /**
  * The library side column, in the order `GAME_RAIL_GROUPS` ships it.
@@ -94,19 +122,16 @@ const GAME_MAIN_WIDGETS: PageWidgetKey[] = [
  * library-only — the store detail has no activity, save or value card.
  */
 const GAME_SIDE_WIDGETS: PageWidgetKey[] = [
-  "gamePulse",
   "gameInfoKpi",
-  "gameDlcCard",
-  "gameSteamFeatures",
-  "gameValue",
+  "gamePulse",
   "gameSaveBackup",
   "gameRatings",
   "gameTimeToBeat",
-  "gameSpecsCard",
+  "gameValue",
+  "gameDlcCard",
+  "gameSteamFeatures",
   "gameProtonDb",
   "gameCrackwatch",
-  "gameReleases",
-  "gameLanguages",
 ];
 
 /** The store detail's rail cards, in `STORE_RAIL_GROUPS` order: no pulse, no
@@ -699,6 +724,27 @@ function QuickStatsStrip({ scope }: { scope: DetailTabScope }) {
         <QuickStatCard key={stat.id} icon={stat.icon} labelKey={stat.labelKey} />
       ))}
     </div>
+  );
+}
+
+/**
+ * The store detail's purchase panel is page chrome (not a Layout Studio
+ * widget), so the preview draws it statically above the draggable rail cards.
+ */
+function PurchasePanelMock() {
+  const { t } = useLanguage();
+  return (
+    <span className="studio-detail-purchase" aria-hidden="true">
+      <span className="studio-detail-purchase__head">
+        <Tag size={11} />
+        <span>{t("store.purchase.title")}</span>
+      </span>
+      <span className="studio-detail-purchase__amount" />
+      <span className="studio-detail-purchase__row">
+        <span className="studio-detail-btn studio-detail-btn--primary" />
+        <span className="studio-detail-btn" />
+      </span>
+    </span>
   );
 }
 
@@ -1633,15 +1679,32 @@ export function DetailPagePreview({
     );
   };
 
+  const fullRegion = scope === "store" ? STORE_FULL_WIDGETS : GAME_FULL_WIDGETS;
   const fullItems = widgetItems.filter((item) =>
-    GAME_FULL_WIDGETS.includes(item.id as PageWidgetKey),
+    fullRegion.includes(item.id as PageWidgetKey),
   );
+  const mainRegion = scope === "store" ? STORE_MAIN_WIDGETS : GAME_MAIN_WIDGETS;
   const mainItems = widgetItems.filter((item) =>
-    GAME_MAIN_WIDGETS.includes(item.id as PageWidgetKey),
+    mainRegion.includes(item.id as PageWidgetKey),
   );
   const sideRegion = scope === "store" ? STORE_SIDE_WIDGETS : GAME_SIDE_WIDGETS;
   const sideItems = widgetItems.filter((item) =>
     sideRegion.includes(item.id as PageWidgetKey),
+  );
+
+  // On the library page the three facts cards share one compact band in the
+  // reading column, after About. The preview keeps that nesting visible.
+  const factItems =
+    scope === "game"
+      ? mainItems.filter((item) =>
+          GAME_FACT_WIDGETS.includes(item.id as PageWidgetKey),
+        )
+      : [];
+  const mainBeforeFacts = mainItems.filter((item) => item.id === "gameAbout");
+  const mainAfterFacts = mainItems.filter(
+    (item) =>
+      item.id !== "gameAbout" &&
+      !GAME_FACT_WIDGETS.includes(item.id as PageWidgetKey),
   );
 
   return (
@@ -1687,12 +1750,23 @@ export function DetailPagePreview({
 
       {/* Two-column body, at the real `.game-content-grid` proportions. */}
       <div className="studio-detail-grid">
-        <div className="studio-detail-main">{mainItems.map(renderCard)}</div>
+        <div className="studio-detail-main">
+          {mainBeforeFacts.map(renderCard)}
+          {factItems.length > 0 && (
+            <div className="studio-detail-facts">
+              {factItems.map(renderCard)}
+            </div>
+          )}
+          {mainAfterFacts.map(renderCard)}
+        </div>
         {/* The side cards are their own `PageWidget`s on both detail pages, so
          *  they are addressed interactively for the store detail too. The live
          *  side column groups them into collapsible rail panels; the preview
          *  keeps them flat so every card stays a drag target. */}
-        <div className="studio-detail-side">{sideItems.map(renderCard)}</div>
+        <div className="studio-detail-side">
+          {scope === "store" && <PurchasePanelMock />}
+          {sideItems.map(renderCard)}
+        </div>
       </div>
     </div>
   );

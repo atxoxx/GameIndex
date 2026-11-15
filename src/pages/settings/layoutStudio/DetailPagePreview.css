@@ -555,3 +555,77 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-success) 70%, transparent);
 }
+
+/* ── Compact facts band (library detail) ─────────────────────────────────── */
+.studio-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+}
+
+.studio-preview .studio-detail-facts .studio-detail-card {
+  padding: var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.studio-preview .studio-detail-facts .studio-detail-card + .studio-detail-card {
+  border-inline-start: 1px solid var(--color-border-faint);
+  border-radius: 0;
+}
+
+/* ── Store purchase panel (static chrome, not a widget) ──────────────────── */
+.studio-detail-purchase {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-accent-border);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-accent) 12%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--color-surface) 90%, transparent);
+}
+
+.studio-detail-purchase__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.studio-detail-purchase__head svg {
+  color: var(--color-accent);
+}
+
+.studio-detail-purchase__amount {
+  width: 58%;
+  height: var(--space-lg);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 78%, transparent);
+}
+
+.studio-detail-purchase__row {
+  display: flex;
+  gap: var(--space-2xs);
+}
+
+.studio-detail-purchase__row > * {
+  flex: 1;
+}

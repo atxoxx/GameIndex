@@ -16,7 +16,6 @@ import { Button } from "../components/ui";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
 import AchievementsTab from "../components/AchievementsTab";
-import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
 import GameNewsTab from "../components/game/GameNewsTab";
 import MapTab from "../components/game/MapTab";
@@ -25,6 +24,8 @@ import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
 import StoreActionBar from "../components/store/StoreActionBar";
+import StorePurchasePanel from "../components/store/StorePurchasePanel";
+import StoreWishlistButton from "../components/store/StoreWishlistButton";
 import { useGameMaps } from "../hooks/useGameMaps";
 import {
   IconOverview,
@@ -501,39 +502,23 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
   const isInLibrary = !!existingInLibrary;
   const libraryGameId = existingInLibrary?.id;
   const releaseYear = data.releaseDate ? new Date(data.releaseDate).getFullYear() : null;
-
-  const wishlistBtn = (
-    <button
-      type="button"
-      className={`store-wishlist-btn${wishlisted ? " active" : ""}`}
-      onClick={handleToggleWishlist}
-      aria-pressed={wishlisted}
-      aria-label={
-        wishlisted
-          ? t("store.gameCard.removeWishlistAria", { name: data.title })
-          : t("store.gameCard.addWishlistAria", { name: data.title })
-      }
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill={wishlisted ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-      </svg>
-      {wishlisted ? t("store.inWishlist") : t("store.addToWishlist")}
-    </button>
-  );
+  const heroPlatforms = Array.from(
+    new Set((data.releases ?? []).map((release) => release.platform).filter(Boolean)),
+  ).slice(0, 2);
+  const heroMeta = [
+    data.developer,
+    data.publisher,
+    data.releaseStatus,
+    releaseYear,
+    heroPlatforms.join(" · "),
+    data.sourceName,
+  ].filter((value): value is string => Boolean(value && String(value).trim()));
 
   const effectiveTab: StoreTab =
     activeTab !== "overview" && !isTabVisible(activeTab) ? "overview" : activeTab;
 
   return (
-    <div className="game-page game-page--immersive">
+    <div className="game-page game-page--immersive game-page--store-detail">
       {/* Top Breadcrumb Bar — floats over the hero art, same contract as the
           Library detail page (persisted order, shared scrim ink). */}
       <div className="game-top-bar">
@@ -586,17 +571,22 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
             }
             accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
             steamAppId={steamAppId ?? null}
+            eyebrow={t("gamePage.store")}
+            tagline={data.storyline ?? undefined}
             rating={data.igdbRating || data.criticRating || null}
             genres={data.genres}
             screenshots={data.screenshots}
             onTabChange={handleTabChange}
-            metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
-              (v): v is string => Boolean(v)
-            )}
+            onOpenLightbox={handleOpenScreenshot}
+            metaItems={heroMeta}
             actions={
-              isInLibrary ? (
-                <>
-                  {wishlistBtn}
+              <>
+                <StoreWishlistButton
+                  gameName={data.title}
+                  wishlisted={wishlisted}
+                  onToggle={handleToggleWishlist}
+                />
+                {isInLibrary ? (
                   <button
                     type="button"
                     className="game-launch-btn"
@@ -605,10 +595,7 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
                     <IconExternalLink size={16} />
                     {t("store.viewInLibrary")}
                   </button>
-                </>
-              ) : (
-                <>
-                  {wishlistBtn}
+                ) : (
                   <button
                     type="button"
                     className="store-add-btn"
@@ -621,17 +608,8 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
                     </svg>
                     {adding ? t("store.adding") : t("store.addToLibrary")}
                   </button>
-                  {/* The docked bar repeats this action with the neutral
-                      variant, so the hero ships the same one — one primary
-                      CTA per screen instead of two competing accent fills. */}
-                  <DownloadButton
-                    gameName={data.title}
-                    gamePoster={data.images?.cover ?? data.images?.hero ?? data.images?.banner ?? undefined}
-                    steamAppId={steamAppId ?? undefined}
-                    label={t("game.findDownload")}
-                  />
-                </>
-              )
+                )}
+              </>
             }
           />
         </div>
@@ -680,19 +658,10 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
             ]}
           />
 
-          <div className="game-content-grid">
+          <div className="game-content-grid game-content-grid--store">
             <div className="game-main-col">
-              {/* Media leads the reading column, same as the library page. */}
-              <PageWidget page="storeGame" widget="gameMedia">
-                <div className="ui-item-gameMedia">
-                  <GameMediaSpotlight
-                    game={mockGame}
-                    onOpenLightbox={handleOpenScreenshot}
-                    steamAppId={steamAppId}
-                  />
-                </div>
-              </PageWidget>
-
+              {/* The product description leads; media and requirements follow
+                  as supporting sections, not as the first thing. */}
               <PageWidget page="storeGame" widget="gameAbout">
                 <div className="ui-item-gameAbout">
                   <AboutSection
@@ -703,19 +672,21 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
                 </div>
               </PageWidget>
 
+              <PageWidget page="storeGame" widget="gameMedia">
+                <div className="ui-item-gameMedia">
+                  <GameMediaSpotlight
+                    game={mockGame}
+                    onOpenLightbox={handleOpenScreenshot}
+                    steamAppId={steamAppId}
+                  />
+                </div>
+              </PageWidget>
+
               <PageWidget page="storeGame" widget="gameStoryline">
                 <div className="ui-complete-only ui-item-gameStoryline">
                   <StorylineSection game={mockGame} />
                 </div>
               </PageWidget>
-
-              {detailSectionVisible.systemRequirements && (
-                <PageWidget page="storeGame" widget="gameSysReq">
-                  <div className="ui-item-gameSysReq">
-                    <SystemRequirementsCard steamAppId={steamAppId ?? null} />
-                  </div>
-                </PageWidget>
-              )}
 
               <PageWidget page="storeGame" widget="gameRelations">
                 <div className="ui-complete-only ui-item-gameRelations">
@@ -731,53 +702,81 @@ export default function StoreGameDetail({ hideBackLink = false }: { hideBackLink
                   )}
                 </div>
               </PageWidget>
+
+              {detailSectionVisible.systemRequirements && (
+                <PageWidget page="storeGame" widget="gameSysReq">
+                  <div className="ui-item-gameSysReq">
+                    <SystemRequirementsCard steamAppId={steamAppId ?? null} />
+                  </div>
+                </PageWidget>
+              )}
             </div>
 
-            <DetailRail
-              page="storeGame"
-              groups={STORE_RAIL_GROUPS}
-              renderWidget={(widget) => {
-                switch (widget) {
-                  case "gameInfoKpi":
-                    return <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />;
-                  case "gameRatings":
-                    return <RatingsKpiCard game={mockGame} />;
-                  case "gameTimeToBeat":
-                    return detailSectionVisible.timeToBeat ? (
-                      <TimeToBeatCard game={mockGame} />
-                    ) : null;
-                  case "gameDlcCard":
-                    return detailSectionVisible.dlc && steamAppId ? (
-                      <GameDlcCard
-                        game={effectiveGame}
-                        storeAppId={steamAppId}
-                        gameName={data.title}
-                        onViewAllDlcs={() => handleTabChange("dlc")}
-                      />
-                    ) : null;
-                  case "gameSteamFeatures":
-                    return detailSectionVisible.steamFeatures ? (
-                      <SteamFeaturesCard steamAppId={steamAppId} gameName={data.title} />
-                    ) : null;
-                  case "gameReleases":
-                    return detailSectionVisible.releases ? (
-                      <ReleasesCard game={mockGame} />
-                    ) : null;
-                  case "gameLanguages":
-                    return <LanguagesSection game={mockGame} />;
-                  case "gameProtonDb":
-                    return showDeckVerified && detailSectionVisible.protonDb ? (
-                      <ProtonDBCard steamAppId={steamAppId} />
-                    ) : null;
-                  case "gameCrackwatch":
-                    return <CrackWatchCard gameName={data.title} appId={steamAppId} />;
-                  case "gameSpecsCard":
-                    return <SpecsCard game={mockGame} />;
-                  default:
-                    return null;
+            <aside className="game-side-col game-store-side">
+              <StorePurchasePanel
+                title={data.title}
+                steamAppId={steamAppId}
+                releaseDate={data.releaseDate}
+                releaseStatus={data.releaseStatus}
+                isInLibrary={isInLibrary}
+                libraryGameId={libraryGameId}
+                wishlisted={wishlisted}
+                onToggleWishlist={handleToggleWishlist}
+                onAdd={handleAddToLibrary}
+                adding={adding}
+                onOpenLibrary={() => navigate(`/library/${libraryGameId}`)}
+                coverUrl={
+                  data.images.cover ?? data.images.hero ?? data.images.banner ?? null
                 }
-              }}
-            />
+              />
+
+              <DetailRail
+                page="storeGame"
+                groups={STORE_RAIL_GROUPS}
+                standalone={false}
+                renderWidget={(widget) => {
+                  switch (widget) {
+                    case "gameInfoKpi":
+                      return <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />;
+                    case "gameRatings":
+                      return <RatingsKpiCard game={mockGame} />;
+                    case "gameTimeToBeat":
+                      return detailSectionVisible.timeToBeat ? (
+                        <TimeToBeatCard game={mockGame} />
+                      ) : null;
+                    case "gameDlcCard":
+                      return detailSectionVisible.dlc && steamAppId ? (
+                        <GameDlcCard
+                          game={effectiveGame}
+                          storeAppId={steamAppId}
+                          gameName={data.title}
+                          onViewAllDlcs={() => handleTabChange("dlc")}
+                        />
+                      ) : null;
+                    case "gameSteamFeatures":
+                      return detailSectionVisible.steamFeatures ? (
+                        <SteamFeaturesCard steamAppId={steamAppId} gameName={data.title} />
+                      ) : null;
+                    case "gameReleases":
+                      return detailSectionVisible.releases ? (
+                        <ReleasesCard game={mockGame} />
+                      ) : null;
+                    case "gameLanguages":
+                      return <LanguagesSection game={mockGame} />;
+                    case "gameProtonDb":
+                      return showDeckVerified && detailSectionVisible.protonDb ? (
+                        <ProtonDBCard steamAppId={steamAppId} />
+                      ) : null;
+                    case "gameCrackwatch":
+                      return <CrackWatchCard gameName={data.title} appId={steamAppId} />;
+                    case "gameSpecsCard":
+                      return <SpecsCard game={mockGame} />;
+                    default:
+                      return null;
+                  }
+                }}
+              />
+            </aside>
           </div>
         </>
       )}

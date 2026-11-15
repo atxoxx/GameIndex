@@ -1,13 +1,6 @@
 import type { ComponentType } from "react";
 import type { PageWidgetKey } from "../../context/interfaceLayout";
-import {
-  IconDlc,
-  IconHardDrive,
-  IconInfo,
-  IconPlay,
-  IconShield,
-  IconStar,
-} from "./icons";
+import { IconDlc, IconInfo, IconPlay, IconShield, IconStar } from "./icons";
 
 /**
  * Grouped side rail for the Library and Store detail pages.
@@ -48,8 +41,22 @@ export const SIMPLE_UI_HIDDEN_WIDGETS: ReadonlySet<PageWidgetKey> = new Set([
   "gameLanguages",
 ]);
 
-/** Library game page: what you played, what you own, what the game is. */
+/**
+ * Library game page.
+ *
+ *  The overview starts with the ownership/status snapshot (`gameQuickStats`
+ *  now rides here as a compact panel instead of a full-width card row), then
+ *  the play record. Everything reference-heavy stays folded on first visit so
+ *  the column does not read as an endless stack.
+ */
 export const GAME_RAIL_GROUPS: DetailRailGroupDef[] = [
+  {
+    id: "copy",
+    labelKey: "game.rail.copy",
+    icon: IconInfo,
+    widgets: ["gameInfoKpi"],
+    defaultOpen: true,
+  },
   {
     id: "play",
     labelKey: "game.rail.play",
@@ -58,46 +65,39 @@ export const GAME_RAIL_GROUPS: DetailRailGroupDef[] = [
     defaultOpen: true,
   },
   {
-    id: "copy",
-    labelKey: "game.rail.copy",
-    icon: IconHardDrive,
-    widgets: ["gameInfoKpi", "gameDlcCard", "gameValue", "gameSpecsCard"],
-    defaultOpen: true,
-  },
-  {
     id: "game",
     labelKey: "game.rail.game",
     icon: IconStar,
     widgets: [
-      "gameSteamFeatures",
       "gameRatings",
       "gameTimeToBeat",
+      "gameValue",
+      "gameDlcCard",
+      "gameSteamFeatures",
       "gameProtonDb",
       "gameCrackwatch",
-      "gameReleases",
-      "gameLanguages",
     ],
     defaultOpen: false,
   },
 ];
 
-/** Store detail page: facts first, then content, then compatibility. */
+/** Store detail page: content first, then reference and compatibility. */
 export const STORE_RAIL_GROUPS: DetailRailGroupDef[] = [
-  {
-    id: "glance",
-    labelKey: "store.rail.glance",
-    icon: IconInfo,
-    widgets: ["gameInfoKpi", "gameRatings", "gameTimeToBeat"],
-    // The quick-stats bar directly above the rail already carries the score,
-    // length and size, so the store page keeps this panel folded on first look.
-    defaultOpen: false,
-  },
   {
     id: "content",
     labelKey: "store.rail.content",
     icon: IconDlc,
     widgets: ["gameDlcCard", "gameSteamFeatures", "gameReleases", "gameLanguages"],
     defaultOpen: true,
+  },
+  {
+    id: "glance",
+    labelKey: "store.rail.glance",
+    icon: IconInfo,
+    widgets: ["gameInfoKpi", "gameRatings", "gameTimeToBeat"],
+    // The product header and purchase panel already carry the public score,
+    // price and release facts, so the reference panel stays folded.
+    defaultOpen: false,
   },
   {
     id: "compat",

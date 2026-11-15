@@ -363,6 +363,18 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
 
   const gameTabOrder = useDetailTabOrder("game");
 
+  // The facts band only appears when at least one of its three compact
+  // modules has data; PageWidget wrappers alone must not leave an empty panel.
+  const hasSpecs =
+    (game.gameModes?.length ?? 0) > 0 ||
+    (game.themes?.length ?? 0) > 0 ||
+    (game.playerPerspectives?.length ?? 0) > 0;
+  const hasReleases =
+    detailSectionVisible.releases && (game.releases?.length ?? 0) > 0;
+  const hasLanguages = (game.languageSupports?.length ?? 0) > 0;
+  const hasFacts =
+    !isSimpleUi && (hasSpecs || hasReleases || hasLanguages);
+
   // Tab definitions with icons and live counts
   const tabs = useMemo(() => {
     const allTabs = [
@@ -543,7 +555,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
   };
 
   return (
-    <div className="game-page game-page--immersive">
+    <div className="game-page game-page--immersive game-page--library">
       {/* Top Bar with Return Link and Edit / Remove actions — floats over the
           hero art on the immersive page shell. */}
       <div className="game-top-bar">{renderTopBar()}</div>
@@ -611,10 +623,46 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
             ]}
           />
 
-          <div className="game-content-grid">
+          <div className="game-content-grid game-content-grid--library">
             <div className="game-main-col">
-              {/* Media leads the reading column: a moving preview says more
-                  about the game than its first paragraph does. */}
+              {/* The reading column opens on the description, then the compact
+                  facts band, before the heavier media and relation modules. */}
+              <PageWidget page="game" widget="gameAbout">
+                <div className="ui-item-gameAbout">
+                  <AboutSection game={game} />
+                </div>
+              </PageWidget>
+
+              {hasFacts && (
+                <div
+                  className="game-facts-band"
+                  role="group"
+                  aria-label={t("game.detail.facts")}
+                >
+                  {hasSpecs && (
+                    <PageWidget page="game" widget="gameSpecsCard">
+                      <div className="ui-item-gameSpecsCard">
+                        <SpecsCard game={game} />
+                      </div>
+                    </PageWidget>
+                  )}
+                  {hasReleases && (
+                    <PageWidget page="game" widget="gameReleases">
+                      <div className="ui-item-gameReleases">
+                        <ReleasesCard game={game} />
+                      </div>
+                    </PageWidget>
+                  )}
+                  {hasLanguages && (
+                    <PageWidget page="game" widget="gameLanguages">
+                      <div className="ui-item-gameLanguages">
+                        <LanguagesSection game={game} />
+                      </div>
+                    </PageWidget>
+                  )}
+                </div>
+              )}
+
               <PageWidget page="game" widget="gameMedia">
                 <div className="ui-item-gameMedia">
                   <GameMediaSpotlight
@@ -625,26 +673,11 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                 </div>
               </PageWidget>
 
-              <PageWidget page="game" widget="gameAbout">
-                <div className="ui-item-gameAbout">
-                  <AboutSection game={game} />
-                </div>
-              </PageWidget>
-
               <PageWidget page="game" widget="gameStoryline">
                 <div className="ui-complete-only ui-item-gameStoryline">
                   <StorylineSection game={game} />
                 </div>
               </PageWidget>
-
-              {/* Hardware & System Requirements */}
-              {detailSectionVisible.systemRequirements && (
-                <PageWidget page="game" widget="gameSysReq">
-                  <div className="ui-item-gameSysReq">
-                    <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
-                  </div>
-                </PageWidget>
-              )}
 
               {/* Franchise & Similar Games */}
               <PageWidget page="game" widget="gameRelations">
@@ -662,6 +695,15 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                   )}
                 </div>
               </PageWidget>
+
+              {/* Hardware & System Requirements */}
+              {detailSectionVisible.systemRequirements && (
+                <PageWidget page="game" widget="gameSysReq">
+                  <div className="ui-item-gameSysReq">
+                    <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
+                  </div>
+                </PageWidget>
+              )}
             </div>
 
             <DetailRail
@@ -702,8 +744,6 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                     ) : null;
                   case "gameValue":
                     return <GameValueCard game={game} onSetCost={openCostEditor} />;
-                  case "gameSpecsCard":
-                    return <SpecsCard game={game} />;
                   case "gameSteamFeatures":
                     return detailSectionVisible.steamFeatures ? (
                       <SteamFeaturesCard
@@ -726,10 +766,6 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
                     ) : null;
                   case "gameCrackwatch":
                     return <CrackWatchCard gameName={game.name} appId={game.steamAppId} />;
-                  case "gameReleases":
-                    return detailSectionVisible.releases ? <ReleasesCard game={game} /> : null;
-                  case "gameLanguages":
-                    return <LanguagesSection game={game} />;
                   default:
                     return null;
                 }

@@ -504,7 +504,7 @@ describe("detail side-card order migration", () => {
     const result = normalizePageItemOrder("game", saved);
     const index = result.indexOf("gameValue");
     expect(result[index - 1]).toBe("gameDlcCard");
-    expect(result[index + 1]).toBe("gameSpecsCard");
+    expect(result[index + 1]).toBe("gameSteamFeatures");
   });
 
   it("expands the retired specs group into the five spec cards", () => {
@@ -546,10 +546,10 @@ describe("detail side-card order migration", () => {
 
   it("ships the DLC card with its rail neighbours on each detail page", () => {
     const gameItems = interfacePageDef("game")?.items ?? [];
-    expect(gameItems.indexOf("gameDlcCard")).toBe(
-      gameItems.indexOf("gameInfoKpi") + 1,
+    expect(gameItems[gameItems.indexOf("gameDlcCard") - 1]).toBe("gameValue");
+    expect(gameItems[gameItems.indexOf("gameDlcCard") + 1]).toBe(
+      "gameSteamFeatures",
     );
-    expect(gameItems[gameItems.indexOf("gameDlcCard") + 1]).toBe("gameValue");
 
     const storeItems = interfacePageDef("storeGame")?.items ?? [];
     expect(storeItems[storeItems.indexOf("gameDlcCard") - 1]).toBe(

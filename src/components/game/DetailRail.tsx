@@ -145,6 +145,12 @@ export interface DetailRailProps {
    * so a panel never renders a header over empty space.
    */
   renderWidget: (widget: PageWidgetKey) => ReactNode;
+  /**
+   * When false the rail stops owning the `.game-side-col` wrapper so a page can
+   * compose it beneath another sidebar panel (the store purchase panel) inside
+   * one grid column.
+   */
+  standalone?: boolean;
 }
 
 /**
@@ -159,6 +165,7 @@ export default function DetailRail({
   page,
   groups,
   renderWidget,
+  standalone = true,
 }: DetailRailProps) {
   const { isSimpleUi } = useSettings();
   const { isVisible, orderOf } = usePageWidgetLayout(page);
@@ -184,7 +191,7 @@ export default function DetailRail({
   if (panels.length === 0) return null;
 
   return (
-    <div className="game-side-col game-rail">
+    <div className={standalone ? "game-side-col game-rail" : "game-rail"}>
       {panels.map((panel) => (
         <RailGroup
           key={panel.group.id}

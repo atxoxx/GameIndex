@@ -3775,3 +3775,235 @@
 .store-game-cell--append {
   animation: none;
 }
+
+/* ══ Store detail — product page composition ═══════════════════════════════
+   The purchase column owns every transactional control, so the content area
+   can read as editorial information instead of a second action bar. It sticks
+   under the window chrome on wide screens; the stacked layout drops the
+   behaviour when the sidebar moves below the reading column. */
+.game-store-side {
+  gap: var(--space-lg);
+}
+
+.store-purchase-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-border-light);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-accent) 12%, transparent),
+      transparent 62%
+    ),
+    var(--color-bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 1101px) {
+  .store-purchase-panel {
+    position: sticky;
+    top: calc(var(--topnav-height) + var(--space-md));
+    z-index: 1;
+  }
+}
+
+/* On one-column layouts the purchase panel is the first thing after the
+ * metrics strip: buying beats reading once there is no second column. The
+ * sidebar becomes a grid participant so the panel can move ahead of the
+ * reading column while the reference rail stays below it. */
+@media (max-width: 1100px) {
+  .game-content-grid--store > .game-store-side {
+    display: contents;
+  }
+
+  .game-content-grid--store .store-purchase-panel {
+    order: -1;
+  }
+}
+
+.store-purchase-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.store-purchase-panel__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.store-purchase-panel__eyebrow svg {
+  color: var(--color-accent);
+}
+
+.store-purchase-panel__release {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-align: end;
+}
+
+.store-purchase-panel__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  min-height: 2.6em;
+}
+
+.store-purchase-panel__amount {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.store-purchase-panel__discount {
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.store-purchase-panel__was {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.store-purchase-panel__store {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.store-purchase-panel__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) 0;
+  border-block: 1px solid var(--color-border-faint);
+}
+
+.store-purchase-panel__empty-title {
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.store-purchase-panel__empty-hint {
+  font-size: var(--text-xs);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+
+.store-purchase-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.store-purchase-panel__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--game-accent, var(--color-accent));
+  color: var(--color-accent-contrast);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: filter var(--transition-fast), transform var(--transition-fast);
+}
+
+.store-purchase-panel__primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.store-purchase-panel__primary:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
+}
+
+.store-purchase-panel__primary:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.store-purchase-panel__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.store-purchase-panel__secondary > * {
+  flex: 1 1 140px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.store-purchase-panel .store-wishlist-btn,
+.store-purchase-panel .game-download-btn {
+  min-height: 38px;
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+}
+
+.store-purchase-panel__offer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  justify-self: center;
+  padding: var(--space-2xs) var(--space-sm);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--transition-fast);
+}
+
+.store-purchase-panel__offer:hover {
+  color: var(--color-accent);
+}
+
+.store-purchase-panel__owned {
+  align-self: flex-start;
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

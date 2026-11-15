@@ -78,6 +78,8 @@ interface GameHeroProps {
   accentSrc?: string | null;
   /** Small label above the logo/title (e.g. "GameLib Store"). */
   eyebrow?: ReactNode;
+  /** One-line product lede shown under the logo/title (Store). */
+  tagline?: string;
   /** Resolved Steam app id for the "Players Now" stat. */
   steamAppId?: number | null;
   /** Info-row meta fragments (Store). Library derives its own when omitted. */
@@ -111,6 +113,19 @@ const FOOTER_KEYS: HeroElementKey[] = ["kpis", "actions"];
 function formatHeroPlayTime(playTime: string): string {
   if (!playTime) return "0h";
   return playTime;
+}
+
+/** Release dates arrive as ISO strings, years, or free text. Keep whatever the
+ *  source gave us and only shorten an unambiguous full date to its year. */
+function heroReleaseLabel(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime()) && /^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return String(parsed.getFullYear());
+  }
+  return trimmed;
 }
 
 interface HeroStatProps {
@@ -160,6 +175,7 @@ export default function GameHero({
   logoUrl: logoProp,
   accentSrc: accentProp,
   eyebrow,
+  tagline,
   steamAppId: steamAppIdProp,
   metaItems,
   actions,
@@ -451,35 +467,82 @@ export default function GameHero({
   const canInteract = showHeroInteractiveControls && !!onTabChange;
 
   // ── Info-row meta ────────────────────────────────────────────
-  const metaRow = isGame ? (
-    <>
-      {showHeroInteractiveControls ? (
-        <button
-          type="button"
-          className="game-hero-meta-item game-hero-meta-item--btn"
-          onClick={() => {
-            if (game?.platform) {
-              navigate(`/library?platform=${encodeURIComponent(game.platform)}`);
-            }
-          }}
-          title={t("hero.filterByPlatform", { platform: game!.platform })}
-        >
-          <IconPlatform size={12} />
-          <span>{game!.platform}</span>
-        </button>
-      ) : (
-        <span className="game-hero-meta-item">
-          <IconPlatform size={12} />
-          <span>{game!.platform}</span>
+  const libraryRelease = isGame ? heroReleaseLabel(game!.releaseDate) : null;
+  const libraryMetaNodes: ReactNode[] = [];
+  if (isGame) {
+    if (game!.platform) {
+      libraryMetaNodes.push(
+        showHeroInteractiveControls ? (
+          <button
+            key="platform"
+            type="button"
+            className="game-hero-meta-item game-hero-meta-item--btn"
+            onClick={() => {
+              if (game?.platform) {
+                navigate(`/library?platform=${encodeURIComponent(game.platform)}`);
+              }
+            }}
+            title={t("hero.filterByPlatform", { platform: game!.platform })}
+          >
+            <IconPlatform size={12} />
+            <span>{game!.platform}</span>
+          </button>
+        ) : (
+          <span key="platform" className="game-hero-meta-item">
+            <IconPlatform size={12} />
+            <span>{game!.platform}</span>
+          </span>
+        ),
+      );
+    }
+    if (game!.developer) {
+      libraryMetaNodes.push(
+        <span key="developer" className="game-hero-meta-item">
+          {game!.developer}
+        </span>,
+      );
+    }
+    if (game!.publisher && game!.publisher !== game!.developer) {
+      libraryMetaNodes.push(
+        <span key="publisher" className="game-hero-meta-item">
+          {game!.publisher}
+        </span>,
+      );
+    }
+    if (libraryRelease) {
+      libraryMetaNodes.push(
+        <span key="release" className="game-hero-meta-item">
+          {libraryRelease}
+        </span>,
+      );
+    }
+    libraryMetaNodes.push(
+      <span
+        key="install"
+        className={`game-hero-status${
+          game!.installed ? " game-hero-status--installed" : ""
+        }`}
+      >
+        <span className="game-hero-status__dot" aria-hidden="true" />
+        {game!.installed ? t("filter.installed") : t("game.notInstalled")}
+      </span>,
+    );
+  }
+
+  const metaNodeList: ReactNode[] = isGame
+    ? libraryMetaNodes
+    : (metaItems ?? []).map((item, index) => (
+        <span key={index} className="game-hero-meta-item">
+          {item}
         </span>
-      )}
-    </>
-  ) : (
+      ));
+
+  const metaRow = (
     <>
-      {(metaItems ?? []).map((item, i) => (
+      {metaNodeList.map((item, i) => (
         <Fragment key={i}>
-          <span className="game-hero-meta-item">{item}</span>
-          {i < (metaItems?.length ?? 0) - 1 && <span className="game-hero-meta-dot" />}
+          {item}
+          {i < metaNodeList.length - 1 && <span className="game-hero-meta-dot" />}
         </Fragment>
       ))}
     </>
@@ -545,6 +608,7 @@ export default function GameHero({
         ) : (
           <h1 className="game-hero-title">{displayName}</h1>
         )}
+        {tagline && <p className="game-hero__tagline">{tagline}</p>}
       </div>
     ),
     meta: <div className="game-hero-meta">{metaRow}</div>,

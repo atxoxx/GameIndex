@@ -74,6 +74,32 @@
   margin-top: calc(-1 * var(--space-md));
 }
 
+/* ── Page-specific hero profiles ─────────────────────────────────────
+ * Both detail pages keep the full-bleed art, but neither needs a 600px
+ * billboard now that the content below carries real structure. The library
+ * hero stays taller (it is the game's home) while the store header behaves
+ * like a product masthead. */
+.game-page--library .game-hero {
+  --hero-h: clamp(320px, 42vh, 470px);
+  --hero-poster-h: clamp(180px, 26vh, 290px);
+  --hero-pad-bottom: clamp(var(--space-xl), 4vh, var(--space-3xl));
+}
+
+.game-page--store-detail .game-hero {
+  --hero-h: clamp(280px, 36vh, 420px);
+  --hero-poster-h: clamp(160px, 23vh, 250px);
+  --hero-pad-bottom: clamp(var(--space-lg), 3.5vh, var(--space-2xl));
+}
+
+.game-page--store-detail .game-hero-logo {
+  max-height: clamp(44px, 6vw, 84px);
+}
+
+.game-page--library .game-hero-title,
+.game-page--store-detail .game-hero-title {
+  font-size: clamp(24px, 2.6vw, 38px);
+}
+
 
 /* Alias .game-launch-btn → .ui-btn (primary + glow).
  * Geometry follows the kit: `--radius-md` is the documented button radius
@@ -195,10 +221,11 @@
 /* Detail tab navigation is the shared `.ui-subtabs` primitive
    (styles/ui.css); only page-level slot adjustments live in this file. */
 
-/* Game Content Grid */
+/* Game Content Grid — the reading column takes ~70% and the contextual rail
+ * ~30%, matching the product-page rhythm on both detail screens. */
 .game-content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 7fr) minmax(300px, 3fr);
   gap: var(--space-xl);
   align-items: start;
   max-width: 1680px;
@@ -1096,6 +1123,94 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2xl);
+}
+
+/* ── Compact facts band ──────────────────────────────────────────────
+ * Genres/modes/perspectives, release rows and the language table used to be
+ * three separate sidebar cards. On the library page they now share one
+ * low-chrome panel under the description: three compact columns divided by
+ * hairlines, so metadata reads as one block instead of a card per field. */
+.game-facts-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0;
+  padding: var(--space-lg) var(--space-xl);
+  border-radius: var(--radius-2xl);
+  background: var(--panel-tint);
+  animation: cardFadeIn 360ms var(--ease-enter) both;
+}
+
+.game-facts-band > div {
+  min-width: 0;
+  padding-inline: var(--space-lg);
+}
+
+.game-facts-band > div:first-child {
+  padding-inline-start: 0;
+}
+
+.game-facts-band > div:last-child {
+  padding-inline-end: 0;
+}
+
+.game-facts-band > div:empty {
+  display: none;
+}
+
+.game-facts-band > div:not(:empty) + div:not(:empty) {
+  border-inline-start: 1px solid var(--color-border-faint);
+}
+
+/* Contained cards drop their own chrome; the band owns the surface. */
+.game-facts-band .game-section {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.game-facts-band .game-section-title {
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+}
+
+.game-facts-band .specs-groups {
+  gap: var(--space-md);
+}
+
+.game-facts-band .specs-group {
+  gap: var(--space-2xs);
+}
+
+.game-facts-band .releases-list {
+  max-height: 190px;
+}
+
+.game-facts-band .languages-table-wrap {
+  max-height: 190px;
+}
+
+@media (max-width: 720px) {
+  .game-facts-band {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-lg);
+  }
+
+  .game-facts-band > div,
+  .game-facts-band > div:first-child,
+  .game-facts-band > div:last-child {
+    padding-inline: 0;
+  }
+
+  .game-facts-band > div + div {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-lg);
+    border-inline-start: 0;
+    border-top: 1px solid var(--color-border-faint);
+  }
 }
 
 /* A side-column widget whose card renders nothing (no DLC, no Steam app id,
@@ -2300,6 +2415,22 @@
   flex: 1 1 200px;
   min-width: 190px;
   max-width: 240px;
+}
+
+/* The store detail's metrics read as one quiet strip under the tabs rather
+ * than a centred gallery of cards competing with the purchase panel. */
+.game-page--store-detail .game-quick-stats-row {
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border-faint);
+}
+
+.game-page--store-detail .game-quick-stats-row > * {
+  flex: 0 1 200px;
+  min-width: 160px;
+  max-width: 230px;
 }
 
 /* ==============================
