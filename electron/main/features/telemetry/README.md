@@ -59,10 +59,12 @@ at `0x0C`, `appEntrySize` at `0x10`; entry `pid` at `0`, `szName[260]` at `4`,
 FPS triplets at `0x1BC/0x1C0/0x1C4` (`0x1C0`/`0x1E0` variants tried, u32/100,
 `0 < v ≤ 500`, `min ≤ avg ≤ max`).
 
-Lifecycle: started lazily only when `tasklist` shows `RTSS.exe`; restarted after
-a silent/dead helper (15 s backoff); killed on quit (`stopTelemetry`) and when
-the last session ends. FPS is matched by PID first, then by exe base name. When
-RTSS is absent or has no entry for the game, FPS is `null`.
+Lifecycle: started on demand (a session, the visible HUD or a diagnostics read);
+restarted after a silent/dead helper (15 s backoff); kept warm for a five-minute
+grace after the last sample, then killed so the PowerShell probes do not hold
+~40-120 MB each through an idle day; killed on quit. FPS is matched by PID first,
+then by exe base name. When RTSS is absent or has no entry for the game, FPS is
+`null`.
 
 `buildRtssHelperScript(sectionName)` accepts a test section name; the harness
 uses it to verify the real C# reader against a synthetic mapping.

@@ -116,9 +116,9 @@ if (!singleInstance) {
 
       await createSurfaces();
       registerCommandHandlers();
-      // Warm the telemetry probes while the app boots, so the first game does
-      // not wait for PowerShell + the C# compile before FPS/temps appear.
-      startTelemetry();
+      // Telemetry probes (RTSS/MAHM PowerShell helpers) are started on demand:
+      // by a session, the visible HUD or a diagnostics read. Warming them at
+      // boot kept ~200 MB of helper processes alive for the whole idle day.
       await getSurfaces().boot();
     })
     .catch((error: unknown) => {

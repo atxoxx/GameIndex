@@ -161,6 +161,9 @@ export interface OverlaySession {
 }
 
 let overlayWindow: BrowserWindow | null = null;
+/** Frees the whole HUD renderer when the window has stayed hidden for a while. */
+let disposeTimer: NodeJS.Timeout | null = null;
+const OVERLAY_DISPOSE_AFTER_MS = 10 * 60_000;
 let store: OverlayStore | null = null;
 let collapsed = true;
 let session: OverlaySession | null = null;
@@ -406,9 +409,25 @@ export function createOverlayWindow(): BrowserWindow {
   attachWindowEvents(win);
   // The HUD must render at full rate while on screen, but a hidden HUD (game
   // exited, hotkey-hidden) has no reason to keep its animations and timers
-  // running at full speed.
-  win.on("show", () => win.webContents.setBackgroundThrottling(false));
-  win.on("hide", () => win.webContents.setBackgroundThrottling(true));
+  // running at full speed. After ten hidden minutes the renderer is destroyed
+  // outright; the next present recreates it, so a long desktop day does not
+  // pay for a HUD that only appears during games.
+  win.on("show", () => {
+    if (disposeTimer) {
+      clearTimeout(disposeTimer);
+      disposeTimer = null;
+    }
+    win.webContents.setBackgroundThrottling(false);
+  });
+  win.on("hide", () => {
+    win.webContents.setBackgroundThrottling(true);
+    if (disposeTimer) clearTimeout(disposeTimer);
+    disposeTimer = setTimeout(() => {
+      disposeTimer = null;
+      if (!win.isDestroyed() && !win.isVisible()) win.destroy();
+    }, OVERLAY_DISPOSE_AFTER_MS);
+    disposeTimer.unref?.();
+  });
   win.setAlwaysOnTop(true, "screen-saver");
   if (process.platform === "win32") {
     // Never let the HUD become an ordinary app window: no taskbar entry, no
@@ -474,6 +493,10 @@ export function createOverlayWindow(): BrowserWindow {
 
   win.on("closed", () => {
     overlayWindow = null;
+    if (disposeTimer) {
+      clearTimeout(disposeTimer);
+      disposeTimer = null;
+    }
     stopFollow();
     stopLiveMetrics();
     session = null;

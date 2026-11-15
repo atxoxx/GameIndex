@@ -61,6 +61,26 @@ export interface TelemetryReadout {
 /** Last real FPS per game/process, used across short MangoHud gaps. */
 const lastFpsByProcess = new Map<string, number>();
 
+/**
+ * The RTSS/MAHM probes are PowerShell processes (~40-120 MB each) that poll
+ * shared memory forever. They used to start at boot and live until quit, which
+ * is pure idle cost. Keep them warm only around real sampling: a session, the
+ * visible HUD, or a diagnostics read. A few idle minutes later they are killed;
+ * the next session pays their one-off PowerShell/C# start again (1-3 s), which
+ * is the same latency a cold launch had before.
+ */
+const HELPER_IDLE_GRACE_MS = 5 * 60_000;
+let idleShutdownTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Cancel a pending probe shutdown: something is sampling again. */
+function noteDemand(): void {
+  if (idleShutdownTimer) {
+    clearTimeout(idleShutdownTimer);
+    idleShutdownTimer = null;
+  }
+}
+
+
 function readLinuxTelemetry(
   gameId: string | undefined,
   exePath: string,
@@ -142,6 +162,8 @@ export function readTelemetry(
 ): TelemetryReadout {
   if (!IS_WINDOWS) return readLinuxTelemetry(gameId, exePath, pid);
 
+  // An active sampler keeps the shared-memory probes warm.
+  noteDemand();
   pumpGpuCounters();
   pumpGpuAdapters();
   pumpLhm();
@@ -194,6 +216,7 @@ export function readTelemetry(
 
 /** Start the long-lived sources for a new session (idempotent). */
 export function startTelemetry(): void {
+  noteDemand();
   if (IS_WINDOWS) {
     pumpGpuCounters();
     pumpGpuAdapters();
@@ -205,16 +228,23 @@ export function startTelemetry(): void {
 }
 
 /**
- * End a sampling window. The long-lived probes stay warm on purpose: killing
- * them between games made every launch pay the PowerShell start + C# compile
- * (1–3 s), which is exactly the delay users saw before FPS/CPU temp appeared.
+ * End a sampling window. The probes stay warm for a short grace period so
+ * relaunching a game right after exiting one still shows FPS/CPU temp instantly;
+ * after that they are killed and their memory returned.
  */
 export function stopTelemetry(): void {
-  // Intentionally empty; use `shutdownTelemetry()` on quit.
+  if (!IS_WINDOWS) return;
+  noteDemand();
+  idleShutdownTimer = setTimeout(() => {
+    idleShutdownTimer = null;
+    shutdownTelemetry();
+  }, HELPER_IDLE_GRACE_MS);
+  idleShutdownTimer.unref?.();
 }
 
-/** Kill every probe. Only for app quit. */
+/** Kill every probe (idle grace elapsed, or app quit). */
 export function shutdownTelemetry(): void {
+  noteDemand();
   stopRtssHelper();
   stopMahmHelper();
 }
