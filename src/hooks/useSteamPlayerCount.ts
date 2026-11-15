@@ -39,16 +39,43 @@ interface PlayerCountEntry {
   /** Stable snapshot object so `useSyncExternalStore` never loops. */
   info: SteamPlayerCountInfo;
   listeners: Set<() => void>;
-  timer: number | null;
   inFlight: boolean;
   pending: Promise<void> | null;
 }
 
 const entries = new Map<number, PlayerCountEntry>();
+/** One shared poll for every mounted badge instead of one timer per appid. */
+let heartbeatTimer: number | null = null;
 let focusBound = false;
 
 /** Entries fresher than this skip the focus refetch (backend cache TTL is 60s). */
 const FOCUS_REFRESH_TTL_MS = 60_000;
+
+/**
+ * Poll only what is actually stale, and not at all while the window is hidden:
+ * the backend keeps its own 60s cache, so the first visible tick catches up.
+ */
+function heartbeat() {
+  if (typeof document !== "undefined" && document.hidden) return;
+  const now = Date.now();
+  for (const [appId, entry] of entries) {
+    if (entry.info.updatedAt && now - entry.info.updatedAt < REFRESH_INTERVAL_MS) {
+      continue;
+    }
+    void fetchCount(appId);
+  }
+}
+
+function ensureHeartbeat() {
+  if (heartbeatTimer !== null || typeof window === "undefined") return;
+  heartbeatTimer = window.setInterval(heartbeat, REFRESH_INTERVAL_MS);
+}
+
+function stopHeartbeatIfIdle() {
+  if (entries.size > 0 || heartbeatTimer === null) return;
+  window.clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
 
 function publish(entry: PlayerCountEntry, next: SteamPlayerCountInfo) {
   if (entry.info.count === next.count && entry.info.updatedAt === next.updatedAt) {
@@ -108,18 +135,13 @@ async function fetchCount(appId: number, force = false): Promise<void> {
 function subscribe(appId: number, listener: () => void): () => void {
   let entry = entries.get(appId);
   if (!entry) {
-    entry = { info: EMPTY_INFO, listeners: new Set(), timer: null, inFlight: false, pending: null };
+    entry = { info: EMPTY_INFO, listeners: new Set(), inFlight: false, pending: null };
     entries.set(appId, entry);
   }
   entry.listeners.add(listener);
   ensureFocusListener();
+  ensureHeartbeat();
 
-  if (entry.timer === null) {
-    entry.timer = window.setInterval(
-      () => void fetchCount(appId),
-      REFRESH_INTERVAL_MS
-    );
-  }
   // The first subscriber for an appid owns the initial fetch.
   if (entry.listeners.size === 1) {
     void fetchCount(appId);
@@ -130,8 +152,8 @@ function subscribe(appId: number, listener: () => void): () => void {
     if (!current) return;
     current.listeners.delete(listener);
     if (current.listeners.size === 0) {
-      if (current.timer !== null) window.clearInterval(current.timer);
       entries.delete(appId);
+      stopHeartbeatIfIdle();
     }
   };
 }

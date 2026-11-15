@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useOverlay } from "../context/OverlayContext";
 import OverlayTicker from "../components/overlay/OverlayTicker";
 import OverlayPanel from "../components/overlay/OverlayPanel";
 import { idleAction, type IdleAction } from "../components/overlay/overlayIdle";
+import { useVisibleInterval } from "../hooks/useVisibleInterval";
 
 /** The dim step multiplies the configured ticker opacity by this much. */
 const DIM_FACTOR = 0.45;
@@ -43,13 +44,27 @@ export default function OverlayPage() {
   const idleEnabled = collapsed && (dimSeconds > 0 || hideSeconds > 0);
   const { opacity } = settings;
   const idleStateRef = useRef<IdleAction>("none");
+  const lastActivityRef = useRef(0);
+
+  const applyOpacity = useCallback(
+    (factor: number) => {
+      document.documentElement.style.setProperty(
+        "--overlay-opacity",
+        (opacity * factor).toFixed(3),
+      );
+    },
+    [opacity],
+  );
+
+  const bump = useCallback(() => {
+    lastActivityRef.current = performance.now();
+    if (idleStateRef.current !== "none") {
+      idleStateRef.current = "none";
+      applyOpacity(1);
+    }
+  }, [applyOpacity]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    const applyOpacity = (factor: number) => {
-      root.style.setProperty("--overlay-opacity", (opacity * factor).toFixed(3));
-    };
-
     idleStateRef.current = "none";
 
     // Leaving the idle mode (toggle off, expand, timers cleared) must clear
@@ -59,15 +74,8 @@ export default function OverlayPage() {
       return;
     }
 
-    let lastActivity = performance.now();
+    lastActivityRef.current = performance.now();
 
-    const bump = () => {
-      lastActivity = performance.now();
-      if (idleStateRef.current !== "none") {
-        idleStateRef.current = "none";
-        applyOpacity(1);
-      }
-    };
     const EVENTS = ["pointermove", "pointerdown", "keydown"] as const;
     for (const name of EVENTS) window.addEventListener(name, bump);
     // The global toggle hotkey is the peek; re-showing the window resets the
@@ -78,11 +86,20 @@ export default function OverlayPage() {
     document.addEventListener("visibilitychange", onVisibility);
 
     applyOpacity(1);
-    const handle = window.setInterval(() => {
-      // While hidden there is no input to observe; the visibilitychange
-      // listener below bumps activity on return, so idle can coast.
-      if (document.hidden) return;
-      const elapsed = (performance.now() - lastActivity) / 1000;
+
+    return () => {
+      for (const name of EVENTS) window.removeEventListener(name, bump);
+      document.removeEventListener("visibilitychange", onVisibility);
+      // Always restore full opacity for whatever runs next.
+      applyOpacity(1);
+    };
+  }, [idleEnabled, bump, applyOpacity]);
+
+  // The idle clock stops entirely while the HUD window is hidden instead of
+  // waking twice a second just to read document.hidden.
+  useVisibleInterval(
+    () => {
+      const elapsed = (performance.now() - lastActivityRef.current) / 1000;
       const next = idleAction(elapsed, dimSeconds, hideSeconds);
       if (next === idleStateRef.current) return;
       idleStateRef.current = next;
@@ -95,16 +112,10 @@ export default function OverlayPage() {
       } else {
         applyOpacity(1);
       }
-    }, IDLE_TICK_MS);
-
-    return () => {
-      window.clearInterval(handle);
-      for (const name of EVENTS) window.removeEventListener(name, bump);
-      document.removeEventListener("visibilitychange", onVisibility);
-      // Always restore full opacity for whatever runs next.
-      applyOpacity(1);
-    };
-  }, [idleEnabled, dimSeconds, hideSeconds, opacity]);
+    },
+    IDLE_TICK_MS,
+    idleEnabled,
+  );
 
   return collapsed ? <OverlayTicker /> : <OverlayPanel />;
 }

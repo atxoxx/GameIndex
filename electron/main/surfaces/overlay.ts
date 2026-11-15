@@ -404,6 +404,11 @@ export function createOverlayWindow(): BrowserWindow {
   overlayWindow = win;
   setWindowLabel(win, "overlay");
   attachWindowEvents(win);
+  // The HUD must render at full rate while on screen, but a hidden HUD (game
+  // exited, hotkey-hidden) has no reason to keep its animations and timers
+  // running at full speed.
+  win.on("show", () => win.webContents.setBackgroundThrottling(false));
+  win.on("hide", () => win.webContents.setBackgroundThrottling(true));
   win.setAlwaysOnTop(true, "screen-saver");
   if (process.platform === "win32") {
     // Never let the HUD become an ordinary app window: no taskbar entry, no

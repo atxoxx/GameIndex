@@ -44,6 +44,11 @@ import type {
 const STREAM_KIND = 30078;
 const CHAT_WRAP_KIND = 1059;
 
+/** Renderer-only helper: the engine is also exercised in jsdom, where it is fine. */
+function isDocumentHidden(): boolean {
+  return typeof document !== "undefined" && document.hidden;
+}
+
 /** Coalesce a burst of local mutations into one snapshot publish. */
 const PUBLISH_DEBOUNCE_MS = 1500;
 /** Never publish two snapshots closer together than this. */
@@ -55,8 +60,7 @@ const INBOX_POLL_MS = 5 * 60_000;
 const RESUBSCRIBE_MIN_MS = 1000;
 const RESUBSCRIBE_MAX_MS = 60_000;
 /** Chat is replayed for this far back on start so offline messages land. */
-const CHAT_BACKFILL_SECONDS = 24 * 60 * 60;
-/**
+const CHAT_BACKFILL_SECONDS = 24 * 60 * 60;/**
  * How often an unanswered friend request is re-published. A request sent while
  * the peer was offline would otherwise be lost for good, so it is replayed on
  * start and then on this interval until the peer accepts (or is removed or
@@ -1450,7 +1454,10 @@ export class FriendsSyncEngine {
     this.heartbeatTimer = setTimeout(() => {
       this.heartbeatTimer = null;
       if (!this.started) return;
-      this.publishPresence();
+      // A minimized/tray window does not need to re-sign and publish presence
+      // every minute; the next visible tick catches up (relay state is also
+      // refreshed by the inbox poll and manual sync).
+      if (!isDocumentHidden()) this.publishPresence();
       this.scheduleHeartbeat();
     }, PRESENCE_HEARTBEAT_MS);
   }

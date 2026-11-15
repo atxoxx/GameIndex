@@ -425,8 +425,10 @@ export default function StoreFeaturedHero({
   // becomes active.
   const steamAppIdNum = steamAppId ? parseInt(steamAppId, 10) : null;
   const sgdb = useSteamGridArt(steamAppIdNum);
-  usePrefetchImage(sgdb?.gridAnimatedUrl);
-  usePrefetchImage(sgdb?.heroAnimatedUrl);
+  // Animated hero/grid WebPs decode a frame forever while mounted; only warm
+  // them when the user has animated media enabled.
+  usePrefetchImage(animatedMediaEnabled ? sgdb?.gridAnimatedUrl : null);
+  usePrefetchImage(animatedMediaEnabled ? sgdb?.heroAnimatedUrl : null);
   const steamCdnHero = steamAppId
     ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
     : null;
@@ -435,7 +437,7 @@ export default function StoreFeaturedHero({
     steamCdnHero ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
   const spotlightBackdrop = pauseMotion
     ? (sgdb?.heroUrl ?? staticBackdrop)
-    : reduceMotion
+    : reduceMotion || !animatedMediaEnabled
       ? staticBackdrop
       : (sgdb?.heroAnimatedUrl ?? staticBackdrop);
   const trailerPoster = staticBackdrop || undefined;
@@ -609,6 +611,7 @@ export default function StoreFeaturedHero({
                 key={trailerVideoSrc}
                 src={trailerVideoSrc}
                 poster={trailerPoster}
+                preload="metadata"
                 autoPlay={!manualVideoPaused}
                 muted
                 loop

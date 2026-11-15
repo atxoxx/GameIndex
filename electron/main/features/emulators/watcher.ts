@@ -16,8 +16,10 @@ import path from "node:path";
 import { emit } from "../../ipc";
 import { listEmulators } from "./store";
 
-const ACTIVE_INTERVAL_MS = 25_000;
+const ACTIVE_INTERVAL_MS = 60_000;
 const IDLE_INTERVAL_MS = 300_000;
+/** Every fifth tick stats every entry so in-place edits are still noticed. */
+const FULL_SWEEP_EVERY = 5;
 
 type Signature = Array<[string, number, number]>;
 
@@ -65,9 +67,14 @@ export function startRomWatcher(): void {
   if (process.env.GI_SMOKE_TEST === "1") return;
 
   const lastSignatures = new Map<string, Signature | null>();
+  /** Folder mtime at the last full sweep: unchanged ⇒ nothing to compare. */
+  const folderStamps = new Map<string, number>();
   let hasTargets = true;
+  let tickCount = 0;
 
   const tick = async (): Promise<void> => {
+    tickCount += 1;
+    const fullSweep = tickCount === 1 || tickCount % FULL_SWEEP_EVERY === 0;
     try {
       const emulators = listEmulators();
       let targets = 0;
@@ -75,6 +82,19 @@ export function startRomWatcher(): void {
         const folder = emulator.romFolder.trim();
         if (!folder) continue;
         targets += 1;
+        // A directory mtime changes when ROMs are added, removed or renamed -
+        // the common case. Stat-ing every file each tick only pays off for
+        // in-place edits, so that full signature runs every few minutes.
+        let stamp = 0;
+        try {
+          stamp = (await fsp.stat(folder)).mtimeMs;
+        } catch {
+          /* missing folder: folderSignature handles it below */
+        }
+        if (stamp > 0 && !fullSweep && folderStamps.get(folder) === stamp) {
+          continue;
+        }
+        folderStamps.set(folder, stamp);
         const current = await folderSignature(folder);
         const previous = lastSignatures.get(emulator.id);
         if (previous === undefined) {
@@ -93,6 +113,12 @@ export function startRomWatcher(): void {
       const live = new Set(emulators.map((emulator) => emulator.id));
       for (const id of [...lastSignatures.keys()]) {
         if (!live.has(id)) lastSignatures.delete(id);
+      }
+      const liveFolders = new Set(
+        emulators.map((emulator) => emulator.romFolder.trim()).filter(Boolean),
+      );
+      for (const folder of [...folderStamps.keys()]) {
+        if (!liveFolders.has(folder)) folderStamps.delete(folder);
       }
       hasTargets = targets > 0;
     } catch (error) {

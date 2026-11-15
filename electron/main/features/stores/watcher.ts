@@ -73,6 +73,8 @@ interface SteamCacheEntry {
   mtimeMs: number;
   size: number;
   phase: Phase;
+  /** Parsed by the same read that filled `phase`; reused by transitions. */
+  fullyInstalled: boolean;
 }
 
 type Phase =
@@ -146,10 +148,12 @@ interface CollectResult {
   finished: FinishedInstall[];
 }
 
-async function collectSteam(targets: Map<number, Target>): Promise<CollectResult> {
+async function collectSteam(
+  targets: Map<number, Target>,
+  paths: Map<number, string> | null,
+): Promise<CollectResult> {
   const live: StoreInstall[] = [];
   const finished: FinishedInstall[] = [];
-  const paths = await steamManifestPaths();
   if (!paths) return { live, finished };
 
   const seen = new Set<number>();
@@ -179,7 +183,13 @@ async function collectSteam(targets: Map<number, Target>): Promise<CollectResult
         const manifest = parseAppManifest(raw, appId);
         // A half-written manifest is normal while Steam works; keep the
         // previous parse and try again next pass.
-        if (manifest) steamCache.set(appId, { ...stamp, phase: phaseOf(manifest) });
+        if (manifest) {
+          steamCache.set(appId, {
+            ...stamp,
+            phase: phaseOf(manifest),
+            fullyInstalled: manifest.fullyInstalled,
+          });
+        }
       } catch {
         continue;
       }
@@ -374,11 +384,12 @@ function decorate(
  * `installed` flags, so an install/uninstall made while the app was closed is
  * announced on the first pass (Rust `reconciled_baseline`).
  */
-async function detectSteamTransitions(): Promise<void> {
-  const paths = await steamManifestPaths();
+async function detectSteamTransitions(
+  paths: Map<number, string> | null,
+  targets: Target[],
+): Promise<void> {
   if (!paths) return; // Steam absent: keep the baseline, announce nothing.
 
-  const targets = loadTargets();
   const libraryByAppId = new Map<number, Target>();
   for (const target of targets) {
     if (target.steamAppId !== undefined) libraryByAppId.set(target.steamAppId, target);
@@ -388,9 +399,29 @@ async function detectSteamTransitions(): Promise<void> {
   for (const [appId, manifestPath] of paths) {
     let fullyInstalled = true;
     try {
-      const raw = await fs.promises.readFile(manifestPath, "utf8");
-      const manifest = parseAppManifest(raw, appId);
-      fullyInstalled = manifest ? manifest.fullyInstalled : true;
+      const stat = await fs.promises.stat(manifestPath);
+      const cached = steamCache.get(appId);
+      if (
+        cached &&
+        cached.mtimeMs === stat.mtimeMs &&
+        cached.size === stat.size
+      ) {
+        // An unchanged manifest was already parsed by collectSteam; re-reading
+        // every file here was the dominant idle disk cost of this watcher.
+        fullyInstalled = cached.fullyInstalled;
+      } else {
+        const raw = await fs.promises.readFile(manifestPath, "utf8");
+        const manifest = parseAppManifest(raw, appId);
+        fullyInstalled = manifest ? manifest.fullyInstalled : true;
+        if (manifest) {
+          steamCache.set(appId, {
+            mtimeMs: stat.mtimeMs,
+            size: stat.size,
+            phase: phaseOf(manifest),
+            fullyInstalled,
+          });
+        }
+      }
     } catch {
       fullyInstalled = true; // unreadable → assume installed (Rust behaviour)
     }
@@ -450,8 +481,12 @@ async function pass(): Promise<void> {
     if (target.steamAppId !== undefined) steamTargets.set(target.steamAppId, target);
   }
 
+  // One manifest inventory per pass: it costs a registry probe plus a readdir
+  // per Steam library, so both collectors share it.
+  const steamPaths = await steamManifestPaths();
+
   const [steam, epic] = await Promise.all([
-    collectSteam(steamTargets),
+    collectSteam(steamTargets, steamPaths),
     collectEpic(targets.filter((target) => target.epicNamespace)),
   ]);
 
@@ -490,7 +525,7 @@ async function pass(): Promise<void> {
     if (!liveKeys.has(key)) trackers.delete(key);
   }
 
-  await detectSteamTransitions();
+  await detectSteamTransitions(steamPaths, targets);
 }
 
 async function loop(): Promise<void> {

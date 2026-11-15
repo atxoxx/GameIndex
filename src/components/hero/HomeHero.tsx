@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo } from "react";
+import { useState, useMemo, useEffect, useCallback, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime, gameDisplayName } from "../../types/game";
@@ -10,6 +10,7 @@ import FriendsPlayingStrip from "./FriendsPlayingStrip";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useSteamGridArt, usePrefetchImage } from "../../context/SteamGridDbContext";
+import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 import { thumbVariantUrl } from "../../utils/artworkUrl";
 import { ArtworkImage } from "../ui/ArtworkImage";
@@ -38,6 +39,22 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [rollingDice, setRollingDice] = useState(false);
   const [customSpotlight, setCustomSpotlight] = useState<Game | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [heroInView, setHeroInView] = useState(true);
+
+  // The spotlight rotates (and swaps its trailer/art) every 8 s. Stop doing
+  // that while the hero is scrolled out of view: the posters and video decode
+  // off-screen for nothing.
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroInView(Boolean(entry?.isIntersecting)),
+      { threshold: 0.05 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Time-of-day greeting
   const greetingKey = useMemo(() => {
@@ -183,18 +200,21 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
     setSgdbHeroFailed(false);
   }, [activeGame?.id, steamAppId]);
 
-  usePrefetchImage(sgdb?.heroAnimatedUrl);
+  const animatedMediaEnabled = useAnimatedMediaEnabled();
+  usePrefetchImage(animatedMediaEnabled ? sgdb?.heroAnimatedUrl : null);
 
-  const sgdbHeroUrl =
-    (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl) && activeGame && !sgdbHeroFailed
-      ? (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl)
-      : null;
+  // An animated WebP hero decodes frames for as long as it is mounted, so the
+  // user's "animated media" setting (and reduced motion) must win.
+  const heroAsset = animatedMediaEnabled
+    ? (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl)
+    : sgdb?.heroUrl;
+  const sgdbHeroUrl = heroAsset && activeGame && !sgdbHeroFailed ? heroAsset : null;
   const spotlightPoster =
     sgdbHeroUrl ?? activeGame?.bannerUrl ?? activeGame?.coverArtUrl ?? null;
 
   // Auto-advance spotlight every 8 seconds if not paused and visible
   useEffect(() => {
-    if (isPaused || spotlightDeck.length <= 1) return;
+    if (isPaused || !heroInView || spotlightDeck.length <= 1) return;
     let timer: ReturnType<typeof setInterval> | null = null;
     const start = () => {
       if (document.hidden) return;
@@ -220,7 +240,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
       stop();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [isPaused, spotlightDeck.length]);
+  }, [isPaused, heroInView, spotlightDeck.length]);
 
   const handlePrev = useCallback(() => {
     setActiveIndex((prev) => (prev - 1 + spotlightDeck.length) % spotlightDeck.length);
@@ -356,6 +376,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
 
   return (
     <section
+      ref={heroRef}
       className="home-hero"
       aria-label={t("library.overviewAria")}
       onMouseEnter={() => setIsPaused(true)}

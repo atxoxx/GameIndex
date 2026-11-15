@@ -75,7 +75,8 @@ export function openDetailWindow(route: string, title?: string): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      backgroundThrottling: false,
+      // No boot animation or HUD here: let Chromium throttle a backgrounded
+      // popout (occluded by the main window, minimized, …) by default.
     },
   });
 

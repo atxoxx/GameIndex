@@ -10,6 +10,10 @@ vi.mock("../../context/GameContext", () => ({
     enqueueEnrich: vi.fn(),
     getGame: vi.fn(),
   }),
+  useGameCardActions: () => ({
+    updateGame: vi.fn(),
+    enqueueEnrich: vi.fn(),
+  }),
   NO_IGDB_MATCH_SOURCE: "no-match",
 }));
 

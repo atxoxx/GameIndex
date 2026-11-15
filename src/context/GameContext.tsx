@@ -136,6 +136,8 @@ export interface GameCardActions {
     game: { id: string; name: string; steamAppId?: number },
     highPriority?: boolean
   ) => void;
+  /** Persist a single-row patch without subscribing to the whole library. */
+  updateGame: (id: string, patch: Partial<Game>) => void;
 }
 
 // Shared empty snapshot so consumers outside the provider (or before the
@@ -504,6 +506,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   enrichGameMetadataActionRef.current = enrichGameMetadata;
   const enqueueEnrichActionRef = useRef(enqueueEnrich);
   enqueueEnrichActionRef.current = enqueueEnrich;
+  const updateGameActionRef = useRef(updateGame);
+  updateGameActionRef.current = updateGame;
 
   const gameCardActions = useMemo<GameCardActions>(
     () => ({
@@ -516,6 +520,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         game: { id: string; name: string; steamAppId?: number },
         highPriority?: boolean
       ) => enqueueEnrichActionRef.current(game, highPriority),
+      updateGame: (id: string, patch: Partial<Game>) =>
+        updateGameActionRef.current(id, patch),
     }),
     [],
   );
@@ -1036,21 +1042,18 @@ export function useLiveElapsed(): Record<string, number> {
  */
 export function useGameById(id: string): Game | undefined {
   const value = useContext(GameByIdContext);
-  const gamesCtx = useContext(GameContext);
-
-  const subscribe = useCallback(
-    (cb: () => void) => (value ? value.subscribeToGame(id, cb) : () => {}),
-    [value, id]
-  );
-  const getSnapshot = useCallback(
-    () => (value ? value.getGameSnapshot(id) : gamesCtx?.getGame(id)),
-    [value, gamesCtx, id]
-  );
-  const synced = useSyncExternalStore(subscribe, getSnapshot);
-
-  if (!value && !gamesCtx) {
+  if (!value) {
     throw new Error("useGameById must be used within a GameProvider");
   }
 
-  return value ? synced : gamesCtx?.getGame(id);
+  const subscribe = useCallback(
+    (cb: () => void) => value.subscribeToGame(id, cb),
+    [value, id]
+  );
+  const getSnapshot = useCallback(
+    () => value.getGameSnapshot(id),
+    [value, id]
+  );
+
+  return useSyncExternalStore(subscribe, getSnapshot);
 }

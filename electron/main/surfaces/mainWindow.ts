@@ -58,7 +58,9 @@ export function createMainWindow(): BrowserWindow {
       spellcheck: false,
       webviewTag: false,
       // Hydration and the boot-progress UI must keep ticking while the window
-      // is still hidden behind the splash.
+      // is still hidden behind the splash. Once it has been shown once, the
+      // throttling is re-enabled below: a tray/minimize-on-launch hidden window
+      // must not keep animating and polling at full rate.
       backgroundThrottling: false,
     },
   });
@@ -66,6 +68,10 @@ export function createMainWindow(): BrowserWindow {
   mainWindow = win;
   setWindowLabel(win, "main");
   attachWindowEvents(win);
+
+  // After the first reveal Chromium may throttle a hidden (tray / gameplay)
+  // window again, freezing animations and clamping timers.
+  win.once("show", () => win.webContents.setBackgroundThrottling(true));
 
   win.on("close", (event) => {
     if (forceClose || isQuitting()) return;

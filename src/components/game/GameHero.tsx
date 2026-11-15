@@ -832,7 +832,7 @@ export default function GameHero({
             }}
           />
           <div
-            className="game-hero__bg"
+            className={`game-hero__bg${isInView ? "" : " is-paused"}`}
             style={{ backgroundImage: `url("${currentBackdrop}")` }}
             aria-hidden="true"
           />

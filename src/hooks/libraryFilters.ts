@@ -143,8 +143,23 @@ export function tokenizeSearchQuery(query: string): string[] {
  * Includes name, developer, publisher, genres, tags (if present),
  * description, alternativeNames, collection, franchise, themes, storyline.
  * Exported for testing.
+ *
+ * Cached per game object: the library filter and the search ranking both walk
+ * every game, often on every keystroke, and lowercasing a long description
+ * twice per game is pure waste. Game objects are replaced (never mutated) on
+ * update, so object identity is a safe cache key.
  */
+const searchFieldsCache = new WeakMap<Game, string[]>();
+
 export function getGameSearchFields(game: Game): string[] {
+  const cached = searchFieldsCache.get(game);
+  if (cached) return cached;
+  const fields = buildGameSearchFields(game);
+  searchFieldsCache.set(game, fields);
+  return fields;
+}
+
+function buildGameSearchFields(game: Game): string[] {
   const fields: string[] = [];
   if (game.name) fields.push(game.name.toLowerCase());
   const displayName = gameDisplayName(game);
@@ -254,7 +269,7 @@ export function getSearchScore(game: Game, query: string): number {
  */
 export function sortBySearchRelevance(games: Game[], query: string): Game[] {
   if (!query.trim()) return [...games];
-  const tokens = tokenizeSearchQuery(query);
+  const tokens = tokensForQuery(query);
   const q = query.toLowerCase().trim();
   const scored = games.map((g, idx) => ({ game: g, score: getSearchRelevanceScore(g, q, tokens), idx }));
   scored.sort((a, b) => {
@@ -264,11 +279,25 @@ export function sortBySearchRelevance(games: Game[], query: string): Game[] {
   return scored.map((s) => s.game);
 }
 
+/**
+ * One-entry token cache: the same query string is tokenized once per game
+ * otherwise, and the filter runs from both the sidebar and the library page.
+ */
+let lastQueryText = "";
+let lastQueryTokens: string[] = [];
+
+function tokensForQuery(query: string): string[] {
+  if (query === lastQueryText) return lastQueryTokens;
+  lastQueryText = query;
+  lastQueryTokens = tokenizeSearchQuery(query);
+  return lastQueryTokens;
+}
+
 /** True if `game` passes every active facet in `filters`. */
 export function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean {
   // Search: tokenized multi-field (name + developer + publisher + genres + tags + description)
   if (filters.search) {
-    const tokens = tokenizeSearchQuery(filters.search);
+    const tokens = tokensForQuery(filters.search);
     if (tokens.length > 0 && !gameMatchesSearchTokens(game, tokens)) return false;
   }
 

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useGames } from "../../context/GameContext";
+import { useGameCardActions } from "../../context/GameContext";
 import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
 import {
@@ -47,7 +47,7 @@ function SidebarGameItemBase({
   onQuickPlay,
   onTogglePin,
 }: SidebarGameItemProps) {
-  const { updateGame, enqueueEnrich } = useGames();
+  const { updateGame, enqueueEnrich } = useGameCardActions();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
   const displayName = gameDisplayName(game);

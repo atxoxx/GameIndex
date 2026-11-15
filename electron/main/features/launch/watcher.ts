@@ -54,7 +54,7 @@ const POLL_INTERVAL_FAST_MS = 2_000;
 /** Steady poll while at least one session is running. */
 const POLL_INTERVAL_ACTIVE_MS = 3_000;
 /** Relaxed poll with no session (passive detection only). */
-const POLL_INTERVAL_IDLE_MS = 15_000;
+const POLL_INTERVAL_IDLE_MS = 30_000;
 /**
  * With an empty index there is nothing to match, but the loop must not die:
  * a slow/failed first renderer push would otherwise leave passive detection
@@ -62,7 +62,7 @@ const POLL_INTERVAL_IDLE_MS = 15_000;
  */
 const POLL_INTERVAL_EMPTY_MS = 60_000;
 /** Full-path passive sweep cadence when the cheap name index finds nothing. */
-const DEEP_SCAN_INTERVAL_MS = 60_000;
+const DEEP_SCAN_INTERVAL_MS = 180_000;
 /** Grace before a missing process ends the session. */
 const SESSION_LOST_GRACE_MS = 3_000;
 /**

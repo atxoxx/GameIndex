@@ -86,6 +86,12 @@
   to   { transform: scale(1.06) translateY(-1.2%); }
 }
 
+/* The drift is a compositing job on a masked, full-width filtered layer. Park
+ * it while the hero is scrolled out of view or the window is hidden. */
+.game-hero__bg.is-paused {
+  animation-play-state: paused;
+}
+
 /* No-art fallback keeps the game's palette: deepened accent into the panel
  * tone. Nothing to drift here. */
 .game-hero__bg--fallback {

@@ -71,6 +71,8 @@ import {
 
 const PROGRESS_INTERVAL_MS = 250;
 const TICK_INTERVAL_MS = 500;
+/** With no active, queued or seeding record there is nothing to poll for. */
+const IDLE_TICK_INTERVAL_MS = 5_000;
 const PERSIST_INTERVAL_MS = 5_000;
 const STALL_AFTER_MS = 30_000;
 
@@ -209,10 +211,7 @@ export class DownloadManager {
       this.state.transportUtp,
     );
 
-    this.timer = setInterval(() => {
-      void this.tick();
-    }, TICK_INTERVAL_MS);
-    this.timer.unref?.();
+    this.scheduleTick();
 
     // `pauseOnGame` needs to know when a game is running; the session
     // workstream broadcasts these two events on the main-process bus.
@@ -225,7 +224,7 @@ export class DownloadManager {
 
     app.once("before-quit", () => {
       this.disposed = true;
-      if (this.timer) clearInterval(this.timer);
+      if (this.timer) clearTimeout(this.timer);
       stopGameStarted();
       stopGameExited();
       this.persistNow();
@@ -369,7 +368,37 @@ export class DownloadManager {
       this.persistIfNeeded();
     } catch (error) {
       console.error("[downloads] tick failed:", error);
+    } finally {
+      // Adaptive cadence: full resolution while anything can move, slow idle
+      // heartbeat when the queue only holds finished/error/paused records.
+      this.scheduleTick(this.hasLiveWork() ? TICK_INTERVAL_MS : IDLE_TICK_INTERVAL_MS);
     }
+  }
+
+  /** True while a record can still progress without user input. */
+  private hasLiveWork(): boolean {
+    for (const record of this.records.values()) {
+      const kind = record.status.kind;
+      if (
+        kind === "downloading" ||
+        kind === "fetchingMetadata" ||
+        kind === "seeding" ||
+        kind === "queued"
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private scheduleTick(delay = TICK_INTERVAL_MS): void {
+    if (this.disposed) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.tick();
+    }, delay);
+    this.timer.unref?.();
   }
 
   private refreshTorrentStats(): void {
