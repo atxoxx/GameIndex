@@ -139,9 +139,10 @@
   overflow-x: auto;
   overflow-y: hidden;
   /* Vertical room for the focused card's lift + ring; the track clips
-     both because a horizontal scroller cannot leave overflow visible. */
+     both because a horizontal scroller cannot leave overflow visible.
+     Scrolling is owned by the gamepad engine (scrollElementIntoViewControlled);
+     a CSS smooth mode here would fight it and double-animate. */
   padding: 0.7rem 0.5rem 0.8rem;
-  scroll-behavior: smooth;
   scrollbar-width: none;
 }
 
@@ -228,8 +229,8 @@
 }
 
 .bigscreen-game-card[data-focused="true"] {
-  transform: translateY(-0.3rem) scale(1.02);
-  border-color: var(--bs-accent);
+  transform: translateY(-0.3rem) scale(var(--bs-card-lift, 1.02));
+  border-color: var(--bs-selection);
 }
 
 .bigscreen-game-card-cover {
@@ -250,7 +251,8 @@
 
 .bigscreen-game-card-cover-animated {
   opacity: 0;
-  transition: opacity var(--bs-dur) var(--bs-ease);
+  /* Art crossfade budget: 700ms on PlayStation, instant on Switch. */
+  transition: opacity var(--bs-art-dur) var(--bs-ease);
 }
 
 .bigscreen-game-card-cover-animated.is-active {
@@ -695,9 +697,9 @@
 }
 
 .bigscreen-details-btn--primary {
-  background: var(--bs-accent);
-  border-color: var(--bs-accent);
-  color: var(--bs-accent-contrast);
+  background: var(--bs-brand);
+  border-color: var(--bs-brand);
+  color: var(--bs-brand-ink);
 }
 
 .bigscreen-details-btn--secondary {
@@ -823,7 +825,8 @@
   font-weight: var(--bs-weight-bold);
   letter-spacing: var(--bs-tracking-wide);
   text-transform: uppercase;
-  color: var(--bs-accent);
+  /* Section eyebrow = brand furniture, not the focus accent. */
+  color: var(--bs-brand);
 }
 
 .bigscreen-spotlight-logo-slot {
@@ -1223,9 +1226,9 @@
 }
 
 .bigscreen-search-btn--primary {
-  background: var(--bs-accent);
-  border-color: var(--bs-accent);
-  color: var(--bs-accent-contrast);
+  background: var(--bs-brand);
+  border-color: var(--bs-brand);
+  color: var(--bs-brand-ink);
   font-weight: var(--bs-weight-bold);
 }
 

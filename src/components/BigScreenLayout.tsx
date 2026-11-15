@@ -14,9 +14,12 @@
 //     D-pad, including hold-to-repeat. Overlays keep their arrows
 //     unless they opt in with `data-arrow-nav` (the Guide does).
 //   • `/` opens search, `G` opens the Guide, Menu/Start toggles it.
-//   • Route changes restore the element the user was on last time they
-//     visited that route (focusMemory), falling back to the first
-//     registered focusable in the content frame.
+//   • Route changes focus in this order: the element the user was on
+//     last time they visited that route (focusMemory), then the page's
+//     `data-bs-autofocus` marker, then the first registered focusable in
+//     the content frame. Never a nav control.
+//   • LB/RB step through the primary sections at shell priority; a page
+//     cycler (tabs) mounted at page priority still wins.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -38,9 +41,15 @@ import {
 import { useBigScreenPrefs } from "../context/BigScreenPrefsContext";
 import {
   BACK_PRIORITY_SHELL,
+  CYCLER_PRIORITY_SHELL,
   isNavigable,
 } from "../hooks/gamepad/gamepadUtils";
-import { bigScreenParentOf } from "../bigscreen/registry";
+import { getPreset } from "../bigscreen/presets";
+import {
+  bigScreenParentOf,
+  PRIMARY_SECTIONS,
+  sectionForPath,
+} from "../bigscreen/registry";
 import {
   recallFocus,
   rememberFocus,
@@ -79,6 +88,12 @@ export default function BigScreenLayout() {
   const mainRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const revealTimer = useRef<number | null>(null);
+  const lastRevealElement = useRef<HTMLElement | null>(null);
+
+  // The preset owns nav placement; keep one resolver so the shell root,
+  // the nav orientation and the CSS never disagree.
+  const preset = getPreset(prefs.preset);
+  const sideNav = preset.placement === "side";
 
   // The focusin listener below is registered once; it reads the live
   // pathname from a ref so rapid navigation can't attribute a focus
@@ -111,6 +126,27 @@ export default function BigScreenLayout() {
     }, BACK_PRIORITY_SHELL);
   }, [gamepad.registerBackHandler, location.pathname, navigate, requestExit]);
 
+  // Shell-level LB/RB: step through the primary sections with wrap.
+  // Registered at shell priority so any page cycler (tabs on a game page,
+  // Discover areas) keeps winning; this fills the gap on Home / Library /
+  // Store, where the footer's "LB/RB Sections" legend would otherwise
+  // promise something no handler implements.
+  useEffect(() => {
+    return gamepad.registerTabCycler((direction) => {
+      const current = sectionForPath(pathnameRef.current);
+      const index = Math.max(
+        0,
+        PRIMARY_SECTIONS.findIndex((section) => section.id === current),
+      );
+      const step = direction === "forward" ? 1 : -1;
+      const next =
+        PRIMARY_SECTIONS[
+          (index + step + PRIMARY_SECTIONS.length) % PRIMARY_SECTIONS.length
+        ];
+      if (next) navigate(next.path);
+    }, CYCLER_PRIORITY_SHELL);
+  }, [gamepad.registerTabCycler, navigate]);
+
   // Remember which element the controller (or keyboard) is on for the
   // current route, so returning later restores it.
   useEffect(() => {
@@ -120,6 +156,17 @@ export default function BigScreenLayout() {
     document.addEventListener("focusin", onFocusIn);
     return () => document.removeEventListener("focusin", onFocusIn);
   }, []);
+
+  // Auto-hide layouts stay quiet at rest: any focus move means the user
+  // just used the controller, so reveal the bar. The ref throttles this
+  // to one call per focus change instead of one per render.
+  useEffect(() => {
+    if (prefs.navVisibility === "always") return;
+    const focused = gamepad.focusedElement;
+    if (!focused || focused === lastRevealElement.current) return;
+    lastRevealElement.current = focused;
+    revealNav();
+  }, [gamepad.focusedElement, prefs.navVisibility, revealNav]);
 
   // Arrow keys drive the same spatial-navigation engine as the
   // gamepad, including hold-to-repeat. Overlays keep their arrows
@@ -136,11 +183,12 @@ export default function BigScreenLayout() {
       if (overlay && !overlay.hasAttribute("data-arrow-nav")) return;
       event.preventDefault();
       gamepad.navigate(direction, event.repeat);
+      if (prefs.navVisibility !== "always") revealNav();
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [gamepad.navigate]);
+  }, [gamepad.navigate, prefs.navVisibility, revealNav]);
 
   // Replay the content-in animation on every route change so page
   // switches read as a console transition rather than a cut.
@@ -194,10 +242,11 @@ export default function BigScreenLayout() {
     revealNav();
   }, [location.pathname, revealNav]);
 
-  // Route-entry focus: restore the remembered element, else focus the
-  // first registered focusable inside the content frame (never a raw
-  // querySelector, which could land on an unregistered element and
-  // leave the engine desynced).
+  // Route-entry focus: the page's declared entry point first
+  // (`data-bs-autofocus`), then the remembered element, else the first
+  // registered focusable inside the content frame (never a raw
+  // querySelector and never a nav control, which could leave the engine
+  // desynced or strand the user in the chrome).
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       if (isBigScreenOverlayOpen()) return;
@@ -224,6 +273,14 @@ export default function BigScreenLayout() {
         }
       }
 
+      // No memory for this route (or it went stale): the page's declared
+      // entry point wins over the first focusable in the header.
+      const auto = main.querySelector<HTMLElement>("[data-bs-autofocus]");
+      if (auto && isNavigable(auto)) {
+        auto.focus({ preventScroll: true });
+        return;
+      }
+
       gamepad.focusFirst(main);
     });
     return () => cancelAnimationFrame(raf);
@@ -242,7 +299,7 @@ export default function BigScreenLayout() {
       className="bs-shell"
       data-bigscreen="true"
       data-preset={prefs.preset}
-      data-nav={prefs.preset === "steam" ? "side" : "top"}
+      data-nav={sideNav ? "side" : "top"}
       data-nav-mode={prefs.navVisibility}
       data-nav-engaged={navEngaged ? "true" : undefined}
       data-nav-reveal={navReveal ? "true" : undefined}
@@ -256,7 +313,10 @@ export default function BigScreenLayout() {
         onRequestExit={requestExit}
       />
 
-      <BigScreenNav onEngagedChange={setNavEngaged} />
+      <BigScreenNav
+        onEngagedChange={setNavEngaged}
+        orientation={sideNav ? "vertical" : "horizontal"}
+      />
 
       <main ref={mainRef} className="bs-main" aria-label="Big Screen content">
         <div ref={frameRef} className="bs-frame bigscreen-page-enter">

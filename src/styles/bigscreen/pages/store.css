@@ -33,6 +33,12 @@
   min-width: 0;
 }
 
+/* PlayStation's chrome floats over the page, so the store's own content
+   starts below it. The ambient art keeps the top strip. */
+.bigscreen-store-dashboard[data-preset="playstation"] .bigscreen-dashboard-scrollable-content {
+  padding-top: calc(var(--bs-safe-top) + var(--bs-space-2));
+}
+
 /* ── Storefront loading ────────────────────────────────────── */
 
 .store-tab-loading {
@@ -167,15 +173,56 @@
 /* ── Store spotlight ───────────────────────────────────────── */
 
 /* The dashboard's ambient art already fills the screen behind the hero,
-   so the store spotlight keeps its own facts card but drops the top
-   padding the shell gives the shared panel. */
+   so the classic store spotlight drops the top padding the shell gives
+   the shared panel. */
 .bigscreen-store-dashboard .bigscreen-spotlight {
   padding-top: 0;
 }
 
-.bs-shell[data-preset="steam"] .bigscreen-store-dashboard .bigscreen-spotlight {
-  min-height: 12rem;
-  padding-bottom: var(--bs-space-3);
+/* ── Switch: store strip instead of a hero ─────────────────── */
+
+/* The tiles are the storefront, so the page names itself with a brand
+   strip and gets straight to the featured square row. */
+.store-switch-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bs-space-3);
+  padding: 0.55rem var(--bs-space-4);
+  border-left: 0.25rem solid var(--bs-brand);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-brand-soft);
+}
+
+.store-switch-title {
+  margin: 0;
+  font-size: var(--bs-title-sm);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.store-switch-count {
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The wishlist header borrows the same strip so the red identity runs
+   across both store views. */
+.bs-shell[data-preset="switch"] .store-wishlist-head {
+  padding: 0.55rem var(--bs-space-4);
+  border-bottom: 0;
+  border-left: 0.25rem solid var(--bs-brand);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-brand-soft);
+}
+
+/* ── PlayStation: the store reads in landscape ─────────────── */
+
+/* PlayStation's home row is square; a storefront row is not. Scoped to
+   this page rather than re-pointed in the tokens. */
+.bigscreen-store-dashboard[data-preset="playstation"] {
+  --bs-card-aspect: 16 / 9;
+  --bs-card-min: 13rem;
 }
 
 @media (max-width: 900px) {

@@ -24,7 +24,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--bs-space-6);
-  scroll-behavior: smooth;
 }
 
 .bs-discover-head {
@@ -39,7 +38,7 @@
   font-weight: var(--bs-weight-bold);
   letter-spacing: var(--bs-tracking-wide);
   text-transform: uppercase;
-  color: var(--bs-accent);
+  color: var(--bs-brand);
 }
 
 .bs-discover-title {
@@ -491,7 +490,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--bs-space-4);
-  scroll-behavior: smooth;
 }
 
 .bigscreen-news-header {
@@ -786,7 +784,6 @@ p.bigscreen-news-reader-copy {
   display: flex;
   flex-direction: column;
   gap: var(--bs-space-5);
-  scroll-behavior: smooth;
 }
 
 .bigscreen-community-head {

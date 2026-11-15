@@ -7,19 +7,32 @@
 // component mount exclusively per mode via ShellSwitch, so desktop
 // mode is untouched.
 //
-// Layout: title + filter chips row on top, then the windowed GameGrid
-// below (which owns the scroll + focus-restore behavior). Empty
-// states are handled here: a truly empty library gets the "switch to
-// desktop to import" message, a filter/search with no matches gets
-// the no-match hint.
+// Composition per preset:
+//   • PlayStation — header with the chips on the right, a 16:9 art band
+//     for the focused game, landscape grid.
+//   • Switch — "All software" header with the chips inline, one details
+//     line, square grid, no art anywhere.
+//   • Xbox — "My games" header with the chips, a shorter band,
+//     landscape grid.
+//   • Steam — vertical chip rail on the left in the nav's column
+//     width; compact spotlight + poster grid on the right.
+//   • Classic — the shipped header/grid plus a slim details line.
+//
+// Selection: `useFocusedGame` re-resolves the focused card id against
+// `filteredGames` every render, so filtering the grid out from under
+// the controller can never leave a removed game in the panel.
+//
+// The grid owns the scroll + focus-restore behaviour; `autoFocusFirst`
+// makes route entry land on the first card instead of the search chip.
 //
 // The filter dropdown drawer carries `data-bigscreen-overlay="true"`
 // so the gamepad engine treats it as an overlay: controller B closes
 // the drawer (via the Escape dispatch) instead of exiting Big Screen.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game, LibrarySource } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName } from "../../types/game";
 import type {
   LibraryFilters,
   LibraryStatus,
@@ -27,16 +40,47 @@ import type {
 } from "../../hooks/useLibraryFilters";
 import { useLibraryFilters, SORT_LABEL_KEYS } from "../../hooks/useLibraryFilters";
 import { useGames } from "../../context/GameContext";
+import { useActivePreset } from "../../context/BigScreenPrefsContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
+import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import GameGrid from "../bigscreen/GameGrid";
+import BigScreenPill from "../bigscreen/BigScreenPill";
+import BigScreenSelectionPreview from "../bigscreen/selection/BigScreenSelectionPreview";
+import { useFocusedGame } from "../bigscreen/selection/useFocusedGame";
 
 type DropdownType = "platform" | "genre" | "status" | "source" | "sort" | null;
+
+/**
+ * Tracks a CSS media query in React.
+ *
+ * The Steam chips rail is a vertical gamepad track (`data-axis="y"`) only
+ * while its CSS lays it out as a column; at ≤1100px the stylesheet flips it
+ * to a horizontal strip, and the engine has to flip with it or it would
+ * scroll the wrong axis.
+ */
+function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
 
 export default function BigScreenLibrary() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { games, setSelectedGameId } = useGames();
+  const { games, setSelectedGameId, launchGame, runningGameIds } = useGames();
+  const preset = useActivePreset();
+  const presetId = preset.id;
   const {
     filters,
     filteredGames,
@@ -105,116 +149,240 @@ export default function BigScreenLibrary() {
     return t("bigscreen.library.genresCount", { count: filters.genres.length });
   }, [filters.genres, t]);
 
-  return (
-    <div className="bigscreen-library-dashboard">
-      <div className="bigscreen-library-header-section">
-        <div className="bigscreen-library-title-row">
-          <h2 className="bigscreen-library-title">{t("bigscreen.library.myCollection")}</h2>
-          <span className="bigscreen-library-count">
-            {t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })}
-          </span>
+  const { item: focusedGame } = useFocusedGame({
+    items: filteredGames,
+    getId: (game) => game.id,
+  });
+
+  const backdrop = useGameBackdropArt(focusedGame);
+
+  const isRunning = focusedGame ? runningGameIds.includes(focusedGame.id) : false;
+  const status = focusedGame
+    ? PLAY_STATUS_DETAILS[focusedGame.playStatus || "backlog"]
+    : null;
+
+  const handlePlayFocused = useCallback(() => {
+    if (focusedGame) launchGame(focusedGame);
+  }, [focusedGame, launchGame]);
+
+  const playFocusable = useFocusable(handlePlayFocused);
+  const hubFocusable = useFocusable(() => {
+    if (focusedGame) handleSelectGame(focusedGame);
+  });
+
+  const isPlaystation = presetId === "playstation";
+  const isSwitch = presetId === "switch";
+  const isXbox = presetId === "xbox";
+  const isSteam = presetId === "steam";
+  const isClassic = presetId === "classic";
+  const steamRailStacks = useMediaQuery("(max-width: 1100px)");
+
+  const pageTitle = isPlaystation
+    ? t("bigscreen.library.gameLibrary")
+    : isSwitch
+      ? t("bigscreen.home.allSoftware")
+      : isXbox
+        ? t("bigscreen.library.myGames")
+        : t("bigscreen.library.myCollection");
+
+  const previewVariant = isSwitch || isClassic ? "inline" : "band";
+  const previewActions =
+    isSwitch || isClassic ? undefined : (
+      <>
+        <button
+          {...playFocusable}
+          type="button"
+          className="bs-btn bs-btn--primary"
+          onClick={handlePlayFocused}
+          disabled={isRunning}
+          data-primary-action="true"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="6 4 20 12 6 20 6 4" />
+          </svg>
+          {isRunning ? t("game.running") : t("game.play")}
+        </button>
+        <button
+          {...hubFocusable}
+          type="button"
+          className="bs-btn bs-btn--ghost"
+          onClick={() => {
+            if (focusedGame) handleSelectGame(focusedGame);
+          }}
+        >
+          {t("bigscreen.home.gameHub")}
+        </button>
+      </>
+    );
+
+  const selectionInfo = focusedGame
+    ? {
+        id: focusedGame.id,
+        title: gameDisplayName(focusedGame),
+        logoUrl: focusedGame.logoUrl,
+        description: focusedGame.description,
+        coverUrl: focusedGame.coverArtUrl,
+      }
+    : null;
+
+  const previewMeta = focusedGame ? (
+    <>
+      <BigScreenPill tone="accent" size="sm">
+        {focusedGame.platform}
+      </BigScreenPill>
+      {status ? (
+        <BigScreenPill tone="muted" size="sm" dot customColor={status.color}>
+          {t(status.labelKey)}
+        </BigScreenPill>
+      ) : null}
+      {focusedGame.playTime ? (
+        <BigScreenPill tone="muted" size="sm">
+          {focusedGame.playTime}
+        </BigScreenPill>
+      ) : null}
+    </>
+  ) : undefined;
+
+  const chips = (
+    <div className="bigscreen-library-tools">
+      <span className="bigscreen-library-tools__label">
+        {t("bigscreen.library.filters")}
+      </span>
+      <div
+        className="bigscreen-library-chips-row"
+        data-rail-id="library-chips"
+        data-axis={isSteam && !steamRailStacks ? "y" : undefined}
+      >
+        {/* Search Box / Input */}
+        <div
+          className={`bigscreen-filter-chip bigscreen-filter-chip--search ${
+            searchFocused ? "search-active" : ""
+          }`}
+          {...searchChip}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder={t("bigscreen.library.search")}
+            value={filters.search}
+            onChange={(e) => setSearch(e.target.value)}
+            onBlur={() => setSearchFocused(false)}
+          />
         </div>
 
-        {/* Filters Chips Row — a deliberate step above the grid. It is a
-            spatial rail (Left/Right walks the chips and wraps; Down drops
-            into the grid), and the eyebrow names it so the row reads as
-            "the tools" rather than an accidental first focus stop. */}
-        <div className="bigscreen-library-tools">
-          <span className="bigscreen-library-tools__label">
-            {t("bigscreen.library.filters")}
-          </span>
-          <div className="bigscreen-library-chips-row" data-rail-id="library-chips">
-          {/* Search Box / Input */}
-          <div
-            className={`bigscreen-filter-chip bigscreen-filter-chip--search ${
-              searchFocused ? "search-active" : ""
-            }`}
-            {...searchChip}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={t("bigscreen.library.search")}
-              value={filters.search}
-              onChange={(e) => setSearch(e.target.value)}
-              onBlur={() => setSearchFocused(false)}
-            />
-          </div>
+        <button type="button" className="bigscreen-filter-chip" {...platformChip}>
+          {t("bigscreen.library.chipPlatform", { value: platformLabel })}
+        </button>
 
-          <button type="button" className="bigscreen-filter-chip" {...platformChip}>
-            {t("bigscreen.library.chipPlatform", { value: platformLabel })}
+        <button type="button" className="bigscreen-filter-chip" {...genreChip}>
+          {t("bigscreen.library.chipGenre", { value: genreLabel })}
+        </button>
+
+        <button type="button" className="bigscreen-filter-chip" {...statusChip}>
+          {t("bigscreen.library.chipStatus", {
+            value:
+              filters.status === "all"
+                ? t("common.all")
+                : filters.status === "installed"
+                  ? t("filter.installed")
+                  : t("filter.notInstalled"),
+          })}
+        </button>
+
+        <button type="button" className="bigscreen-filter-chip" {...sourceChip}>
+          {t("bigscreen.library.chipSource", {
+            value: filters.source === "all" ? t("bigscreen.library.allSources") : filters.source.toUpperCase(),
+          })}
+        </button>
+
+        <button type="button" className="bigscreen-filter-chip" {...sortChip}>
+          {t("bigscreen.library.chipSort", { value: t(SORT_LABEL_KEYS[filters.sort]) })}
+        </button>
+
+        {(filters.search ||
+          filters.platforms.length > 0 ||
+          filters.genres.length > 0 ||
+          filters.status !== "all" ||
+          filters.source !== "all" ||
+          filters.sort !== "alphabetical") && (
+          <button type="button" className="bigscreen-filter-chip bigscreen-filter-chip--reset" {...resetChip}>
+            {t("bigscreen.library.resetFilters")}
           </button>
-
-          <button type="button" className="bigscreen-filter-chip" {...genreChip}>
-            {t("bigscreen.library.chipGenre", { value: genreLabel })}
-          </button>
-
-          <button type="button" className="bigscreen-filter-chip" {...statusChip}>
-            {t("bigscreen.library.chipStatus", {
-              value:
-                filters.status === "all"
-                  ? t("common.all")
-                  : filters.status === "installed"
-                    ? t("filter.installed")
-                    : t("filter.notInstalled"),
-            })}
-          </button>
-
-          <button type="button" className="bigscreen-filter-chip" {...sourceChip}>
-            {t("bigscreen.library.chipSource", {
-              value: filters.source === "all" ? t("bigscreen.library.allSources") : filters.source.toUpperCase(),
-            })}
-          </button>
-
-          <button type="button" className="bigscreen-filter-chip" {...sortChip}>
-            {t("bigscreen.library.chipSort", { value: t(SORT_LABEL_KEYS[filters.sort]) })}
-          </button>
-
-          {(filters.search ||
-            filters.platforms.length > 0 ||
-            filters.genres.length > 0 ||
-            filters.status !== "all" ||
-            filters.source !== "all" ||
-            filters.sort !== "alphabetical") && (
-            <button type="button" className="bigscreen-filter-chip bigscreen-filter-chip--reset" {...resetChip}>
-              {t("bigscreen.library.resetFilters")}
-            </button>
-          )}
-          </div>
-        </div>
+        )}
       </div>
+    </div>
+  );
 
-      {/* Library empty vs filtered grid */}
-      {games.length === 0 ? (
-        <div className="bigscreen-library-grid-container">
-          <div className="bigscreen-library-empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            <h3>{t("bigscreen.library.noGamesDesc")}</h3>
+  return (
+    <div
+      className="bigscreen-library-dashboard"
+      data-preset={presetId}
+      data-layout={isSteam ? "rail" : "stack"}
+    >
+      {/* Steam's chips live in their own column, at the nav's width, so
+          the grid keeps the full height of the page. */}
+      {isSteam ? <div className="bigscreen-library-filter-rail">{chips}</div> : null}
+
+      <div className="bigscreen-library-main">
+        <div className="bigscreen-library-header-section">
+          <div className="bigscreen-library-title-row">
+            <h2 className="bigscreen-library-title">{pageTitle}</h2>
+            <span className="bigscreen-library-count">
+              {t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })}
+            </span>
+            {isSteam ? null : chips}
           </div>
+
+          {games.length > 0 && filteredGames.length > 0 ? (
+            <BigScreenSelectionPreview
+              preset={presetId}
+              variant={previewVariant}
+              info={selectionInfo}
+              eyebrow={pageTitle}
+              meta={previewMeta}
+              actions={previewActions}
+              backdrop={{
+                staticUrl: backdrop.staticUrl,
+                animatedUrl: backdrop.animatedUrl,
+                artKey: focusedGame?.id ?? null,
+              }}
+            />
+          ) : null}
         </div>
-      ) : (
-        <GameGrid
-          games={filteredGames}
-          onSelect={handleSelectGame}
-          emptyState={
+
+        {/* Library empty vs filtered grid */}
+        {games.length === 0 ? (
+          <div className="bigscreen-library-grid-container">
             <div className="bigscreen-library-empty-state">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
-                <polygon points="12 2 2 22 22 22" />
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
-              <h3>{t("bigscreen.library.noMatch")}</h3>
-              <p>{t("bigscreen.library.noMatchHint")}</p>
+              <h3>{t("bigscreen.library.noGamesDesc")}</h3>
             </div>
-          }
-        />
-      )}
+          </div>
+        ) : (
+          <GameGrid
+            games={filteredGames}
+            onSelect={handleSelectGame}
+            autoFocusFirst
+            emptyState={
+              <div className="bigscreen-library-empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
+                  <polygon points="12 2 2 22 22 22" />
+                </svg>
+                <h3>{t("bigscreen.library.noMatch")}</h3>
+                <p>{t("bigscreen.library.noMatchHint")}</p>
+              </div>
+            }
+          />
+        )}
+      </div>
 
       {/* Filter Options Dropdown Drawer */}
       {dropdown && (

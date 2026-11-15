@@ -101,7 +101,14 @@ export default function BigScreenNav({
       data-engaged={engaged ? "true" : undefined}
       aria-label={t("bigscreen.mainSections")}
     >
-      <div className="bs-nav-track" data-orientation={orientation}>
+      {/* A vertical rail is a y-axis scroller: the engine aligns the
+          focused section at 25% down the rail instead of treating it as
+          a content row. */}
+      <div
+        className="bs-nav-track"
+        data-orientation={orientation}
+        data-axis={orientation === "vertical" ? "y" : undefined}
+      >
         {PRIMARY_SECTIONS.map((section) => (
           <NavItem
             key={section.id}

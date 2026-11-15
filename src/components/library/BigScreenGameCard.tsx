@@ -3,9 +3,13 @@
 // viewing distance, with controller focus support via the shared
 // GamepadProvider context.
 //
-// Focus state: card lifts with translateY(-8px), gets a glowing
-// accent border. The A button triggers `onClick` (which should
+// Focus state: the card lifts and scales by `--bs-card-lift`, gets a
+// glowing accent border. The A button triggers `onClick` (which should
 // navigate to the game detail page).
+//
+// The card deliberately has no `data-focus-key`: focusMemory derives the
+// key from `data-game-id` + the nearest `[data-rail-id]`, so the same
+// game in two rails restores to the rail the user left.
 //
 // As of PR 1, focus registration is delegated to `useFocusable` —
 // the ref callback is stable across renders, so the focus registry
@@ -23,11 +27,18 @@ import { ArtworkImage } from "../ui/ArtworkImage";
 interface BigScreenGameCardProps {
   game: Game;
   onClick: () => void;
+  /**
+   * Marks this card as its page's entry point. `GameGrid` sets it on
+   * the first painted card so route entry lands on a game instead of
+   * the search chip; rails never do.
+   */
+  autoFocus?: boolean;
 }
 
 export default function BigScreenGameCard({
   game,
   onClick,
+  autoFocus = false,
 }: BigScreenGameCardProps) {
   const runningIds = useRunningIds();
   const { t } = useLanguage();
@@ -51,7 +62,7 @@ export default function BigScreenGameCard({
       {...focusable}
       role="link"
       data-game-id={game.id}
-      data-focus-key={`game:${game.id}`}
+      data-bs-autofocus={autoFocus ? "true" : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}

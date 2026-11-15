@@ -34,6 +34,20 @@
   --bs-accent-soft: color-mix(in srgb, var(--color-accent) 18%, transparent);
   --bs-accent-line: color-mix(in srgb, var(--color-accent) 55%, transparent);
 
+  /* ── Brand (console identity, never the focus ring) ───────── */
+  /* A preset's palette block re-points these at the console colour.
+     Classic and every non-Big-Screen consumer leave them on the
+     accent, so the app theme still defines the look. */
+  --bs-brand: var(--bs-accent);
+  --bs-brand-strong: var(--bs-accent);
+  --bs-brand-soft: var(--bs-accent-soft);
+  --bs-brand-line: var(--bs-accent-line);
+  --bs-brand-ink: var(--color-accent-contrast);
+  --bs-ambient: none;
+  /* The one alias nav/card selection reads, so a preset can tint
+     selection with the brand without touching the accent ring. */
+  --bs-selection: var(--bs-accent);
+
   /* ── Status ───────────────────────────────────────────────── */
   --bs-success: var(--color-success);
   --bs-warning: var(--color-warning);
@@ -95,6 +109,10 @@
   --bs-ease: var(--ease-standard, cubic-bezier(0.2, 0.7, 0.2, 1));
   --bs-ease-enter: var(--ease-enter, cubic-bezier(0.16, 1, 0.3, 1));
   --bs-enter-y: 0.8rem;
+  /* Focused-card scale and the artwork crossfade budget. Presets
+     trade these between cinematic and flat. */
+  --bs-card-lift: 1.02;
+  --bs-art-dur: var(--bs-dur-slow);
 
   /* ── Elevation ────────────────────────────────────────────── */
   --bs-shadow-panel: 0 1.5rem 3.5rem color-mix(in srgb, var(--bs-bg-deep) 70%, transparent);
@@ -112,9 +130,104 @@
   --bs-surface-solid: color-mix(in srgb, var(--scrim-dark) 92%, var(--scrim-text) 8%);
 }
 
-/* ── Preset geometry ──────────────────────────────────────────
-   Only geometry, density and motion differ per preset. Colour is
-   never preset-scoped: the app theme owns it everywhere. */
+/* ── Console palettes ─────────────────────────────────────────
+   Big Screen only: each console preset brings its own surface
+   ladder, identity colour and ambient wash. The user's accent still
+   owns focus rings and selection; --bs-brand* is furniture (nav
+   bars, section rings, eyebrows, primary buttons, glows).
+
+   Keyed on `[data-bs-preset]` only — BigScreenPrefsContext mirrors
+   the resolved preset onto <html>, and a descendant override would
+   inherit stale computed derivatives. The shared block after the
+   four palettes re-declares those derivatives on the same element,
+   because a custom property resolves its var() references where it
+   is declared.
+
+   Photoshop-grade vividness is deliberate: these are console shells,
+   not the app's theme. Do not re-declare them per component. */
+
+[data-bs-preset="playstation"] {
+  --bs-bg: #070b16;
+  --bs-bg-deep: #03050b;
+  --bs-bg-raised: #101a33;
+  --bs-text: #f4f7ff;
+  --bs-brand: #2a6df4;
+  --bs-brand-strong: #6b99ff;
+  --bs-brand-ink: #ffffff;
+  --bs-ambient:
+    radial-gradient(70% 52% at 50% -12%, color-mix(in srgb, #2a6df4 30%, transparent), transparent 72%),
+    linear-gradient(180deg, #0a1224 0%, #05070d 100%);
+}
+
+[data-bs-preset="switch"] {
+  --bs-bg: #2b2b2b;
+  --bs-bg-deep: #232323;
+  --bs-bg-raised: #343434;
+  --bs-text: #ffffff;
+  --bs-brand: #e60012;
+  --bs-brand-strong: #ff4d5a;
+  --bs-brand-ink: #ffffff;
+  --bs-ambient: none;
+}
+
+[data-bs-preset="xbox"] {
+  --bs-bg: #0b0f0b;
+  --bs-bg-deep: #050805;
+  --bs-bg-raised: #141a14;
+  --bs-text: #f1f5f1;
+  --bs-brand: #107c10;
+  --bs-brand-strong: #4ade80;
+  --bs-brand-ink: #04170a;
+  --bs-ambient:
+    radial-gradient(62% 48% at 0% 0%, color-mix(in srgb, #107c10 22%, transparent), transparent 74%);
+}
+
+[data-bs-preset="steam"] {
+  --bs-bg: #12161d;
+  --bs-bg-deep: #0b0e13;
+  --bs-bg-raised: #1b2838;
+  --bs-text: #e6eef7;
+  --bs-brand: #66c0f4;
+  --bs-brand-strong: #1a9fff;
+  --bs-brand-ink: #06121c;
+  --bs-ambient:
+    linear-gradient(180deg, color-mix(in srgb, #1b2838 82%, transparent) 0%, color-mix(in srgb, #0b0e13 94%, transparent) 100%);
+}
+
+/* Palette-derived tokens, re-declared on the palette element itself.
+   `color-mix()`/`var()` inside a custom property resolve where the
+   property is declared, so an inherited copy would keep the theme's
+   surfaces after the preset swaps the text colour. */
+[data-bs-preset="playstation"],
+[data-bs-preset="switch"],
+[data-bs-preset="xbox"],
+[data-bs-preset="steam"] {
+  --bs-brand-soft: color-mix(in srgb, var(--bs-brand) 18%, transparent);
+  --bs-brand-line: color-mix(in srgb, var(--bs-brand) 55%, transparent);
+  --bs-text-dim: color-mix(in srgb, var(--bs-text) 62%, transparent);
+  --bs-text-faint: color-mix(in srgb, var(--bs-text) 42%, transparent);
+  --bs-surface-1: color-mix(in srgb, var(--bs-text) 5%, transparent);
+  --bs-surface-2: color-mix(in srgb, var(--bs-text) 9%, transparent);
+  --bs-surface-3: color-mix(in srgb, var(--bs-text) 15%, transparent);
+  --bs-surface-solid: color-mix(in srgb, var(--bs-bg) 92%, var(--bs-text) 8%);
+  --bs-border: color-mix(in srgb, var(--bs-text) 12%, transparent);
+  --bs-border-soft: color-mix(in srgb, var(--bs-text) 7%, transparent);
+  --bs-border-strong: color-mix(in srgb, var(--bs-text) 24%, transparent);
+  --bs-shadow-panel: 0 1.5rem 3.5rem color-mix(in srgb, var(--bs-bg-deep) 70%, transparent);
+  --bs-shadow-card: 0 0.6rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 45%, transparent);
+}
+
+/* Flat budget: Switch draws no elevation at all (declared after the
+   shared derived block so it wins). */
+[data-bs-preset="switch"] {
+  --bs-shadow-panel: none;
+  --bs-shadow-card: none;
+}
+
+/* ── Preset geometry + motion ─────────────────────────────────
+   Geometry, density and the motion budget differ per preset.
+   Colour lives in the palette blocks above; these blocks only size
+   things and set how fast they move. */
 
 :where([data-bs-preset="xbox"], [data-preset="xbox"]) {
   --bs-topbar-h: 4rem;
@@ -125,6 +238,10 @@
   --bs-card-radius: 0.7rem;
   --bs-title-lg: clamp(2.8rem, 4.6vw, 4.6rem);
   --bs-enter-y: 1rem;
+  --bs-card-lift: 1.03;
+  --bs-art-dur: 320ms;
+  --bs-dur: 180ms;
+  --bs-ease: cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
 :where([data-bs-preset="steam"], [data-preset="steam"]) {
@@ -137,17 +254,26 @@
   --bs-card-radius: 0.35rem;
   --bs-title-lg: clamp(1.7rem, 2.2vw, 2.3rem);
   --bs-enter-y: 0.35rem;
+  --bs-card-lift: 1.015;
+  --bs-art-dur: 300ms;
+  --bs-dur: 160ms;
 }
 
 :where([data-bs-preset="playstation"], [data-preset="playstation"]) {
   --bs-topbar-h: 3.6rem;
   --bs-nav-h: 3.9rem;
-  --bs-card-aspect: 16 / 9;
-  --bs-card-min: 20rem;
+  /* Square tiles on the home row; pages that need a wider card
+     (library posters) override the aspect locally. */
+  --bs-card-aspect: 1 / 1;
+  --bs-card-min: 10.5rem;
   --bs-card-gap: 1.3rem;
   --bs-card-radius: 1.1rem;
   --bs-title-lg: clamp(3rem, 5vw, 5rem);
   --bs-enter-y: 1.2rem;
+  --bs-card-lift: 1.02;
+  --bs-art-dur: 700ms;
+  --bs-dur: 380ms;
+  --bs-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 :where([data-bs-preset="switch"], [data-preset="switch"]) {
@@ -159,6 +285,14 @@
   --bs-card-radius: 1rem;
   --bs-title-lg: clamp(2rem, 2.8vw, 2.8rem);
   --bs-enter-y: 0.5rem;
+  --bs-card-lift: 1.05;
+  /* Instant art swap: the flat budget has no crossfade. */
+  --bs-art-dur: 0ms;
+  --bs-dur: 110ms;
+  --bs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* The utility cluster floats above the bottom edge instead of a
+     footer bar, so focused cards must clear a taller bottom margin. */
+  --bs-safe-bottom: calc(var(--bs-footer-h) + 4.4rem);
 }
 
 :where([data-bs-preset="classic"], [data-preset="classic"]) {
@@ -169,6 +303,8 @@
   --bs-card-gap: 1rem;
   --bs-card-radius: 0.8rem;
   --bs-title-lg: clamp(2.6rem, 4.2vw, 4.2rem);
+  --bs-card-lift: 1.02;
+  --bs-art-dur: 420ms;
 }
 
 /* Handheld / Steam Deck: shrink the whole rem ladder. */

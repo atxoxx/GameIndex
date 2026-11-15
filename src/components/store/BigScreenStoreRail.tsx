@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { useGamepad } from "../../hooks/GamepadProvider";
 import { useLanguage } from "../../context/LanguageContext";
 import BigScreenStoreGameCard from "./BigScreenStoreGameCard";
 import type { StoreGameSummary } from "../../types/game";
@@ -15,6 +14,8 @@ interface BigScreenStoreRailProps {
   railId?: string;
   /** Visually marks the rail containing the current controller focus. */
   isActive?: boolean;
+  /** Drops the title/count row (see BigScreenRail); `title` still labels the section. */
+  hideHeader?: boolean;
 }
 
 export default function BigScreenStoreRail({
@@ -25,33 +26,15 @@ export default function BigScreenStoreRail({
   onCardClick,
   railId,
   isActive = false,
+  hideHeader = false,
 }: BigScreenStoreRailProps) {
   const { t } = useLanguage();
-  const gamepad = useGamepad();
   const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll a focused card into view (same logic as the
-  // Library rail — see the math note in BigScreenRail.tsx).
-  useEffect(() => {
-    const el = gamepad.focusedElement;
-    if (!el || !scrollRef.current) return;
-    if (!scrollRef.current.contains(el)) return;
-    const cardRect = el.getBoundingClientRect();
-    const containerRect = scrollRef.current.getBoundingClientRect();
-    const offsetWithinContainer =
-      cardRect.left - containerRect.left + scrollRef.current.scrollLeft;
-    const desiredLeft = containerRect.width * 0.25;
-    const delta = offsetWithinContainer - desiredLeft;
-    if (Math.abs(delta) > 8) {
-      scrollRef.current.scrollTo({
-        left: scrollRef.current.scrollLeft + delta,
-        behavior: "smooth",
-      });
-    }
-  }, [gamepad.focusedElement]);
 
   // Shell restore: see BigScreenRail — the layout fires this event with
   // the remembered game id (and owning rail) and the rail re-focuses.
+  // Scrolling is the gamepad engine's job (one scroll owner per
+  // container), so this file has no focusedElement subscription.
   useEffect(() => {
     const onFocusGame = (event: Event) => {
       const parsed = parseFocusGameKey(
@@ -75,17 +58,19 @@ export default function BigScreenStoreRail({
       data-rail-id={railId}
       data-active={isActive ? "true" : "false"}
     >
-      <div className="bigscreen-rail-header">
-        {icon ? (
-          <span className="bigscreen-rail-icon" aria-hidden>
-            {icon}
+      {hideHeader ? null : (
+        <div className="bigscreen-rail-header">
+          {icon ? (
+            <span className="bigscreen-rail-icon" aria-hidden>
+              {icon}
+            </span>
+          ) : null}
+          <h3 className="bigscreen-rail-title">{title}</h3>
+          <span className="bigscreen-rail-count">
+            {games.length > 0 ? `${games.length}` : ""}
           </span>
-        ) : null}
-        <h3 className="bigscreen-rail-title">{title}</h3>
-        <span className="bigscreen-rail-count">
-          {games.length > 0 ? `${games.length}` : ""}
-        </span>
-      </div>
+        </div>
+      )}
 
       <div className="bigscreen-rail-viewport">
         {games.length === 0 ? (

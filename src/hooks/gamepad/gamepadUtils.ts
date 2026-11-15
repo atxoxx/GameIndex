@@ -66,7 +66,15 @@ export const REPEAT_INTERVAL_MS = 90;
 
 /** Containers whose in-track candidates win horizontal navigation. */
 export const HORIZONTAL_TRACK_SELECTOR =
-  ".bigscreen-rail-track, .bigscreen-cards, .bs-nav-track[data-orientation=\"horizontal\"], [data-rail-id]";
+  '.bigscreen-rail-track:not([data-axis="y"]), .bigscreen-cards:not([data-axis="y"]), .bs-nav-track[data-orientation="horizontal"], [data-rail-id]:not([data-axis="y"]):not(.bigscreen-library-grid-container)';
+
+/**
+ * Vertical tracks (`data-axis="y"`, e.g. the Steam section rail) get
+ * the same "focused item at 25%" treatment along the y axis. They are
+ * deliberately excluded from the horizontal selector above so a rail
+ * column is never mistaken for a content row.
+ */
+export const VERTICAL_TRACK_SELECTOR = '[data-axis="y"]';
 
 /**
  * Tracks that cycle at their edges. Content rails (`[data-rail-id]`)
@@ -74,8 +82,14 @@ export const HORIZONTAL_TRACK_SELECTOR =
  * behavior. The header strip is deliberately excluded: wrapping there
  * would trap focus away from the utility buttons (pointer / search /
  * exit) that sit to the right of the System entry.
+ *
+ * The library grid also carries `data-rail-id` (for focus-memory
+ * scoping) but is a GRID, not a rail: its own row-wrap heuristic owns
+ * horizontal movement, so edge-cycling here would send RIGHT from the
+ * last column to the top-left card instead of the next row.
  */
-export const WRAPPING_TRACK_SELECTOR = "[data-rail-id]";
+export const WRAPPING_TRACK_SELECTOR =
+  '[data-rail-id]:not([data-axis="y"]):not(.bigscreen-library-grid-container)';
 
 
 // ── Cycler / back-handler priorities ─────────────────────────────
@@ -428,13 +442,100 @@ export interface ScrollIntoViewOptions {
   immediate?: boolean;
 }
 
+/** Destinations closer than this are treated as already in place. */
+const SCROLL_SETTLE_PX = 4;
+/** Repeat destinations issued inside this window are dropped. */
+const SCROLL_DEDUPE_MS = 100;
+
+/**
+ * Last destination per scroll container, split by axis.
+ *
+ * Hold-to-repeat calls `navigate()` up to ~11×/second and a smooth
+ * scroll issued while the previous one is still animating fights
+ * itself (the second reads a mid-flight scrollLeft and overshoots).
+ * Remembering the pending destination lets us drop near-identical
+ * requests while still letting a genuinely new card retarget the
+ * scroll immediately.
+ */
+const lastScrollTarget = new WeakMap<
+  HTMLElement,
+  { left?: number; top?: number; at: number }
+>();
+
+function shouldScroll(
+  container: HTMLElement,
+  axis: "left" | "top",
+  target: number,
+): boolean {
+  const now = performance.now();
+  const previous = lastScrollTarget.get(container);
+  const priorTarget = previous?.[axis];
+  if (
+    previous &&
+    priorTarget !== undefined &&
+    now - previous.at < SCROLL_DEDUPE_MS &&
+    Math.abs(priorTarget - target) <= SCROLL_SETTLE_PX
+  ) {
+    return false;
+  }
+  const next: { left?: number; top?: number; at: number } = {
+    ...previous,
+    at: now,
+  };
+  next[axis] = target;
+  lastScrollTarget.set(container, next);
+  return true;
+}
+
+/**
+ * Whether focus-driven scrolling should jump instead of animate. The
+ * shell mirrors the user's reduce-motion setting to
+ * `html[data-reduce-motion]`; the media query covers the OS setting when
+ * the app hasn't resolved it yet.
+ */
+function prefersInstantScroll(): boolean {
+  if (typeof document === "undefined") return false;
+  if (document.documentElement.hasAttribute("data-reduce-motion")) return true;
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * The single scroll owner for gamepad focus: the D-pad, the stick and
+ * programmatic restores all route through here so exactly one animation
+ * runs per focus move.
+ */
 export function scrollElementIntoViewControlled(
   el: HTMLElement,
   opts: ScrollIntoViewOptions = {},
 ) {
-  const behavior: ScrollBehavior = opts.immediate ? "auto" : "smooth";
+  const behavior: ScrollBehavior =
+    opts.immediate || prefersInstantScroll() ? "auto" : "smooth";
 
-  // 1. Find if `el` is inside a horizontal rail container
+  // 1. Vertical tracks (the Steam section rail) align along y at 25%
+  //    and own their own scroll: never fall through to the page scroller
+  //    or the rail would drag the whole shell.
+  const verticalTrack = el.closest<HTMLElement>(VERTICAL_TRACK_SELECTOR);
+  if (verticalTrack) {
+    const itemRect = el.getBoundingClientRect();
+    const trackRect = verticalTrack.getBoundingClientRect();
+    const offsetWithinContainer =
+      itemRect.top - trackRect.top + verticalTrack.scrollTop;
+    const desiredTop = trackRect.height * 0.25;
+    const delta = offsetWithinContainer - desiredTop;
+    if (Math.abs(delta) > 8) {
+      const target = Math.round(Math.max(0, verticalTrack.scrollTop + delta));
+      if (shouldScroll(verticalTrack, "top", target)) {
+        verticalTrack.scrollTo({ top: target, behavior });
+      }
+    }
+    return;
+  }
+
+  // 2. Find if `el` is inside a horizontal rail container
   const track = el.closest(HORIZONTAL_TRACK_SELECTOR) as HTMLElement | null;
   if (track) {
     const cardRect = el.getBoundingClientRect();
@@ -443,14 +544,14 @@ export function scrollElementIntoViewControlled(
     const desiredLeft = trackRect.width * 0.25;
     const delta = offsetWithinContainer - desiredLeft;
     if (Math.abs(delta) > 8) {
-      track.scrollTo({
-        left: Math.max(0, track.scrollLeft + delta),
-        behavior,
-      });
+      const target = Math.round(Math.max(0, track.scrollLeft + delta));
+      if (shouldScroll(track, "left", target)) {
+        track.scrollTo({ left: target, behavior });
+      }
     }
   }
 
-  // 2. Find the main vertical scroll container
+  // 3. Find the main vertical scroll container
   const scrollParent = getVerticalScrollParent(el);
   if (scrollParent) {
     const elRect = el.getBoundingClientRect();
@@ -460,16 +561,16 @@ export function scrollElementIntoViewControlled(
 
     if (elRect.top < parentRect.top + topMargin) {
       const diff = parentRect.top + topMargin - elRect.top;
-      scrollParent.scrollTo({
-        top: Math.max(0, scrollParent.scrollTop - diff),
-        behavior,
-      });
+      const target = Math.round(Math.max(0, scrollParent.scrollTop - diff));
+      if (shouldScroll(scrollParent, "top", target)) {
+        scrollParent.scrollTo({ top: target, behavior });
+      }
     } else if (elRect.bottom > parentRect.bottom - bottomMargin) {
       const diff = elRect.bottom - (parentRect.bottom - bottomMargin);
-      scrollParent.scrollTo({
-        top: scrollParent.scrollTop + diff,
-        behavior,
-      });
+      const target = Math.round(scrollParent.scrollTop + diff);
+      if (shouldScroll(scrollParent, "top", target)) {
+        scrollParent.scrollTo({ top: target, behavior });
+      }
     }
   }
 }
@@ -595,9 +696,10 @@ export function nearestInDirection(
   // steps to the first card of the next row (and left at the start of
   // a row steps to the last card of the previous row). Only reached
   // when nothing matched in the pressed direction at all, and never
-  // inside a rail/header track, so it can't hijack normal steps or
-  // bump the user out of the header strip.
-  if (isHorizontalMove && !currentTrack) {
+  // inside a rail/header/vertical track, so it can't hijack normal
+  // steps, bump the user out of the header strip, or turn a LEFT press
+  // on the Steam rail into an UP step.
+  if (isHorizontalMove && !currentTrack && !current.closest(VERTICAL_TRACK_SELECTOR)) {
     const rightward = Math.cos(dirAngle) >= 0;
     const rowCandidates = near.filter((c) =>
       rightward ? c.cy > cur.y + 8 : c.cy < cur.y - 8,

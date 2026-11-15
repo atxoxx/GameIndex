@@ -3,14 +3,24 @@
    ============================================================
    Each preset changes the navigation paradigm, the home
    composition, the card geometry and the motion/art budget.
-   Colour is never preset-scoped: the app theme owns it.
+
+   Two colour families meet here, and they never swap jobs:
+
+   • `--bs-accent*` is the user's theme accent. It owns focus rings,
+     card outlines and the focus glow in every preset, so a controller
+     always sees the same "where am I" signal.
+   • `--bs-brand*` is the console identity (set by the palette blocks
+     in tokens.css). Presets spend it on furniture only — active nav
+     bars, section rings, brand marks, shadows/glows — never on the
+     focus ring. `--bs-selection` is the one alias nav/card selection
+     reads where a preset wants the brand bar without touching focus.
 
    Selectors are scoped to `.bs-shell[data-preset=…]`; geometry
    tokens for portaled overlays live in tokens.css.
    ============================================================ */
 
 /* ============================================================
-   Xbox — tile navigation, dashboard home
+   Xbox — top tile dock, dashboard home
    ============================================================ */
 
 .bs-shell[data-preset="xbox"] .bs-nav-item {
@@ -23,13 +33,13 @@
   padding: 0.4rem 0.85rem;
   background: var(--bs-surface-1);
   border-color: var(--bs-border-soft);
-  border-radius: var(--bs-radius-md);
+  border-radius: 0.4rem;
 }
 
 .bs-shell[data-preset="xbox"] .bs-nav-icon {
   width: 1.05rem;
   height: 1.05rem;
-  color: var(--bs-accent);
+  color: var(--bs-brand);
 }
 
 .bs-shell[data-preset="xbox"] .bs-nav-label {
@@ -41,8 +51,8 @@
 }
 
 .bs-shell[data-preset="xbox"] .bs-nav-item[data-active] {
-  background: var(--bs-surface-3);
-  border-color: var(--bs-accent-line);
+  background: var(--bs-surface-2);
+  border-color: transparent;
 }
 
 /* Compact turns inactive tiles into an icon dock; the active tile keeps
@@ -61,12 +71,30 @@
     border-color var(--bs-dur-fast) var(--bs-ease);
 }
 
+/* The active tile carries a full-width brand rule along its bottom
+   edge instead of the shared short underline. */
 .bs-shell[data-preset="xbox"] .bs-nav-item[data-active]::after {
-  display: none;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 2px;
+  border-radius: 0 0 0.4rem 0.4rem;
+  background: var(--bs-brand);
 }
 
 .bs-shell[data-preset="xbox"] .bs-topbar {
-  border-bottom-color: transparent;
+  border-bottom-color: color-mix(in srgb, var(--bs-brand-line) 45%, transparent);
+}
+
+/* Fast rise plus a green glow on the focused card. The ring itself
+   stays the user's accent (shell.css owns it); only the bloom is brand. */
+.bs-shell[data-preset="xbox"] .bs-frame.bigscreen-page-enter {
+  animation-duration: var(--bs-dur);
+}
+
+.bs-shell[data-preset="xbox"] .bigscreen-game-card[data-focused="true"] {
+  box-shadow: 0 0.4rem 1.6rem color-mix(in srgb, var(--bs-brand) 45%, transparent);
 }
 
 /* ============================================================
@@ -81,16 +109,30 @@
   padding: 0.9rem 0.65rem;
   border-right: 1px solid var(--bs-border-soft);
   border-bottom: 0;
-  background: color-mix(in srgb, var(--bs-bg) 84%, var(--bs-text) 3%);
-  overflow-y: auto;
+  background: color-mix(in srgb, var(--bs-bg) 86%, var(--bs-text) 2%);
+  overflow: hidden;
 }
 
+/* The track owns the rail's vertical scroll so `data-axis="y"` has a
+   real scroller to drive (the engine scrolls the focused item to 25%). */
 .bs-shell[data-preset="steam"] .bs-nav-track {
   flex-direction: column;
   align-items: stretch;
   gap: 0.12rem;
   width: 100%;
-  overflow: visible;
+  flex: 1;
+  min-height: 0;
+  /* Room for the focus ring: the track clips horizontally (it is a
+     scroller) and the items span its full width. */
+  padding: 0 0.35rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.bs-shell[data-preset="steam"] .bs-nav-track::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .bs-shell[data-preset="steam"] .bs-nav-item {
@@ -98,7 +140,7 @@
   justify-content: flex-start;
   min-height: 2.55rem;
   padding: 0.4rem 0.6rem;
-  border-radius: var(--bs-radius-sm);
+  border-radius: 0.3rem;
   font-size: var(--bs-text-sm);
 }
 
@@ -107,18 +149,20 @@
   border-color: transparent;
 }
 
+/* 3px brand bar on the rail's outer edge, not a bottom underline. */
 .bs-shell[data-preset="steam"] .bs-nav-item[data-active]::after {
-  left: -0.65rem;
-  top: 0.35rem;
-  bottom: 0.35rem;
+  left: -0.35rem;
   right: auto;
-  width: 0.16rem;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  width: 3px;
   height: auto;
-  border-radius: 0 0.1rem 0.1rem 0;
+  border-radius: 0 0.15rem 0.15rem 0;
+  background: var(--bs-brand);
 }
 
 .bs-shell[data-preset="steam"] .bs-nav-item[data-active] .bs-nav-icon {
-  color: var(--bs-accent);
+  color: var(--bs-brand-strong);
 }
 
 .bs-shell[data-preset="steam"] .bs-nav-label {
@@ -128,17 +172,45 @@
 
 .bs-shell[data-preset="steam"] .bs-topbar {
   padding-left: var(--bs-gutter);
+  border-bottom: 0;
 }
 
 .bs-shell[data-preset="steam"] .bigscreen-dashboard-backdrop-container {
   opacity: 0.42;
 }
 
+/* Near-flat: page changes settle almost immediately. */
+.bs-shell[data-preset="steam"] .bs-frame.bigscreen-page-enter {
+  animation-duration: var(--bs-dur);
+}
+
 /* ============================================================
    PlayStation — centred typographic hub, cinematic home
    ============================================================ */
 
+/* PlayStation draws its chrome over the artwork: the hero art runs to
+   the top edge and the section words float above it, the way the console
+   does it. Scroll margins (--bs-safe-top) still reserve both bars so a
+   focused card never hides under them. */
+.bs-shell[data-preset="playstation"] {
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main"
+    "footer";
+}
+
+.bs-shell[data-preset="playstation"] .bs-topbar {
+  grid-area: main;
+  align-self: start;
+  width: 100%;
+}
+
 .bs-shell[data-preset="playstation"] .bs-nav {
+  grid-area: main;
+  align-self: start;
+  z-index: 25;
+  height: var(--bs-nav-h);
+  margin-top: var(--bs-topbar-h);
   justify-content: center;
   background: transparent;
   border-bottom: 0;
@@ -148,6 +220,7 @@
   width: auto;
   justify-content: center;
   gap: clamp(1rem, 2.4vw, 2.6rem);
+  padding: 0.35rem 0.2rem;
   overflow: visible;
 }
 
@@ -157,9 +230,10 @@
   border: 0;
   background: none;
   color: var(--bs-text-faint);
-  font-size: var(--bs-text-md);
+  font-size: 0.95rem;
   font-weight: var(--bs-weight-medium);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .bs-shell[data-preset="playstation"] .bs-nav-item:hover {
@@ -182,12 +256,16 @@
   color: var(--bs-text);
 }
 
+/* Short brand rule under the active word: 2rem × 2px. */
 .bs-shell[data-preset="playstation"] .bs-nav-item[data-active]::after {
   left: 50%;
   right: auto;
-  bottom: -0.45rem;
-  width: 1.2rem;
+  bottom: 0;
+  width: 2rem;
+  height: 2px;
   transform: translateX(-50%);
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-brand);
 }
 
 .bs-shell[data-preset="playstation"] .bs-topbar {
@@ -197,6 +275,26 @@
   -webkit-backdrop-filter: none;
 }
 
+/* The mark recedes so the section words carry the screen. */
+.bs-shell[data-preset="playstation"] .bs-brand-mark {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Utilities read as one "control centre" pill on the right, clock
+   included. */
+.bs-shell[data-preset="playstation"] .bs-utilities {
+  padding: 0.35rem;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg) 55%, transparent);
+}
+
+/* Slow cinematic page fade (the art crossfade shares this budget). */
+.bs-shell[data-preset="playstation"] .bs-frame.bigscreen-page-enter {
+  animation-duration: var(--bs-art-dur);
+}
+
 /* ============================================================
    Switch — square icon tiles, flat grid home
    ============================================================ */
@@ -204,6 +302,8 @@
 .bs-shell[data-preset="switch"] .bs-nav {
   align-items: flex-start;
   padding-top: 0.45rem;
+  background: transparent;
+  border-bottom: 0;
 }
 
 .bs-shell[data-preset="switch"] .bs-nav-track {
@@ -222,7 +322,7 @@
   min-width: 3.6rem;
   min-height: 3.1rem;
   padding: 0;
-  border-radius: var(--bs-radius-md);
+  border-radius: 0.4rem;
   background: var(--bs-surface-1);
   border-color: var(--bs-border-soft);
 }
@@ -230,11 +330,17 @@
 .bs-shell[data-preset="switch"] .bs-nav-icon {
   width: 1.3rem;
   height: 1.3rem;
+  color: var(--bs-text-dim);
 }
 
 .bs-shell[data-preset="switch"] .bs-nav-item[data-active] {
   background: var(--bs-accent-soft);
-  border-color: var(--bs-accent-line);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 2px var(--bs-brand);
+}
+
+.bs-shell[data-preset="switch"] .bs-nav-item[data-active] .bs-nav-icon {
+  color: var(--bs-text);
 }
 
 .bs-shell[data-preset="switch"] .bs-nav-item[data-active]::after {
@@ -258,6 +364,51 @@
   color: var(--bs-text);
 }
 
+/* Top chrome floats: a transparent bar with a small mark, the utility
+   cluster docked bottom-left and the clock pinned top-right. The
+   footer legend would collide with the dock, so it steps aside. */
+.bs-shell[data-preset="switch"] .bs-topbar {
+  background: transparent;
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.bs-shell[data-preset="switch"] .bs-brand-mark {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: var(--bs-radius-xs);
+  box-shadow: none;
+}
+
+.bs-shell[data-preset="switch"] .bs-brand-word {
+  font-size: var(--bs-text-sm);
+}
+
+.bs-shell[data-preset="switch"] .bs-utilities {
+  position: fixed;
+  left: var(--bs-gutter);
+  bottom: calc(var(--bs-footer-h) + 0.6rem);
+  z-index: 30;
+  margin-left: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg) 62%, transparent);
+}
+
+.bs-shell[data-preset="switch"] .bs-clock {
+  position: fixed;
+  top: 1.1rem;
+  right: var(--bs-gutter);
+  padding: 0;
+  color: var(--bs-text-dim);
+}
+
+.bs-shell[data-preset="switch"] .bs-footer {
+  display: none;
+}
+
 /* Flat budget: no ambient art, no page rise. */
 .bs-shell[data-preset="switch"] .bigscreen-dashboard-backdrop-container,
 .bs-shell[data-preset="switch"] .bs-home-ambient {
@@ -268,17 +419,38 @@
   animation-duration: var(--bs-dur);
 }
 
+/* Flat budget: the shared focus glow is a shadow, so it goes too. */
+.bs-shell[data-preset="switch"] [data-focused="true"],
+.bs-shell[data-preset="switch"] :focus-visible {
+  box-shadow: none;
+}
+
 /* ============================================================
    Classic — inline strip, spotlight home
    ============================================================ */
+
+/* Classic keeps the neutral app-theme backdrop exactly as today. */
+.bs-shell[data-preset="classic"] {
+  --bs-ambient: var(--mesh-gradient);
+}
 
 .bs-shell[data-preset="classic"] .bs-nav {
   gap: 0.25rem;
 }
 
+.bs-shell[data-preset="classic"] .bs-nav-icon {
+  color: var(--bs-brand);
+}
+
 .bs-shell[data-preset="classic"] .bs-nav-label {
   max-width: none;
   opacity: 1;
+}
+
+/* Brand === accent here, so the classic marker keeps the app identity
+   while still reading through the same alias as the other presets. */
+.bs-shell[data-preset="classic"] .bs-nav-item[data-active]::after {
+  background: var(--bs-brand);
 }
 
 /* ============================================================
@@ -298,6 +470,8 @@
   aspect-ratio: var(--bs-card-aspect);
 }
 
+/* Narrow / Deck-sized viewports: tighten each preset's chrome rather
+   than changing its identity. */
 @media (max-width: 900px) {
   .bs-shell[data-preset="steam"] {
     --bs-rail-w: 4.6rem;
@@ -313,5 +487,17 @@
 
   .bs-shell[data-preset="xbox"] .bs-nav-item {
     min-width: 6rem;
+  }
+
+  .bs-shell[data-preset="playstation"] .bs-nav-track {
+    gap: 0.9rem;
+  }
+
+  .bs-shell[data-preset="playstation"] .bs-nav-item {
+    font-size: 0.82rem;
+  }
+
+  .bs-shell[data-preset="switch"] .bs-utilities {
+    padding: 0.25rem 0.4rem;
   }
 }

@@ -73,6 +73,12 @@ export function focusSelectorForKey(key: string): string {
   const parsed = parseFocusGameKey(key);
   if (parsed) {
     const id = escapeSelectorValue(parsed.gameId);
+    // Prefer the remembered rail when the key names one, so a restore
+    // can never land on the same game in a different rail.
+    if (parsed.railId) {
+      const rail = escapeSelectorValue(parsed.railId);
+      return `[data-rail-id="${rail}"] [data-game-id="${id}"], [data-focus-key="${escapeSelectorValue(key)}"], [data-game-id="${id}"]`;
+    }
     return `[data-focus-key="${escapeSelectorValue(key)}"], [data-game-id="${id}"]`;
   }
   return `[data-focus-key="${escapeSelectorValue(key)}"]`;

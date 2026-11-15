@@ -1,0 +1,667 @@
+/* ============================================================
+   Big Screen — selection preview
+   ============================================================
+   One panel, five compositions (see BigScreenSelectionPreview.tsx).
+   Pages pass slots; this file decides how those slots read on each
+   console.
+
+   Colours resolve through the tokens: `--bs-brand*` is furniture
+   (eyebrows, veils, poster glow), the surface ladder is the panel
+   itself, and the focus ring stays `--bs-accent` (owned by the shell).
+
+   Every composition reserves its height and clamps its copy: the panel
+   sits above rails that must not move when the controller browses.
+   ============================================================ */
+
+.bs-sel {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  border-radius: var(--bs-radius-md);
+}
+
+/* ── Artwork layers ────────────────────────────────────────── */
+
+.bs-sel-art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-position: center 30%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  animation: bs-sel-art-in var(--bs-art-dur) var(--bs-ease) both;
+}
+
+/* A new game's art rises out of the page colour rather than cutting in.
+   `--bs-art-dur` is 0ms on the flat preset and the global reduce-motion
+   rule disables it entirely. */
+@keyframes bs-sel-art-in {
+  from {
+    opacity: 0.25;
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.bs-sel-art-animated {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bs-sel-veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+/* ── Copy primitives ───────────────────────────────────────── */
+
+.bs-sel-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  min-width: 0;
+}
+
+.bs-sel-body--center {
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--bs-space-5);
+  width: 100%;
+}
+
+.bs-sel-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bs-sel-copy--center {
+  align-items: center;
+  text-align: center;
+}
+
+.bs-sel-eyebrow {
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--bs-brand);
+}
+
+/* Reserved so a logo sliding in over a title (or a broken logo falling
+   back to text) doesn't nudge the actions below it. */
+.bs-sel-identity {
+  display: flex;
+  align-items: center;
+  min-height: clamp(2.6rem, 6vh, 5rem);
+  max-width: 100%;
+}
+
+.bs-sel-logo {
+  max-width: min(34rem, 100%);
+  max-height: clamp(3rem, 8vh, 7rem);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(
+    0 0.5rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 65%, transparent)
+  );
+}
+
+.bs-sel-title {
+  margin: 0;
+  font-size: var(--bs-title-lg);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.bs-sel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-2);
+  /* One row of pills at TV distance; a third platform must not wrap
+     into the description and move the actions. */
+  max-height: 2.2rem;
+  overflow: hidden;
+}
+
+.bs-sel-description {
+  margin: 0;
+  max-width: 44rem;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-md);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bs-sel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-3);
+  margin-top: var(--bs-space-1);
+}
+
+.bs-sel-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-6);
+  margin: var(--bs-space-2) 0 0;
+}
+
+.bs-sel-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.bs-sel-fact dt {
+  font-size: var(--bs-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bs-sel-fact dd {
+  margin: 0;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  color: var(--bs-text);
+}
+
+/* The facts card reuses `.bigscreen-facts` / `.bigscreen-fact`, so the
+   Xbox band reads exactly like the spotlight the app already ships. */
+.bs-sel-facts-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--bs-space-3);
+  padding: var(--bs-space-4);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+  background: color-mix(in srgb, var(--bs-bg) 66%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bs-sel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2);
+}
+
+.bs-sel-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-xs);
+  background: var(--bs-surface-1);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  white-space: nowrap;
+}
+
+.bs-sel-chip b {
+  color: var(--bs-text);
+  font-weight: var(--bs-weight-bold);
+}
+
+/* PlayStation's square carousel: centred, scrollable, and clipped by
+   the hero so the art stays one screen. */
+.bs-sel-row {
+  width: 100%;
+  max-width: min(64rem, 100%);
+  margin-inline: auto;
+  /* The carousel shares the hero with the copy block, so its tiles are a
+     notch smaller than the page's rail cards (a 1080p hero would
+     otherwise clip the top row on 720p / Deck heights). */
+  --bs-card-min: 9.5rem;
+  --bs-card-gap: 0.9rem;
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-body {
+  gap: var(--bs-space-4);
+}
+
+.bs-sel-row .bigscreen-rail-track {
+  justify-content: safe center;
+}
+
+/* ── PlayStation ───────────────────────────────────────────── */
+
+.bs-sel--playstation.bs-sel--hero {
+  /* Content flows from below the overlaid chrome rather than being
+     bottom-aligned: on a short TV the row and the actions must never
+     overflow behind the section words. The art still fills the box. */
+  display: block;
+  min-height: clamp(28rem, 62vh, 46rem);
+  padding: calc(var(--bs-safe-top) + var(--bs-space-2)) var(--bs-gutter)
+    var(--bs-space-5);
+  overflow: hidden;
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-copy {
+  width: min(56rem, 92%);
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-logo {
+  object-position: center;
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-description {
+  max-width: 46rem;
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-facts {
+  justify-content: center;
+  gap: var(--bs-space-5);
+}
+
+.bs-sel--playstation.bs-sel--hero .bs-sel-fact {
+  align-items: center;
+}
+
+/* Blue identity at the top, black floor at the bottom: the art reads
+   as the console's own wash instead of a photo behind text. */
+.bs-sel--playstation .bs-sel-veil {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bs-brand) 28%, transparent) 0%,
+      transparent 42%
+    ),
+    radial-gradient(
+      120% 92% at 50% 28%,
+      transparent 0%,
+      color-mix(in srgb, var(--bs-bg) 52%, transparent) 62%,
+      var(--bs-bg) 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 2%,
+      color-mix(in srgb, var(--bs-bg) 34%, transparent) 36%,
+      transparent 70%
+    );
+}
+
+.bs-sel--playstation.bs-sel--band {
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(14rem, 30vh, 22rem);
+  padding: var(--bs-space-5) var(--bs-space-6);
+  overflow: hidden;
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-copy {
+  width: min(40rem, 68%);
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-title {
+  font-size: var(--bs-title-md);
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-identity {
+  min-height: clamp(2.2rem, 5vh, 4rem);
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-logo {
+  max-height: clamp(2.4rem, 6vh, 4.4rem);
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-description {
+  -webkit-line-clamp: 1;
+  max-width: 34rem;
+}
+
+.bs-sel--playstation.bs-sel--band .bs-sel-veil {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 94%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 68%, transparent) 46%,
+      transparent 100%
+    ),
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 0%,
+      color-mix(in srgb, var(--bs-bg) 22%, transparent) 44%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bs-brand) 22%, transparent) 0%,
+      transparent 56%
+    );
+}
+
+/* ── Xbox ──────────────────────────────────────────────────── */
+
+.bs-sel--xbox {
+  display: flex;
+  align-items: flex-end;
+  padding: var(--bs-gutter);
+  overflow: hidden;
+}
+
+/* 16:9 art, cropped by the band: the height is the budget the
+   composition gets, the crop keeps the frame wide. */
+.bs-sel--xbox.bs-sel--hero {
+  min-height: clamp(18rem, 46vh, 34rem);
+}
+
+.bs-sel--xbox.bs-sel--band {
+  min-height: clamp(12rem, 28vh, 22rem);
+  padding: var(--bs-space-5) var(--bs-space-6);
+}
+
+.bs-sel--xbox .bs-sel-body--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(13rem, 1fr);
+  align-items: end;
+  gap: var(--bs-space-6);
+  width: 100%;
+}
+
+.bs-sel--xbox .bs-sel-description {
+  -webkit-line-clamp: 3;
+}
+
+.bs-sel--xbox.bs-sel--band .bs-sel-description {
+  -webkit-line-clamp: 2;
+}
+
+.bs-sel--xbox .bs-sel-veil {
+  background:
+    linear-gradient(
+      0deg,
+      var(--bs-bg) 0%,
+      color-mix(in srgb, var(--bs-bg) 60%, transparent) 38%,
+      transparent 78%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bs-bg) 88%, transparent) 0%,
+      color-mix(in srgb, var(--bs-bg) 28%, transparent) 62%,
+      transparent 100%
+    );
+}
+
+/* ── Steam ─────────────────────────────────────────────────── */
+
+.bs-sel--steam {
+  display: flex;
+  align-items: center;
+  padding: var(--bs-space-4) var(--bs-space-5);
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-md);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bs-brand) 14%, var(--bs-surface-1)) 0%,
+    var(--bs-surface-1) 62%,
+    transparent 100%
+  );
+}
+
+.bs-sel--steam.bs-sel--hero {
+  min-height: clamp(10rem, 26vh, 18rem);
+}
+
+.bs-sel--steam.bs-sel--band {
+  min-height: clamp(9rem, 22vh, 15rem);
+}
+
+.bs-sel--steam .bs-sel-body--spotlight {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--bs-space-5);
+  width: 100%;
+}
+
+.bs-sel--steam .bs-sel-poster {
+  flex: 0 0 auto;
+  width: clamp(4.2rem, 6.5vw, 6.4rem);
+  aspect-ratio: 2 / 3;
+  border-radius: var(--bs-radius-sm);
+  overflow: hidden;
+  background: var(--bs-surface-2);
+  box-shadow: 0 0.6rem 1.6rem color-mix(in srgb, var(--bs-bg-deep) 55%, transparent);
+}
+
+.bs-sel--steam .bs-sel-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bs-sel--steam .bs-sel-poster-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    120% 100% at 30% 20%,
+    var(--bs-brand-soft),
+    transparent 70%
+  );
+}
+
+.bs-sel--steam .bs-sel-copy {
+  gap: var(--bs-space-2);
+}
+
+.bs-sel--steam .bs-sel-identity {
+  min-height: clamp(1.8rem, 4vh, 3rem);
+}
+
+.bs-sel--steam .bs-sel-logo {
+  max-height: clamp(2rem, 4.4vh, 3.2rem);
+}
+
+.bs-sel--steam .bs-sel-title {
+  font-size: var(--bs-title-md);
+}
+
+/* ── Switch ────────────────────────────────────────────────── */
+
+/* No art at all: the tiles are the artwork. */
+.bs-sel--switch.bs-sel--hero {
+  min-height: 12rem;
+  padding-inline: var(--bs-gutter);
+}
+
+.bs-sel--switch.bs-sel--hero .bs-sel-title {
+  font-size: var(--bs-title-lg);
+}
+
+/* The pill row becomes a plain text line ("Switch / Backlog / 2021"):
+   console-natural, and one visual weight less than the PlayStation
+   version of the same information. */
+.bs-sel--switch .bigscreen-pill {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+}
+
+.bs-sel--switch .bs-sel-meta > * + *::before {
+  content: "·";
+  margin-right: var(--bs-space-2);
+  color: var(--bs-text-faint);
+}
+
+/* ── Switch / Classic one-liner ────────────────────────────── */
+
+.bs-sel--switch.bs-sel--band,
+.bs-sel--switch.bs-sel--inline,
+.bs-sel--classic.bs-sel--band,
+.bs-sel--classic.bs-sel--inline {
+  min-height: 2.75rem;
+}
+
+.bs-sel-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--bs-space-2) var(--bs-space-3);
+  min-height: 2.75rem;
+  padding: 0 var(--bs-space-1);
+}
+
+.bs-sel-line-title {
+  flex: 0 1 auto;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--bs-text-lg);
+  font-weight: var(--bs-weight-bold);
+  color: var(--bs-text);
+}
+
+.bs-sel-line-meta {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bs-space-2);
+  min-width: 0;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+}
+
+.bs-sel-line-meta .bigscreen-pill {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+}
+
+.bs-sel-line-meta > * + *::before {
+  content: "·";
+  margin-right: var(--bs-space-2);
+  color: var(--bs-text-faint);
+}
+
+.bs-sel-line-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-2);
+  margin-left: auto;
+}
+
+/* The one-liner is a 44px row; the shared buttons shrink to sit in it
+   without dictating the height. */
+.bs-sel-line-actions .bs-btn,
+.bs-sel-line-actions .bigscreen-details-btn {
+  min-height: 2.2rem;
+  padding: 0.3rem 0.9rem;
+  font-size: var(--bs-text-sm);
+}
+
+/* ── Classic ───────────────────────────────────────────────── */
+
+/* The hero delegates to BigScreenSpotlight, which owns its own box;
+   the wrapper only carries the preset hook for page-level tweaks. */
+.bs-sel--delegate {
+  display: block;
+}
+
+/* ── Empty / welcome ───────────────────────────────────────── */
+
+.bs-sel--empty {
+  display: flex;
+  align-items: center;
+  padding: var(--bs-gutter);
+  background: radial-gradient(
+    120% 120% at 15% 15%,
+    var(--bs-brand-soft),
+    transparent 62%
+  );
+}
+
+.bs-sel--empty.bs-sel--hero {
+  min-height: clamp(16rem, 42vh, 30rem);
+}
+
+.bs-sel--empty.bs-sel--band {
+  min-height: clamp(10rem, 24vh, 18rem);
+}
+
+.bs-sel--empty.bs-sel--inline {
+  min-height: 2.75rem;
+  padding: var(--bs-space-3) var(--bs-space-1);
+}
+
+.bs-sel--empty .bs-sel-title {
+  font-size: var(--bs-title-md);
+}
+
+.bs-sel--empty .bs-sel-description {
+  -webkit-line-clamp: 3;
+}
+
+/* ── Narrow viewports ──────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .bs-sel--xbox .bs-sel-body--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bs-sel--xbox .bs-sel-facts-card {
+    display: none;
+  }
+
+  .bs-sel--playstation.bs-sel--band .bs-sel-copy {
+    width: 100%;
+  }
+}
+
+/* Short 10-foot viewports (720p TVs, Deck): the PlayStation hero loses
+   its fact strip and one description line so the carousel never clips. */
+@media (max-height: 850px) {
+  .bs-sel--playstation.bs-sel--hero .bs-sel-facts {
+    display: none;
+  }
+
+  .bs-sel--playstation.bs-sel--hero .bs-sel-description {
+    -webkit-line-clamp: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .bs-sel--playstation.bs-sel--hero .bs-sel-copy {
+    width: 100%;
+  }
+
+  .bs-sel--playstation.bs-sel--hero {
+    min-height: 20rem;
+  }
+
+  .bs-sel--steam .bs-sel-poster {
+    display: none;
+  }
+
+  .bs-sel-facts {
+    gap: var(--bs-space-4);
+  }
+}

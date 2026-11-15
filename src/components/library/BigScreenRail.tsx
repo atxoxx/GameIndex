@@ -17,12 +17,13 @@
 //
 // Auto-scroll
 // ───────────
-// When a card inside THIS rail gains focus, the viewport nudges the
-// scroll position so the focused card lands at ~25% from the left
-// edge — see the math comment below.
+// The gamepad engine owns scrolling for every focused element
+// (`scrollElementIntoViewControlled`): it nudges the rail so the focused
+// card lands ~25% from the left edge. This rail deliberately does NOT
+// subscribe to `focusedElement` itself — two scrollers on one container
+// fight each other during hold-to-repeat.
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenGameCard from "./BigScreenGameCard";
 import type { Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
@@ -47,6 +48,13 @@ interface BigScreenRailProps {
   railId?: string;
   /** Visually marks the rail containing the current controller focus. */
   isActive?: boolean;
+  /**
+   * Drops the title/count row. Rows that live inside a hero (the
+   * PlayStation games carousel, the Switch recent row) are named by the
+   * panel above them, so a second heading would just be noise — the
+   * `title` still labels the section for assistive tech.
+   */
+  hideHeader?: boolean;
 }
 
 export default function BigScreenRail({
@@ -57,41 +65,14 @@ export default function BigScreenRail({
   onCardClick,
   railId,
   isActive = false,
+  hideHeader = false,
 }: BigScreenRailProps) {
-  const gamepad = useGamepad();
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // ── Auto-scroll a focused card into view ─────────────────────
-  // We deliberately use `getBoundingClientRect` rather than
-  // `el.offsetLeft` — the latter is measured against the nearest
-  // positioned ancestor (`offsetParent`), which is NOT necessarily
-  // our scroll container. `getBoundingClientRect` is
-  // viewport-relative, so subtracting the rail's viewport-relative
-  // rect and adding its current `scrollLeft` gives the card's true
-  // offset inside the scroll container, regardless of how the DOM
-  // is nested.
-  useEffect(() => {
-    const el = gamepad.focusedElement;
-    if (!el || !scrollRef.current) return;
-    if (!scrollRef.current.contains(el)) return;
-    const cardRect = el.getBoundingClientRect();
-    const containerRect = scrollRef.current.getBoundingClientRect();
-    const offsetWithinContainer =
-      cardRect.left - containerRect.left + scrollRef.current.scrollLeft;
-    const desiredLeft = containerRect.width * 0.25;
-    const delta = offsetWithinContainer - desiredLeft;
-    if (Math.abs(delta) > 8) {
-      scrollRef.current.scrollTo({
-        left: scrollRef.current.scrollLeft + delta,
-        behavior: "smooth",
-      });
-    }
-  }, [gamepad.focusedElement]);
-
   // Shell restore: when the layout remembers a card for this route, it
-  // fires `bigscreen:focus-game` and the owning rail re-focuses it.
-  // The auto-scroll effect above then brings it back into view.
+  // fires `bigscreen:focus-game` and the owning rail re-focuses it. The
+  // engine's focus listener scrolls it back into view.
   useEffect(() => {
     const onFocusGame = (event: Event) => {
       const parsed = parseFocusGameKey(
@@ -115,17 +96,19 @@ export default function BigScreenRail({
       data-rail-id={railId}
       data-active={isActive ? "true" : "false"}
     >
-      <div className="bigscreen-rail-header">
-        {icon ? (
-          <span className="bigscreen-rail-icon" aria-hidden>
-            {icon}
+      {hideHeader ? null : (
+        <div className="bigscreen-rail-header">
+          {icon ? (
+            <span className="bigscreen-rail-icon" aria-hidden>
+              {icon}
+            </span>
+          ) : null}
+          <h3 className="bigscreen-rail-title">{title}</h3>
+          <span className="bigscreen-rail-count">
+            {games.length > 0 ? `${games.length}` : ""}
           </span>
-        ) : null}
-        <h3 className="bigscreen-rail-title">{title}</h3>
-        <span className="bigscreen-rail-count">
-          {games.length > 0 ? `${games.length}` : ""}
-        </span>
-      </div>
+        </div>
+      )}
 
       <div className="bigscreen-rail-viewport">
         {games.length === 0 ? (

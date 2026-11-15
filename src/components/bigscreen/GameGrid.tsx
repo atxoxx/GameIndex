@@ -53,12 +53,25 @@ interface GameGridProps {
   onSelect: (game: Game) => void;
   /** Rendered in place of the grid when `games` is empty. */
   emptyState?: ReactNode;
+  /**
+   * Owning focus rail. Defaults to `library-grid`; pages that mount a
+   * second grid (the Switch home's all-software wall) name it so
+   * `bigscreen:focus-game` restores into the right rail.
+   */
+  railId?: string;
+  /**
+   * Marks the first painted card `data-bs-autofocus`, so route entry
+   * lands on a game instead of the filter chips above the grid.
+   */
+  autoFocusFirst?: boolean;
 }
 
 export default function GameGrid({
   games,
   onSelect,
   emptyState,
+  railId = "library-grid",
+  autoFocusFirst = false,
 }: GameGridProps) {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(0);
@@ -200,14 +213,18 @@ export default function GameGrid({
     focusCard(targetId);
   }, [gamesKey, games, focusCard]);
 
-  // One-shot initial focus. The list-change restore below deliberately
-  // skips the first mount, which used to leave the shell's route-change
-  // fallback to land on the first focusable in the content area — the
-  // library search chip — instead of a game. Skipped when the shell has
-  // a remembered focus for this route: it restores that element itself
-  // via `bigscreen:focus-game`, so returning from a game still lands on
-  // the card the user left.
+  // One-shot initial focus. Only a grid that declared itself the page's
+  // entry point (`autoFocusFirst`, the library) grabs the controller on
+  // mount; a secondary wall (Switch home's all-software grid) must let
+  // the page's own entry element win. The list-change restore above
+  // deliberately skips the first mount, which used to leave the shell's
+  // route-change fallback to land on the first focusable in the content
+  // area — the library search chip — instead of a game. Skipped when the
+  // shell has a remembered focus for this route: it restores that element
+  // itself via `bigscreen:focus-game`, so returning from a game still
+  // lands on the card the user left.
   useEffect(() => {
+    if (!autoFocusFirst) return;
     if (didInitialFocusRef.current) return;
     if (games.length === 0) return;
     // The virtualized grid needs its stride measured before it can
@@ -216,7 +233,7 @@ export default function GameGrid({
     didInitialFocusRef.current = true;
     if (recallFocus(location.pathname)) return;
     focusCard(games[0].id);
-  }, [games, useVirtual, viewportH, containerW, focusCard, location.pathname]);
+  }, [autoFocusFirst, games, useVirtual, viewportH, containerW, focusCard, location.pathname]);
 
   // Route-return focus restore: the shell remembers which card the user
   // was on before drilling into a game page and fires this event when
@@ -228,18 +245,24 @@ export default function GameGrid({
         `game:${(event as CustomEvent<string>).detail}`,
       );
       if (!parsed) return;
-      // Rail-scoped memories are handled by the owning rail.
-      if (parsed.railId) return;
+      // Rail-scoped memories are handled by the owning rail; this grid
+      // is itself a rail (`library-grid` by default), so it also accepts
+      // its own scoped key plus unscoped ones.
+      if (parsed.railId && parsed.railId !== railId) return;
       if (!games.some((g) => g.id === parsed.gameId)) return;
       focusCard(parsed.gameId);
     };
     window.addEventListener("bigscreen:focus-game", onFocusGame);
     return () => window.removeEventListener("bigscreen:focus-game", onFocusGame);
-  }, [games, focusCard]);
+  }, [games, focusCard, railId]);
 
   if (games.length === 0) {
     return (
-      <div className="bigscreen-library-grid-container" ref={scrollRef}>
+      <div
+        className="bigscreen-library-grid-container"
+        ref={scrollRef}
+        data-rail-id={railId}
+      >
         {emptyState}
       </div>
     );
@@ -250,14 +273,16 @@ export default function GameGrid({
       <div
         className="bigscreen-library-grid-container"
         ref={scrollRef}
+        data-rail-id={railId}
         onFocusCapture={handleFocusCapture}
       >
         <div className="bigscreen-library-grid">
-          {games.map((game) => (
+          {games.map((game, index) => (
             <BigScreenGameCard
               key={game.id}
               game={game}
               onClick={() => onSelect(game)}
+              autoFocus={autoFocusFirst && index === 0}
             />
           ))}
         </div>
@@ -278,12 +303,13 @@ export default function GameGrid({
   for (let r = firstRow; r <= lastRow; r++) {
     const start = r * cols;
     const rowItems = games.slice(start, start + cols);
-    rowItems.forEach((g) =>
+    rowItems.forEach((g, i) =>
       visible.push(
         <BigScreenGameCard
           key={g.id}
           game={g}
           onClick={() => onSelect(g)}
+          autoFocus={autoFocusFirst && start + i === 0}
         />,
       ),
     );
@@ -293,6 +319,7 @@ export default function GameGrid({
     <div
       className="bigscreen-library-grid-container"
       ref={scrollRef}
+      data-rail-id={railId}
       onFocusCapture={handleFocusCapture}
     >
       <div style={{ position: "relative", height: totalHeight }}>

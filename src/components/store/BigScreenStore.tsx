@@ -1,26 +1,59 @@
+// BigScreenStore — Store and Wishlist inside Big Screen Mode.
+//
+// Both views share one fetch and one selection model: `useFocusedGame`
+// re-resolves the remembered card id against the current list on every
+// render, so the featured panel follows the controller without ever
+// holding a `StoreGameSummary` that the data may have replaced.
+//
+// Composition is per preset, data is not:
+//   • PlayStation — art band with the store's primary action, then
+//     landscape rails.
+//   • Xbox — hero band with the fact card on the right, then rails.
+//   • Steam — compact spotlight (poster thumb, fact chips) over poster
+//     rails.
+//   • Switch — a brand-coloured store strip, the featured square row,
+//     then square rails; no featured panel at all (the tiles are the
+//     page).
+//   • Classic — the shipped spotlight over the shipped rails.
+//
+// The wishlist keeps its grid and its own preview line: activating a
+// card opens that card's store page, never the previously featured one.
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useWishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useActivePreset } from "../../context/BigScreenPrefsContext";
 import { useFocusable } from "../../hooks/useFocusable";
-import { useGamepad } from "../../hooks/GamepadProvider";
 import { useGameBackdropArt } from "../../hooks/useGameBackdropArt";
 import BigScreenStoreRail from "./BigScreenStoreRail";
 import BigScreenDashboardBackdrop from "../bigscreen/BigScreenDashboardBackdrop";
 import BigScreenPill from "../bigscreen/BigScreenPill";
-import BigScreenSpotlight, {
-  type SpotlightFact,
-} from "../bigscreen/BigScreenSpotlight";
+import BigScreenSelectionPreview from "../bigscreen/selection/BigScreenSelectionPreview";
+import { useFocusedGame } from "../bigscreen/selection/useFocusedGame";
 import { extractYear } from "../bigscreen/bigscreenFormat";
 import type { StoreGameSummary } from "../../types/game";
 import "../../styles/wishlist.css";
 
+/** Keep the first occurrence of each game id across the four shelves. */
+function dedupeById(lists: StoreGameSummary[][]): StoreGameSummary[] {
+  const seen = new Set<number>();
+  const out: StoreGameSummary[] = [];
+  for (const game of lists.flat()) {
+    if (seen.has(game.id)) continue;
+    seen.add(game.id);
+    out.push(game);
+  }
+  return out;
+}
+
 export default function BigScreenStore() {
   const { t } = useLanguage();
-  const gamepad = useGamepad();
   const navigate = useNavigate();
   const location = useLocation();
+  const preset = useActivePreset();
+  const presetId = preset.id;
   const { wishlist } = useWishlistContext();
 
   // BigScreenStore mounts at /store and /wishlist only (the /deals route
@@ -35,9 +68,6 @@ export default function BigScreenStore() {
   const [top, setTop] = useState<StoreGameSummary[]>([]);
   const [comingSoon, setComingSoon] = useState<StoreGameSummary[]>([]);
   const [loadingTrending, setLoadingTrending] = useState(true);
-
-  const [selectedGame, setSelectedGame] = useState<StoreGameSummary | null>(null);
-  const [activeRailId, setActiveRailId] = useState<string>("trending");
 
   // Fetch Trending categories
   useEffect(() => {
@@ -64,7 +94,6 @@ export default function BigScreenStore() {
           setPopular(pop);
           setTop(tp);
           setComingSoon(cs);
-          if (tr[0] && !selectedGame) setSelectedGame(tr[0]);
         }
       } catch (err) {
         console.error("Failed to load trending storefront:", err);
@@ -78,72 +107,49 @@ export default function BigScreenStore() {
     };
   }, []);
 
-  // Sync selected game on load or when trending list changes
-  useEffect(() => {
-    if (!selectedGame && trending[0]) {
-      setSelectedGame(trending[0]);
-    }
-  }, [trending, selectedGame]);
+  const storePool = useMemo(
+    () => dedupeById([trending, popular, top, comingSoon]),
+    [trending, popular, top, comingSoon],
+  );
 
-  // Spatial navigation watcher for backdrop sync in trending view
-  const trendingGamesMap = useMemo(() => {
-    const map = new Map<string, StoreGameSummary>();
-    for (const list of [trending, popular, top, comingSoon]) {
-      for (const g of list) map.set(String(g.id), g);
-    }
-    return map;
-  }, [trending, popular, top, comingSoon]);
+  // Two lists, two resolvers: the controller is either browsing the
+  // storefront shelves or the wishlist grid, and each page renders only
+  // the selection that belongs to the list it is showing.
+  const { item: storeGame, railId: storeRailId } = useFocusedGame({
+    items: storePool,
+    getId: (game) => String(game.id),
+  });
 
-  // Keep selectedGame reference fresh from trending list
-  const featuredGame = useMemo(() => {
-    if (!selectedGame) return null;
-    return trendingGamesMap.get(String(selectedGame.id)) ?? selectedGame;
-  }, [trendingGamesMap, selectedGame]);
+  const { item: wishlistGame } = useFocusedGame({
+    items: wishlist,
+    getId: (entry) => String(entry.id),
+  });
 
-  // Animated hero art for the spotlighted store game (appid resolved
-  // from the IGDB `websites` array by the shared backdrop hook).
-  const backdrop = useGameBackdropArt(featuredGame);
-
-  useEffect(() => {
-    if (view !== "trending") return;
-    const el = gamepad.focusedElement;
-    if (!el) return;
-    const id = el.getAttribute("data-game-id");
-    if (id) {
-      const game = trendingGamesMap.get(id);
-      if (game && game.id !== selectedGame?.id) {
-        setSelectedGame(game);
-      }
-
-      const railEl = el.closest("[data-rail-id]");
-      if (railEl) {
-        const rId = railEl.getAttribute("data-rail-id");
-        if (rId) {
-          setActiveRailId(rId);
-        }
-      }
-    }
-  }, [gamepad.focusedElement, trendingGamesMap, selectedGame, view]);
+  const storeBackdrop = useGameBackdropArt(storeGame);
+  const wishlistBackdrop = useGameBackdropArt(wishlistGame);
 
   const handleCardClick = useCallback(
     (game: StoreGameSummary) => {
       navigate(`/store/${game.slug}`);
     },
-    [navigate]
+    [navigate],
   );
 
   const handleDetails = useCallback(() => {
-    if (featuredGame) {
-      handleCardClick(featuredGame);
-    }
-  }, [featuredGame, handleCardClick]);
+    if (storeGame) navigate(`/store/${storeGame.slug}`);
+  }, [storeGame, navigate]);
+
+  const handleWishlistDetails = useCallback(() => {
+    if (wishlistGame) navigate(`/store/${wishlistGame.slug}`);
+  }, [wishlistGame, navigate]);
 
   const detailsFocusable = useFocusable(handleDetails);
+  const wishlistDetailsFocusable = useFocusable(handleWishlistDetails);
 
   const featuredLogo = useMemo(() => {
-    if (featuredGame?.logoUrl) return featuredGame.logoUrl;
-    if (featuredGame?.websites) {
-      for (const url of featuredGame.websites) {
+    if (storeGame?.logoUrl) return storeGame.logoUrl;
+    if (storeGame?.websites) {
+      for (const url of storeGame.websites) {
         const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
         if (match) {
           return `https://cdn.cloudflare.steamstatic.com/steam/apps/${match[1]}/logo.png`;
@@ -151,102 +157,149 @@ export default function BigScreenStore() {
       }
     }
     return null;
-  }, [featuredGame?.logoUrl, featuredGame?.websites]);
+  }, [storeGame?.logoUrl, storeGame?.websites]);
 
-  const spotlightFacts = useMemo<SpotlightFact[]>(() => {
-    if (!featuredGame) return [];
-    const facts: SpotlightFact[] = [];
-    if (featuredGame.rating) {
+  const storeFacts = useMemo<Array<{ label: string; value: string }>>(() => {
+    if (!storeGame) return [];
+    const facts: Array<{ label: string; value: string }> = [];
+    if (storeGame.rating) {
+      facts.push({ label: "IGDB", value: String(Math.round(storeGame.rating)) });
+    }
+    const year = extractYear(storeGame.firstReleaseDate ?? undefined);
+    if (year) facts.push({ label: t("gameInfo.releaseDate"), value: String(year) });
+    if (storeGame.genres?.[0]) {
       facts.push({
-        label: "IGDB",
-        value: String(Math.round(featuredGame.rating)),
+        label: t("bigscreen.overview.genres"),
+        value: storeGame.genres.slice(0, 2).join(" · "),
       });
     }
-    const year = extractYear(featuredGame.firstReleaseDate ?? undefined);
-    if (year) facts.push({ label: t("gameInfo.releaseDate"), value: String(year) });
-    if (featuredGame.genres?.[0]) {
-      facts.push({ label: t("bigscreen.overview.genres"), value: featuredGame.genres.slice(0, 2).join(" · ") });
-    }
     return facts;
-  }, [featuredGame, t]);
+  }, [storeGame, t]);
 
-  // Anchored above every rail so switching rails never reflows the
-  // dashboard (same rationale as the Home spotlight).
-  const renderSpotlight = () => {
-    if (!featuredGame) {
-      return (
-        <section className="bigscreen-spotlight animate-fade-in">
-          <div className="bigscreen-spotlight-info">
-            <span className="bigscreen-spotlight-eyebrow">
-              {t("nav.store")}
-            </span>
-            <h1 className="bigscreen-spotlight-title">
-              {t("bigscreen.store.welcomeTitle")}
-            </h1>
-            <p className="bigscreen-spotlight-description">
-              {t("bigscreen.store.welcomeDesc")}
-            </p>
-          </div>
-        </section>
-      );
-    }
+  const storeMeta = storeGame ? (
+    <>
+      {storeGame.rating ? (
+        <BigScreenPill tone="accent" size="sm">
+          {t("bigscreen.store.score", { score: Math.round(storeGame.rating) })}
+        </BigScreenPill>
+      ) : null}
+      {storeGame.genres?.slice(0, 2).map((genre) => (
+        <BigScreenPill key={genre} tone="muted" size="sm">
+          {genre}
+        </BigScreenPill>
+      ))}
+    </>
+  ) : undefined;
 
-    return (
-      <BigScreenSpotlight
-        eyebrow={t("store.spotlight.featuredTag")}
-        title={featuredGame.name}
-        logoUrl={featuredLogo}
-        ariaLabel={t("bigscreen.store.gameInfo")}
-        facts={spotlightFacts}
-        description={
-          featuredGame.summary
-            ? featuredGame.summary.length > 200
-              ? `${featuredGame.summary.substring(0, 200)}...`
-              : featuredGame.summary
-            : ""
-        }
-        meta={
-          <>
-            {featuredGame.rating && (
-              <BigScreenPill tone="accent" size="sm">
-                {t("bigscreen.store.score", { score: Math.round(featuredGame.rating) })}
-              </BigScreenPill>
-            )}
-            {featuredGame.genres && featuredGame.genres.slice(0, 2).map((g: string) => (
-              <BigScreenPill key={g} tone="muted" size="sm">
-                {g}
-              </BigScreenPill>
-            ))}
-          </>
-        }
-        actions={
-          <button
-            type="button"
-            className="bigscreen-details-btn bigscreen-details-btn--primary"
-            {...detailsFocusable}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>{t("bigscreen.store.storeDetails")}</span>
-          </button>
-        }
-      />
-    );
-  };
+  const wishlistMeta = wishlistGame ? (
+    <>
+      {wishlistGame.rating ? (
+        <BigScreenPill tone="accent" size="sm">
+          {t("bigscreen.store.score", { score: Math.round(wishlistGame.rating) })}
+        </BigScreenPill>
+      ) : null}
+      {wishlistGame.genres?.slice(0, 2).map((genre) => (
+        <BigScreenPill key={genre} tone="muted" size="sm">
+          {genre}
+        </BigScreenPill>
+      ))}
+    </>
+  ) : undefined;
+
+  const detailsIcon = (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width="18"
+      height="18"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+
+  const isPlaystation = presetId === "playstation";
+  const isXbox = presetId === "xbox";
+  const isSwitch = presetId === "switch";
+
+  // PlayStation's band is the store's landing action, so it carries the
+  // controller's entry focus; every other preset enters on the shelves.
+  const storeActions = (
+    <button
+      type="button"
+      className="bigscreen-details-btn bigscreen-details-btn--primary"
+      {...detailsFocusable}
+      data-bs-autofocus={isPlaystation ? "true" : undefined}
+    >
+      {detailsIcon}
+      <span>
+        {t(
+          isPlaystation
+            ? "bigscreen.store.viewStorePage"
+            : "bigscreen.store.storeDetails",
+        )}
+      </span>
+    </button>
+  );
+
+  const wishlistActions = (
+    <button
+      type="button"
+      className="bigscreen-details-btn bigscreen-details-btn--primary"
+      {...wishlistDetailsFocusable}
+    >
+      {detailsIcon}
+      <span>{t("bigscreen.store.viewStorePage")}</span>
+    </button>
+  );
+
+  const storeInfo = storeGame
+    ? {
+        id: String(storeGame.id),
+        title: storeGame.name,
+        logoUrl: featuredLogo,
+        description: storeGame.summary,
+        coverUrl: storeGame.coverUrl,
+      }
+    : null;
+
+  const wishlistInfo = wishlistGame
+    ? {
+        id: String(wishlistGame.id),
+        title: wishlistGame.name,
+        logoUrl: wishlistGame.logoUrl,
+        description: wishlistGame.summary,
+        coverUrl: wishlistGame.coverUrl,
+      }
+    : null;
+
+  const storeRails = [
+    { railId: "trending", titleKey: "store.tab.trending", games: trending },
+    { railId: "popular", titleKey: "bigscreen.store.popularNow", games: popular },
+    { railId: "top", titleKey: "bigscreen.store.topCritic", games: top },
+    { railId: "coming-soon", titleKey: "store.tab.comingSoon", games: comingSoon },
+  ];
+
+  // Switch's featured row already shows trending, so only the shelves
+  // below it keep their headings.
+  const shelfRails = isSwitch ? storeRails.slice(1) : storeRails;
 
   return (
-    <div className="bigscreen-store-dashboard">
-      {/* Dynamic full-bleed backdrop (only on trending view for premium vibes) */}
-      {view === "trending" && (
+    <div className="bigscreen-store-dashboard" data-preset={presetId}>
+      {/* Dynamic full-bleed backdrop (trending view only; Switch is flat
+          by design and its featured row is the artwork). */}
+      {view === "trending" && !isSwitch ? (
         <BigScreenDashboardBackdrop
-          staticUrl={backdrop.staticUrl}
-          animatedUrl={backdrop.animatedUrl}
-          artKey={featuredGame?.id ?? null}
+          staticUrl={storeBackdrop.staticUrl}
+          animatedUrl={storeBackdrop.animatedUrl}
+          artKey={storeGame?.id ?? null}
         />
-      )}
+      ) : null}
 
       {/* Main scrolling wrapper */}
       <div className="bigscreen-dashboard-scrollable-content">
@@ -270,11 +323,30 @@ export default function BigScreenStore() {
                   <p>{t("bigscreen.store.wishlistHint")}</p>
                 </div>
               ) : (
-                <div className="store-wishlist-grid">
-                  {wishlist.map((item) => (
-                    <BigScreenWishlistCard key={item.slug} item={item} />
-                  ))}
-                </div>
+                <>
+                  <BigScreenSelectionPreview
+                    preset={presetId}
+                    variant={isPlaystation || isXbox ? "band" : "inline"}
+                    info={wishlistInfo}
+                    eyebrow={t("nav.wishlist")}
+                    meta={wishlistMeta}
+                    actions={wishlistActions}
+                    backdrop={{
+                      staticUrl: wishlistBackdrop.staticUrl,
+                      animatedUrl: wishlistBackdrop.animatedUrl,
+                      artKey: wishlistGame?.id ?? null,
+                    }}
+                  />
+                  {/* No `data-rail-id` here: the engine treats a rail as a
+                      single horizontal track and would stop row-wrapping in
+                      this grid. Focus memory is already per card through
+                      `data-focus-key`, so the grid needs no scope. */}
+                  <div className="store-wishlist-grid">
+                    {wishlist.map((item) => (
+                      <BigScreenWishlistCard key={item.slug} item={item} />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           ) : (
@@ -286,35 +358,67 @@ export default function BigScreenStore() {
                 </div>
               ) : (
                 <div className="store-rails-group">
-                  {renderSpotlight()}
-                  <BigScreenStoreRail
-                    railId="trending"
-                    title={t("store.tab.trending")}
-                    games={trending}
-                    onCardClick={handleCardClick}
-                    isActive={activeRailId === "trending"}
-                  />
-                  <BigScreenStoreRail
-                    railId="popular"
-                    title={t("bigscreen.store.popularNow")}
-                    games={popular}
-                    onCardClick={handleCardClick}
-                    isActive={activeRailId === "popular"}
-                  />
-                  <BigScreenStoreRail
-                    railId="top"
-                    title={t("bigscreen.store.topCritic")}
-                    games={top}
-                    onCardClick={handleCardClick}
-                    isActive={activeRailId === "top"}
-                  />
-                  <BigScreenStoreRail
-                    railId="coming-soon"
-                    title={t("store.tab.comingSoon")}
-                    games={comingSoon}
-                    onCardClick={handleCardClick}
-                    isActive={activeRailId === "coming-soon"}
-                  />
+                  {isSwitch ? (
+                    <header className="store-switch-head">
+                      <h2 className="store-switch-title">{t("nav.store")}</h2>
+                      <span className="store-switch-count">{storePool.length}</span>
+                    </header>
+                  ) : (
+                    <BigScreenSelectionPreview
+                      preset={presetId}
+                      variant={isPlaystation ? "band" : "hero"}
+                      info={storeInfo}
+                      eyebrow={t("store.spotlight.featuredTag")}
+                      meta={storeMeta}
+                      facts={storeFacts}
+                      actions={storeActions}
+                      backdrop={{
+                        staticUrl: storeBackdrop.staticUrl,
+                        animatedUrl: storeBackdrop.animatedUrl,
+                        artKey: storeGame?.id ?? null,
+                      }}
+                      empty={{
+                        title: t("bigscreen.store.welcomeTitle"),
+                        description: t("bigscreen.store.welcomeDesc"),
+                      }}
+                    />
+                  )}
+
+                  {isSwitch && trending.length > 0 ? (
+                    <BigScreenStoreRail
+                      railId="trending"
+                      title={t("bigscreen.store.featured")}
+                      games={trending}
+                      onCardClick={handleCardClick}
+                      isActive={storeRailId === "trending"}
+                      hideHeader
+                    />
+                  ) : null}
+
+                  {/* Switch has no hero panel, so the focused tile still
+                      needs a details line under the featured row — that is
+                      the console's own pattern (title under the icon). */}
+                  {isSwitch ? (
+                    <BigScreenSelectionPreview
+                      preset={presetId}
+                      variant="inline"
+                      info={storeInfo}
+                      eyebrow={t("bigscreen.store.featured")}
+                      meta={storeMeta}
+                      actions={storeActions}
+                    />
+                  ) : null}
+
+                  {shelfRails.map((rail) => (
+                    <BigScreenStoreRail
+                      key={rail.railId}
+                      railId={rail.railId}
+                      title={t(rail.titleKey)}
+                      games={rail.games}
+                      onCardClick={handleCardClick}
+                      isActive={storeRailId === rail.railId}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -335,6 +439,7 @@ function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
       {...focusProps}
       role="link"
       aria-label={item.name}
+      data-game-id={String(item.id)}
       data-focus-key={`store:wishlist:${item.slug}`}
     >
       <div className="bigscreen-game-card-cover">

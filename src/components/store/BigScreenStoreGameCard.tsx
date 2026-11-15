@@ -31,7 +31,6 @@ export default function BigScreenStoreGameCard({
       {...focusable}
       role="link"
       data-game-id={game.id}
-      data-focus-key={`game:${game.id}`}
       data-game-slug={game.slug}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -78,7 +78,10 @@
     "footer";
   overflow: hidden;
   background-color: var(--bs-bg);
-  background-image: var(--mesh-gradient);
+  /* Presets supply their own ambient wash (tokens.css palette block);
+     classic points this back at the theme mesh, and every other
+     consumer defaults to `none`. */
+  background-image: var(--bs-ambient);
   background-repeat: no-repeat;
   background-size: cover;
   color: var(--bs-text);
@@ -129,11 +132,11 @@
   border-radius: var(--bs-radius-sm);
   background: linear-gradient(
     145deg,
-    var(--bs-accent),
-    color-mix(in srgb, var(--bs-accent) 55%, var(--bs-bg))
+    var(--bs-brand),
+    color-mix(in srgb, var(--bs-brand) 55%, var(--bs-bg))
   );
-  color: var(--bs-accent-contrast);
-  box-shadow: 0 0.3rem 1rem var(--bs-accent-glow);
+  color: var(--bs-brand-ink);
+  box-shadow: 0 0.3rem 1rem color-mix(in srgb, var(--bs-brand) 35%, transparent);
 }
 
 .bs-brand-mark svg {
@@ -296,7 +299,7 @@
   bottom: -0.5rem;
   height: 0.14rem;
   border-radius: var(--bs-radius-pill);
-  background: var(--bs-accent);
+  background: var(--bs-selection);
 }
 
 .bs-nav-icon {

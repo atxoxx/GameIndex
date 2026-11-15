@@ -11,7 +11,7 @@
 //   • Stick clicks (L3/R3, W3C indices 10/11) → hide cursor /
 //     recenter cursor.
 //   • Start (W3C index 9) → edge-triggered `bigscreen:start`
-//     CustomEvent (the shell listens for it to open the System hub).
+//     CustomEvent (the shell listens for it to toggle the Guide).
 //   • Virtual mouse pointer (right stick → on-screen cursor with
 //     non-linear acceleration + deadzone), used alongside spatial
 //     navigation so non-focusable surfaces (sliders, drag handles,
@@ -172,7 +172,9 @@ export interface GamepadState {
   ) => boolean;
   /**
    * Focus the first registered, navigable focusable — optionally
-   * restricted to elements inside `scope`. Unlike a raw DOM query
+   * restricted to elements inside `scope`. When the scope contains an
+   * element marked `data-bs-autofocus`, that element wins (it is the
+   * page's declared entry point). Unlike a raw DOM query
    * (`querySelector('[tabindex="0"]')`), this only ever picks an
    * element that was registered with the engine, so the focus-ref
    * sync and therefore D-pad navigation are guaranteed to work on it.
@@ -229,6 +231,13 @@ const NAVIGATION_VECTORS: Record<
 export function useGamepadInternal(enabled: boolean): GamepadState {
   const entriesRef = useRef<FocusableEntry[]>([]);
   const focusedRef = useRef<HTMLElement | null>(null);
+  /**
+   * True while `focusElement` is inside its own `focus()` call. The
+   * native focus listener that every focusable installs must not run a
+   * second controlled scroll for that move; it exists for restores
+   * that call `.focus({preventScroll:true})` directly.
+   */
+  const engineFocusRef = useRef(false);
   const [connected, setConnected] = useState(false);
   const connectedRef = useRef(false);
   const [focusedElement, setFocusedElement] = useState<HTMLElement | null>(
@@ -340,19 +349,42 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         setFocusedElement(element);
       };
 
+      // A native focus event can come from a restore that called
+      // `.focus({ preventScroll: true })` (shell route entry, grid list
+      // restore) rather than from the engine, so this listener is the
+      // one place that still has to bring the element into view.
+      // `focusElement` sets `engineFocusRef` around its own focus() call
+      // so an engine move never scrolls twice.
+      const onNativeFocus = () => {
+        setFocusedInRegistry();
+        if (engineFocusRef.current) return;
+        if (document.activeElement !== element) return;
+        scrollElementIntoViewControlled(element);
+      };
+
       // Add listeners to sync focus state when focused or hovered
-      element.addEventListener("focus", setFocusedInRegistry);
+      element.addEventListener("focus", onNativeFocus);
       element.addEventListener("mousedown", setFocusedInRegistry);
       element.addEventListener("mouseenter", setFocusedInRegistry);
 
-      if (!focusedRef.current && isNavigable(element)) {
+      // Claiming focus here is only a last-resort net for a screen with
+      // no route entry point. The shell/route effect is the explicit
+      // focus owner, so defer a frame and claim only while the document
+      // truly has no focus — otherwise two screens mounting in the same
+      // commit race for the first card.
+      const claimFrame = requestAnimationFrame(() => {
+        if (focusedRef.current) return;
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
+        if (!isNavigable(element)) return;
         focusedRef.current = element;
         element.setAttribute("data-focused", "true");
         setFocusedElement(element);
-      }
+      });
 
       return () => {
-        element.removeEventListener("focus", setFocusedInRegistry);
+        cancelAnimationFrame(claimFrame);
+        element.removeEventListener("focus", onNativeFocus);
         element.removeEventListener("mousedown", setFocusedInRegistry);
         element.removeEventListener("mouseenter", setFocusedInRegistry);
 
@@ -360,13 +392,12 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
           (e) => e.element !== element,
         );
         element.removeAttribute("data-focused");
+        // Never promote a sibling on unregister: focus belongs to the
+        // route effect, and picking here would yank the ring onto an
+        // unrelated card as a page unmounts.
         if (focusedRef.current === element) {
-          const next = entriesRef.current.find((candidate) =>
-            isNavigable(candidate.element),
-          );
-          focusedRef.current = next?.element ?? null;
-          if (focusedRef.current) focusedRef.current.setAttribute("data-focused", "true");
-          setFocusedElement(focusedRef.current);
+          focusedRef.current = null;
+          setFocusedElement(null);
         }
       };
     },
@@ -477,7 +508,14 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       el.setAttribute("data-focused", "true");
       scrollElementIntoViewControlled(el, { immediate });
       setFocusedElement(el);
+      // The native listener attached by `registerAction` would scroll
+      // again on this focus() call; mark it as engine-driven and clear
+      // the mark after the synchronous focus event has run.
+      engineFocusRef.current = true;
       el.focus({ preventScroll: true });
+      queueMicrotask(() => {
+        engineFocusRef.current = false;
+      });
     },
     [],
   );
@@ -538,6 +576,21 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   // on an element `registerAction` never saw — leaving D-pad dead.
   const focusFirst = useCallback(
     (scope?: HTMLElement): boolean => {
+      // A page can name its intended entry element (`data-bs-autofocus`)
+      // so a route lands on the hero/primary card instead of the first
+      // chip in the header. Only a registered element qualifies: the
+      // engine must own it or D-pad would be dead on arrival.
+      if (scope) {
+        const marked = scope.querySelector<HTMLElement>("[data-bs-autofocus]");
+        if (
+          marked &&
+          isNavigable(marked) &&
+          entriesRef.current.some((entry) => entry.element === marked)
+        ) {
+          focusElement(marked);
+          return true;
+        }
+      }
       const candidate = firstNavigableWithin(
         scope ?? null,
         entriesRef.current,
@@ -692,23 +745,42 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       const rightDz = override.right ?? calibratedDeadzonesRef.current.right;
 
       // ── LEFT STICK / D-PAD → spatial navigation ────────────
-      let leftH = 0;
-      let leftV = 0;
-      if (gp.buttons[12]?.pressed) leftV = -1;
-      if (gp.buttons[13]?.pressed) leftV = 1;
-      if (gp.buttons[14]?.pressed) leftH = -1;
-      if (gp.buttons[15]?.pressed) leftH = 1;
-      if (Math.abs(gp.axes[0]) > leftDz) leftH = gp.axes[0];
-      if (Math.abs(gp.axes[1]) > leftDz) leftV = gp.axes[1];
+      // One direction per frame: the D-pad is digital and wins outright
+      // when touched; otherwise the stick contributes a single dominant
+      // axis. Resolving twice (raw axes, then thresholds again) let a
+      // diagonal push flip axis at the deadzone edge. Axis hysteresis
+      // (1.15×) keeps that flip from happening on jitter.
+      const padH =
+        (gp.buttons[15]?.pressed ? 1 : 0) - (gp.buttons[14]?.pressed ? 1 : 0);
+      const padV =
+        (gp.buttons[13]?.pressed ? 1 : 0) - (gp.buttons[12]?.pressed ? 1 : 0);
 
-      // Discrete direction based on thresholds
       let dirH = 0;
       let dirV = 0;
-      if (gp.buttons[14]?.pressed || leftH < -leftDz) dirH = -1;
-      else if (gp.buttons[15]?.pressed || leftH > leftDz) dirH = 1;
 
-      if (gp.buttons[12]?.pressed || leftV < -leftDz) dirV = -1;
-      else if (gp.buttons[13]?.pressed || leftV > leftDz) dirV = 1;
+      if (padH !== 0 || padV !== 0) {
+        dirH = padH;
+        dirV = padV;
+      } else {
+        const stickH = Math.abs(gp.axes[0] ?? 0) > leftDz ? (gp.axes[0] ?? 0) : 0;
+        const stickV = Math.abs(gp.axes[1] ?? 0) > leftDz ? (gp.axes[1] ?? 0) : 0;
+        const absH = Math.abs(stickH);
+        const absV = Math.abs(stickV);
+
+        const previous = holdDirectionRef.current;
+        // Which axis was in charge a frame ago? Only an axis that has
+        // clearly overtaken may take over.
+        const wasVertical = previous ? previous.v !== 0 : false;
+        const vertical =
+          absH === 0 && absV === 0
+            ? false
+            : wasVertical
+              ? absH <= absV * 1.15
+              : absV > absH * 1.15;
+
+        if (vertical && stickV !== 0) dirV = stickV > 0 ? 1 : -1;
+        else if (!vertical && stickH !== 0) dirH = stickH > 0 ? 1 : -1;
+      }
 
       const hasInput = dirH !== 0 || dirV !== 0;
       let shouldNavigate = false;
@@ -986,10 +1058,10 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       }
       prevButtonsRef.current.r3 = r3Pressed;
 
-      // ── Start (W3C index 9) → open System hub ──────────────
+      // ── Start (W3C index 9) → toggle the Guide ─────────────
       // Edge-triggered once per press (no repeat). The shell
-      // listens for the `bigscreen:start` CustomEvent to open the
-      // System hub.
+      // listens for the `bigscreen:start` CustomEvent and toggles the
+      // Guide flyout (Menu and the header's Guide utility do the same).
       const startPressed = gp.buttons[9]?.pressed ?? false;
       if (startPressed && !prevButtonsRef.current.start) {
         window.dispatchEvent(new CustomEvent("bigscreen:start"));
