@@ -344,27 +344,31 @@ export default function DownloadModal({
 
   // The top source rail is an alternate entry point for the same
   // `sourceFilter` state, so clicking a tab and the filter popover can never
-  // disagree.
+  // disagree. `extractSourceFilters` already leads with the aggregate "all"
+  // bucket, so this is a straight projection (adding another "all" here
+  // produced a duplicate "All sources" tab).
   const sourceNavEntries = useMemo<SourceNavEntry[]>(
-    () => [
-      {
-        id: "all",
-        label: t("downloadModal.allSources"),
-        count: matches.length,
-        provider: "all",
-      },
-      ...sourceFilterOptions.map((option) => ({
+    () =>
+      sourceFilterOptions.map((option) => ({
         id: option.id,
         label: option.label,
         count: option.count,
-        provider: option.provider === "plugin" ? ("plugin" as const) : ("source" as const),
+        provider:
+          option.provider === "all"
+            ? ("all" as const)
+            : option.provider === "plugin"
+              ? ("plugin" as const)
+              : ("source" as const),
       })),
-    ],
-    [matches.length, sourceFilterOptions, t],
+    [sourceFilterOptions],
   );
-  const sourceNavCount = sourceNavEntries.filter(
-    (entry) => entry.provider !== "all",
-  ).length;
+  // Real distinct sources, not filter buckets: the header should not count the
+  // aggregate "Built-in"/"Plugins" rows as extra sources.
+  const sourceNavCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of matches) ids.add(m.sourceId || m.sourceName);
+    return ids.size;
+  }, [matches]);
 
   const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
 
@@ -604,8 +608,27 @@ export default function DownloadModal({
     [namesKey],
   );
 
+  // Library rows churn while the modal is open (background enrichment, detail
+  // loads, artwork normalisation, renames elsewhere in the library). The search
+  // is keyed by the game identity only, so the latest hints and library names
+  // live in refs: making `runSearch` depend on their identities would restart
+  // the search and wipe the visible results every time metadata arrived.
+  const searchHintsRef = useRef(gameHints);
+  searchHintsRef.current = gameHints;
+  const libraryNamesRef = useRef(localLibraryNames);
+  libraryNamesRef.current = localLibraryNames;
+  const steamAppIdRef = useRef(steamAppId);
+  steamAppIdRef.current = steamAppId;
+  // Bumped for every search. Listeners from a superseded search are ignored so
+  // a slow, older stream can never flip the step or blank the visible results
+  // after a newer search has taken over.
+  const searchGenerationRef = useRef(0);
+
   // ── Step 1: ownership check + streaming source search in parallel ──
   const runSearch = useCallback(async () => {
+    const generation = ++searchGenerationRef.current;
+    const isStale = () => generation !== searchGenerationRef.current;
+
     setStep("checking");
     setError(null);
     setOwnership(null);
@@ -613,28 +636,36 @@ export default function DownloadModal({
     setSelectedId(null);
     setSearchProgress(null);
 
+    // Read the remaining inputs from refs so a late metadata/steam-id update
+    // cannot recreate this callback and re-run the search under the user.
+    const appId = steamAppIdRef.current;
+
     try {
-      const ownershipPromise: Promise<OwnershipResult> = steamAppId != null
+      const ownershipPromise: Promise<OwnershipResult> = appId != null
         ? invoke<OwnershipResult>("check_ownership_for_ids", {
             gameName,
-            steamAppId,
-            localLibraryNames,
+            steamAppId: appId,
+            localLibraryNames: libraryNamesRef.current,
           })
         : invoke<OwnershipResult>("check_ownership", {
             gameName,
-            localLibraryNames,
+            localLibraryNames: libraryNamesRef.current,
           });
 
       ownershipPromise
-        .then((own) => setOwnership(own))
+        .then((own) => {
+          if (!isStale()) setOwnership(own);
+        })
         .catch((e) => console.error("[DownloadModal] ownership check failed:", e));
 
       const accumulatedRaw: DownloadSearchResult[] = [];
 
       await searchDownloadsStream(
         gameName,
-        steamAppId,
+        appId,
         (progressEvt: SearchProgressEvent) => {
+          if (isStale()) return;
+
           setSearchProgress({
             completed: progressEvt.completedSources,
             total: progressEvt.totalSources,
@@ -665,19 +696,21 @@ export default function DownloadModal({
             setStep((curr) => (curr === "checking" ? "results" : curr));
           }
         },
-        gameHints,
+        searchHintsRef.current,
       ).catch((e: unknown) => {
         console.error("[DownloadModal] searchDownloadsStream failed:", e);
         return [];
       });
 
+      if (isStale()) return;
       setStep((curr) => (curr === "checking" ? "results" : curr));
     } catch (err) {
+      if (isStale()) return;
       console.error("[DownloadModal] initial checks failed:", err);
       setError(String(err));
       setStep("error");
     }
-  }, [gameName, steamAppId, searchDownloadsStream, localLibraryNames, gameHints]);
+  }, [gameName, searchDownloadsStream]);
 
   useEffect(() => {
     runSearch();

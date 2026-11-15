@@ -35,6 +35,7 @@
 }
 
 .dlm .dlm-toolbar-refined .dl-search-box {
+  position: relative;
   flex: 1 1 240px;
   min-width: 0;
   height: 38px;
@@ -60,11 +61,25 @@
   box-shadow: var(--ring-accent);
 }
 
+/* download.css positions the glyph and the clear button absolutely for the
+   legacy single-line field. The refined toolbar lays them out as flex children,
+   so they must return to the flow — otherwise the absolutely positioned icon
+   sits on top of the placeholder and the clear button covers the "/" hint. */
 .dlm .dlm-toolbar-refined .dl-search-icon {
+  position: static;
+  left: auto;
+  flex: 0 0 auto;
   width: 16px;
   height: 16px;
   color: var(--dlm-ink-3);
+  pointer-events: none;
   transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-clear-btn {
+  position: static;
+  right: auto;
+  flex: 0 0 auto;
 }
 
 .dlm .dlm-toolbar-refined .dl-search-box:focus-within .dl-search-icon {
