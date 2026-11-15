@@ -286,6 +286,7 @@ overlay_get_settings
 overlay_hide
 overlay_load_history
 overlay_move_by
+overlay_capabilities
 overlay_native_blur_supported
 overlay_open_screenshot_folder
 overlay_open_settings

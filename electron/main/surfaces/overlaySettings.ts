@@ -39,6 +39,12 @@ export interface OverlaySettings {
   tickerClickThrough: boolean;
   tickerAutoDimSeconds: number;
   tickerAutoHideSeconds: number;
+  /** In-HUD achievement unlock banners. */
+  achievementNotifications: boolean;
+  /** How long an achievement banner stays up (seconds). */
+  achievementToastSeconds: number;
+  /** Play the achievement chime. */
+  achievementToastSound: boolean;
   pollIntervalMs: number;
   showTemps: boolean;
   detectCurrentGame: boolean;
@@ -143,6 +149,9 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   tickerClickThrough: false,
   tickerAutoDimSeconds: 0,
   tickerAutoHideSeconds: 0,
+  achievementNotifications: true,
+  achievementToastSeconds: 6,
+  achievementToastSound: false,
   pollIntervalMs: 1000,
   showTemps: true,
   detectCurrentGame: true,
@@ -254,6 +263,12 @@ export function normalizeOverlaySettings(
   merged.panelWidgets = Array.isArray(merged.panelWidgets)
     ? merged.panelWidgets.map(String)
     : [...DEFAULT_OVERLAY_SETTINGS.panelWidgets];
+  merged.achievementNotifications = merged.achievementNotifications !== false;
+  merged.achievementToastSound = merged.achievementToastSound === true;
+  const toastSeconds = Number(merged.achievementToastSeconds);
+  merged.achievementToastSeconds = Number.isFinite(toastSeconds)
+    ? Math.min(20, Math.max(2, Math.round(toastSeconds)))
+    : DEFAULT_OVERLAY_SETTINGS.achievementToastSeconds;
   return merged;
 }
 

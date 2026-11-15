@@ -40,6 +40,10 @@ import {
   OverlayFieldSlider,
   OverlayFieldToggle,
 } from "../../components/overlay/settings/fields";
+import {
+  capabilityNoteKey,
+  type OverlayCapabilities,
+} from "../../components/overlay/overlayCapabilities";
 import { OverlayIcon } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -171,6 +175,9 @@ export default function OverlayTab() {
     input: [],
   });
   const [nativeBlurSupported, setNativeBlurSupported] = useState(false);
+  const [capabilities, setCapabilities] = useState<OverlayCapabilities | null>(
+    null,
+  );
   const [recordingField, setRecordingField] = useState<
     "toggle" | "screenshot" | "video" | "replay" | null
   >(null);
@@ -249,6 +256,13 @@ export default function OverlayTab() {
   // Whether the platform offers a native window backdrop (real blur).
   useEffect(() => {
     let disposed = false;
+    invoke<OverlayCapabilities>("overlay_capabilities")
+      .then((value) => {
+        if (!disposed && value) setCapabilities(value);
+      })
+      .catch(() => {
+        /* no Tauri runtime / older build */
+      });
     invoke<boolean>("overlay_native_blur_supported")
       .then((value) => {
         if (!disposed) setNativeBlurSupported(Boolean(value));
@@ -440,6 +454,15 @@ export default function OverlayTab() {
           onChange={(on) => update({ enabled: on })}
         />
 
+        {capabilities ? (
+          <p
+            className="hw-card-help"
+            data-testid="overlay-capability-note"
+          >
+            {t(capabilityNoteKey(capabilities))}
+          </p>
+        ) : null}
+
         <div className="hw-duo">
           <div className="hw-card">
             <div className="hw-card-head">
@@ -630,6 +653,7 @@ export default function OverlayTab() {
           title={t("overlay.settings.clickThrough")}
           desc={t("overlay.settings.clickThroughDesc")}
           checked={settings.tickerClickThrough ?? false}
+          disabled={capabilities ? !capabilities.clickThrough : false}
           onChange={(on) => update({ tickerClickThrough: on })}
         />
 
@@ -727,6 +751,43 @@ export default function OverlayTab() {
           desc={t("settings.overlay.detectCurrentGameDesc")}
           checked={settings.detectCurrentGame ?? true}
           onChange={(on) => update({ detectCurrentGame: on })}
+        />
+
+        <SettingsToggleCard
+          title={t("overlay.settings.achievementNotifications")}
+          desc={t("overlay.settings.achievementNotificationsDesc")}
+          checked={settings.achievementNotifications ?? true}
+          onChange={(on) => update({ achievementNotifications: on })}
+        />
+
+        <OverlayFieldSlider
+          className="hw-card"
+          infoClassName="hw-card-head"
+          labelAs="label"
+          labelClassName="hw-card-label"
+          valueClassName="hw-card-value"
+          inputClassName="hw-range"
+          help={
+            <p className="hw-card-help">
+              {t("overlay.settings.achievementDurationDesc")}
+            </p>
+          }
+          label={t("overlay.settings.achievementDuration")}
+          display={`${settings.achievementToastSeconds ?? 6}s`}
+          value={settings.achievementToastSeconds ?? 6}
+          min={2}
+          max={20}
+          step={1}
+          onChange={(achievementToastSeconds) =>
+            update({ achievementToastSeconds })
+          }
+        />
+
+        <SettingsToggleCard
+          title={t("overlay.settings.achievementSound")}
+          desc={t("overlay.settings.achievementSoundDesc")}
+          checked={settings.achievementToastSound ?? false}
+          onChange={(on) => update({ achievementToastSound: on })}
         />
       </SettingsSection>
 

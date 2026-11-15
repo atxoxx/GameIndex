@@ -7,7 +7,7 @@ stats, take a clip, or look something up in the embedded Guides browser without 
 
 The overlay is **off by default** - turn it on in **Settings → Overlay** when you want it.
 
-For the implementation map (Rust modules, commands, events), see the "In-game overlay & capture"
+For the implementation map (Electron surfaces, commands, events), see the "In-game overlay & capture"
 section of [`knowledge.md`](../knowledge.md). For Linux/Steam Deck specifics, see the
 [Linux, Wine & Proton guide](linux-wine-proton.md).
 
@@ -43,7 +43,8 @@ section of [`knowledge.md`](../knowledge.md). For Linux/Steam Deck specifics, se
 | **Video & replay** | Manual recording and a rolling instant-replay buffer, with game audio and optional microphone. |
 | **Guides browser** | An embedded web preview inside the panel (PCGamingWiki, HowLongToBeat, YouTube, maps and more). |
 | **Click-through** | Let clicks pass through the collapsed ticker while you play. |
-| **Adaptive look** | Glass / solid / dim backgrounds, native acrylic on Windows, and adaptive theming from game art. |
+| **Adaptive look** | Glass / solid / dim backgrounds, theme + UI-style inheritance, and game-art adaptive accents. |
+| **Achievement banners** | Queued, dismissible unlock banners with artwork, rarity and an optional chime. |
 
 ---
 
@@ -206,14 +207,24 @@ screenshot folders and adds grouping, favourites, a lightbox and slideshow playb
 
 ## Appearance & accessibility
 
-- **Background style** - `glass`, `solid` or `dim`, with adjustable blur and opacity. On Windows the
-  HUD can use native acrylic blur; other platforms use a CSS glass effect.
+- **Theme inheritance** - the HUD is a separate Electron window, so it applies the same persisted
+  `data-theme`, UI style, accent override and adaptive palette as the main window. A theme, UI-style or
+  accent change repaints an already-open overlay immediately; no restart is needed.
+- **Game-driven accents** - with **Adaptive** the HUD derives its whole palette from the running game's
+  artwork. With **Automatically use active game palette** (and a non-adaptive theme) the running game's
+  accent re-tints the HUD chrome while your chosen surfaces stay put. A manual accent override is
+  preserved when both adaptive options are off.
+- **Background style** - `glass`, `solid` or `dim`, with adjustable blur and opacity. The transparent
+  Electron window uses a CSS glass fallback; a native behind-the-game backdrop is reported as
+  unsupported by the current Electron shell, and the setting is kept for future platform support.
 - **Panel density** - `comfortable` (default) or `compact`. Density changes spacing and chart height
   only; **Text size** stays a separate accessibility control.
-- **Adaptive theming** - when your app theme is *Adaptive*, the HUD samples the running game's artwork
-  into its accents.
+- **Achievement banners** - new unlocks queue a compact banner at the HUD's corner; while collapsed it
+  grows the ticker, while the panel is open it floats above the section. Duration and the optional
+  chime are configurable, and the feed stays available under **Activity  Notifications**.
 - **Accessibility** - reduce effects (performance mode), high-contrast mode and text scaling.
-- **Position** - pick a corner, or drag the HUD; a manually dragged position is remembered.
+- **Position** - pick a corner, or drag the HUD; a manually dragged position is remembered and is
+  clamped back onto a surviving monitor after display changes.
 
 ---
 
@@ -229,17 +240,27 @@ start a tracked session.
 
 ## Platform support
 
-| Platform | Overlay window | Hotkeys | Screenshots | Video |
-|---|---|---|---|---|
-| **Windows** | Non-activating tool window, native acrylic | Global shortcut plugin | GDI, foreground monitor | Windows Graphics Capture + Media Foundation (H.264/MP4) + WASAPI audio |
-| **Linux - X11** | `_NET_WM_STATE_ABOVE`, real click-through | Global shortcut plugin | `x11rb` | `gpu-screen-recorder` (`-w screen`) |
-| **Linux - Wayland** | `wlr-layer-shell` (no click-through) | XDG Desktop Portal | XDG Screenshot portal (prompts you) | `gpu-screen-recorder` (`-w portal`) |
-| **macOS** | Builds, HUD inert | - | - | Not supported (stub) |
+The overlay always opens and its hotkeys always register. What differs is whether the compositor lets
+a transparent Electron window stay above the game. **Settings  Overlay** shows the active strategy
+for your session instead of silently claiming support.
 
-On Wayland, no input pass-through protocol exists, so a click-through ticker is not possible and the
-screenshot portal may ask for confirmation. GNOME/mutter has no layer-shell support, and Wayland
-without a portal leaves global hotkeys unavailable. On Linux, video requires the external
-**`gpu-screen-recorder`** binary to be installed - GameIndex does not bundle it.
+| Platform | Overlay stacking | Click-through | Hotkeys | Screenshots | Video |
+|---|---|---|---|---|---|
+| **Windows** | Native always-on-top (`screen-saver` level), non-activating tool window | Yes | Electron global shortcuts | `desktopCapturer` | ffmpeg (must be on `PATH`) |
+| **Linux - X11** | Window-manager "above" state | Yes | Electron global shortcuts | `desktopCapturer` | Not in the Electron build |
+| **Linux - Wayland (KDE)** | KWin keep-above script over D-Bus | No (no Wayland protocol) | Electron global shortcuts where the portal allows | `desktopCapturer` / portal | Not in the Electron build |
+| **Linux - Wayland (GNOME/wlroots/other)** | No confirmed keep-above integration; the HUD opens but a game may cover it | No | Depends on the desktop portal | Portal-dependent | Not in the Electron build |
+| **macOS** | Builds; HUD is not a supported surface | - | - | - | Not supported |
+
+**Exclusive fullscreen:** no platform-independent API can guarantee an overlay above an exclusive
+fullscreen swap chain. Windows and X11 work reliably over borderless-windowed games; switching the game
+to borderless/windowed fullscreen is the reliable path. Linux Wayland compositors do not expose a
+portable always-on-top protocol to Electron, so GameIndex installs a KWin rule on KDE and reports the
+limitation everywhere else (including GNOME and most wlroots compositors).
+
+On Wayland there is no input pass-through protocol, so the click-through ticker option is disabled and
+the toggle hotkey is the way back to the HUD. Linux video capture is not implemented in the Electron
+build; screenshots use Chromium's desktop capture and may show a portal prompt.
 
 ---
 
@@ -265,6 +286,8 @@ without a portal leaves global hotkeys unavailable. On Linux, video requires the
 | Idle dim / hide | off | Fades the collapsed ticker out after idle seconds; hide fully hides the window (the toggle hotkey brings it back). |
 | Update frequency | 1000 ms | Live telemetry interval; the deep-dive temporarily boosts it to 100 ms. |
 | Detect current game | on | Adopts externally-launched titles (view-only); any foreground fullscreen app counts as a generic session when no library title matches. |
+| Achievement banners | on | Queued unlock banners in the HUD. |
+| Achievement duration / sound | 6 s / off | 2–20 s; optional chime. |
 | Screenshot format | PNG | PNG / JPEG. |
 | Screenshot sound / flash / clipboard | on | |
 | Video FPS / bitrate | 60 / 12 000 kbps | |
@@ -278,11 +301,20 @@ without a portal leaves global hotkeys unavailable. On Linux, video requires the
 
 - **Hotkeys do nothing.** The overlay is probably disabled - hotkeys are only bound when it is on.
   On Wayland, global hotkeys need the XDG Desktop Portal; a session without one cannot deliver them.
-- **Screenshot on Wayland shows a prompt.** The XDG Screenshot portal asks you to confirm; that is expected.
+- **Screenshot on Wayland shows a prompt.** Chromium's desktop capture goes through the portal; confirm it once per session.
 - **No FPS in the HUD.** Install/launch a sensor source - RTSS/MSI Afterburner (Windows) or MangoHud (Linux).
   Missing sensors render as a dash, never a wrong number.
-- **Recording is unavailable.** On Linux, install `gpu-screen-recorder`; it is not bundled. On macOS,
-  video capture is not supported.
+- **Recording is unavailable.** Video capture in the Electron build uses `ffmpeg` on Windows; it must be
+  installed and on `PATH`. Linux video capture is not implemented. macOS video capture is not supported.
+- **The HUD sits behind the game (Linux Wayland).** Check the note in **Settings  Overlay**: KDE gets a
+  KWin keep-above rule; GNOME and most wlroots compositors do not expose always-on-top to Electron. Use
+  borderless-windowed mode for the game, or run the X11 session.
+- **The theme changed but the HUD did not.** The overlay follows the main window through the shared
+  theme event and storage. Re-open with the toggle hotkey; if it persists, the overlay window may have
+  been reloaded while the main window was hidden - the next settings/theme change re-syncs it.
+- **Achievement banners do not appear.** Enable **Achievement banners** in Settings  Overlay. Sources
+  that only sync achievements later still feed the Activity  Notifications list, but a banner needs a
+  live `achievement-unlocked` event from a supported source.
 - **The HUD is in the way.** Set it to click-through, move it to another corner, shrink it, or bind an
   easier toggle hotkey.
 - **Clicks go through, but I cannot open the panel.** With click-through on, use the toggle hotkey -

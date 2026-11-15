@@ -9,6 +9,7 @@ import {
   Cpu,
   Download,
   Gauge,
+  Gamepad2,
   Loader2,
   Maximize2,
   MemoryStick,
@@ -27,6 +28,8 @@ import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { Badge } from "../ui";
 import OverlaySparkline from "./OverlaySparkline";
 import OverlayGauge from "./OverlayGauge";
+import OverlayAchievementToast from "./OverlayAchievementToast";
+import { useOverlayAchievementToasts } from "./useOverlayAchievementToasts";
 import { normalizeTickerLayout } from "./overlayLayout";
 import { useOverlayGame } from "./useOverlayGame";
 import { useOverlayNotifications } from "./overlayNotifications";
@@ -142,6 +145,11 @@ export default function OverlayTicker() {
   const activeGame = useOverlayGame(session);
   const elapsed = useSessionElapsed(session?.startedAt ?? null);
   const fitRef = useTickerAutoFit();
+  const achievementToasts = useOverlayAchievementToasts({
+    enabled: settings.achievementNotifications ?? true,
+    seconds: settings.achievementToastSeconds ?? 6,
+    sound: settings.achievementToastSound ?? false,
+  });
 
   const layout = normalizeTickerLayout(settings.tickerLayout);
 
@@ -463,9 +471,24 @@ export default function OverlayTicker() {
     "overlay-ticker",
     `overlay-ticker--${layout}`,
     isRecording ? "overlay-ticker--recording" : "",
+    achievementToasts.current ? "overlay-ticker--achievement" : "",
   ]
     .filter(Boolean)
     .join(" ");
+
+  const gamePill =
+    show("session") && session ? (
+      <span
+        className="overlay-ticker__game"
+        data-testid="overlay-ticker-game"
+        title={activeGame?.name || session.name || t("overlay.group.session")}
+      >
+        <Gamepad2 size={12} aria-hidden />
+        <span className="overlay-ticker__game-name">
+          {activeGame?.name || session.name || t("overlay.group.session")}
+        </span>
+      </span>
+    ) : null;
 
   return (
     <div
@@ -480,7 +503,13 @@ export default function OverlayTicker() {
     >
       {flashScreen && <div className="overlay-screen-flash" aria-hidden />}
 
-      {layout === "gauges" ? (
+      {achievementToasts.current ? (
+        <OverlayAchievementToast
+          notice={achievementToasts.current}
+          pending={achievementToasts.pending}
+          onDismiss={achievementToasts.dismiss}
+        />
+      ) : layout === "gauges" ? (
         <>
           <div className="overlay-ticker__row overlay-ticker__row--gauges">
             {gaugeCluster}
@@ -494,6 +523,7 @@ export default function OverlayTicker() {
             )}
           </div>
           <div className="overlay-ticker__row overlay-ticker__row--gauges-actions">
+            {gamePill}
             {recChips}
             {actionButtons}
             {activityBadges}
@@ -503,6 +533,7 @@ export default function OverlayTicker() {
       ) : (
         <>
           <div className="overlay-ticker__group overlay-ticker__group--metrics">
+            {gamePill}
             {fpsChip}
             {spark}
             {show("cpu") &&

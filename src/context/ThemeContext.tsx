@@ -401,6 +401,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Cross-window sync: the overlay/detail windows are separate renderers that
+  // share origin storage. A theme or UI-style switch made in the main window
+  // must repaint already-open secondary windows immediately.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) {
+        const next = event.newValue;
+        if (next && isValidThemeId(next)) {
+          setCurrentThemeState((prev) => (prev === next ? prev : next));
+        }
+        return;
+      }
+      if (event.key === UI_STYLE_STORAGE_KEY) {
+        const next = event.newValue as UiStyleId;
+        if (next && UI_STYLES.some((style) => style.id === next)) {
+          setUiStyleState((prev) => (prev === next ? prev : next));
+        }
+        return;
+      }
+      if (event.key === CUSTOM_THEMES_KEY) {
+        setCustomThemes(loadCustomThemes());
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Listen for OS color-scheme changes when systemSync is on
   useEffect(() => {
     if (!systemSync) return;

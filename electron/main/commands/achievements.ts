@@ -114,6 +114,8 @@ interface UnlockNotice {
   displayName: string;
   icon: string;
   isRare: boolean;
+  description: string;
+  percent: number;
 }
 
 /** `achievement-unlocked` payload the renderer's toast listener reads. */
@@ -122,6 +124,8 @@ function emitUnlocked(gameId: string, gameName: string, achievements: Achievemen
     displayName: achievement.displayName || achievement.apiName,
     icon: achievement.icon ?? "",
     isRare: achievement.percent > 0 && achievement.percent < 10,
+    description: achievement.description ?? "",
+    percent: achievement.percent ?? 0,
   }));
   if (notices.length === 0) return;
   emit("achievement-unlocked", { gameId, gameName, achievements: notices });

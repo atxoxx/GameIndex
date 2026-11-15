@@ -43,6 +43,9 @@ export const OVERLAY_SETTING_KEYS = [
   "replayBufferSeconds",
   "tickerAutoDimSeconds",
   "tickerAutoHideSeconds",
+  "achievementNotifications",
+  "achievementToastSeconds",
+  "achievementToastSound",
   "tickerWidgets",
   "panelWidgets",
 ] as const;

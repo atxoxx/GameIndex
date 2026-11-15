@@ -15,7 +15,7 @@ import {
  * the applied one — used to skip a needless re-application (and the subtle
  * colour drift it causes) when two covers share a similar identity.
  */
-function accentPalettesClose(
+export function accentPalettesClose(
   prev: GameAccentPalette,
   next: GameAccentPalette
 ): boolean {

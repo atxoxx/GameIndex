@@ -1029,6 +1029,27 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_AUTO_GAME_ACCENT, String(next));
   }, []);
 
+  // Accent + auto-game-accent are localStorage-backed and edited only from
+  // the main window. Secondary windows (the overlay) listen here so a change
+  // re-tints an already-open HUD without restarting it.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === LS_ACCENT_COLOR) {
+        const next = event.newValue;
+        setAccentColorState(next);
+        if (typeof document !== "undefined") {
+          applyAccentFamily(document.documentElement, next);
+        }
+        return;
+      }
+      if (event.key === LS_AUTO_GAME_ACCENT) {
+        setAutoGameAccentState(event.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const [uiSoundEnabled, setUiSoundEnabledState] = useState<boolean>(() => {
     const stored = lsGet(LS_UI_SOUND_ENABLED);
     if (stored !== null) return stored === "true";

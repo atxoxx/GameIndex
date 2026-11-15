@@ -27,6 +27,8 @@ import { useOverlay } from "../../context/OverlayContext";
 import { useLanguage } from "../../context/LanguageContext";
 import OverlayPanelTabs from "./OverlayPanelTabs";
 import HotkeyCheatsheet from "./HotkeyCheatsheet";
+import OverlayAchievementToast from "./OverlayAchievementToast";
+import { useOverlayAchievementToasts } from "./useOverlayAchievementToasts";
 import { Skeleton } from "../ui";
 import { useOverlayGame } from "./useOverlayGame";
 import { useOverlayNotifications } from "./overlayNotifications";
@@ -104,6 +106,11 @@ export default function OverlayPanel() {
   const recSeconds = useSessionElapsed(
     isRecording ? recordingState.startedAt ?? null : null,
   );
+  const achievementToasts = useOverlayAchievementToasts({
+    enabled: settings.achievementNotifications ?? true,
+    seconds: settings.achievementToastSeconds ?? 6,
+    sound: settings.achievementToastSound ?? false,
+  });
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [subtabState, setSubtabState] = useState<Record<string, string>>({});
@@ -157,6 +164,9 @@ export default function OverlayPanel() {
 
   const displayName =
     activeGame?.name || session?.name || t("overlay.title");
+  const headerArt = activeGame
+    ? safeArtworkUrl(activeGame.bannerUrl || activeGame.coverArtUrl)
+    : null;
 
   // The capture banner is a transient snackbar: show it when a capture lands,
   // then auto-dismiss so it can never linger over the panel content.
@@ -219,7 +229,23 @@ export default function OverlayPanel() {
     >
       {flashScreen && <div className="overlay-screen-flash" aria-hidden />}
 
+      {achievementToasts.current ? (
+        <OverlayAchievementToast
+          notice={achievementToasts.current}
+          pending={achievementToasts.pending}
+          onDismiss={achievementToasts.dismiss}
+          floating
+        />
+      ) : null}
+
       <header className="overlay-panel__head" data-tauri-drag-region="deep">
+        {headerArt ? (
+          <span
+            className="overlay-panel__head-art"
+            style={{ backgroundImage: `url("${headerArt}")` }}
+            aria-hidden
+          />
+        ) : null}
         <div className="overlay-panel__identity">
           {thumbnail ? (
             <img

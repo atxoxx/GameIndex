@@ -10,6 +10,35 @@
          Preload the two latin faces the shell paints with first. -->
     <link rel="preload" href="/fonts/plus-jakarta-sans-400-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/outfit-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- Apply the persisted appearance before the React bundle loads so a
+         secondary window (overlay / detail popout) never flashes the default
+         theme on its first frame. The overlay class also keeps the window
+         transparent before its stylesheet arrives. -->
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (params.get("window") === "overlay") {
+            document.documentElement.classList.add("gi-overlay-boot");
+          }
+          var theme = localStorage.getItem("gamelib-theme");
+          if (theme) document.documentElement.setAttribute("data-theme", theme);
+          var style = localStorage.getItem("gamelib-ui-style");
+          if (style) document.documentElement.setAttribute("data-ui-style", style);
+        } catch (error) {
+          /* storage unavailable - the providers apply defaults */
+        }
+      })();
+    </script>
+    <style>
+      .gi-overlay-boot,
+      .gi-overlay-boot body,
+      .gi-overlay-boot #root {
+        background: transparent;
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
   </head>
 
   <body>

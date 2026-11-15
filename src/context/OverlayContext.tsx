@@ -130,6 +130,12 @@ export interface OverlaySettings {
   tickerAutoDimSeconds?: number;
   /** Hide the ticker after N idle seconds past the dim step (0 = off). */
   tickerAutoHideSeconds?: number;
+  /** Show achievement unlock banners in the HUD. */
+  achievementNotifications?: boolean;
+  /** How long an achievement banner stays on screen (2-20 s). */
+  achievementToastSeconds?: number;
+  /** Play a chime with achievement banners. */
+  achievementToastSound?: boolean;
   videoHideOverlay: boolean;
   /** Session-scoped mirror of the backend flags. */
   videoRecording?: boolean;
@@ -363,6 +369,9 @@ export const DEFAULT_OVERLAY_SETTINGS: OverlaySettings = {
   videoCountdownMs: 0,
   tickerAutoDimSeconds: 0,
   tickerAutoHideSeconds: 0,
+  achievementNotifications: true,
+  achievementToastSeconds: 6,
+  achievementToastSound: false,
   videoHideOverlay: true,
   videoRecording: false,
   replayBufferActive: false,

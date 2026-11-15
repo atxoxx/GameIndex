@@ -20,7 +20,7 @@
  */
 import { BrowserWindow, app, globalShortcut, screen } from "electron";
 import { emit, emitTo, getWindowLabel, onEvent, setWindowLabel } from "../ipc";
-import { ensureKwinOverlayKeepAbove } from "../lib/kwin";
+import { ensureKwinOverlayKeepAbove, reapplyKwinOverlayKeepAbove } from "../lib/kwin";
 import { revealMainWindow } from "./mainWindow";
 import { attachWindowEvents } from "./events";
 import { loadRenderer, preloadPath } from "./renderer";import {
@@ -60,6 +60,83 @@ function isWaylandSession(): boolean {
     (process.env.XDG_SESSION_TYPE === "wayland" ||
       Boolean(process.env.WAYLAND_DISPLAY))
   );
+}
+
+function linuxDesktop(): string {
+  if (process.platform !== "linux") return "none";
+  const desktop = (
+    process.env.XDG_CURRENT_DESKTOP ??
+    process.env.XDG_SESSION_DESKTOP ??
+    ""
+  ).toLowerCase();
+  if (desktop.includes("kde")) return "kde";
+  if (desktop.includes("gnome")) return "gnome";
+  if (desktop.includes("sway") || desktop.includes("wlroots")) return "wlroots";
+  if (desktop.includes("hyprland")) return "hyprland";
+  return "unknown";
+}
+
+/** Display-server / stacking strategy the overlay can actually use. */
+export interface OverlayCapabilities {
+  platform: "windows" | "linux" | "macos" | "other";
+  /** `wayland` and `x11` only meaningful on Linux. */
+  displayServer: "windows" | "x11" | "wayland" | "other";
+  desktop: string;
+  /**
+   * How the HUD is kept above the game:
+   *   native      - the OS/window manager honours Electron's always-on-top
+   *   compositor  - a desktop-specific integration applies it (KWin script)
+   *   limited     - the compositor does not expose it; the HUD can still be
+   *                 opened, but games may cover it
+   */
+  alwaysOnTop: "native" | "compositor" | "limited";
+  /** Whether mouse input can be passed through the collapsed ticker. */
+  clickThrough: boolean;
+  /** Whether the expanded panel can take keyboard focus for its inputs. */
+  panelFocus: boolean;
+}
+
+/** What this session can promise - surfaced in Settings so limitations are honest. */
+export function getOverlayCapabilities(): OverlayCapabilities {
+  const platform =
+    process.platform === "win32"
+      ? "windows"
+      : process.platform === "linux"
+        ? "linux"
+        : process.platform === "darwin"
+          ? "macos"
+          : "other";
+  const displayServer =
+    platform === "windows"
+      ? "windows"
+      : platform === "linux"
+        ? isWaylandSession()
+          ? "wayland"
+          : process.env.DISPLAY
+            ? "x11"
+            : "other"
+        : "other";
+  const desktop = linuxDesktop();
+  const alwaysOnTop =
+    platform === "windows" || displayServer === "x11"
+      ? "native"
+      : displayServer === "wayland" && desktop === "kde"
+        ? "compositor"
+        : platform === "macos"
+          ? "native"
+          : "limited";
+  return {
+    platform,
+    displayServer,
+    desktop,
+    alwaysOnTop,
+    // Electron implements setIgnoreMouseEvents on Windows, macOS and X11;
+    // native Wayland has no equivalent.
+    clickThrough: displayServer !== "wayland",
+    // setFocusable is a no-op on Linux, so the panel relies on the window
+    // manager granting keyboard focus when it is shown interactively.
+    panelFocus: platform !== "linux" || displayServer === "x11",
+  };
 }
 
 /** Events (kept as consts so the renderer contract has one source of truth). */
@@ -308,7 +385,10 @@ export function createOverlayWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    focusable: false,
+    // Windows/macOS can flip focusability per presentation. Linux has no
+    // runtime setFocusable, so the window is created focusable there and the
+    // collapsed ticker relies on showInactive() not to steal the game.
+    focusable: process.platform === "linux",
     backgroundColor: "#00000000",
     title: "GameIndex Overlay",
     webPreferences: {
@@ -325,6 +405,20 @@ export function createOverlayWindow(): BrowserWindow {
   setWindowLabel(win, "overlay");
   attachWindowEvents(win);
   win.setAlwaysOnTop(true, "screen-saver");
+  if (process.platform === "win32") {
+    // Never let the HUD become an ordinary app window: no taskbar entry, no
+    // Alt-Tab card, and never a fullscreen window that the OS manages.
+    try {
+      win.setSkipTaskbar(true);
+    } catch {
+      /* unsupported */
+    }
+    try {
+      win.setFullScreenable(false);
+    } catch {
+      /* unsupported */
+    }
+  }
   if (process.platform !== "win32") {
     try {
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -333,6 +427,45 @@ export function createOverlayWindow(): BrowserWindow {
     }
   }
   applyInteraction(win, settings, collapsed);
+
+  // Push the current state on every successful load. This also covers a
+  // renderer crash/reload, where the React tree starts from defaults.
+  win.webContents.on("did-finish-load", () => {
+    const target = getOverlayWindow();
+    if (!target) return;
+    emitTo(target, EVENT_SETTINGS, getOverlaySettings());
+    emitTo(target, EVENT_SESSION, session);
+    emitTo(target, EVENT_TOGGLE, { collapsed });
+    target.setAlwaysOnTop(true, "screen-saver");
+  });
+
+  // Recover from a renderer crash or a hung HUD instead of leaving an empty
+  // transparent rectangle on top of the game. Throttled so a genuinely
+  // broken renderer cannot reload in a loop.
+  let lastRecovery = 0;
+  const recover = (reason: string) => {
+    const target = getOverlayWindow();
+    if (!target || target.isDestroyed()) return;
+    const now = Date.now();
+    if (now - lastRecovery < 10_000) return;
+    lastRecovery = now;
+    console.error(`[overlay] recovering renderer after ${reason}`);
+    void loadRenderer(target, { window: "overlay" }).catch((error) =>
+      console.error("[overlay] renderer reload failed:", error),
+    );
+  };
+  win.webContents.on("render-process-gone", (_event, details) =>
+    recover(`render-process-gone (${details.reason})`),
+  );
+  win.webContents.on("unresponsive", () => recover("unresponsive"));
+
+  // `alwaysOnTop` is a request, not a guarantee: games that enter fullscreen
+  // sometimes re-assert their own Z order, and a KWin restart drops its rule.
+  win.on("show", () => {
+    if (win.isDestroyed()) return;
+    win.setAlwaysOnTop(true, "screen-saver");
+    void reapplyKwinOverlayKeepAbove();
+  });
 
   win.on("closed", () => {
     overlayWindow = null;
@@ -369,12 +502,24 @@ export function presentOverlay(isCollapsed: boolean): void {
   win.setAlwaysOnTop(true, "screen-saver");
   applyInteraction(win, settings, isCollapsed);
 
+  // The panel is the interactive surface: give it keyboard focus so notes,
+  // settings and hotkey fields work immediately. The collapsed ticker never
+  // takes focus (showInactive + non-focusable on Windows/macOS).
+  if (!isCollapsed) {
+    try {
+      win.focus();
+    } catch {
+      /* some compositors refuse focus for non-activating windows */
+    }
+  }
+
   // Replay the current session so a freshly built overlay renders without
   // waiting for the next lifecycle event, and tell the renderer which
   // presentation to draw (it boots on the ticker otherwise).
   emitTo(win, EVENT_SESSION, session);
   emitTo(win, EVENT_TOGGLE, { collapsed: isCollapsed });
 
+  void reapplyKwinOverlayKeepAbove();
   spawnLiveMetrics(settings);
   startFollow();
 }
@@ -419,6 +564,19 @@ export function setOverlayCollapsed(isCollapsed: boolean): void {
   applyGeometry(win, settings, isCollapsed);
   applyInteraction(win, settings, isCollapsed);
   win.setAlwaysOnTop(true, "screen-saver");
+  if (!isCollapsed && !win.isDestroyed()) {
+    try {
+      win.focus();
+    } catch {
+      /* focus is compositor-controlled on some Linux sessions */
+    }
+  } else if (!win.isDestroyed()) {
+    try {
+      win.blur();
+    } catch {
+      /* no-op on unsupported platforms */
+    }
+  }
 }
 
 /** Toggle whether the HUD receives mouse input. */
@@ -1017,11 +1175,54 @@ function onGameExited(payload: unknown): void {
  * Load persisted state, apply the stored hotkeys and subscribe to the game
  * lifecycle. Called once from `createSurfaces()`.
  */
+// ── Display changes ─────────────────────────────────────────────────
+let displayWatchersInstalled = false;
+let displayWatcherTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Re-anchor the HUD when monitors are added/removed or their resolution/DPI
+ * changes. A saved manual position is clamped back onto the surviving work
+ * area so a disconnected monitor cannot strand the overlay off-screen.
+ */
+function installDisplayWatchers(): void {
+  if (displayWatchersInstalled) return;
+  displayWatchersInstalled = true;
+
+  const schedule = () => {
+    if (displayWatcherTimer) return;
+    displayWatcherTimer = setTimeout(() => {
+      displayWatcherTimer = null;
+      const win = getOverlayWindow();
+      if (!win) return;
+      const settings = getOverlaySettings();
+      const size = overlaySize(settings, collapsed);
+      const pos = resolvePosition(settings, size);
+      if (
+        (settings.posX != null || settings.posY != null) &&
+        (settings.posX !== pos.x || settings.posY !== pos.y)
+      ) {
+        settings.posX = pos.x;
+        settings.posY = pos.y;
+        persist();
+      }
+      followMonitorOrigin = null;
+      applyGeometry(win, settings, collapsed);
+      win.setAlwaysOnTop(true, "screen-saver");
+    }, 250);
+    displayWatcherTimer.unref?.();
+  };
+
+  screen.on("display-added", schedule);
+  screen.on("display-removed", schedule);
+  screen.on("display-metrics-changed", schedule);
+}
+
 export function installOverlay(): void {
   if (installed) return;
   installed = true;
 
   void ensureKwinOverlayKeepAbove();
+  installDisplayWatchers();
 
   const settings = getOverlaySettings();
   try {

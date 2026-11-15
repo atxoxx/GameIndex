@@ -18,6 +18,7 @@ import {
   fitOverlayTicker,
   getOverlaySession,
   getOverlaySettings,
+  getOverlayCapabilities,
   hideOverlay,
   loadOverlayHistory,
   moveOverlayBy,
@@ -107,6 +108,7 @@ export const overlayCommands: Record<string, CommandHandler> = {
   },
   overlay_set_hotkey: (args) => setOverlayHotkey(asString(args.accelerator)),
   overlay_native_blur_supported: () => nativeBlurSupported(),
+  overlay_capabilities: () => getOverlayCapabilities(),
   overlay_set_window_effect: (args) => {
     setOverlayWindowEffect(Boolean(args.enabled), args.color);
     return null;

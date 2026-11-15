@@ -12,6 +12,33 @@ let activeArtworkUrl: string | null = (() => {
 
 const listeners = new Set<() => void>();
 
+// Secondary windows (overlay, detail popout) are independent React trees but
+// share the same origin storage. Without a `storage` listener they only see
+// the artwork that was current when their module first loaded, so the game
+// accent palette could stay stale for the whole session.
+const storageSyncFlag = globalThis as unknown as {
+  __gamelib_active_artwork_storage__?: boolean;
+};
+if (
+  typeof window !== "undefined" &&
+  !storageSyncFlag.__gamelib_active_artwork_storage__
+) {
+  storageSyncFlag.__gamelib_active_artwork_storage__ = true;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    const next = event.newValue?.trim() || null;
+    if (!next || next === activeArtworkUrl) return;
+    activeArtworkUrl = next;
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        /* ignore listener errors */
+      }
+    }
+  });
+}
+
 function subscribe(callback: () => void): () => void {
   listeners.add(callback);
   return () => {

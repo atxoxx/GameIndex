@@ -252,4 +252,19 @@ describe("OverlayTicker", () => {
       "9+",
     );
   });
+
+  it("shows the running game's name when the session widget is enabled", () => {
+    mockOverlay.mockReturnValue({
+      ...overlayValue(),
+      settings: {
+        ...baseOverlaySettings,
+        tickerWidgets: ["fps", "session"],
+      },
+      session: { gameId: "g1", startedAt: Date.now(), name: "Aurora Drift" },
+    });
+    render(<OverlayTicker />);
+    expect(screen.getByTestId("overlay-ticker-game")).toHaveTextContent(
+      "Aurora Drift",
+    );
+  });
 });
