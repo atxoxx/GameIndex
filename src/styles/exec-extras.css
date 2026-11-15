@@ -1,5 +1,9 @@
 /* Executables picker (extra launch executables) — shared by the hero
-   play-button chevron modal. Dark-first, token-driven. */
+   play-button chevron modal. Dark-first, token-driven.
+
+   Layout: one card per launch target with a leading glyph, a flexible text
+   column and a right-hand action rail of identical 32px controls, so the
+   Launch buttons line up down the list instead of drifting with row content. */
 .exe-picker-backdrop {
   position: fixed;
   inset: 0;
@@ -8,11 +12,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--space-lg) 0;
 }
 
 .exe-picker {
-  width: min(560px, calc(100vw - var(--space-xl) * 2));
-  max-height: 80dvh;
+  width: min(620px, calc(100vw - var(--space-xl) * 2));
+  max-height: 82dvh;
   overflow-y: auto;
   background: var(--color-surface);
   color: var(--color-text-primary);
@@ -25,6 +30,8 @@
   box-shadow: var(--elevation-4, var(--elevation-3));
 }
 
+/* ── header ─────────────────────────────────────────────────────── */
+
 .exe-picker-header {
   display: flex;
   align-items: flex-start;
@@ -32,182 +39,559 @@
   gap: var(--space-md);
 }
 
-.exe-picker-header-text {
+.exe-picker-heading {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs);
+  gap: var(--space-3xs);
+  min-width: 0;
 }
 
-.exe-picker-header h3 {
+.exe-picker-heading h3 {
   margin: 0;
   font-size: var(--text-lg);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
 .exe-picker-game-name {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .exe-picker-close {
-  background: none;
-  border: 1px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
+  background: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: var(--space-2xs) var(--space-sm);
+  transition:
+    color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    background var(--duration-fast, 150ms) var(--ease-standard, ease);
 }
 
 .exe-picker-close:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.exe-picker-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* ── rows ───────────────────────────────────────────────────────── */
+
+.exe-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .exe-picker-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  transition:
+    border-color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    background var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.exe-picker-row:hover {
+  border-color: color-mix(in srgb, var(--color-text-muted) 42%, var(--color-border));
+}
+
+/* Editable rows are taller than the main row; align the glyph and the action
+   rail with the first line (the fields) instead of the vertical centre. */
+.exe-picker-row:not(.exe-picker-row--main) {
+  align-items: flex-start;
+}
+
+.exe-picker-row:not(.exe-picker-row--main) .exe-picker-glyph,
+.exe-picker-row:not(.exe-picker-row--main) .exe-picker-actions {
+  margin-top: var(--space-4xs);
+}
+
+/* The main executable is the Play button's target: mark it as the primary
+   card instead of relying on a trailing badge alone. */
+.exe-picker-row--main {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 26%, var(--color-border));
+}
+
+.exe-picker-row--main:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.exe-picker-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-muted);
+}
+
+.exe-picker-row--main .exe-picker-glyph {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
 }
 
 .exe-picker-row-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs);
-  min-width: 0;
+  gap: var(--space-xs);
 }
 
-.exe-picker-label,
-.exe-picker-path {
+.exe-picker-title {
   font-size: var(--text-sm);
-  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.exe-picker-label {
-  font-weight: var(--font-weight-medium);
-}
+/* ── editable fields ────────────────────────────────────────────── */
 
-.exe-picker-path {
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+.exe-picker-fields {
+  display: flex;
+  gap: var(--space-sm);
+  min-width: 0;
 }
 
 .exe-picker-input {
-  background: none;
+  min-width: 0;
+  padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
+  font: inherit;
   font-size: var(--text-sm);
-  padding: var(--space-2xs) var(--space-sm);
-  min-width: 0;
+  transition:
+    border-color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    box-shadow var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.exe-picker-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.exe-picker-input:hover {
+  border-color: color-mix(in srgb, var(--color-text-muted) 45%, var(--color-border));
 }
 
 .exe-picker-input:focus {
   outline: none;
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.exe-picker-input--label {
+  flex: 1 1 45%;
+  font-weight: var(--font-weight-medium);
+}
+
+.exe-picker-input--args {
+  flex: 1 1 55%;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* ── meta line: path + copy, argument/admin summary ────────────── */
+
+.exe-picker-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.exe-picker-pathline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.exe-picker-path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+  margin-left: -6px;
+  padding: var(--space-3xs) var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: copy;
+  transition:
+    color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    background var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.exe-picker-path:hover,
+.exe-picker-path:focus-visible {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  outline: none;
+}
+
+.exe-picker-path-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exe-picker-path-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.exe-picker-path:hover .exe-picker-path-icon {
+  opacity: 1;
+}
+
+.exe-picker-path[data-copied="true"] {
+  color: var(--color-success, var(--color-accent));
+}
+
+.exe-picker-path[data-copied="true"] .exe-picker-path-icon {
+  opacity: 1;
+}
+
+.exe-picker-path-copied {
+  font-family: var(--font-sans, inherit);
+  font-size: var(--text-xs);
+  color: var(--color-success, var(--color-accent));
+}
+
+/* ── chips ──────────────────────────────────────────────────────── */
+
+.exe-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  max-width: 240px;
+  padding: var(--space-3xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.exe-picker-chip--default {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  font-weight: var(--font-weight-medium);
+}
+
+.exe-picker-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.exe-picker-chip--args {
+  gap: var(--space-xs);
+  max-width: 200px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.exe-picker-chip-label {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.exe-picker-chip-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+}
+
+.exe-picker-chip--admin {
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+.exe-picker-chip--warning {
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+/* ── action rail ────────────────────────────────────────────────── */
+
+.exe-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
 }
 
 .exe-picker-launch {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
-  padding: var(--space-2xs) var(--space-md);
-  border-radius: var(--radius-full);
+  justify-content: center;
+  gap: var(--space-xs);
+  height: 32px;
+  padding: 0 var(--space-md);
+  flex-shrink: 0;
   border: 1px solid transparent;
+  border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast, #fff);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
-  flex-shrink: 0;
+  transition:
+    filter var(--duration-fast, 150ms) var(--ease-standard, ease),
+    transform var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.exe-picker-launch:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.exe-picker-launch:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.exe-picker-launch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .exe-picker-launch:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: default;
 }
 
-.exe-picker-badge {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2xs) var(--space-sm);
+/* Alternate targets are secondary actions: the main card keeps the filled
+   accent so the Play button's target stays the visual primary. */
+.exe-picker-row:not(.exe-picker-row--main) .exe-picker-launch {
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
 }
 
-.exe-picker-admin,
-.exe-picker-remove {
+.exe-picker-row:not(.exe-picker-row--main) .exe-picker-launch:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  filter: none;
+}
+
+.exe-picker-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  flex-shrink: 0;
+  transition:
+    color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    border-color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    background var(--duration-fast, 150ms) var(--ease-standard, ease);
 }
 
-.exe-picker-admin:hover,
-.exe-picker-remove:hover {
+.exe-picker-icon:hover {
   color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
-.exe-picker-admin.active {
+.exe-picker-icon:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.exe-picker-icon.is-active {
   color: var(--color-warning);
-  border-color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
 }
 
-.exe-picker-remove:hover {
+.exe-picker-icon--danger:hover {
   color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
+
+/* ── add flow ───────────────────────────────────────────────────── */
 
 .exe-picker-add-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   align-self: flex-start;
-  padding: var(--space-2xs) var(--space-md);
-  border-radius: var(--radius-full);
+  padding: var(--space-xs) var(--space-md);
   border: 1px dashed var(--color-border);
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    border-color var(--duration-fast, 150ms) var(--ease-standard, ease),
+    background var(--duration-fast, 150ms) var(--ease-standard, ease);
+}
+
+.exe-picker-add-btn:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+.exe-picker-add-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.exe-picker-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-primary) 2%, transparent);
+}
+
+.exe-picker-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.exe-picker-add-row .exe-picker-input {
+  flex: 1;
+}
+
+.exe-picker-add-browse {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 32px;
+  padding: 0 var(--space-md);
+  flex-shrink: 0;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.exe-picker-add-browse:hover {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.exe-picker-add-browse:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.exe-picker-add-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 20px;
+}
+
+.exe-picker-link {
+  padding: var(--space-3xs) var(--space-2xs);
+  border: 0;
   background: none;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   cursor: pointer;
 }
 
-.exe-picker-add-btn:hover {
+.exe-picker-link:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-text-muted);
 }
 
-.exe-picker-add-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+.exe-picker-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
 }
 
 .exe-picker-empty {
   margin: 0;
+  padding: var(--space-sm) var(--space-3xs);
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
 .exe-picker-error {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-size: var(--text-xs);
   color: var(--color-danger);
+}
+
+/* Narrow windows: let the action rail drop under the text column instead of
+   squeezing the fields. */
+@media (max-width: 560px) {
+  .exe-picker-row {
+    flex-wrap: wrap;
+  }
+
+  .exe-picker-row-main {
+    flex-basis: calc(100% - 32px - var(--space-sm));
+  }
+
+  .exe-picker-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .exe-picker-fields {
+    flex-direction: column;
+  }
 }
 
 /* Edit-game modal — additional executables.
