@@ -10,28 +10,39 @@ import {
 } from "./presets";
 import { DEFAULT_PREFS, sanitizePrefs } from "./prefs";
 
-describe("presets", () => {
+describe("layout presets", () => {
   it("ships five layouts with unique ids and labels", () => {
     expect(PRESETS.map((preset) => preset.id)).toEqual([
+      "gameindex",
       "xbox",
       "steam",
       "playstation",
       "switch",
-      "classic",
     ]);
     expect(new Set(PRESETS.map((preset) => preset.labelKey)).size).toBe(
       PRESETS.length,
     );
   });
 
+  it("gives every layout its own composition", () => {
+    const homes = new Set(PRESETS.map((preset) => preset.home));
+    const libraries = new Set(PRESETS.map((preset) => preset.library));
+    const details = new Set(PRESETS.map((preset) => preset.detail));
+    expect(homes.size).toBe(PRESETS.length);
+    expect(libraries.size).toBe(PRESETS.length);
+    expect(details.size).toBe(PRESETS.length);
+  });
+
   it("keeps the side rail exclusive to the Steam layout", () => {
     for (const preset of PRESETS) {
-      expect(preset.placement).toBe(preset.id === "steam" ? "side" : "top");
+      expect(preset.placement).toBe(
+        preset.id === "steam" ? "side" : preset.id === "switch" ? "bottom" : "top",
+      );
     }
   });
 
   it("cycles and wraps through every preset", () => {
-    expect(nextPreset("xbox")).toBe("steam");
+    expect(nextPreset("gameindex")).toBe("xbox");
     expect(nextPreset(PRESET_CYCLE[PRESET_CYCLE.length - 1])).toBe(DEFAULT_PRESET);
   });
 
@@ -40,6 +51,10 @@ describe("presets", () => {
     expect(coercePreset("nintendo")).toBe(DEFAULT_PRESET);
     expect(coercePreset(undefined)).toBe(DEFAULT_PRESET);
     expect(getPreset("unknown" as never).id).toBe(DEFAULT_PRESET);
+  });
+
+  it("migrates the legacy classic id to the GameIndex layout", () => {
+    expect(coercePreset("classic")).toBe("gameindex");
   });
 });
 

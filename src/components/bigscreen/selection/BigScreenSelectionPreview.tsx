@@ -312,8 +312,8 @@ export default function BigScreenSelectionPreview({
     );
   }
 
-  // Classic keeps the app's shipped spotlight, two columns and all, so
-  // the preset that is "the old look" cannot drift from it.
+  // GameIndex keeps the app's shipped spotlight, two columns and all, so
+  // the layout that is "the app's own look" cannot drift from it.
   if (variant === "hero") {
     return (
       <div className={`${rootClass} bs-sel--delegate`}>

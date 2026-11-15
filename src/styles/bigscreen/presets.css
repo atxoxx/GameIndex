@@ -430,26 +430,26 @@
    ============================================================ */
 
 /* Classic keeps the neutral app-theme backdrop exactly as today. */
-.bs-shell[data-preset="classic"] {
+.bs-shell[data-preset="gameindex"] {
   --bs-ambient: var(--mesh-gradient);
 }
 
-.bs-shell[data-preset="classic"] .bs-nav {
+.bs-shell[data-preset="gameindex"] .bs-nav {
   gap: 0.25rem;
 }
 
-.bs-shell[data-preset="classic"] .bs-nav-icon {
+.bs-shell[data-preset="gameindex"] .bs-nav-icon {
   color: var(--bs-brand);
 }
 
-.bs-shell[data-preset="classic"] .bs-nav-label {
+.bs-shell[data-preset="gameindex"] .bs-nav-label {
   max-width: none;
   opacity: 1;
 }
 
 /* Brand === accent here, so the classic marker keeps the app identity
    while still reading through the same alias as the other presets. */
-.bs-shell[data-preset="classic"] .bs-nav-item[data-active]::after {
+.bs-shell[data-preset="gameindex"] .bs-nav-item[data-active]::after {
   background: var(--bs-brand);
 }
 
@@ -459,7 +459,7 @@
 
 /* Cinematic presets keep ambient art vivid; subtle ones dim it. */
 .bs-shell[data-preset="steam"] .bs-home-ambient,
-.bs-shell[data-preset="classic"] .bs-home-ambient {
+.bs-shell[data-preset="gameindex"] .bs-home-ambient {
   opacity: 0.55;
 }
 

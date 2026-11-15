@@ -18,12 +18,14 @@ import { useFocusable } from "../../../hooks/useFocusable";
 interface BigScreenTopBarProps {
   onOpenSearch: () => void;
   onOpenGuide: () => void;
+  onOpenLayout: () => void;
   onRequestExit: () => void;
 }
 
 export default function BigScreenTopBar({
   onOpenSearch,
   onOpenGuide,
+  onOpenLayout,
   onRequestExit,
 }: BigScreenTopBarProps) {
   const { t, language } = useLanguage();
@@ -31,6 +33,7 @@ export default function BigScreenTopBar({
   const [time, setTime] = useState("");
   const searchProps = useFocusable(onOpenSearch);
   const guideProps = useFocusable(onOpenGuide);
+  const layoutProps = useFocusable(onOpenLayout);
   const pointerProps = useFocusable(gamepad.toggleVirtualMouse);
   const exitProps = useFocusable(onRequestExit);
 
@@ -102,6 +105,22 @@ export default function BigScreenTopBar({
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
             <rect x="3" y="6" width="18" height="12" rx="3" />
             <path d="M8 10h2M9 9v2M15 10h.01M17 12h.01" />
+          </svg>
+        </button>
+
+        <button
+          {...layoutProps}
+          type="button"
+          className="bs-utility bs-utility--layout"
+          onClick={onOpenLayout}
+          aria-label={t("bigscreen.layouts.title")}
+          title={t("bigscreen.layouts.title")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
           </svg>
         </button>
 

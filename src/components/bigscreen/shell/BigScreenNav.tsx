@@ -1,15 +1,15 @@
 // Section navigation for the Big Screen shell.
 //
-// One DOM for every layout preset: a list of icon+label buttons. The
-// preset decides where the list sits (top row / left rail / centred
-// hub row / icon tiles) and how much of it is visible at rest, purely
-// through `[data-preset]` + `[data-nav]` CSS on the shell root.
+// The active interface layout owns the navigation paradigm:
+//   gameindex    floating glass strip with icon + label
+//   xbox         wide dashboard tiles
+//   steam        persistent vertical rail
+//   playstation  centred hub row
+//   switch       bottom icon dock
 //
-// "Compact, expands on focus": labels for inactive items stay hidden
-// until the nav is engaged (controller focus, keyboard focus or the
-// pointer). The nav reports that to the shell, which flips
-// `data-nav-engaged` so the CSS can grow the bar without React
-// re-rendering every section.
+// One DOM shape (a list of section buttons) with layout-specific
+// wrappers and CSS, so focus registration, section resolution and
+// keyboard behaviour stay identical.
 
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -20,13 +20,9 @@ import {
 } from "../../../bigscreen/registry";
 import { useFocusable } from "../../../hooks/useFocusable";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useActivePreset } from "../../../context/BigScreenPrefsContext";
 
-interface NavItemProps {
-  section: BigScreenSection;
-  active: boolean;
-}
-
-function NavItem({ section, active }: NavItemProps) {
+function NavItem({ section, active }: { section: BigScreenSection; active: boolean }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const focusProps = useFocusable(() => navigate(section.path));
@@ -50,18 +46,13 @@ function NavItem({ section, active }: NavItemProps) {
 }
 
 interface BigScreenNavProps {
-  /** Reports engagement so the shell can expand/collapse the nav. */
   onEngagedChange?: (engaged: boolean) => void;
-  /** A side rail must not be treated as a horizontal track. */
-  orientation?: "horizontal" | "vertical";
 }
 
-export default function BigScreenNav({
-  onEngagedChange,
-  orientation = "horizontal",
-}: BigScreenNavProps) {
+export default function BigScreenNav({ onEngagedChange }: BigScreenNavProps) {
   const { pathname } = useLocation();
   const { t } = useLanguage();
+  const { id: layout } = useActivePreset();
   const navRef = useRef<HTMLElement | null>(null);
   const [engaged, setEngaged] = useState(false);
   const activeId = sectionForPath(pathname);
@@ -70,9 +61,6 @@ export default function BigScreenNav({
     onEngagedChange?.(engaged);
   }, [engaged, onEngagedChange]);
 
-  // Engagement is "focus is somewhere in the nav". focusout fires
-  // before the next element receives focus, so defer the check one
-  // frame and look at the live activeElement.
   useEffect(() => {
     const el = navRef.current;
     if (!el) return;
@@ -94,29 +82,44 @@ export default function BigScreenNav({
     };
   }, []);
 
+  const isRail = layout === "steam";
+  const isDock = layout === "switch";
+
   return (
     <nav
       ref={navRef}
       className="bs-nav"
+      data-layout={layout}
       data-engaged={engaged ? "true" : undefined}
       aria-label={t("bigscreen.mainSections")}
     >
-      {/* A vertical rail is a y-axis scroller: the engine aligns the
-          focused section at 25% down the rail instead of treating it as
-          a content row. */}
+      {isRail ? (
+        <div className="bs-nav-brand" aria-hidden="true">
+          <span className="bs-brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5Z" />
+              <path d="m4 8.5 8 4.5 8-4.5M12 13v7" />
+            </svg>
+          </span>
+          <span>GameIndex</span>
+        </div>
+      ) : null}
+
       <div
         className="bs-nav-track"
-        data-orientation={orientation}
-        data-axis={orientation === "vertical" ? "y" : undefined}
+        data-orientation={isRail ? "vertical" : "horizontal"}
+        data-axis={isRail ? "y" : undefined}
       >
         {PRIMARY_SECTIONS.map((section) => (
-          <NavItem
-            key={section.id}
-            section={section}
-            active={section.id === activeId}
-          />
+          <NavItem key={section.id} section={section} active={section.id === activeId} />
         ))}
       </div>
+
+      {isDock ? (
+        <span className="bs-nav-dock-mark" aria-hidden="true">
+          <span />
+        </span>
+      ) : null}
     </nav>
   );
 }

@@ -512,8 +512,8 @@
 
 .bs-sel--switch.bs-sel--band,
 .bs-sel--switch.bs-sel--inline,
-.bs-sel--classic.bs-sel--band,
-.bs-sel--classic.bs-sel--inline {
+.bs-sel--gameindex.bs-sel--band,
+.bs-sel--gameindex.bs-sel--inline {
   min-height: 2.75rem;
 }
 

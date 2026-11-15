@@ -124,13 +124,13 @@
 
 /* Classic keeps the shipped stacked header: title on its own line,
    chips on the next, reading left to right. */
-.bigscreen-library-dashboard[data-preset="classic"] .bigscreen-library-tools {
+.bigscreen-library-dashboard[data-preset="gameindex"] .bigscreen-library-tools {
   flex: 1 0 100%;
   margin-left: 0;
   justify-content: flex-start;
 }
 
-.bigscreen-library-dashboard[data-preset="classic"] .bigscreen-library-chips-row {
+.bigscreen-library-dashboard[data-preset="gameindex"] .bigscreen-library-chips-row {
   justify-content: flex-start;
 }
 

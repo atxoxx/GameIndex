@@ -1,168 +1,561 @@
 /* ============================================================
-   Big Screen — layout preset picker
+   Big Screen — layout previews + layout selector
    ============================================================
-   Shipped with the PresetPicker component so the same control works
-   inside Big Screen (Quick settings) and in desktop Settings, where
-   the Big Screen stylesheet is not loaded. Uses theme tokens only.
+   A schematic of each interface (nav placement, hero shape, card
+   geometry), drawn from the layout traits rather than screenshots.
+   ============================================================ */
+
+.bst-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--pv-brand) 26%, var(--color-bg-primary)), var(--color-bg-primary) 72%);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --pv-brand: var(--color-accent);
+}
+
+.bst-preview[data-preview="xbox"] {
+  --pv-brand: #107c10;
+}
+
+.bst-preview[data-preview="steam"] {
+  --pv-brand: #66c0f4;
+}
+
+.bst-preview[data-preview="playstation"] {
+  --pv-brand: #2a6df4;
+}
+
+.bst-preview[data-preview="switch"] {
+  --pv-brand: #e60012;
+}
+
+.bst-preview[data-preview="gameindex"] {
+  --pv-brand: #7c6cff;
+}
+
+.bst-preview > * {
+  position: absolute;
+}
+
+.bst-preview-nav,
+.bst-preview-dock {
+  display: flex;
+  gap: 3%;
+  align-items: center;
+}
+
+.bst-preview-nav i,
+.bst-preview-dock i {
+  display: block;
+  width: 0.55rem;
+  height: 0.42rem;
+  border-radius: 0.12rem;
+  background: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
+}
+
+.bst-preview-hero {
+  border-radius: 0.3rem;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--pv-brand) 62%, transparent), transparent 72%),
+    color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.bst-preview-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8%;
+}
+
+.bst-preview-copy i {
+  display: block;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+}
+
+.bst-preview-copy i:first-child {
+  width: 72%;
+  height: 0.55rem;
+  background: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+}
+
+.bst-preview-copy i:last-child {
+  width: 92%;
+  background: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+}
+
+.bst-preview-cards {
+  display: flex;
+  gap: 4%;
+  align-items: flex-end;
+}
+
+.bst-preview-cards i {
+  display: block;
+  flex: 1;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--pv-brand) 70%, transparent);
+}
+
+/* GameIndex — glass strip, editorial hero */
+.bst-preview[data-preview="gameindex"] .bst-preview-nav {
+  top: 6%;
+  left: 20%;
+  right: 20%;
+  justify-content: center;
+  padding: 2%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.bst-preview[data-preview="gameindex"] .bst-preview-hero {
+  inset: 18% 0 auto 0;
+  height: 48%;
+  border-radius: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-bg-primary) 84%, transparent), color-mix(in srgb, var(--color-bg-primary) 20%, transparent)),
+    linear-gradient(120deg, color-mix(in srgb, var(--pv-brand) 55%, var(--color-bg-primary)), color-mix(in srgb, var(--pv-brand) 20%, var(--color-bg-primary)));
+}
+
+.bst-preview[data-preview="gameindex"] .bst-preview-copy {
+  left: 8%;
+  top: 28%;
+  width: 36%;
+  height: 22%;
+}
+
+.bst-preview[data-preview="gameindex"] .bst-preview-cards {
+  left: 8%;
+  right: 8%;
+  bottom: 8%;
+  height: 20%;
+}
+
+.bst-preview[data-preview="gameindex"] .bst-preview-cards i {
+  height: 100%;
+}
+
+/* Xbox — top tiles, split hero */
+.bst-preview[data-preview="xbox"] .bst-preview-nav {
+  top: 5%;
+  left: 6%;
+  right: 6%;
+  height: 9%;
+  justify-content: flex-start;
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-nav i {
+  width: 12%;
+  height: 100%;
+  border-radius: 0.18rem;
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-nav i:first-child {
+  background: var(--pv-brand);
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-hero {
+  left: 6%;
+  top: 20%;
+  width: 52%;
+  height: 40%;
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-copy {
+  right: 6%;
+  top: 20%;
+  width: 32%;
+  height: 40%;
+  padding: 5%;
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-cards {
+  left: 6%;
+  right: 6%;
+  bottom: 6%;
+  height: 24%;
+}
+
+.bst-preview[data-preview="xbox"] .bst-preview-cards i {
+  height: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+/* Steam — left rail, poster shelves */
+.bst-preview[data-preview="steam"] .bst-preview-nav {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 16%;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 8%;
+  gap: 4%;
+  background: color-mix(in srgb, var(--color-bg-primary) 66%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-nav i {
+  width: 58%;
+  height: 4%;
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-nav i:last-child {
+  background: var(--pv-brand);
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-hero {
+  left: 21%;
+  top: 8%;
+  width: 46%;
+  height: 34%;
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-copy {
+  right: 6%;
+  top: 10%;
+  width: 24%;
+  height: 24%;
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-cards {
+  left: 21%;
+  right: 6%;
+  bottom: 7%;
+  height: 42%;
+  align-items: flex-start;
+}
+
+.bst-preview[data-preview="steam"] .bst-preview-cards i {
+  height: 100%;
+  aspect-ratio: 2 / 3;
+  flex: 0 0 18%;
+}
+
+/* PlayStation — centred hub, cinematic hero, squares */
+.bst-preview[data-preview="playstation"] .bst-preview-nav {
+  top: 5%;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  gap: 6%;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-nav i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-nav i:first-child {
+  background: var(--pv-brand);
+  box-shadow: 0 0 6px var(--pv-brand);
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-hero {
+  inset: 12% 0 0 0;
+  height: 62%;
+  border-radius: 0;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-copy {
+  left: 36%;
+  top: 26%;
+  width: 28%;
+  height: 16%;
+  align-items: center;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-copy i {
+  width: 100% !important;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-cards {
+  left: 18%;
+  right: 18%;
+  bottom: 9%;
+  height: 16%;
+  justify-content: center;
+}
+
+.bst-preview[data-preview="playstation"] .bst-preview-cards i {
+  flex: 0 0 14%;
+  height: 100%;
+  border-radius: 0.25rem;
+}
+
+/* Switch — icon grid + bottom dock */
+.bst-preview[data-preview="switch"] .bst-preview-nav {
+  display: none;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-hero {
+  left: 6%;
+  top: 6%;
+  width: 38%;
+  height: 26%;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border-left: 2px solid var(--pv-brand);
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-copy {
+  right: 8%;
+  top: 8%;
+  width: 38%;
+  height: 20%;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-cards {
+  left: 6%;
+  right: 6%;
+  top: 38%;
+  height: 38%;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5%;
+  align-items: start;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-cards i {
+  aspect-ratio: 1;
+  width: 100%;
+  height: auto;
+  border-radius: 0.3rem;
+  border: 0;
+  background: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-cards i:first-child {
+  outline: 2px solid var(--pv-brand);
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-dock {
+  left: 22%;
+  right: 22%;
+  bottom: 5%;
+  justify-content: center;
+  gap: 10%;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-dock i {
+  width: 0.75rem;
+  height: 0.55rem;
+  border-radius: 0.12rem;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-dock i:first-child {
+  background: var(--pv-brand);
+}
+
+.bst-preview-dock {
+  display: none;
+}
+
+.bst-preview[data-preview="switch"] .bst-preview-dock {
+  display: flex;
+}
+
+/* ============================================================
+   Preset cards (settings + quick settings)
    ============================================================ */
 
 .bs-preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
-  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--space-sm);
+  width: 100%;
 }
 
 .bs-preset {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  border-radius: var(--radius-lg, 10px);
+  gap: 0.55rem;
+  padding: 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
   color: var(--color-text-primary);
   font: inherit;
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 120ms ease,
-    background-color 120ms ease;
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 
-.bs-preset:hover {
-  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  border-color: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+.bs-preset[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
 
-.bs-preset[data-selected] {
+.bs-preset[data-focused="true"],
+.bs-preset:focus-visible {
+  outline: none;
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-}
-
-.bs-preset-thumb {
-  position: relative;
-  display: block;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: var(--radius-md, 8px);
-  background: color-mix(in srgb, var(--color-bg-primary) 82%, var(--color-text-primary) 6%);
-  border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-}
-
-.bs-preset-thumb-nav {
-  display: flex;
-  gap: 0.18rem;
-  padding: 0.28rem 0.3rem;
-}
-
-.bs-preset-thumb-nav i {
-  width: 0.55rem;
-  height: 0.22rem;
-  border-radius: 0.1rem;
-  background: color-mix(in srgb, var(--color-text-primary) 28%, transparent);
-}
-
-.bs-preset[data-nav="rail"] .bs-preset-thumb-nav {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 22%;
-  flex-direction: column;
-  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
-}
-
-.bs-preset[data-nav="rail"] .bs-preset-thumb-nav i {
-  width: 70%;
-  height: 0.2rem;
-}
-
-.bs-preset[data-nav="hub"] .bs-preset-thumb-nav {
-  justify-content: center;
-}
-
-.bs-preset[data-nav="hub"] .bs-preset-thumb-nav i {
-  width: 0.4rem;
-  height: 0.16rem;
-}
-
-.bs-preset[data-nav="icons"] .bs-preset-thumb-nav i {
-  width: 0.42rem;
-  height: 0.42rem;
-  border-radius: 0.1rem;
-}
-
-.bs-preset-thumb-body {
-  position: absolute;
-  inset: 1.05rem 0.35rem 0.35rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.bs-preset[data-nav="rail"] .bs-preset-thumb-body {
-  left: 25%;
-}
-
-.bs-preset-thumb-hero {
-  flex: 1;
-  border-radius: 0.2rem;
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--color-accent) 55%, transparent),
-    color-mix(in srgb, var(--color-text-primary) 12%, transparent)
-  );
-}
-
-.bs-preset-thumb-cards {
-  display: flex;
-  gap: 0.2rem;
-  height: 34%;
-}
-
-.bs-preset-thumb-cards i {
-  flex: 1;
-  border-radius: 0.16rem;
-  background: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
-}
-
-.bs-preset[data-home="shelves"] .bs-preset-thumb-hero {
-  flex: 0 0 22%;
-}
-
-.bs-preset[data-home="shelves"] .bs-preset-thumb-cards {
-  height: 72%;
-}
-
-.bs-preset[data-home="grid"] .bs-preset-thumb-hero {
-  display: none;
-}
-
-.bs-preset[data-home="grid"] .bs-preset-thumb-cards {
-  height: 100%;
-}
-
-.bs-preset[data-home="cinematic"] .bs-preset-thumb-cards {
-  height: 26%;
+  box-shadow: 0 0 0 0.16rem var(--color-bg-primary), 0 0 0 0.32rem var(--color-accent);
+  transform: translateY(-2px);
 }
 
 .bs-preset-copy {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  min-width: 0;
+  padding: 0 0.2rem 0.2rem;
 }
 
 .bs-preset-name {
-  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.bs-preset-check {
+  display: inline-grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.65rem;
 }
 
 .bs-preset-blurb {
-  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
   line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text-primary) 62%, transparent);
 }
 
-.bs-preset[data-selected] .bs-preset-blurb {
-  color: color-mix(in srgb, var(--color-text-primary) 80%, transparent);
+/* ============================================================
+   Full-screen layout selector
+   ============================================================ */
+
+.bst-layout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--bs-gutter);
+  background: color-mix(in srgb, var(--bs-bg-deep) 78%, transparent);
+  backdrop-filter: blur(14px);
+  animation: bst-fade-in var(--duration-normal) var(--ease-standard) both;
+}
+
+.bst-layout-panel {
+  width: min(78rem, 100%);
+  max-height: min(86vh, 48rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--bs-space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.bst-layout-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.bst-layout-head h2 {
+  margin: 0;
+  font-size: var(--bs-title-md);
+}
+
+.bst-layout-head p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.bst-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  gap: var(--space-sm);
+  overflow-y: auto;
+  padding: 0.2rem;
+}
+
+.bst-layout-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.bst-layout-choice[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.bst-layout-choice[data-focused="true"],
+.bst-layout-choice:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 0.16rem var(--color-bg-primary), 0 0 0 0.32rem var(--color-accent);
+  transform: translateY(-3px);
+}
+
+.bst-layout-choice-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.2rem 0.2rem;
+}
+
+.bst-layout-choice-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.bst-layout-current {
+  padding: 0.08rem 0.4rem;
+  border-radius: var(--bs-radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bst-layout-choice-blurb {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.bst-layout-choice-meta {
+  color: var(--color-text-tertiary);
+  font-size: 0.66rem;
 }

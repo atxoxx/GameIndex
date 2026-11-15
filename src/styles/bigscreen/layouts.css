@@ -1,0 +1,1421 @@
+/* ============================================================
+   Big Screen — interface layouts (chrome, shared, home)
+   ============================================================
+   Five interfaces, one shell. Everything here is scoped to
+   [data-layout] on .bs-shell (chrome) or on the page root
+   (composition), so the desktop UI and the legacy preset rules
+   cannot leak in.
+
+   Colour rules:
+     --bs-brand*   console/layout identity (furniture, accents)
+     --bs-accent*  the user's focus ring — never replaced here
+   ============================================================ */
+
+/* ── Layout-scoped tokens ───────────────────────────────────── */
+
+:root {
+  /* Deep cinematic base used by the PlayStation-style pages. */
+  --bs-layout-deep: var(--bs-layout-deep);
+  --bs-layout-deep-2: #060a10;
+  /* Text placed directly on artwork. */
+  --bs-layout-ink: var(--bs-layout-ink)fff;
+  --bs-layout-ink-soft: color-mix(in srgb, var(--bs-layout-ink) 72%, transparent);
+  --bs-layout-ink-faint: color-mix(in srgb, var(--bs-layout-ink) 46%, transparent);
+}
+
+/* ── Shared layout vocabulary ──────────────────────────────── */
+
+.bst-home {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--bs-space-6);
+  scrollbar-width: thin;
+}
+
+.bst-home-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-5);
+  padding: var(--bs-space-5) var(--bs-gutter) 0;
+}
+
+.bst-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 var(--bs-space-2);
+  color: var(--bs-brand-strong, var(--bs-accent));
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: var(--bs-tracking-wide);
+  text-transform: uppercase;
+}
+
+.bst-eyebrow-line {
+  display: inline-block;
+  width: 1.6rem;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.bst-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.6rem;
+  border: 1px solid var(--bs-border);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg) 45%, transparent);
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-medium);
+  white-space: nowrap;
+}
+
+.bst-chip--brand {
+  border-color: var(--bs-brand-line, var(--bs-accent-line));
+  background: var(--bs-brand-soft, var(--bs-accent-soft));
+  color: var(--bs-text);
+}
+
+.bst-chip--ok {
+  border-color: color-mix(in srgb, var(--bs-success) 55%, transparent);
+  color: var(--bs-success);
+}
+
+.bst-chip-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.bst-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.7rem;
+  padding: 0.5rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--bs-radius-pill);
+  background: var(--bs-surface-2);
+  color: var(--bs-text);
+  font: inherit;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  transition:
+    background-color var(--bs-dur-fast) var(--bs-ease),
+    border-color var(--bs-dur-fast) var(--bs-ease),
+    transform var(--bs-dur-fast) var(--bs-ease);
+}
+
+.bst-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.bst-btn--primary {
+  background: var(--bs-brand, var(--bs-accent));
+  color: var(--bs-brand-ink, var(--bs-accent-contrast));
+  box-shadow: 0 0.5rem 1.6rem color-mix(in srgb, var(--bs-brand, var(--bs-accent)) 32%, transparent);
+}
+
+.bst-btn--ghost {
+  border-color: var(--bs-border-strong);
+  background: color-mix(in srgb, var(--bs-bg) 35%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.bst-btn--danger {
+  background: var(--bs-danger);
+  color: var(--bs-layout-ink);
+}
+
+.bst-btn--icon {
+  width: 2.7rem;
+  padding: 0;
+  border-color: var(--bs-border-strong);
+  background: color-mix(in srgb, var(--bs-bg) 35%, transparent);
+}
+
+.bst-btn--icon[data-active="true"] {
+  color: var(--bs-brand-strong, var(--bs-accent));
+  border-color: var(--bs-brand-line, var(--bs-accent-line));
+}
+
+.bst-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bst-btn[data-focused="true"],
+.bst-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--bs-focus-ring);
+  transform: scale(1.03);
+}
+
+.bst-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-3);
+  margin-top: var(--bs-space-4);
+}
+
+.bst-hero-logo {
+  display: block;
+  max-width: min(34rem, 62%);
+  max-height: 8.5rem;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 0.6rem 1.4rem rgba(0, 0, 0, 0.55));
+}
+
+.bst-hero-title {
+  margin: 0;
+  font-size: var(--bs-title-lg);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* ── Tiles ─────────────────────────────────────────────────── */
+
+.bst-tile {
+  --bst-tile-w: 19rem;
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--bst-tile-w);
+  border: 0;
+  border-radius: var(--bs-card-radius);
+  background: var(--bs-surface-1);
+  cursor: pointer;
+  transition:
+    transform var(--bs-dur) var(--bs-ease),
+    box-shadow var(--bs-dur) var(--bs-ease);
+  outline: none;
+}
+
+.bst-tile[data-tile="wide"] {
+  --bst-tile-w: 19rem;
+  aspect-ratio: 16 / 9;
+}
+
+.bst-tile[data-tile="poster"] {
+  --bst-tile-w: 11.5rem;
+  aspect-ratio: 2 / 3;
+}
+
+.bst-tile[data-tile="square"] {
+  --bst-tile-w: 10.5rem;
+  aspect-ratio: 1 / 1;
+}
+
+.bst-tile[data-tile="compact"] {
+  --bst-tile-w: 8rem;
+  aspect-ratio: 1 / 1;
+}
+
+.bst-tile-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    linear-gradient(140deg, var(--bs-surface-2), var(--bs-surface-1));
+}
+
+.bst-tile-art-static,
+.bst-tile-art-animated {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity var(--bs-art-dur) var(--bs-ease);
+}
+
+.bst-tile-art-animated {
+  animation: bst-fade-in var(--bs-art-dur) var(--bs-ease) both;
+}
+
+.bst-tile-art-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--bs-text-faint);
+}
+
+.bst-tile-art-fallback svg {
+  width: 38%;
+  height: 38%;
+}
+
+.bst-tile-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    color-mix(in srgb, var(--bs-bg-deep) 82%, transparent) 100%
+  );
+  opacity: 0.85;
+  transition: opacity var(--bs-dur) var(--bs-ease);
+}
+
+.bst-tile-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 0.6rem 0.7rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.bst-tile-title {
+  margin: 0;
+  font-size: var(--bs-text-md);
+  font-weight: var(--bs-weight-bold);
+  line-height: 1.2;
+  color: var(--bs-layout-ink);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-tile-sub {
+  margin: 0;
+  font-size: var(--bs-text-xs);
+  color: color-mix(in srgb, var(--bs-layout-ink) 68%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bst-tile-running {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.16rem 0.45rem;
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg-deep) 72%, transparent);
+  color: var(--bs-success);
+  font-size: 0.62rem;
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bst-tile-running span {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.bst-tile[data-focused="true"],
+.bst-tile:focus-visible {
+  transform: scale(var(--bs-card-lift, 1.02));
+  box-shadow: var(--bs-focus-ring), var(--bs-focus-glow);
+  z-index: 3;
+}
+
+.bst-tile[data-focused="true"] .bst-tile-scrim {
+  opacity: 0.55;
+}
+
+@keyframes bst-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Shelves ───────────────────────────────────────────────── */
+
+.bst-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-3);
+  min-width: 0;
+}
+
+.bst-shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bs-space-3);
+  padding: 0 0.15rem;
+}
+
+.bst-shelf-eyebrow {
+  color: var(--bs-brand-strong, var(--bs-accent));
+  display: inline-flex;
+}
+
+.bst-shelf-title {
+  margin: 0;
+  font-size: var(--bs-title-sm);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.bst-shelf-sub {
+  margin: 0;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+}
+
+.bst-shelf-count {
+  margin-left: auto;
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.bst-shelf-track {
+  display: flex;
+  gap: var(--bs-card-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35rem 0.2rem 0.9rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.bst-shelf-track::-webkit-scrollbar {
+  height: 0;
+}
+
+.bst-shelf-track[data-wrap="true"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+.bst-shelf-track[data-wrap="true"] .bst-tile {
+  width: 100%;
+}
+
+.bst-shelf-empty {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-sm);
+}
+
+.bst-shelf--inline {
+  gap: var(--bs-space-2);
+}
+
+.bst-shelf--inline .bst-shelf-title {
+  font-size: var(--bs-text-sm);
+  color: var(--bs-text-dim);
+  font-weight: var(--bs-weight-medium);
+}
+
+/* ── Empty / welcome ───────────────────────────────────────── */
+
+.bst-empty {
+  margin: auto;
+  max-width: 34rem;
+  padding: var(--bs-space-7) var(--bs-gutter);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-3);
+}
+
+.bst-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: var(--bs-radius-lg);
+  background: var(--bs-brand-soft, var(--bs-accent-soft));
+  color: var(--bs-brand-strong, var(--bs-accent));
+}
+
+.bst-empty-mark svg {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.bst-empty h1 {
+  margin: 0;
+  font-size: var(--bs-title-md);
+}
+
+.bst-empty p {
+  margin: 0;
+  color: var(--bs-text-dim);
+  line-height: 1.6;
+}
+
+.bst-grid-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bs-space-3);
+  min-height: 16rem;
+  padding: var(--bs-space-6);
+  text-align: center;
+  color: var(--bs-text-dim);
+}
+
+.bst-grid-empty svg {
+  width: 3.5rem;
+  height: 3.5rem;
+  opacity: 0.32;
+}
+
+.bst-grid-empty h3 {
+  margin: 0;
+  color: var(--bs-text);
+  font-size: var(--bs-title-sm);
+}
+
+.bst-grid-empty p {
+  margin: 0;
+  max-width: 30rem;
+}
+
+/* ============================================================
+   Home — GameIndex (editorial cinematic)
+   ============================================================ */
+
+.bst-hero--gameindex {
+  position: relative;
+  min-height: min(58vh, 34rem);
+  display: flex;
+  align-items: flex-end;
+  padding: var(--bs-space-6) var(--bs-gutter) var(--bs-space-5);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.bst-hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.bst-hero-art-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 28%;
+  animation: bst-art-in 700ms var(--bs-ease-enter) both;
+  transform: scale(1.03);
+}
+
+.bst-hero-art-animated {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bst-hero-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--bs-bg) 2%, color-mix(in srgb, var(--bs-bg) 72%, transparent) 42%, transparent 78%),
+    linear-gradient(180deg, transparent 38%, var(--bs-bg) 98%);
+}
+
+.bst-hero-glow {
+  position: absolute;
+  inset: auto -10% -40% 30%;
+  height: 60%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--bs-brand, var(--bs-accent)) 26%, transparent),
+    transparent
+  );
+  filter: blur(30px);
+}
+
+.bst-hero-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--bs-space-2);
+  max-width: 46rem;
+  animation: bst-rise var(--bs-dur-slow) var(--bs-ease-enter) both;
+}
+
+.bst-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: var(--bs-space-2);
+}
+
+.bst-hero-description {
+  margin: var(--bs-space-2) 0 0;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-lg);
+  line-height: 1.55;
+  max-width: 40rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bs-space-4);
+  margin: var(--bs-space-4) 0 0;
+  padding-top: var(--bs-space-3);
+  border-top: 1px solid var(--bs-border-soft);
+  width: min(40rem, 100%);
+}
+
+.bst-hero-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.bst-hero-facts dt {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bst-hero-facts dd {
+  margin: 0;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-medium);
+}
+
+@keyframes bst-art-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes bst-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.2rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Home — Xbox (dashboard)
+   ============================================================ */
+
+.bst-home--xbox {
+  background:
+    radial-gradient(70% 45% at 0% -10%, color-mix(in srgb, var(--bs-brand) 18%, transparent), transparent 70%);
+}
+
+.bst-xhero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(22rem, 0.85fr);
+  gap: var(--bs-space-5);
+  align-items: stretch;
+  padding: var(--bs-space-5) var(--bs-gutter) var(--bs-space-3);
+}
+
+.bst-xhero-art {
+  position: relative;
+  min-height: 19rem;
+  border-radius: var(--bs-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--bs-border-soft);
+  box-shadow: var(--bs-shadow-panel);
+}
+
+.bst-xhero-art-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  animation: bst-art-in 600ms var(--bs-ease-enter) both;
+}
+
+.bst-xhero-art-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.55));
+}
+
+.bst-xhero-badge {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 0.25rem;
+  background: var(--bs-brand);
+  color: var(--bs-brand-ink);
+  font-size: 0.66rem;
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bst-xhero-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-2);
+  padding: var(--bs-space-5);
+  border-radius: var(--bs-radius-lg);
+  border: 1px solid var(--bs-border-soft);
+  background:
+    linear-gradient(180deg, var(--bs-surface-2), var(--bs-surface-1));
+  min-width: 0;
+}
+
+.bst-xhero-logo {
+  max-height: 6.2rem;
+}
+
+.bst-xhero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bst-xhero-description {
+  margin: var(--bs-space-2) 0 0;
+  color: var(--bs-text-dim);
+  line-height: 1.55;
+  font-size: var(--bs-text-md);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-xhero-stats {
+  display: flex;
+  gap: var(--bs-space-4);
+  margin-top: auto;
+  padding-top: var(--bs-space-3);
+  border-top: 1px solid var(--bs-border-soft);
+}
+
+.bst-xhero-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.bst-xhero-stats span {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.bst-xhero-stats b {
+  font-size: var(--bs-text-md);
+}
+
+.bst-home-scroll--xbox .bst-shelf-title {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--bs-text-sm);
+  color: var(--bs-text-dim);
+}
+
+/* ============================================================
+   Home — Steam (shelves)
+   ============================================================ */
+
+.bst-shero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.9fr);
+  gap: var(--bs-space-5);
+  padding: var(--bs-space-4) var(--bs-gutter) var(--bs-space-2);
+}
+
+.bst-shero-art {
+  position: relative;
+  min-height: 17rem;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-soft);
+}
+
+.bst-shero-art-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  animation: bst-art-in 600ms var(--bs-ease-enter) both;
+}
+
+.bst-shero-art-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 52%, color-mix(in srgb, var(--bs-layout-deep-2) 72%, transparent));
+}
+
+.bst-shero-label {
+  position: absolute;
+  left: 0.8rem;
+  bottom: 0.75rem;
+  font-size: 0.68rem;
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bs-brand-strong);
+}
+
+.bst-shero-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bs-space-2);
+  min-width: 0;
+  padding-top: 0.25rem;
+}
+
+.bst-shero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bst-shero-description {
+  margin: var(--bs-space-2) 0 0;
+  color: var(--bs-text-dim);
+  line-height: 1.55;
+  font-size: var(--bs-text-md);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-shero-facts {
+  display: flex;
+  gap: var(--bs-space-4);
+  margin: var(--bs-space-3) 0 0;
+  padding-top: var(--bs-space-3);
+  border-top: 1px solid var(--bs-border-soft);
+}
+
+.bst-shero-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.bst-shero-facts dt {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.bst-shero-facts dd {
+  margin: 0;
+  font-size: var(--bs-text-sm);
+}
+
+.bst-library-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-5);
+  margin: var(--bs-space-3) var(--bs-gutter) 0;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--bs-brand) 6%, transparent);
+}
+
+.bst-library-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.bst-library-stat b {
+  font-size: var(--bs-text-lg);
+  color: var(--bs-brand-strong);
+}
+
+.bst-library-stat span {
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.bst-library-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--bs-brand-strong);
+  font: inherit;
+  font-size: var(--bs-text-sm);
+  font-weight: var(--bs-weight-bold);
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.3rem;
+}
+
+.bst-library-link[data-focused="true"],
+.bst-library-link:focus-visible {
+  outline: none;
+  box-shadow: var(--bs-focus-ring);
+}
+
+.bst-home-scroll--steam {
+  padding-top: var(--bs-space-4);
+}
+
+/* ============================================================
+   Home — PlayStation (cinematic)
+   ============================================================ */
+
+.bst-home--playstation {
+  background: var(--bs-layout-deep);
+}
+
+.bst-phero {
+  position: relative;
+  min-height: min(78vh, 46rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  isolation: isolate;
+  padding: var(--bs-space-6) var(--bs-gutter) var(--bs-space-5);
+}
+
+.bst-phero-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.bst-phero-art-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 32%;
+  animation: bst-art-in 900ms var(--bs-ease-enter) both;
+  transform: scale(1.04);
+}
+
+.bst-phero-art-animated {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bst-phero-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-layout-deep) 35%, transparent) 0%, transparent 30%, color-mix(in srgb, var(--bs-layout-deep) 72%, transparent) 68%, var(--bs-layout-deep) 100%),
+    radial-gradient(60% 45% at 50% 45%, transparent 40%, color-mix(in srgb, var(--bs-layout-deep) 55%, transparent) 100%);
+}
+
+.bst-phero-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bs-space-3);
+  width: 100%;
+}
+
+.bst-phero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bs-space-2);
+  max-width: 52rem;
+  text-align: center;
+  animation: bst-rise 650ms var(--bs-ease-enter) both;
+}
+
+.bst-phero-eyebrow {
+  color: var(--bs-brand-strong);
+  font-size: var(--bs-text-xs);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.bst-phero-copy .bst-hero-logo {
+  max-width: min(34rem, 74vw);
+  margin: 0 auto;
+  object-position: center;
+}
+
+.bst-phero-copy .bst-hero-title {
+  text-align: center;
+  font-size: clamp(2.6rem, 5.2vw, 5rem);
+}
+
+.bst-phero-meta {
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  letter-spacing: 0.04em;
+}
+
+.bst-phero-description {
+  margin: var(--bs-space-2) 0 0;
+  color: color-mix(in srgb, var(--bs-layout-ink) 78%, transparent);
+  font-size: var(--bs-text-md);
+  line-height: 1.6;
+  max-width: 42rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-phero-copy .bst-hero-actions {
+  justify-content: center;
+}
+
+.bst-phero-row {
+  width: 100%;
+  margin-top: var(--bs-space-3);
+}
+
+.bst-phero-row .bst-shelf-head {
+  justify-content: center;
+}
+
+.bst-phero-row .bst-shelf-title {
+  color: color-mix(in srgb, var(--bs-layout-ink) 62%, transparent);
+}
+
+.bst-phero-row .bst-shelf-track {
+  justify-content: center;
+}
+
+.bst-phero-row .bst-tile[data-tile="square"] {
+  --bst-tile-w: 8.4rem;
+}
+
+.bst-home-scroll--playstation {
+  padding-top: var(--bs-space-4);
+}
+
+/* ============================================================
+   Home — Switch (flat grid)
+   ============================================================ */
+
+.bst-home--switch {
+  background: var(--bs-bg);
+  gap: var(--bs-space-4);
+  padding: var(--bs-space-4) var(--bs-gutter) var(--bs-space-5);
+}
+
+.bst-shelf--switch-recent .bst-shelf-track {
+  padding-bottom: 0.4rem;
+}
+
+.bst-home--switch .bst-shelf-track[data-wrap="true"] {
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  padding-bottom: 0;
+}
+
+.bst-home--switch .bst-tile {
+  border-radius: 0.55rem;
+}
+
+.bst-home--switch .bst-tile-scrim {
+  opacity: 0.9;
+}
+
+.bst-ninfo {
+  display: flex;
+  align-items: center;
+  gap: var(--bs-space-4);
+  padding: var(--bs-space-4);
+  border: 2px solid var(--bs-brand);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--bs-brand) 8%, transparent);
+}
+
+.bst-ninfo-art {
+  flex: 0 0 auto;
+  width: 5.4rem;
+  height: 5.4rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--bs-surface-2);
+}
+
+.bst-ninfo-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bst-ninfo-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.bst-ninfo-copy h2 {
+  margin: 0;
+  font-size: var(--bs-title-sm);
+}
+
+.bst-ninfo-copy p {
+  margin: 0;
+  color: var(--bs-text-dim);
+  font-size: var(--bs-text-sm);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bst-ninfo-meta {
+  color: var(--bs-text-faint);
+  font-size: var(--bs-text-xs);
+}
+
+.bst-ninfo .bst-hero-actions {
+  margin: 0 0 0 auto;
+  flex: 0 0 auto;
+}
+
+.bst-ninfo .bst-btn {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.95rem;
+  font-size: var(--bs-text-sm);
+}
+
+/* ============================================================
+   Shell chrome per layout
+   ============================================================ */
+
+/* Bottom dock (Switch) */
+.bs-shell[data-nav="bottom"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "top"
+    "main"
+    "nav"
+    "footer";
+}
+
+.bs-shell[data-layout="switch"] {
+  --bs-safe-top: calc(var(--bs-topbar-h) + 0.5rem);
+  --bs-safe-bottom: calc(var(--bs-footer-h) + var(--bs-nav-h) + 0.5rem);
+}
+
+.bs-shell[data-layout="switch"] .bs-nav {
+  background: color-mix(in srgb, var(--bs-bg) 96%, var(--bs-text) 4%);
+  border-top: 1px solid var(--bs-border);
+  padding: 0.45rem var(--bs-gutter);
+  justify-content: center;
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-track {
+  justify-content: center;
+  overflow: visible;
+  gap: 0.5rem;
+  padding: 0.2rem;
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-item {
+  width: auto;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 5.1rem;
+  min-height: 3.1rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.55rem;
+  background: transparent;
+  border: 2px solid transparent;
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-item .bs-nav-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-label {
+  position: static;
+  transform: none;
+  top: auto;
+  left: auto;
+  pointer-events: auto;
+  max-width: 6rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.01em;
+  color: var(--bs-text-dim);
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-item[data-active] {
+  background: transparent;
+  border-color: var(--bs-brand);
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-item[data-active]::after {
+  display: none;
+}
+
+.bs-shell[data-layout="switch"] .bs-nav-dock-mark {
+  display: none;
+}
+
+/* PlayStation hub row. The old preset stacked the chrome inside the
+   content area; the new layout keeps the shell's normal four-row grid so
+   pages never slide underneath the bar. */
+.bs-shell[data-layout="playstation"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top"
+    "nav"
+    "main"
+    "footer";
+}
+
+.bs-shell[data-layout="playstation"] .bs-topbar {
+  grid-area: top;
+  align-self: stretch;
+  width: auto;
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav {
+  grid-area: nav;
+  align-self: stretch;
+  height: auto;
+  margin-top: 0;
+  background: transparent;
+  border-bottom: 0;
+  justify-content: center;
+  min-height: calc(var(--bs-nav-h) - 0.4rem);
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-icon {
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-track {
+  justify-content: center;
+  gap: 1.1rem;
+  max-width: 62rem;
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-item {
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 4.4rem;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  border-color: transparent;
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bs-text-faint);
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-item[data-active] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-item[data-active] .bs-nav-label {
+  color: var(--bs-text);
+}
+
+.bs-shell[data-layout="playstation"] .bs-nav-item[data-active]::after {
+  left: 30%;
+  right: 30%;
+  bottom: -0.25rem;
+  height: 0.12rem;
+  background: var(--bs-brand-strong);
+}
+
+.bs-shell[data-layout="playstation"] .bs-topbar {
+  border-bottom: 0;
+  justify-content: flex-end;
+}
+
+.bs-shell[data-layout="playstation"] .bs-brand {
+  visibility: hidden;
+  width: 0;
+}
+
+/* GameIndex glass strip */
+.bs-shell[data-layout="gameindex"] .bs-nav {
+  background: transparent;
+  border-bottom: 0;
+  min-height: calc(var(--bs-nav-h) - 0.6rem);
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-track {
+  width: auto;
+  margin: 0 auto;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--bs-border-soft);
+  border-radius: var(--bs-radius-pill);
+  background: color-mix(in srgb, var(--bs-bg) 62%, transparent);
+  backdrop-filter: blur(18px);
+  gap: 0.15rem;
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-item {
+  border-radius: var(--bs-radius-pill);
+  padding: 0.4rem 0.8rem;
+  min-height: 2.35rem;
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--bs-brand-strong, var(--bs-accent));
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-label {
+  font-size: var(--bs-text-sm);
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-item[data-active] {
+  background: var(--bs-surface-2);
+  border-color: var(--bs-border);
+}
+
+.bs-shell[data-layout="gameindex"] .bs-nav-item[data-active]::after {
+  left: 28%;
+  right: 28%;
+  bottom: -0.1rem;
+  height: 0.1rem;
+  background: var(--bs-brand-strong, var(--bs-accent));
+}
+
+/* Steam rail brand block */
+.bs-shell[data-layout="steam"] .bs-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.55rem 0.8rem;
+  color: var(--bs-text);
+  font-weight: var(--bs-weight-bold);
+  letter-spacing: 0.02em;
+}
+
+.bs-shell[data-layout="steam"] .bs-brand-mark {
+  width: 1.3rem;
+  height: 1.3rem;
+  color: var(--bs-brand-strong);
+}
+
+.bs-shell[data-layout="steam"] .bs-topbar .bs-brand {
+  visibility: hidden;
+  width: 0;
+  overflow: hidden;
+}
+
+.bs-shell[data-layout="steam"] .bs-nav-track {
+  padding-bottom: 1rem;
+}
+
+/* Xbox tiles already styled by presets; add dock alignment */
+.bs-shell[data-layout="xbox"] .bs-nav-track {
+  gap: 0.45rem;
+}
+
+.bs-shell[data-layout="xbox"] .bs-nav-item {
+  min-width: 7.4rem;
+  min-height: 3.2rem;
+  border-radius: 0.3rem;
+}
+
+/* Old preset chrome floated the Switch utilities over the bottom edge.
+   The bottom dock now owns that space: pin the cluster back into the
+   top bar and give the clock its normal inline slot. */
+.bs-shell[data-layout="switch"] .bs-utilities {
+  position: static;
+  inset: auto;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.bs-shell[data-layout="switch"] .bs-clock {
+  position: static;
+  inset: auto;
+  padding: 0;
+  color: var(--bs-text-dim);
+}
+
+.bs-shell[data-layout="switch"] .bs-footer {
+  display: flex;
+}
+
+/* Switch footer is redundant with the dock: keep the legend compact */
+.bs-shell[data-layout="switch"] .bs-footer {
+  min-height: calc(var(--bs-footer-h) - 0.4rem);
+  font-size: 0.9em;
+}
+
+/* ── Reduced motion ───────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .bst-hero-art-image,
+  .bst-xhero-art-image,
+  .bst-shero-art-image,
+  .bst-phero-art-image,
+  .bst-hero-inner,
+  .bst-phero-copy,
+  .bst-tile,
+  .bst-tile-art-animated {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

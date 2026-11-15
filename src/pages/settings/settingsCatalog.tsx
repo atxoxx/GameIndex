@@ -249,7 +249,7 @@ export function buildSettingsCatalog(
           id: "appearance-bigscreen",
           labelKey: "bigscreen.system.layoutStyle",
           keywords:
-            "big screen tv couch layout preset xbox steam playstation switch classic navigation nav visibility tv mode ten foot",
+            "big screen tv couch layout preset xbox steam playstation switch gameindex navigation nav visibility tv mode ten foot",
           essential: false,
         },
         {

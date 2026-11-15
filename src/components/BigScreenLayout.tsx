@@ -28,6 +28,7 @@ import BigScreenNav from "./bigscreen/shell/BigScreenNav";
 import BigScreenFooter from "./bigscreen/shell/BigScreenFooter";
 import BigScreenGuide from "./bigscreen/shell/BigScreenGuide";
 import BigScreenQuickSettings from "./bigscreen/shell/BigScreenQuickSettings";
+import LayoutPicker from "./bigscreen/shell/LayoutPicker";
 import VirtualCursor from "./ui/VirtualCursor";
 import BigScreenSearchOverlay from "./bigscreen/BigScreenSearchOverlay";
 import { ConfirmModal } from "./ui";
@@ -83,6 +84,8 @@ export default function BigScreenLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const layoutOpenerRef = useRef<HTMLElement | null>(null);
   const [navEngaged, setNavEngaged] = useState(false);
   const [navReveal, setNavReveal] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
@@ -94,12 +97,35 @@ export default function BigScreenLayout() {
   // the nav orientation and the CSS never disagree.
   const preset = getPreset(prefs.preset);
   const sideNav = preset.placement === "side";
+  const bottomNav = preset.placement === "bottom";
 
   // The focusin listener below is registered once; it reads the live
   // pathname from a ref so rapid navigation can't attribute a focus
   // event to a stale route.
   const pathnameRef = useRef(location.pathname);
   pathnameRef.current = location.pathname;
+
+  const openLayoutPicker = useCallback(() => {
+    layoutOpenerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setLayoutOpen(true);
+  }, []);
+
+  const closeLayoutPicker = useCallback(() => {
+    setLayoutOpen(false);
+    // If the layout did not change, the page composition is unchanged and
+    // the opener (or the focused control) is still mounted. Restore focus
+    // only when nothing else claimed it - a layout switch focuses the new
+    // page's entry point instead.
+    window.setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body) {
+        return;
+      }
+      layoutOpenerRef.current?.focus({ preventScroll: true });
+    }, 0);
+  }, []);
 
   const revealNav = useCallback(() => {
     setNavReveal(true);
@@ -239,6 +265,7 @@ export default function BigScreenLayout() {
     setSearchOpen(false);
     setGuideOpen(false);
     setQuickOpen(false);
+    setLayoutOpen(false);
     revealNav();
   }, [location.pathname, revealNav]);
 
@@ -286,6 +313,48 @@ export default function BigScreenLayout() {
     return () => cancelAnimationFrame(raf);
   }, [location.pathname]);
 
+  // Switching layout remounts the page composition. Route focus only runs
+  // on pathname changes, so land on the new page's declared entry point.
+  const layoutRef = useRef(prefs.preset);
+  useEffect(() => {
+    if (layoutRef.current === prefs.preset) return;
+    layoutRef.current = prefs.preset;
+    const raf = requestAnimationFrame(() => {
+      const main = mainRef.current;
+      if (!main) return;
+
+      // Preserve the card the user was on when the new composition shares
+      // the rail id (libraries do: `library-grid` in every layout).
+      const focusEntry = () => {
+        const auto = main.querySelector<HTMLElement>("[data-bs-autofocus]");
+        if (auto && isNavigable(auto)) {
+          auto.focus({ preventScroll: true });
+          return;
+        }
+        gamepad.focusFirst(main);
+      };
+
+      const remembered = recallFocus(location.pathname);
+      if (remembered?.startsWith("game:")) {
+        window.dispatchEvent(
+          new CustomEvent("bigscreen:focus-game", {
+            detail: remembered.slice("game:".length),
+          }),
+        );
+        requestAnimationFrame(() => {
+          if (document.activeElement && main.contains(document.activeElement)) {
+            return;
+          }
+          focusEntry();
+        });
+        return;
+      }
+
+      focusEntry();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [prefs.preset, gamepad.focusFirst, location.pathname]);
+
   // Mirror the mode flags onto <html> so rem-based scaling and
   // portal-level tokens resolve outside the shell subtree.
   useEffect(() => {
@@ -299,7 +368,8 @@ export default function BigScreenLayout() {
       className="bs-shell"
       data-bigscreen="true"
       data-preset={prefs.preset}
-      data-nav={sideNav ? "side" : "top"}
+      data-layout={prefs.preset}
+      data-nav={sideNav ? "side" : bottomNav ? "bottom" : "top"}
       data-nav-mode={prefs.navVisibility}
       data-nav-engaged={navEngaged ? "true" : undefined}
       data-nav-reveal={navReveal ? "true" : undefined}
@@ -310,13 +380,11 @@ export default function BigScreenLayout() {
           setQuickOpen(false);
           setGuideOpen(true);
         }}
+        onOpenLayout={openLayoutPicker}
         onRequestExit={requestExit}
       />
 
-      <BigScreenNav
-        onEngagedChange={setNavEngaged}
-        orientation={sideNav ? "vertical" : "horizontal"}
-      />
+      <BigScreenNav onEngagedChange={setNavEngaged} />
 
       <main ref={mainRef} className="bs-main" aria-label="Big Screen content">
         <div ref={frameRef} className="bs-frame bigscreen-page-enter">
@@ -343,6 +411,8 @@ export default function BigScreenLayout() {
         open={quickOpen}
         onClose={() => setQuickOpen(false)}
       />
+
+      <LayoutPicker open={layoutOpen} onClose={closeLayoutPicker} />
 
       <ConfirmModal
         open={exitConfirmOpen}

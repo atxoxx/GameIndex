@@ -66,7 +66,7 @@ export const REPEAT_INTERVAL_MS = 90;
 
 /** Containers whose in-track candidates win horizontal navigation. */
 export const HORIZONTAL_TRACK_SELECTOR =
-  '.bigscreen-rail-track:not([data-axis="y"]), .bigscreen-cards:not([data-axis="y"]), .bs-nav-track[data-orientation="horizontal"], [data-rail-id]:not([data-axis="y"]):not(.bigscreen-library-grid-container)';
+  '.bigscreen-rail-track:not([data-axis="y"]), .bigscreen-cards:not([data-axis="y"]), .bs-nav-track[data-orientation="horizontal"], [data-rail-id]:not([data-axis="y"]):not([data-wrap="true"]):not(.bigscreen-library-grid-container)';
 
 /**
  * Vertical tracks (`data-axis="y"`, e.g. the Steam section rail) get
@@ -89,7 +89,7 @@ export const VERTICAL_TRACK_SELECTOR = '[data-axis="y"]';
  * last column to the top-left card instead of the next row.
  */
 export const WRAPPING_TRACK_SELECTOR =
-  '[data-rail-id]:not([data-axis="y"]):not(.bigscreen-library-grid-container)';
+  '[data-rail-id]:not([data-axis="y"]):not([data-wrap="true"]):not(.bigscreen-library-grid-container)';
 
 
 // ── Cycler / back-handler priorities ─────────────────────────────

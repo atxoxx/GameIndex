@@ -295,7 +295,7 @@
   --bs-safe-bottom: calc(var(--bs-footer-h) + 4.4rem);
 }
 
-:where([data-bs-preset="classic"], [data-preset="classic"]) {
+:where([data-bs-preset="gameindex"], [data-preset="gameindex"]) {
   --bs-topbar-h: 4.1rem;
   --bs-nav-h: 4.4rem;
   --bs-card-aspect: 2 / 3;
