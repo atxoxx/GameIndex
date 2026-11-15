@@ -41,7 +41,7 @@ section of [`knowledge.md`](../knowledge.md). For Linux/Steam Deck specifics, se
 | **Global hotkeys** | Toggle the HUD, take a screenshot, start/stop recording and save a replay from inside the game. |
 | **Screenshots** | One-key captures with optional sound, flash and clipboard copy; recent-capture gallery. |
 | **Video & replay** | Manual recording and a rolling instant-replay buffer, with game audio and optional microphone. |
-| **Guides browser** | An embedded web preview inside the panel (PCGamingWiki, HowLongToBeat, YouTube, maps and more). |
+| **Guides browser** | An embedded native browser inside the panel (PCGamingWiki, Steam Guides, HowLongToBeat, maps and a URL/search bar) - no external window needed. |
 | **Click-through** | Let clicks pass through the collapsed ticker while you play. |
 | **Adaptive look** | Glass / solid / dim backgrounds, theme + UI-style inheritance, and game-art adaptive accents. |
 | **Achievement banners** | Queued, dismissible unlock banners with artwork, rarity and an optional chime. |

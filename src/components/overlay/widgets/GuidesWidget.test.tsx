@@ -225,6 +225,37 @@ describe("GuidesWidget", () => {
     );
   });
 
+  it("opens an address-bar URL in the embedded webview", () => {
+    renderRunningGame();
+
+    const input = screen.getByTestId<HTMLInputElement>("overlay-guides-address");
+    fireEvent.change(input, { target: { value: "hollowknight.fandom.com/wiki" } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "create_preview_webview",
+      expect.objectContaining({
+        url: "https://hollowknight.fandom.com/wiki",
+        window: "overlay",
+      })
+    );
+  });
+
+  it("turns a plain address-bar query into a web search", () => {
+    renderRunningGame();
+
+    const input = screen.getByTestId<HTMLInputElement>("overlay-guides-address");
+    fireEvent.change(input, { target: { value: "hollow knight pale king" } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      "create_preview_webview",
+      expect.objectContaining({
+        url: "https://www.google.com/search?q=hollow%20knight%20pale%20king",
+      })
+    );
+  });
+
   it("keeps the search button disabled and opens nothing for a blank query", () => {
     renderRunningGame();
 

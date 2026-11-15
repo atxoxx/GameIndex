@@ -88,17 +88,36 @@ function useOverlayPreview(url: string | null) {
   const localLabelRef = useRef<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [navState, setNavState] = useState({ back: false, forward: false });
+  // The HUD can be hidden while the panel stays mounted (hotkey hide). Release
+  // the child browser then; recreate it when the window is visible again.
+  const [visible, setVisible] = useState(
+    () => typeof document === "undefined" || !document.hidden,
+  );
+
+  useEffect(() => {
+    const onVisibility = () => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   useEffect(() => {
     if (!url) {
+      setLabel(null);
+      setReady(false);
+      setError(null);
+      return;
+    }
+    if (!visible) {
       setLabel(null);
       setReady(false);
       return;
     }
     let active = true;
     setReady(false);
+    setError(null);
 
     const frame = frameRef.current;
     if (!frame) return;
@@ -125,6 +144,8 @@ function useOverlayPreview(url: string | null) {
         setReady(true);
       })
       .catch((err) => {
+        if (!active) return;
+        setError(String(err));
         console.error("Failed to open overlay guides webview:", err);
       });
 
@@ -136,7 +157,7 @@ function useOverlayPreview(url: string | null) {
       setLabel(null);
       setReady(false);
     };
-  }, [url, reloadNonce]);
+  }, [url, reloadNonce, visible]);
 
   // Keep the native view glued to the DOM frame (resize + scroll).
   useEffect(() => {
@@ -222,6 +243,7 @@ function useOverlayPreview(url: string | null) {
   return {
     frameRef,
     ready,
+    error,
     navState,
     goBack,
     goForward,
@@ -344,6 +366,7 @@ export default function GuidesWidget() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchUrl, setSearchUrl] = useState<string | null>(null);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
+  const [address, setAddress] = useState("");
 
   // Drop both open pages when the game changes.
   useEffect(() => {
@@ -381,6 +404,25 @@ export default function GuidesWidget() {
     [searchEngine, searchQuery]
   );
 
+  /** Turn an address-bar entry into a URL, or a web search for plain words. */
+  const submitAddress = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      const value = address.trim();
+      if (!value) return;
+      const url = /^https?:\/\//i.test(value)
+        ? value
+        : /^[\w-]+(\.[\w-]+)+/.test(value)
+          ? `https://${value}`
+          : buildSearchUrl("google", value);
+      setActiveTab("websites");
+      setWebsiteUrl(url);
+      setSearchUrl(null);
+      setAddress("");
+    },
+    [address]
+  );
+
   const activeEntry = useMemo(() => {
     const groups = activeTab === "websites" ? websiteGroups : mapGroups;
     for (const group of groups) {
@@ -396,20 +438,6 @@ export default function GuidesWidget() {
       window.open(activeUrl, "_blank", "noopener,noreferrer");
     });
   }, [activeUrl]);
-
-  if (!game) {
-    return (
-      <Card variant="glass" className="overlay-widget overlay-guides-widget" data-testid="overlay-guides">
-        <div className="overlay-widget__head">
-          <span className="overlay-widget__icon" aria-hidden>
-            <BookOpen />
-          </span>
-          <h3 className="overlay-widget__title">{t("overlay.group.guides")}</h3>
-        </div>
-        <p className="overlay-widget__empty">{t("overlay.guides.empty")}</p>
-      </Card>
-    );
-  }
 
   const tabs: { id: GuidesTab; label: string; icon: ReactNode }[] = [
     { id: "websites", label: t("overlay.guides.websites"), icon: <Globe size={12} aria-hidden /> },
@@ -476,6 +504,7 @@ export default function GuidesWidget() {
             <select
               className="overlay-guides__select"
               value={websiteUrl ?? ""}
+              disabled={!game}
               onChange={(event) => handleWebsiteChange(event.target.value)}
               aria-label={t("overlay.guides.websites")}
               data-testid="overlay-guides-select"
@@ -547,18 +576,64 @@ export default function GuidesWidget() {
                     : activeUrl)}
               </span>
             </div>
-            <div className="overlay-guides__frame" ref={preview.frameRef}>
-              {!preview.ready && (
+            <div
+              className="overlay-guides__frame"
+              ref={preview.frameRef}
+              data-testid="overlay-guides-webview"
+            >
+              {preview.error ? (
+                <div className="overlay-guides__fallback">
+                  <p>{t("overlay.guides.embedError")}</p>
+                  <button
+                    type="button"
+                    className="overlay-guides__fallback-btn"
+                    onClick={openExternal}
+                  >
+                    {t("overlay.guides.openExternal")}
+                  </button>
+                </div>
+              ) : !preview.ready ? (
                 <div className="overlay-guides__loader" aria-hidden>
                   <Loader2 size={16} className="overlay-spin" />
                   <span>{t("overlay.guides.loading")}</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
           <div className="overlay-guides__frame overlay-guides__frame--idle">
-            {activeTab === "maps" && maps.status === "loading" ? (
+            {activeTab === "websites" ? (
+              <div className="overlay-guides__start">
+                <span className="overlay-guides__hint">
+                  {!game
+                    ? t("overlay.guides.empty")
+                    : searchPending
+                      ? t("overlay.guides.searchHint")
+                      : t("overlay.guides.pickHint")}
+                </span>
+                <form className="overlay-guides__address" onSubmit={submitAddress}>
+                  <Globe size={12} aria-hidden />
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(event) => setAddress(event.target.value)}
+                    placeholder={t("overlay.guides.addressPlaceholder")}
+                    aria-label={t("overlay.guides.addressPlaceholder")}
+                    data-testid="overlay-guides-address"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!address.trim()}
+                    data-testid="overlay-guides-address-go"
+                  >
+                    {t("overlay.guides.open")}
+                  </button>
+                </form>
+                <span className="overlay-guides__embedded-note">
+                  {t("overlay.guides.embeddedNote")}
+                </span>
+              </div>
+            ) : activeTab === "maps" && maps.status === "loading" ? (
               <div className="overlay-guides__loader" aria-hidden>
                 <Loader2 size={16} className="overlay-spin" />
                 <span>{t("overlay.guides.loading")}</span>
