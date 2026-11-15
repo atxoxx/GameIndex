@@ -873,6 +873,10 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
             setWineLogsOpen(false);
             setEditTab(tab);
           }}
+          onLaunch={() => {
+            setWineLogsOpen(false);
+            launchGame(game);
+          }}
         />
       )}
     </div>
