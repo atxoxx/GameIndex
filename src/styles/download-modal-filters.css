@@ -1,0 +1,472 @@
+/* ==========================================================================
+   Download modal — refined results toolbar
+   --------------------------------------------------------------------------
+   Search is the primary control, filters live in a compact disclosure with a
+   removable summary of what is active, and sorting stays a one-click view
+   control. Scoped to `.dlm-toolbar-refined` so the legacy `.dl-*` toolbar rules
+   keep owning every other surface.
+
+   Every colour is a theme token or a color-mix of one, so light, dark and the
+   UI style packs (classic / steam / epic / liquid glass …) need no overrides.
+   ========================================================================== */
+
+.dl-modal-toolbar.dlm-toolbar-refined {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+  min-width: 0;
+  padding: 0 0 var(--space-xs);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+
+.dlm .dlm-toolbar-refined .dlm-toolbar-search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dlm .dlm-toolbar-refined .dl-search-box {
+  flex: 1 1 240px;
+  min-width: 0;
+  height: 38px;
+  gap: var(--space-xs);
+  padding: 0 var(--space-2xs) 0 var(--space-sm);
+  border: 1px solid var(--dlm-hairline);
+  border-radius: var(--radius-md);
+  background: var(--dlm-well);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-box:hover {
+  background: var(--dlm-well-strong);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-box:focus-within,
+.dlm .dlm-toolbar-refined .dl-search-box.is-focused {
+  background: var(--dlm-well-strong);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: var(--ring-accent);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--dlm-ink-3);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-box:focus-within .dl-search-icon {
+  color: var(--color-accent);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-input {
+  height: 100%;
+  font-size: var(--text-sm);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-input::placeholder {
+  color: var(--dlm-ink-3);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-kbd {
+  min-width: 20px;
+  height: 20px;
+  border: 1px solid var(--dlm-hairline);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+  color: var(--dlm-ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--dlm-font-micro);
+  line-height: 1;
+}
+
+.dlm .dlm-toolbar-refined .dl-search-clear-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  color: var(--dlm-ink-3);
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dl-search-clear-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dlm .dlm-toolbar-refined .dl-search-clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--dlm-well-strong);
+}
+
+.dlm .dlm-toolbar-refined .dlm-search-hint {
+  margin: calc(var(--space-3xs) * -1) 0 0;
+  padding-inline-start: var(--space-2xs);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--dlm-ink-3);
+}
+
+/* ── Result count + installed version ───────────────────────────────────── */
+
+.dlm .dlm-toolbar-refined .dlm-toolbar-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  margin-inline-start: auto;
+  max-width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.dlm .dlm-toolbar-refined .dl-installed-version-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dlm .dlm-toolbar-refined .dl-results-count-badge {
+  height: 28px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--dlm-well);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dl-results-count-badge > span:first-child {
+  line-height: 28px;
+}
+
+.dlm .dlm-toolbar-refined .dlm-results-sep {
+  color: var(--dlm-ink-3);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Active filter summary ──────────────────────────────────────────────── */
+
+.dlm .dlm-toolbar-refined .dlm-toolbar-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  max-width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--space-3xs) 0 var(--space-sm);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-text-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  animation: dlm-chip-in 120ms var(--ease-enter) both;
+}
+
+@keyframes dlm-chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip-value {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip-remove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--dlm-ink-3);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip-remove svg {
+  width: 9px;
+  height: 9px;
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip-remove:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.dlm .dlm-toolbar-refined .dlm-filter-chip-remove:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.dlm .dlm-toolbar-refined .dlm-clear-all-btn {
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--dlm-ink-3);
+  font: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dlm-clear-all-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--dlm-well);
+}
+
+/* ── Controls row ───────────────────────────────────────────────────────── */
+
+.dlm .dlm-toolbar-refined .dlm-toolbar-controls {
+  position: relative;
+  min-width: 0;
+}
+
+.dlm .dlm-toolbar-refined .dlm-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-filter-toggle,
+.dlm .dlm-toolbar-refined .dl-toolbar-batch-toggle {
+  height: 32px;
+  padding: 0 var(--space-sm);
+  gap: var(--space-2xs);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  max-width: 100%;
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-filter-toggle svg,
+.dlm .dlm-toolbar-refined .dl-toolbar-batch-toggle svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-filter-toggle:focus-visible,
+.dlm .dlm-toolbar-refined .dl-toolbar-batch-toggle:focus-visible,
+.dlm .dlm-toolbar-refined .dlm-sort-select:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-filter-toggle.has-active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-filter-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--space-3xs);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--dlm-font-micro);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-batch-toggle {
+  margin-inline-start: auto;
+}
+
+/* Sort is a view control, not a filter, so it stays beside the filter button. */
+.dlm .dlm-toolbar-refined .dlm-sort-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  height: 32px;
+  max-width: 100%;
+  padding: 0 var(--space-3xs) 0 var(--space-sm);
+  border: 1px solid var(--dlm-hairline);
+  border-radius: var(--radius-md);
+  background: var(--dlm-well);
+  color: var(--dlm-ink-2);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.dlm .dlm-toolbar-refined .dlm-sort-field:hover {
+  background: var(--dlm-well-strong);
+}
+
+.dlm .dlm-toolbar-refined .dlm-sort-field:focus-within {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.dlm .dlm-toolbar-refined .dlm-sort-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--dlm-ink-3);
+}
+
+.dlm .dlm-toolbar-refined .dlm-sort-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dlm-ink-3);
+  white-space: nowrap;
+}
+
+.dlm .dlm-toolbar-refined .dlm-sort-select {
+  min-width: 0;
+  max-width: 190px;
+  height: 30px;
+  padding: 0 var(--space-2xs);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* ── Filter popover ─────────────────────────────────────────────────────── */
+
+.dlm .dlm-toolbar-refined .dl-filter-popover {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + var(--space-xs));
+  z-index: 40;
+  max-width: 100%;
+  max-height: min(48vh, 400px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-md);
+  border: 1px solid var(--dlm-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  box-shadow: var(--elevation-5);
+  animation: dlm-pop 140ms var(--ease-enter) both;
+}
+
+.dlm .dlm-toolbar-refined .dl-filter-popover-grid {
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: var(--space-md);
+}
+
+.dlm .dlm-toolbar-refined .dl-filter-popover-footer {
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  text-overflow: ellipsis;
+}
+
+.dlm .dlm-toolbar-refined .dl-toolbar-select:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: var(--ring-accent);
+}
+
+.dlm .dlm-toolbar-refined .dl-segmented-pills {
+  min-width: 0;
+}
+
+.dlm .dlm-toolbar-refined .dl-segmented-tab {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Narrow modal widths ────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .dlm .dlm-toolbar-refined .dl-search-box {
+    flex-basis: 100%;
+  }
+
+  .dlm .dlm-toolbar-refined .dlm-toolbar-meta {
+    margin-inline-start: auto;
+  }
+
+  .dlm .dlm-toolbar-refined .dlm-sort-label {
+    display: none;
+  }
+
+  .dlm .dlm-toolbar-refined .dlm-sort-select {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dlm .dlm-toolbar-refined .dl-toolbar-batch-toggle {
+    margin-inline-start: 0;
+  }
+
+  .dlm .dlm-toolbar-refined .dlm-sort-select {
+    max-width: 120px;
+  }
+
+  .dlm .dlm-toolbar-refined .dlm-filter-chip-value {
+    max-width: 140px;
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .dlm .dlm-toolbar-refined .dl-filter-popover,
+  .dlm .dlm-toolbar-refined .dlm-filter-chip {
+    animation: none;
+  }
+}

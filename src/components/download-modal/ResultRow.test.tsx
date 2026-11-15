@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../../context/LanguageContext";
 import { ResultRow } from "./ResultRow";
 import { accentForPlatform } from "../../types/emulator";
@@ -102,5 +102,41 @@ describe("ResultRow update state", () => {
     expect(facts?.querySelector(".dl-fact--size")?.textContent).toContain("1 GB");
     expect(facts?.querySelector(".dl-fact--health")?.textContent).toContain("24");
     expect(facts?.querySelector(".dl-fact--match")?.textContent).toContain("90%");
+  });
+});
+
+describe("ResultRow entry presentation", () => {
+  it("names the row with both its title and its source", () => {
+    renderRow({
+      match: match({ title: "Game", sourceName: "AlphaSource" }),
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Game.*AlphaSource/ }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("marks plugin results and page-only web links", () => {
+    const { container } = renderRow({
+      match: match({
+        provider: "plugin",
+        detailUrl: "https://example.com/release",
+      }),
+    });
+
+    expect(container.querySelector(".dlm-entry-source--plugin")).toBeInTheDocument();
+    expect(container.querySelector(".dlm-entry-type--web")).toBeInTheDocument();
+  });
+
+  it("selects the row from the keyboard without navigating", () => {
+    const onSelect = vi.fn();
+    renderRow({ onSelect });
+
+    const card = screen.getByRole("button", { name: /Game/ });
+    fireEvent.keyDown(card, { key: "Enter" });
+    fireEvent.keyDown(card, { key: " " });
+
+    expect(onSelect).toHaveBeenCalledTimes(2);
+    expect(onSelect).toHaveBeenCalledWith("id");
   });
 });

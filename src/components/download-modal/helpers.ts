@@ -745,7 +745,7 @@ export function filterMatches(
 }
 
 /** Return a re-sorted copy of the matches for display. */
-export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null; fileSize?: string | null; seeds?: number | null; provider?: string }>(
+export function sortMatches<T extends { sourceName: string; matchScore: number; title?: string; uploadDate?: string | null; fileSize?: string | null; seeds?: number | null; provider?: string }>(
   list: T[],
   sortBy: SortKey,
   isFiltered = false,
@@ -760,6 +760,13 @@ export function sortMatches<T extends { sourceName: string; matchScore: number; 
       }
       case "source":
         return a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore;
+      case "name_asc":
+        return (
+          (a.title || a.sourceName).localeCompare(b.title || b.sourceName, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }) || b.matchScore - a.matchScore
+        );
       case "relevance":
         return b.matchScore - a.matchScore;
       case "size_desc":

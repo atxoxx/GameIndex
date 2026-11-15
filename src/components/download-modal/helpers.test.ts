@@ -69,6 +69,18 @@ describe("sortMatches recommended", () => {
   });
 });
 
+describe("sortMatches name_asc", () => {
+  it("orders case-insensitively by release title", () => {
+    const list = [
+      match({ id: "c", title: "Cyberpunk 2077" }),
+      match({ id: "a", title: "alan wake 2" }),
+      match({ id: "b", title: "Baldur's Gate 3" }),
+    ];
+    const sorted = sortMatches(list, "name_asc", true);
+    expect(sorted.map((m) => m.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
 
 describe("mergeDuplicateResults", () => {
   it("merges rows with the same infohash and unions mirrors", () => {

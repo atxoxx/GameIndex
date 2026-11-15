@@ -12,17 +12,28 @@ import { highlightSegments, type ParsedQuery } from "./searchQuery";
 import { ReliabilityBadge } from "./ReliabilityBadge";
 import { hasReliabilitySample, type SourceReliability } from "./reliability";
 import { accentForPlatform } from "../../types/emulator";
+import {
+  EntryFlag,
+  EntryPlatformBadge,
+  EntrySourceBadge,
+  EntryTypeBadge,
+  type EntryFlagTone,
+  type EntryTypeKind,
+} from "./EntryBadges";
+import "../../styles/download-modal-entries.css";
 
 /**
  * ResultRow — one source release, in two lines.
  *
  *   line 1  the release title, plus the state flags and the copy/compare actions
- *   line 2  one quiet fact line: source, size, version, health, date, match
+ *   line 2  one fixed fact line, ordered by how a download is chosen:
+ *           source, kind, version, size, date, platform, language/region,
+ *           group/edition, availability, confidence
  *
- * The previous card spread the same facts over three stacked chip rows, which
- * made every row ~40% taller and gave eight badges the same visual weight. Here
- * only the source and the platform keep a tinted container; everything else is
- * plain text separated by hairlines, so the eye can scan one fact line.
+ * The source and the platform keep a tinted capsule; the download kind gets a
+ * kind-coloured badge so a magnet, a torrent, a direct file and a web-only
+ * page are distinguishable before reading the label. Everything else stays
+ * quiet text on one line so the title remains the loudest element.
  */
 export function ResultRow({
   match,
@@ -73,15 +84,13 @@ export function ResultRow({
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(uri, match.torrentUrl);
   const isWeb = Boolean(webUrlFor(match));
 
-  const formatBadge = isWeb
-    ? t("downloadModal.typeWeb")
-    : isMagnet
-      ? t("downloadModal.typeMagnet")
-      : isTorrentFile
-        ? t("downloadModal.typeTorrent")
-        : isDirect
-          ? t("downloadModal.typeDirect")
-          : null;
+  const entryType = useMemo<{ kind: EntryTypeKind; label: string } | null>(() => {
+    if (isWeb) return { kind: "web", label: t("downloadModal.typeWeb") };
+    if (isMagnet) return { kind: "magnet", label: t("downloadModal.typeMagnet") };
+    if (isTorrentFile) return { kind: "torrent", label: t("downloadModal.typeTorrent") };
+    if (isDirect) return { kind: "direct", label: t("downloadModal.typeDirect") };
+    return null;
+  }, [isWeb, isMagnet, isTorrentFile, isDirect, t]);
 
   const meta = useMemo(
     () => parseReleaseMetadata(match.title, installedVersion, match),
@@ -97,10 +106,31 @@ export function ResultRow({
   // precedence parseReleaseMetadata applies, surfaced as one fact).
   const versionLabel = match.version?.trim() || meta.version;
 
+  const languagesLabel = meta.languages?.length ? meta.languages.join(" · ") : null;
+  const sizeLabel = match.fileSize || t("downloadModal.unknownSize");
+  const matchPercent = `${Math.round(score * 100)}%`;
+
+  // Locale date formatting constructs an Intl formatter, so keep it out of
+  // the render path when the row re-renders for selection/hover state.
+  const uploadDateLabel = useMemo(
+    () => (match.uploadDate ? formatUploadDate(match.uploadDate, language) : null),
+    [match.uploadDate, language],
+  );
+
   const titleSegments = useMemo(
     () =>
       highlightQuery ? highlightSegments(displayTitle, highlightQuery) : [{ text: displayTitle, highlight: false }],
     [displayTitle, highlightQuery],
+  );
+
+  // The accessible name carries the two facts that identify a row in a list
+  // of near-identical releases: the title and the source it came from.
+  const rowAriaLabel = useMemo(
+    () =>
+      [displayTitle, match.sourceName, entryType?.label]
+        .filter((part): part is string => Boolean(part))
+        .join(" — "),
+    [displayTitle, match.sourceName, entryType],
   );
 
   const copyText = async (e: React.MouseEvent, text: string, label: string) => {
@@ -127,19 +157,39 @@ export function ResultRow({
     cacheStatus === "cached" || cacheStatus === "uncached" || cacheStatus === "checking";
   const hasUpdate = meta.versionComparison === "newer";
 
+  const cacheLabel =
+    cacheStatus === "cached"
+      ? t("downloadModal.rowCacheCached")
+      : cacheStatus === "uncached"
+        ? t("downloadModal.rowCacheUncached")
+        : t("downloadModal.rowCacheChecking");
+
+  const cacheTone: EntryFlagTone =
+    cacheStatus === "cached"
+      ? "cache-cached"
+      : cacheStatus === "uncached"
+        ? "cache-uncached"
+        : "cache-checking";
+
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`dl-result-card${selected ? " selected" : ""}${batchChecked ? " is-batch-checked" : ""}`}
+      className={`dl-result-card dlm-entry${selected ? " selected" : ""}${
+        batchChecked ? " is-batch-checked" : ""
+      }`}
       style={platformAccent ? ({ "--dl-platform-accent": platformAccent } as React.CSSProperties) : undefined}
       onClick={() => onSelect(match.id)}
       onKeyDown={(e) => {
+        // Ignore keys aimed at the copy/compare buttons or the batch checkbox;
+        // only the row itself activates the selection.
+        if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect(match.id);
         }
       }}
+      aria-label={rowAriaLabel}
       aria-pressed={selected}
     >
       <span className="dl-result-accent-bar" aria-hidden />
@@ -184,54 +234,39 @@ export function ResultRow({
 
           <div className="dl-result-flags">
             {hasUpdate && (
-              <span className="dl-flag dl-flag--update" title={t("downloadModal.rowStatusUpdateHint")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="12" y1="19" x2="12" y2="5" />
-                  <polyline points="5 12 12 5 19 12" />
-                </svg>
-                {t("downloadModal.versionNewer")}
-              </span>
+              <EntryFlag
+                tone="update"
+                label={t("downloadModal.versionNewer")}
+                title={t("downloadModal.rowStatusUpdateHint")}
+                icon="up"
+              />
             )}
-            {match.isNew && <span className="dl-flag">{t("downloads.newlyAddedSource")}</span>}
+            {match.isNew && (
+              <EntryFlag tone="plain" label={t("downloads.newlyAddedSource")} icon="sparkle" />
+            )}
             {downloaded && (
-              <span className="dl-flag dl-flag--done" title={t("downloads.alreadyDownloaded")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {t("downloads.alreadyDownloaded")}
-              </span>
+              <EntryFlag
+                tone="done"
+                label={t("downloads.alreadyDownloaded")}
+                title={t("downloads.alreadyDownloaded")}
+                icon="check"
+              />
             )}
             {match.verified && (
-              <span className="dl-flag dl-flag--done" title={t("downloadModal.verified")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {t("downloadModal.verified")}
-              </span>
+              <EntryFlag
+                tone="done"
+                label={t("downloadModal.verified")}
+                title={t("downloadModal.verified")}
+                icon="check"
+              />
             )}
             {cacheChecked && (
-              <span
-                className={`dl-flag dl-flag--cache dl-flag--cache-${cacheStatus}`}
-                title={
-                  cacheStatus === "cached"
-                    ? t("downloadModal.rowCacheCached")
-                    : cacheStatus === "uncached"
-                      ? t("downloadModal.rowCacheUncached")
-                      : t("downloadModal.rowCacheChecking")
-                }
-              >
-                {cacheStatus === "checking" && <span className="dl-cache-spinner" aria-hidden />}
-                {cacheStatus === "cached" && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                )}
-                {cacheStatus === "cached"
-                  ? t("downloadModal.rowCacheCached")
-                  : cacheStatus === "uncached"
-                    ? t("downloadModal.rowCacheUncached")
-                    : t("downloadModal.rowCacheChecking")}
-              </span>
+              <EntryFlag
+                tone={cacheTone}
+                label={cacheLabel}
+                title={cacheLabel}
+                icon={cacheStatus === "cached" ? "bolt" : undefined}
+              />
             )}
           </div>
 
@@ -259,7 +294,7 @@ export function ResultRow({
               <button
                 type="button"
                 className={`dl-icon-btn${copiedKey === "hash" ? " is-copied" : ""}`}
-                title={`Hash: ${match.infohash}`}
+                title={`${t("downloadModal.infohash")}: ${match.infohash}`}
                 onClick={(e) => void copyText(e, match.infohash!, "hash")}
                 aria-label={t("downloadModal.copyHash")}
               >
@@ -302,30 +337,85 @@ export function ResultRow({
           </div>
         </div>
 
-        {/* Line 2 — one quiet fact line. */}
-        <div className="dl-result-facts">
-          <span
-            className={`dl-fact dl-fact--source${isPlugin ? " dl-fact--plugin" : ""}`}
-            title={match.sourceName}
-          >
-            {match.sourceName}
-          </span>
+        {/* Line 2 — one fixed fact line, ordered by decision weight. */}
+        <div className="dl-result-facts dlm-entry-meta">
+          <EntrySourceBadge
+            name={match.sourceName}
+            isPlugin={isPlugin}
+            pluginTitle={t("downloadModal.pluginBadgeTitle")}
+          />
 
-          {formatBadge && <span className="dl-fact dl-fact--type">{formatBadge}</span>}
-
-          <span className="dl-fact dl-fact--size">
-            {match.fileSize || t("downloadModal.unknownSize")}
-          </span>
+          {entryType && (
+            <EntryTypeBadge
+              kind={entryType.kind}
+              label={entryType.label}
+              title={
+                entryType.kind === "web"
+                  ? t("downloadModal.webHint")
+                  : `${t("downloadModal.detailType")}: ${entryType.label}`
+              }
+            />
+          )}
 
           {versionLabel && (
-            <span className={`dl-fact dl-fact--version${hasUpdate ? " is-newer" : ""}`}>
+            <span
+              className={`dl-fact dl-fact--version dlm-entry-version${hasUpdate ? " is-newer" : ""}`}
+              title={`${t("downloadModal.detailVersion")}: ${versionLabel}`}
+            >
               {versionLabel}
+            </span>
+          )}
+
+          <span
+            className="dl-fact dl-fact--size dlm-entry-size"
+            title={`${t("downloadModal.detailSize")}: ${sizeLabel}`}
+          >
+            {sizeLabel}
+          </span>
+
+          {match.uploadDate && (
+            <span
+              className="dl-fact dl-fact--date dlm-entry-date"
+              title={`${t("downloadModal.detailUploaded")}: ${uploadDateLabel}`}
+            >
+              {uploadDateLabel}
+            </span>
+          )}
+
+          {match.platform && (
+            <EntryPlatformBadge
+              platform={match.platform}
+              title={`${t("downloadModal.detailPlatform")}: ${match.platform}`}
+            />
+          )}
+
+          {languagesLabel && (
+            <span className="dl-fact dl-fact--lang dlm-entry-lang" title={languagesLabel}>
+              {languagesLabel}
+            </span>
+          )}
+
+          {match.region && (
+            <span
+              className="dl-fact dl-fact--region dlm-entry-region"
+              title={`${t("downloadModal.detailRegion")}: ${match.region}`}
+            >
+              {match.region}
+            </span>
+          )}
+
+          {meta.group && (
+            <span
+              className="dl-fact dl-fact--group dlm-entry-group"
+              title={`${t("downloadModal.detailReleaseGroup")}: ${meta.group}`}
+            >
+              {meta.group}
             </span>
           )}
 
           {hasSwarm && (
             <span
-              className={`dl-fact dl-fact--health ${swarmHealthy ? "is-good" : "is-low"}`}
+              className={`dl-fact dl-fact--health dlm-entry-availability ${swarmHealthy ? "is-good" : "is-low"}`}
               title={`${t("downloadModal.seeds", { count: seeds })} · ${t("downloadModal.peers", { count: peers })}`}
             >
               <span className="dl-fact-dot" aria-hidden />
@@ -334,61 +424,42 @@ export function ResultRow({
           )}
 
           {reliability && hasReliabilitySample(reliability) && (
-            <span className="dl-fact dl-fact--reliability">
+            <span className="dl-fact dl-fact--reliability dlm-entry-optional">
               <ReliabilityBadge reliability={reliability} compact />
             </span>
           )}
 
-          {match.uploadDate && (
-            <span className="dl-fact dl-fact--date">{formatUploadDate(match.uploadDate, language)}</span>
-          )}
-
           <span
-            className={`dl-fact dl-fact--match ${tier}`}
+            className={`dl-fact dl-fact--match dlm-entry-match ${tier}`}
             title={`${t("downloadModal.detailConfidence")}: ${tierLabel}`}
           >
             <span className="dl-fact-dot" aria-hidden />
-            {Math.round(score * 100)}%
+            {matchPercent}
           </span>
 
-          {meta.group && (
-            <span className="dl-fact dl-fact--group" title={`${t("downloadModal.detailReleaseGroup")}: ${meta.group}`}>
-              {meta.group}
-            </span>
-          )}
-
           {meta.edition && (
-            <span className="dl-fact" title={`${t("downloadModal.detailEdition")}: ${meta.edition}`}>
+            <span
+              className="dl-fact dlm-entry-edition dlm-entry-optional"
+              title={`${t("downloadModal.detailEdition")}: ${meta.edition}`}
+            >
               {meta.edition}
             </span>
           )}
 
-          {match.platform && (
-            <span className="dl-fact dl-fact--platform" title={match.platform}>
-              {match.platform}
-            </span>
-          )}
-
-          {match.region && (
-            <span className="dl-fact" title={`${t("downloadModal.detailRegion")}: ${match.region}`}>
-              {match.region}
-            </span>
-          )}
-
           {meta.isMultiPart && (
-            <span className="dl-fact">
+            <span className="dl-fact dlm-entry-optional">
               {meta.partCount ? `${meta.partCount} ${t("downloadModal.partsShort")}` : t("downloadModal.multiPartPackage")}
             </span>
           )}
 
           {mirrorCount > 1 && (
-            <span className="dl-fact" title={`${mirrorCount} Mirrors`}>
+            <span className="dl-fact dlm-entry-optional" title={t("downloadModal.mirrorsCount", { count: mirrorCount })}>
               {t("downloadModal.mirrorsCount", { count: mirrorCount })}
             </span>
           )}
 
           {match.provenance && (
-            <span className="dl-fact dl-fact--provenance" title={t("downloadModal.provenanceTitle")}>
+            <span className="dl-fact dl-fact--provenance dlm-entry-optional" title={t("downloadModal.provenanceTitle")}>
               {match.provenance}
             </span>
           )}

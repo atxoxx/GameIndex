@@ -20,6 +20,7 @@ export type SortKey =
   | "date"
   | "source"
   | "relevance"
+  | "name_asc"
   | "size_desc"
   | "size_asc"
   | "seeds"

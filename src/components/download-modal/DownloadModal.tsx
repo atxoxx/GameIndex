@@ -65,6 +65,8 @@ import { ConfidenceWarning } from "./ConfidenceWarning";
 import { DownloadHeader } from "./DownloadHeader";
 import { DownloadToolbar } from "./DownloadToolbar";
 import { ResultsPane } from "./ResultsPane";
+import { SourceNavigator } from "./SourceNavigator";
+import type { SourceNavEntry } from "./sourceNavigation";
 import { DetailPanel } from "./DetailPanel";
 import { CompareTray } from "./CompareTray";
 import { CompareDrawer } from "./CompareDrawer";
@@ -339,6 +341,30 @@ export default function DownloadModal({
     () => extractSourceFilters(matches, t),
     [matches, t],
   );
+
+  // The top source rail is an alternate entry point for the same
+  // `sourceFilter` state, so clicking a tab and the filter popover can never
+  // disagree.
+  const sourceNavEntries = useMemo<SourceNavEntry[]>(
+    () => [
+      {
+        id: "all",
+        label: t("downloadModal.allSources"),
+        count: matches.length,
+        provider: "all",
+      },
+      ...sourceFilterOptions.map((option) => ({
+        id: option.id,
+        label: option.label,
+        count: option.count,
+        provider: option.provider === "plugin" ? ("plugin" as const) : ("source" as const),
+      })),
+    ],
+    [matches.length, sourceFilterOptions, t],
+  );
+  const sourceNavCount = sourceNavEntries.filter(
+    (entry) => entry.provider !== "all",
+  ).length;
 
   const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
 
@@ -1466,6 +1492,8 @@ export default function DownloadModal({
             gameCover={gameCover}
             statusChip={statusChip}
             resultCount={matches.length}
+            sourceCount={sourceNavCount}
+            subtitle={t("downloadModal.availableDownloads")}
             searchProgress={
               searchProgress && !searchProgress.isDone
                 ? { completed: searchProgress.completed, total: searchProgress.total }
@@ -1485,6 +1513,14 @@ export default function DownloadModal({
 
             {showResultsUI && (
               <>
+                <SourceNavigator
+                  entries={sourceNavEntries}
+                  activeSource={sourceFilter}
+                  onSelect={(id) => handleFiltersChange({ sourceFilter: id })}
+                  totalCount={matches.length}
+                  ariaLabel={t("downloadModal.sourceRailAria")}
+                />
+
                 <div className="dl-compact-view-switch" role="tablist">
                   <button
                     type="button"
@@ -1558,6 +1594,7 @@ export default function DownloadModal({
                       showWeakMatches={showWeakMatches}
                       onToggleWeak={() => setShowWeakMatches((v) => !v)}
                       cacheStatuses={rowCacheStatuses}
+                      onRetrySearch={() => runSearch()}
                     />
                   </div>
 

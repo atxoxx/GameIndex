@@ -1,0 +1,550 @@
+/* ==========================================================================
+   Download modal — header + step states
+   --------------------------------------------------------------------------
+   Scoped to `.dlm` (the modal root) so the sheet only paints inside the
+   download modal and every colour resolves from the shared theme tokens.
+   The header is a compact identity rail; the step screens share one card so
+   loading, empty, error and retry states never jump between layouts.
+   ========================================================================== */
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.dlm .dl-modal-header.dlm-header {
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-xl);
+}
+
+.dlm .dlm-header-identity {
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.dlm .dl-modal-game-thumb.dlm-header-cover,
+.dlm .dl-modal-header-icon-box.dlm-header-cover {
+  width: 40px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elevation-1);
+}
+
+.dlm .dlm-header-cover--fallback {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-accent) 24%, transparent),
+      color-mix(in srgb, var(--color-accent) 4%, transparent)
+    ),
+    var(--color-bg-secondary);
+  color: var(--color-accent);
+}
+
+.dlm .dlm-header-cover--fallback svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dlm .dlm-header-titles {
+  gap: var(--space-3xs);
+  justify-content: center;
+}
+
+.dlm .dlm-header-kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.dlm .dlm-header-kicker .dl-modal-eyebrow {
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dlm .dlm-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  height: 18px;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-full);
+  background: var(--dlm-well, color-mix(in srgb, var(--color-text-primary) 5%, transparent));
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.dlm .dlm-header-chip--success {
+  background: color-mix(in srgb, var(--color-success) 11%, transparent);
+}
+
+.dlm .dlm-header-chip--accent {
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+
+.dlm .dlm-header-chip--danger {
+  background: color-mix(in srgb, var(--color-danger) 11%, transparent);
+}
+
+.dlm .dlm-header-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dlm .dlm-header-title {
+  max-width: 100%;
+  font-size: var(--text-lg);
+  line-height: 1.2;
+}
+
+.dlm .dlm-header-subtitle {
+  margin: 0;
+  max-width: 100%;
+  font-size: var(--text-2xs);
+  line-height: 1.35;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dlm .dlm-header-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.dlm .dlm-header-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.dlm .dlm-header-stat {
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  line-height: 1.3;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dlm .dlm-header-stat--sources {
+  color: var(--color-text-muted);
+}
+
+.dlm .dlm-header-close {
+  width: 30px;
+  height: 30px;
+}
+
+.dlm .dlm-header-close:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
+  color: var(--color-text-primary);
+}
+
+/* ── Shared state card ─────────────────────────────────────────────────── */
+
+.dlm .dl-state-screen.dlm-state-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: var(--space-lg) var(--space-md);
+  overflow-y: auto;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+}
+
+.dlm .dlm-state-card {
+  --dlm-state-tone: var(--color-text-secondary);
+  --dlm-state-surface: var(--panel-tint, var(--color-bg-secondary));
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(560px, 100%);
+  margin-block: auto;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--dlm-state-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--elevation-1);
+  text-align: left;
+}
+
+.dlm .dlm-state-card--accent {
+  --dlm-state-tone: var(--color-accent);
+}
+
+.dlm .dlm-state-card--success {
+  --dlm-state-tone: var(--color-success);
+}
+
+.dlm .dlm-state-card--warning {
+  --dlm-state-tone: var(--color-warning);
+}
+
+.dlm .dlm-state-card--danger {
+  --dlm-state-tone: var(--color-danger);
+}
+
+.dlm .dlm-state-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.dlm .dlm-state-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--dlm-state-tone) 12%, transparent);
+  color: var(--dlm-state-tone);
+}
+
+.dlm .dlm-state-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dlm .dlm-state-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding-top: var(--space-3xs);
+}
+
+.dlm .dlm-state-eyebrow {
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--dlm-state-tone);
+}
+
+.dlm .dlm-state-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+
+.dlm .dlm-state-desc {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* ── Progress ──────────────────────────────────────────────────────────── */
+
+.dlm .dlm-state-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.dlm .dlm-state-progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--dlm-well-strong, color-mix(in srgb, var(--color-text-primary) 8%, transparent));
+}
+
+.dlm .dlm-state-progress-fill {
+  height: 100%;
+  min-width: 6%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width 320ms var(--ease-standard, ease);
+}
+
+.dlm .dlm-state-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dlm .dlm-state-progress-sep {
+  padding: 0 var(--space-2xs);
+  opacity: 0.55;
+}
+
+.dlm .dlm-state-progress-percent {
+  color: var(--color-text-secondary);
+}
+
+/* ── Skeleton cards ────────────────────────────────────────────────────── */
+
+.dlm .dlm-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.dlm .dlm-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--dlm-well, color-mix(in srgb, var(--color-text-primary) 4.5%, transparent));
+}
+
+.dlm .dlm-skeleton-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.dlm .dlm-skeleton-copy .ui-skeleton--text {
+  margin-bottom: 0;
+}
+
+.dlm .dlm-skeleton-row--file {
+  gap: var(--space-xs);
+  padding-block: var(--space-2xs);
+}
+
+.dlm .dlm-skeleton-list--files .dlm-skeleton-copy {
+  gap: 0;
+}
+
+/* ── Peer badge / hints ────────────────────────────────────────────────── */
+
+.dlm .dlm-state-peer-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--dlm-well, color-mix(in srgb, var(--color-text-primary) 4.5%, transparent));
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.dlm .dlm-state-live-dot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: dlm-state-pulse 1.4s ease-in-out infinite;
+}
+
+.dlm .dlm-state-hint {
+  margin: 0;
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* ── Error well + actions ──────────────────────────────────────────────── */
+
+.dlm .dlm-state-error-box {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border-left: 2px solid color-mix(in srgb, var(--color-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 9%, transparent);
+}
+
+.dlm .dlm-state-error-message {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  line-height: 1.55;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.dlm .dlm-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-top: var(--space-2xs);
+}
+
+/* ── Starting strip ────────────────────────────────────────────────────── */
+
+.dlm .dlm-starting-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--panel-tint, var(--color-bg-secondary));
+  border: 1px solid var(--color-border);
+}
+
+.dlm .dlm-starting-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.dlm .dlm-starting-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dlm .dlm-starting-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.dlm .dlm-starting-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+
+.dlm .dlm-starting-track {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--dlm-well-strong, color-mix(in srgb, var(--color-text-primary) 8%, transparent));
+}
+
+.dlm .dlm-starting-fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 35%;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 68%, transparent);
+  animation: dlm-state-indeterminate 1.4s ease-in-out infinite;
+}
+
+.dlm .dlm-starting-timer {
+  flex-shrink: 0;
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dlm .dlm-starting-swarm {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--dlm-font-micro, var(--text-2xs));
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────── */
+
+@keyframes dlm-state-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes dlm-state-indeterminate {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(330%); }
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .dlm .dl-modal-header.dlm-header {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .dlm .dl-modal-game-thumb.dlm-header-cover,
+  .dlm .dl-modal-header-icon-box.dlm-header-cover {
+    width: 34px;
+    height: 44px;
+  }
+
+  .dlm .dlm-header-stats {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .dlm .dlm-header-stat--sources {
+    display: none;
+  }
+
+  .dlm .dlm-state-card {
+    padding: var(--space-md);
+  }
+
+  .dlm .dlm-starting-swarm {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .dlm .dlm-header-subtitle {
+    display: none;
+  }
+
+  .dlm .dlm-header-stats {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dlm .dlm-state-live-dot,
+  .dlm .dlm-starting-fill {
+    animation: none;
+  }
+
+  .dlm .dlm-starting-fill {
+    width: 100%;
+    opacity: 0.55;
+  }
+
+  .dlm .dlm-state-progress-fill {
+    transition: none;
+  }
+}

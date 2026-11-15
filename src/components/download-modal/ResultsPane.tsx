@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { CacheCheckStatus, DisplayMatch } from "./types";
 import { ResultRow } from "./ResultRow";
+import { EmptyState } from "./StepStates";
 import { useLanguage } from "../../context/LanguageContext";
 import type { ParsedQuery } from "./searchQuery";
 import type { SourceReliability } from "./reliability";
@@ -27,6 +28,7 @@ export function ResultsPane({
   showWeakMatches,
   onToggleWeak,
   cacheStatuses,
+  onRetrySearch,
 }: {
   matches: DisplayMatch[];
   selectedId: string | null;
@@ -54,6 +56,8 @@ export function ResultsPane({
   showWeakMatches: boolean;
   onToggleWeak: () => void;
   cacheStatuses?: Map<string, CacheCheckStatus>;
+  /** Re-run the source search after a completed search returned nothing. */
+  onRetrySearch?: () => void;
 }) {
   const { t } = useLanguage();
 
@@ -96,18 +100,7 @@ export function ResultsPane({
       );
     }
 
-    return (
-      <div className="dl-results-empty">
-        <div className="dl-results-empty-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </div>
-        <h4 className="dl-results-empty-title">{t("downloads.noMatchesFound")}</h4>
-        <p className="dl-results-empty-hint">{t("downloadModal.addMoreSources")}</p>
-      </div>
-    );
+    return <EmptyState kind="no-entries" onRetry={onRetrySearch} />;
   }
 
   if (matches.length === 0) {
