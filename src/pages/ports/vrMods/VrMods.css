@@ -1,0 +1,102 @@
+/* VR Mods subtab — only the pieces that differ from the Ports page.
+   Cards, toolbar, modal shell, chips and the virtual grid reuse `.ports-*`
+   styles so both subtabs read as one design. */
+
+.vrmod-card .ports-card__img {
+  object-position: center;
+}
+
+/* Deduped GitHub link picker (mirrors the Ports project switcher). */
+.vrmod-repo-select {
+  --ports-project-select-height: 36px;
+  --ports-project-select-max-width: 100%;
+  --ports-project-select-chevron: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  position: relative;
+  width: fit-content;
+  max-width: var(--ports-project-select-max-width);
+}
+
+.vrmod-repo-select > span {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vrmod-repo-select select {
+  appearance: none;
+  width: 100%;
+  height: var(--ports-project-select-height);
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.vrmod-repo-select::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  bottom: 15px;
+  width: var(--ports-project-select-chevron);
+  height: var(--ports-project-select-chevron);
+  border-right: 1.6px solid var(--color-text-muted);
+  border-bottom: 1.6px solid var(--color-text-muted);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* Full-details list from a source's structured fields. */
+.vrmod-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+}
+
+.vrmod-details > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 34%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.vrmod-details > div:nth-child(odd) {
+  background: var(--color-bg-secondary);
+}
+
+.vrmod-details dt {
+  color: var(--color-text-muted);
+}
+
+.vrmod-details__note {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.vrmod-details dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .vrmod-details > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

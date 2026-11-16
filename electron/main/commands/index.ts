@@ -45,6 +45,7 @@ import { registerCaptureCommands } from "./capture";
 import { registerMediaCommands } from "./media";
 import { registerExtrasCommands } from "./extras";
 import { registerPortCommands } from "./ports";
+import { registerVrModCommands } from "./vrMods";
 import { registerUpdaterCommands } from "./updater";
 
 export function registerCommandHandlers(): void {
@@ -79,6 +80,7 @@ export function registerCommandHandlers(): void {
   registerMediaCommands();
   registerExtrasCommands();
   registerPortCommands();
+  registerVrModCommands();
   registerUpdaterCommands();
   registerStubCommands();
 }

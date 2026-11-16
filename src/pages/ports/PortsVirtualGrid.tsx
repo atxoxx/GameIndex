@@ -43,14 +43,19 @@ export const VIRTUALIZE_THRESHOLD = 40;
 /** Extra rows kept mounted above and below the viewport. */
 export const OVERSCAN_ROWS = 2;
 
-export interface PortsVirtualSection {
+/** Minimum shape the window needs from a card group: a stable React key. */
+export interface VirtualGroup {
+  key: string;
+}
+
+export interface PortsVirtualSection<T extends VirtualGroup = PortGameGroup> {
   key: string;
   label: string;
   accent?: string;
-  groups: PortGameGroup[];
+  groups: T[];
 }
 
-export interface VirtualRow {
+export interface VirtualRow<T extends VirtualGroup = PortGameGroup> {
   kind: "header" | "cards";
   /** Offset from the top of the grid spacer, in px. */
   top: number;
@@ -61,12 +66,12 @@ export interface VirtualRow {
   /** `groups.length` for header rows; unused for card rows. */
   count?: number;
   /** The slice of groups this card row renders (at most `columns`). */
-  groups?: PortGameGroup[];
+  groups?: T[];
 }
 
-export interface PortsVirtualGridProps {
-  sections: PortsVirtualSection[];
-  renderGroup: (group: PortGameGroup) => ReactNode;
+export interface PortsVirtualGridProps<T extends VirtualGroup = PortGameGroup> {
+  sections: PortsVirtualSection<T>[];
+  renderGroup: (group: T) => ReactNode;
   resetKey?: string;
   className?: string;
 }
@@ -106,19 +111,19 @@ export function shouldVirtualize(totalGroups: number, containerWidth: number): b
  * section and `sectionGap` between sections. If a section has a header, the
  * first card row is also separated by `ROW_GAP`.
  */
-export function buildRows(
-  sections: PortsVirtualSection[],
+export function buildRows<T extends VirtualGroup>(
+  sections: PortsVirtualSection<T>[],
   columns: number,
   cardHeight: number,
   headerHeight: number,
   sectionGap: number
-): VirtualRow[] {
+): VirtualRow<T>[] {
   const cols = Math.max(1, Math.floor(columns) || 1);
   const cardsH = Math.max(0, cardHeight);
   const headerH = Math.max(0, headerHeight);
   const gapBetweenSections = Math.max(0, sectionGap);
 
-  const rows: VirtualRow[] = [];
+  const rows: VirtualRow<T>[] = [];
   let cursor = 0;
   let emittedAny = false;
 
@@ -162,7 +167,7 @@ export function buildRows(
 }
 
 /** First row whose bottom edge is at or below `y`. */
-function firstRowIntersecting(rows: VirtualRow[], y: number): number {
+function firstRowIntersecting<T extends VirtualGroup>(rows: VirtualRow<T>[], y: number): number {
   let low = 0;
   let high = rows.length;
   while (low < high) {
@@ -174,7 +179,7 @@ function firstRowIntersecting(rows: VirtualRow[], y: number): number {
 }
 
 /** Last row whose top edge is at or above `y` (may be -1). */
-function lastRowStartingBefore(rows: VirtualRow[], y: number): number {
+function lastRowStartingBefore<T extends VirtualGroup>(rows: VirtualRow<T>[], y: number): number {
   let low = 0;
   let high = rows.length;
   while (low < high) {
@@ -190,12 +195,12 @@ function lastRowStartingBefore(rows: VirtualRow[], y: number): number {
  * `overscan` rows on each side. Rows are sorted by `top`, so the window is
  * found with two binary searches instead of a scan.
  */
-export function visibleRows(
-  rows: VirtualRow[],
+export function visibleRows<T extends VirtualGroup>(
+  rows: VirtualRow<T>[],
   scrollTop: number,
   viewportHeight: number,
   overscan: number
-): VirtualRow[] {
+): VirtualRow<T>[] {
   const count = rows.length;
   if (count === 0) return [];
 
@@ -242,15 +247,15 @@ function containerViewportHeight(container: HTMLElement | Window): number {
 
 /* -- Component ------------------------------------------------------------- */
 
-export default function PortsVirtualGrid({
+export default function PortsVirtualGrid<T extends VirtualGroup = PortGameGroup>({
   sections,
   renderGroup,
   resetKey = "",
   className,
-}: PortsVirtualGridProps) {
+}: PortsVirtualGridProps<T>) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLElement | Window | null>(null);
-  const rowsRef = useRef<VirtualRow[]>([]);
+  const rowsRef = useRef<VirtualRow<T>[]>([]);
   const totalHeightRef = useRef(0);
 
   const [width, setWidth] = useState(0);

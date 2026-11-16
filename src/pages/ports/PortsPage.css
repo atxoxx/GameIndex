@@ -17,6 +17,10 @@
   animation: pageIn var(--duration-normal) var(--ease-out) both;
 }
 
+.ports-page__tabs {
+  padding: var(--space-sm, 10px) var(--space-2xl, 32px) 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ports-page {
     animation: none;

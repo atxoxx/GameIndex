@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -10,6 +10,7 @@ import {
   Layers,
   RefreshCw,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ import PageWidget from "../../components/PageWidget";
 import { Button } from "../../components/ui/Button";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatBand } from "../../components/ui/StatBand";
+import { SubTabs } from "../../components/ui/SubTabs";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { PORT_SOURCES, PORT_SOURCE_PRIORITY, type PortSourceId, type PortsCatalog, type PortsSyncEvent, type PortsSyncProgress } from "../../types/port";
@@ -28,8 +30,13 @@ import { groupPorts, orderTargets, type PortGameGroup } from "./portGroups";
 import { prefetchPortCovers } from "./usePortCover";
 import "./PortsPage.css";
 
+/** The bundled VR catalog is large; only load it when that subtab is opened. */
+const VrModsTab = lazy(() => import("./vrMods/VrModsTab"));
+
 type PortSort = "name" | "port" | "platform" | "status";
 type SortDirection = "asc" | "desc";
+type PortsPageTab = "ports" | "vrMods";
+const PAGE_TAB_KEY = "gamelib_ports_page_tab_v1";
 
 interface PortFilters {
   search: string;
@@ -110,6 +117,15 @@ export default function PortsPage() {
   const [progress, setProgress] = useState<PortsSyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PortGameGroup | null>(null);
+  const [pageTab, setPageTab] = useState<PortsPageTab>(() => {
+    try {
+      const stored = localStorage.getItem(PAGE_TAB_KEY);
+      if (stored === "ports" || stored === "vrMods") return stored;
+    } catch {
+      /* storage unavailable */
+    }
+    return "ports";
+  });
   const lastEventVersion = useRef(0);
   const [filters, setFilters] = useState<PortFilters>(() => {
     try {
@@ -128,6 +144,14 @@ export default function PortsPage() {
       /* ignore quota errors */
     }
   }, [filters]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PAGE_TAB_KEY, pageTab);
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [pageTab]);
 
   const loadCached = useCallback(async (): Promise<PortsCatalog | null> => {
     try {
@@ -430,7 +454,29 @@ export default function PortsPage() {
   const failedSources = (catalog?.sources ?? []).filter((source) => !source.ok);
 
   return (
-    <div className="ports-page">
+    <>
+      <SubTabs
+        className="ports-page__tabs"
+        ariaLabel={`${t("ports.tab.ports")} / ${t("ports.tab.vrMods")}`}
+        value={pageTab}
+        onChange={(next) => setPageTab(next as PortsPageTab)}
+        items={[
+          { id: "ports", label: t("ports.tab.ports"), icon: CircuitBoard },
+          { id: "vrMods", label: t("ports.tab.vrMods"), icon: Sparkles },
+        ]}
+      />
+      {pageTab === "vrMods" ? (
+        <Suspense
+          fallback={
+            <div className="ports-empty" role="status">
+              <h2>{t("ports.vrMods.loading")}</h2>
+            </div>
+          }
+        >
+          <VrModsTab />
+        </Suspense>
+      ) : (
+      <div className="ports-page">
       <PageWidget page="ports" widget="portsHeader">
         <div className="ui-item-portsHeader">
           <PageHeader
@@ -757,6 +803,8 @@ export default function PortsPage() {
       {selected ? (
         <PortDetailModal group={selected} onClose={() => setSelected(null)} />
       ) : null}
-    </div>
+      </div>
+      )}
+    </>
   );
 }

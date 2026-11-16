@@ -19,6 +19,7 @@
     "verify:artifacts": "node scripts/check-electron-artifacts.mjs",
     "preview": "vite preview",
     "audit:i18n": "node scripts/audit-i18n.mjs",
+    "build:vr-catalog": "node scripts/build-vr-mods-catalog.mts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

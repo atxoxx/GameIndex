@@ -173,6 +173,8 @@ export const COMMAND_CATALOG = [
   "get_port_repo",
   "get_ports_catalog",
   "get_ports_sync_status",
+  "get_vr_mod_readme",
+  "get_vr_mod_repo",
   "get_random_store_games",
   "get_recommended_config",
   "get_session_samples",
