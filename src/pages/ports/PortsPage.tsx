@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   ArrowDown,
   ArrowUp,
@@ -18,11 +19,13 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { StatBand } from "../../components/ui/StatBand";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { PORT_SOURCES, PORT_SOURCE_PRIORITY, type PortSourceId, type PortsCatalog, type PortsSyncProgress } from "../../types/port";
+import { PORT_SOURCES, PORT_SOURCE_PRIORITY, type PortSourceId, type PortsCatalog, type PortsSyncEvent, type PortsSyncProgress } from "../../types/port";
 import PortCard from "./PortCard";
 import PortDetailModal from "./PortDetailModal";
+import PortsVirtualGrid from "./PortsVirtualGrid";
 import { formatDate, platformAccent, statusRank } from "./portFormat";
 import { groupPorts, orderTargets, type PortGameGroup } from "./portGroups";
+import { prefetchPortCovers } from "./usePortCover";
 import "./PortsPage.css";
 
 type PortSort = "name" | "port" | "platform" | "status";
@@ -40,8 +43,6 @@ interface PortFilters {
 }
 
 const FILTERS_KEY = "gamelib_ports_filters_v1";
-/** Cards rendered per page; the catalog has thousands of projects. */
-const PAGE_SIZE = 120;
 /** Skip the background refresh when the merged catalog is this fresh. */
 const REFRESH_AFTER_MS = 60 * 60_000;
 const SOURCE_IDS = new Set<string>(PORT_SOURCE_PRIORITY);
@@ -109,7 +110,7 @@ export default function PortsPage() {
   const [progress, setProgress] = useState<PortsSyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PortGameGroup | null>(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const lastEventVersion = useRef(0);
   const [filters, setFilters] = useState<PortFilters>(() => {
     try {
       const raw = localStorage.getItem(FILTERS_KEY);
@@ -182,19 +183,45 @@ export default function PortsPage() {
     };
   }, [loadCached, refresh]);
 
-  // The refresh IPC resolves only after every source finishes, so the page
-  // polls the sync status for a live "source · 320/900" line.
+  // The main process streams each source as it finishes, so rows appear
+  // without waiting for the slowest site. Events carry a version; ignore any
+  // that arrive out of order.
   useEffect(() => {
-    if (!refreshing) return;
-    const poll = () => {
-      void invoke<PortsSyncProgress>("get_ports_sync_status")
-        .then(setProgress)
-        .catch(() => {});
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+
+    void listen<PortsSyncEvent>("ports:sync", (event) => {
+      const data = event.payload;
+      if (cancelled || data.version <= lastEventVersion.current) return;
+      lastEventVersion.current = data.version;
+      setProgress(data.progress);
+      setRefreshing(data.syncing);
+      if (data.catalog) {
+        setCatalog({ ...data.catalog, syncing: data.syncing });
+        setError(null);
+      }
+    })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {
+        /* no bridge (web dev / tests) - the cached command path still works */
+      });
+
+    void invoke<PortsSyncProgress>("get_ports_sync_status")
+      .then((status) => {
+        if (cancelled || !status.active) return;
+        setProgress(status);
+        setRefreshing(true);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
     };
-    poll();
-    const id = window.setInterval(poll, 1_200);
-    return () => window.clearInterval(id);
-  }, [refreshing]);
+  }, []);
 
   const projects = catalog?.projects ?? [];
 
@@ -308,42 +335,17 @@ export default function PortsPage() {
     return [...filteredGroups].sort((a, b) => compare(a, b) * direction);
   }, [filteredGroups, filters.sort, filters.direction]);
 
-  // A filter/sort change starts a fresh page so the first results are visible
-  // immediately instead of keeping a scroll of auto-loads.
+  // Warm the first screenful of covers in one batch. Source-supplied images
+  // bypass this entirely; the rest resolve through SteamGridDB.
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [filters]);
-
-  const visibleGroups = useMemo(
-    () => sortedGroups.slice(0, visibleCount),
-    [sortedGroups, visibleCount],
-  );
-  const remaining = Math.max(0, sortedGroups.length - visibleGroups.length);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // Infinite scroll: the sentinel sits past the last section. Re-observing on
-  // every page keeps loading while it is still near the viewport (a tall
-  // window fills up in one go), then stops as soon as it falls below the
-  // rootMargin.
-  useEffect(() => {
-    if (remaining <= 0) return;
-    const node = sentinelRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setVisibleCount((count) => Math.min(count + PAGE_SIZE, sortedGroups.length));
-      },
-      { rootMargin: "700px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [remaining, sortedGroups.length, visibleCount]);
+    if (sortedGroups.length === 0) return;
+    prefetchPortCovers(sortedGroups.slice(0, 96).map((group) => group.game));
+  }, [sortedGroups]);
 
   const sections = useMemo<PortSection[]>(() => {
     if (filters.sort === "platform") {
       const buckets = new Map<string, PortGameGroup[]>();
-      for (const group of visibleGroups) {
+      for (const group of sortedGroups) {
         const key = group.platform || t("ports.unknownPlatform");
         const bucket = buckets.get(key) ?? [];
         bucket.push(group);
@@ -361,7 +363,7 @@ export default function PortsPage() {
 
     if (filters.sort === "status") {
       const buckets = new Map<string, PortGameGroup[]>();
-      for (const group of visibleGroups) {
+      for (const group of sortedGroups) {
         const key = group.status || t("ports.status.unknown");
         const bucket = buckets.get(key) ?? [];
         bucket.push(group);
@@ -376,8 +378,8 @@ export default function PortsPage() {
       }));
     }
 
-    return [{ key: "all", label: "", groups: visibleGroups }];
-  }, [visibleGroups, filters.sort, filters.direction, t]);
+    return [{ key: "all", label: "", groups: sortedGroups }];
+  }, [sortedGroups, filters.sort, filters.direction, t]);
 
   const stats = useMemo(() => {
     const playable = allGroups.filter((group) => statusRank(group.status) === 0).length;
@@ -406,16 +408,25 @@ export default function PortsPage() {
     filters.source !== "all" ||
     filters.runsOn !== "all";
 
-  const syncingSource = progress?.current ? PORT_SOURCES[progress.current].name : null;
-  const syncLabel = syncingSource
-    ? progress && progress.total > 0
+  const progressSources = progress?.sources ?? [];
+  const finishedSources = progressSources.filter((source) => source.finished);
+  const activeSource = progressSources.find((source) => !source.finished);
+  const activeLabel = activeSource
+    ? activeSource.total > 0
       ? t("ports.syncingProgress", {
-          source: syncingSource,
-          done: progress.done,
-          total: progress.total,
+          source: PORT_SOURCES[activeSource.id].name,
+          done: activeSource.done,
+          total: activeSource.total,
         })
-      : t("ports.syncingSource", { source: syncingSource })
-    : t("ports.syncing");
+      : t("ports.syncingSource", { source: PORT_SOURCES[activeSource.id].name })
+    : "";
+  const syncLabel =
+    progressSources.length > 0
+      ? `${t("ports.syncingCount", {
+          done: finishedSources.length,
+          total: progressSources.length,
+        })}${activeLabel ? ` · ${activeLabel}` : ""}`
+      : t("ports.syncing");
   const failedSources = (catalog?.sources ?? []).filter((source) => !source.ok);
 
   return (
@@ -636,8 +647,8 @@ export default function PortsPage() {
           <div className="ports-toolbar__meta">
             <span>
               {t("ports.resultCount", {
-                shown: visibleGroups.length,
-                total: sortedGroups.length,
+                shown: sortedGroups.length,
+                total: allGroups.length,
               })}
             </span>
             {catalog ? (
@@ -680,6 +691,31 @@ export default function PortsPage() {
               <h2>{t("ports.firstSync.title")}</h2>
               <p>{t("ports.firstSync.body")}</p>
               <span className="ports-sync__progress">{syncLabel}</span>
+              {progressSources.length > 0 ? (
+                <div className="ports-sync-list">
+                  {progressSources.map((source) => (
+                    <div
+                      key={source.id}
+                      className={`ports-sync-row${source.finished ? " is-done" : ""}${
+                        source.finished && !source.ok ? " is-failed" : ""
+                      }`}
+                    >
+                      <span className="ports-sync-row__name">
+                        {PORT_SOURCES[source.id].name}
+                      </span>
+                      <span className="ports-sync-row__state">
+                        {source.finished && !source.ok
+                          ? t("ports.syncFailed")
+                          : source.finished
+                            ? t("ports.syncDone")
+                            : source.total > 0
+                              ? `${source.done.toLocaleString()} / ${source.total.toLocaleString()}`
+                              : t("ports.syncWaiting")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : error ? (
             <div className="ports-empty ports-empty--error">
@@ -706,34 +742,13 @@ export default function PortsPage() {
             </div>
           ) : (
             <div className="ports-sections">
-              {sections.map((section) => (
-                <section
-                  key={section.key}
-                  className="ports-section"
-                  style={
-                    section.accent
-                      ? ({ "--port-accent": section.accent } as CSSProperties)
-                      : undefined
-                  }
-                >
-                  {section.label ? (
-                    <header className="ports-section__head">
-                      <h2>{section.label}</h2>
-                      <span className="ports-section__count">{section.groups.length}</span>
-                    </header>
-                  ) : null}
-                  <div className="ports-grid">
-                    {section.groups.map((group) => (
-                      <PortCard key={group.key} group={group} onOpen={setSelected} />
-                    ))}
-                  </div>
-                </section>
-              ))}
-              {remaining > 0 ? (
-                <div ref={sentinelRef} className="ports-sentinel" aria-hidden>
-                  <span className="ports-sentinel__spinner" />
-                </div>
-              ) : null}
+              <PortsVirtualGrid
+                sections={sections}
+                resetKey={JSON.stringify(filters)}
+                renderGroup={(group) => (
+                  <PortCard group={group} onOpen={setSelected} />
+                )}
+              />
             </div>
           )}
         </div>

@@ -2,9 +2,10 @@
  * Ports catalogue commands (unofficial PC ports tab).
  *
  * `get_ports_catalog` answers from the merged cache instantly and
- * `refresh_ports_catalog` performs the slow multi-source sync, so the renderer
- * can paint the last catalog while refreshing in the background. Sync progress
- * is exposed for the page's "syncing" indicator.
+ * `refresh_ports_catalog` starts the multi-source sync, so the renderer can
+ * paint the last catalog while refreshing in the background. The sync streams
+ * `ports:sync` events (start/progress/source-done/done) with partial catalogs;
+ * `get_ports_sync_status` exposes the same progress for a poll fallback.
  */
 import { registerCommands, type CommandArgs, type CommandHandler } from "../ipc";
 import { getPortCover, getPortCovers } from "../features/ports/covers";

@@ -1,0 +1,74 @@
+/* ===========================================================================
+ * Ports virtual grid
+ * ──────────────────
+ * Geometry that varies at runtime (columns, card height, gaps) is injected by
+ * PortsVirtualGrid.tsx as custom properties on `.ports-vgrid`; this file only
+ * defines the layout shell. Card visuals stay in PortsPage.css.
+ * =========================================================================== */
+
+.ports-vgrid {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ports-vgrid-section-gap, 32px);
+  width: 100%;
+  min-width: 0;
+}
+
+/* Virtual mode: one relative spacer, rows absolutely positioned inside it. */
+.ports-vgrid--virtual {
+  display: block;
+}
+
+.ports-vgrid__spacer {
+  position: relative;
+  width: 100%;
+}
+
+.ports-vgrid__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ports-vgrid-row-gap, 18px);
+  min-width: 0;
+}
+
+/* The shipped section head carries a margin meant for normal flow; spacing is
+   now owned by the row geometry. */
+.ports-vgrid .ports-vgrid__header {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.ports-vgrid--virtual .ports-vgrid__header {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.ports-vgrid__row {
+  display: grid;
+  grid-template-columns: repeat(var(--ports-vgrid-columns, 1), minmax(0, 1fr));
+  column-gap: var(--ports-vgrid-gap, 16px);
+  row-gap: var(--ports-vgrid-row-gap, 18px);
+  min-width: 0;
+}
+
+/* Small result sets keep the browser's auto-fill grid, like `.ports-grid`. */
+.ports-vgrid__row--flow {
+  grid-template-columns: repeat(auto-fill, minmax(var(--ports-vgrid-min, 178px), 1fr));
+}
+
+.ports-vgrid--virtual .ports-vgrid__row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  grid-auto-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+/* The card fills its row track so the measured height is the rendered height,
+   however the cover resolves. */
+.ports-vgrid--virtual .ports-vgrid__row > * {
+  min-width: 0;
+  min-height: 0;
+}

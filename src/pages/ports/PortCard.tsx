@@ -28,14 +28,20 @@ interface PortCardProps {
 export default function PortCard({ group, onOpen }: PortCardProps) {
   const { t } = useLanguage();
   const { ref, revealed } = useReveal<HTMLButtonElement>();
-  const cover = usePortCover(group.game, revealed);
-  const [src, setSrc] = useState<string | null>(null);
+  // Sources that ship artwork (gameport details, decomps thumbnails) hand it
+  // over here, so the card paints on its first frame and no lookup is queued.
+  const directImage =
+    group.primary.imageUrl ?? group.projects.find((p) => p.imageUrl)?.imageUrl ?? null;
+  const cover = usePortCover(group.game, { enabled: revealed, initialUrl: directImage });
+  const [src, setSrc] = useState<string | null>(
+    () => directImage ?? cover?.thumbUrl ?? cover?.url ?? null,
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setSrc(cover?.thumbUrl || cover?.url || null);
+    setSrc(directImage ?? (cover?.thumbUrl || cover?.url || null));
     setFailed(false);
-  }, [cover]);
+  }, [directImage, cover]);
 
   const project = group.primary;
   const status = group.status || t("ports.status.unknown");
@@ -67,6 +73,7 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
             className="ports-card__img"
             src={src}
             alt=""
+            fetchPriority={revealed ? "high" : undefined}
             onError={() => {
               if (cover?.fallbackUrl && src !== cover.fallbackUrl) setSrc(cover.fallbackUrl);
               else setFailed(true);

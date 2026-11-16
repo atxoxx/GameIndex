@@ -10,8 +10,12 @@
  * The wiki table has no images, so art is resolved lazily per visible card in
  * the renderer and cached for a month (a negative result is cached too - most
  * console titles simply are not on Steam).
+ *
+ * Catalog sources that already expose artwork (`PortSourceProject.imageUrl`)
+ * never reach this module: the renderer uses that URL directly and the card
+ * skips the lookup, so the provider chain below only covers unnamed titles.
  */
-import { cached, cacheDelete } from "../metadata/cache";
+import { cacheGet, cached, cacheDelete } from "../metadata/cache";
 import { sgdbGetAssets } from "../metadata/steamgriddb";
 import { httpJson } from "../../lib/http";
 import type { PortCover } from "../../../../src/types/port";
@@ -93,9 +97,34 @@ export async function getPortCover(name: string, force = false): Promise<PortCov
 
 /** Batch variant used when a group of cards scrolls into view. */
 export async function getPortCovers(names: string[]): Promise<Record<string, PortCover>> {
-  const unique = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 24);
-  const entries = await Promise.all(
-    unique.map(async (name) => [name, await getPortCover(name)] as const),
+  const unique = [...new Set(names.map((name) => name.trim()).filter(Boolean))].slice(0, 48);
+  const result: Record<string, PortCover> = {};
+  const cold: string[] = [];
+
+  // Answer every cache hit synchronously (memory, then disk) so a prefetch for
+  // an already-seen page never touches a provider.
+  for (const name of unique) {
+    const title = coverQuery(name).slice(0, 160);
+    if (!title) {
+      result[name] = EMPTY;
+      continue;
+    }
+    const hit = cacheGet<PortCover>("ports", cacheKey(title), COVER_TTL);
+    if (hit !== undefined) result[name] = hit;
+    else cold.push(name);
+  }
+
+  // Cold names resolve concurrently; a provider failure yields an empty cover
+  // for that name instead of rejecting the whole batch.
+  const resolved = await Promise.all(
+    cold.map(async (name) => {
+      try {
+        return [name, await getPortCover(name)] as const;
+      } catch {
+        return [name, EMPTY] as const;
+      }
+    }),
   );
-  return Object.fromEntries(entries);
+  for (const [name, cover] of resolved) result[name] = cover;
+  return result;
 }

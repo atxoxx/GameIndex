@@ -16,7 +16,7 @@ import { load, type CheerioAPI } from "cheerio";
 import type { PortLink, PortSourceProject } from "../../../../../src/types/port";
 import { httpText } from "../../../lib/http";
 import type { SourceFetchOptions } from "./types";
-import { cleanText, mapPool, parseStarText } from "./util";
+import { absoluteUrl, cleanText, mapPool, parseStarText } from "./util";
 
 const SITE = "https://gameport.games";
 const MAX_LIST_PAGES = 200;
@@ -191,6 +191,17 @@ function sectionByHeading($: CheerioAPI, heading: string) {
     .first();
 }
 
+/**
+ * Cover art of a project page: the first image under `<main>` is the game's
+ * portrait art (the IGDB cover the listing card also shows). Header/nav icons
+ * live outside `<main>`, and data URIs are not usable cover URLs.
+ */
+function primaryImage($: CheerioAPI): string {
+  const src = cleanText($("main img[src]").first().attr("src"));
+  if (!src || src.startsWith("data:")) return "";
+  return absoluteUrl(SITE, src);
+}
+
 /** A card without a usable detail page still becomes a row, minus the extras. */
 function projectFromCard(card: RawGameportCard): PortSourceProject {
   const game = gamesFromText(card.gamesText)[0] ?? titleWithoutCount(card.title);
@@ -210,6 +221,7 @@ function projectFromCard(card: RawGameportCard): PortSourceProject {
       : [],
     stars: card.stars,
     targets: [],
+    imageUrl: card.image || null,
     communityRating: null,
     realRating: null,
     group: "",
@@ -300,6 +312,7 @@ export function parseGameportDetail(html: string, card: RawGameportCard): PortSo
     stars,
     // Gameport lists the game's original system, not the port's targets.
     targets: [],
+    imageUrl: primaryImage($) || card.image || null,
     communityRating,
     realRating: null,
     group: "",

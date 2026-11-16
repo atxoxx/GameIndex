@@ -218,21 +218,34 @@ async function loadRepoMeta(ref: RepoRef): Promise<PortRepoMeta | null> {
   };
 }
 
+/** In-flight repo lookups, so the card and the README tab share one request. */
+const repoMetaInflight = new Map<string, Promise<PortRepoMeta | null>>();
+
 /** Repository facts for the modal's overview card. Never throws. */
-export async function fetchPortRepoMeta(rawUrl: string): Promise<PortRepoMeta | null> {
+export function fetchPortRepoMeta(rawUrl: string): Promise<PortRepoMeta | null> {
   const ref = parseRepoRef(rawUrl);
-  if (!ref) return null;
+  if (!ref) return Promise.resolve(null);
   const key = `repo:${ref.host}:${ref.fullPath}`;
   const hit = cacheGet<PortRepoMeta | null>("ports", key, REPO_TTL);
-  if (hit !== undefined) return hit;
-  try {
-    const meta = await loadRepoMeta(ref);
-    cacheSet("ports", key, meta);
-    return meta;
-  } catch {
-    cacheSet("ports", key, null);
-    return null;
-  }
+  if (hit !== undefined) return Promise.resolve(hit);
+  // The modal asks for the card on open and the README tab asks again a moment
+  // later; both should wait on the same GitHub/GitLab call instead of racing.
+  const pending = repoMetaInflight.get(key);
+  if (pending) return pending;
+  const request = loadRepoMeta(ref)
+    .then((meta) => {
+      cacheSet("ports", key, meta);
+      return meta;
+    })
+    .catch(() => {
+      cacheSet("ports", key, null);
+      return null;
+    })
+    .finally(() => {
+      repoMetaInflight.delete(key);
+    });
+  repoMetaInflight.set(key, request);
+  return request;
 }
 
 /** Resolve and cache a project README. Never throws. */
@@ -247,14 +260,18 @@ export async function fetchPortReadme(rawUrl: string): Promise<PortReadme> {
     };
   }
 
-  const repo = await fetchPortRepoMeta(rawUrl).catch(() => null);
   const cacheKey = `readme:${ref.host}:${ref.fullPath}:${ref.ref ?? "HEAD"}:${ref.filePath ?? ""}`;
-  const payload = await cached<{ markdown: string; sourceUrl: string } | null>(
-    "ports",
-    cacheKey,
-    README_TTL,
-    () => loadReadme(ref),
-  );
+  // Repository facts and the README itself are independent requests: run them
+  // together so the README tab is not slowed down by the GitHub API round trip.
+  const [repo, payload] = await Promise.all([
+    fetchPortRepoMeta(rawUrl).catch(() => null),
+    cached<{ markdown: string; sourceUrl: string } | null>(
+      "ports",
+      cacheKey,
+      README_TTL,
+      () => loadReadme(ref),
+    ),
+  ]);
 
   if (!payload) {
     return {

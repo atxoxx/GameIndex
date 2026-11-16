@@ -79,7 +79,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     if (cmd === "get_ports_catalog") return catalog;
     if (cmd === "refresh_ports_catalog") return catalog;
     if (cmd === "get_ports_sync_status") {
-      return { active: false, current: null, done: 0, total: 0, merged: 0, startedAt: null };
+      return { active: false, startedAt: null, merged: 0, sources: [] };
     }
     if (cmd === "get_port_cover") {
       return { url: null, thumbUrl: null, fallbackUrl: null, source: null };
@@ -104,8 +104,28 @@ vi.mock("@tauri-apps/api/core", () => ({
         },
       };
     }
+    if (cmd === "get_port_repo") {
+      return {
+        host: "github",
+        owner: "example",
+        repo: "project",
+        url: "https://github.com/example/project",
+        description: "A native port.",
+        stars: 1200,
+        language: "C++",
+        updatedAt: "2026-01-01T00:00:00Z",
+        license: "MIT",
+        topics: ["n64"],
+        homepage: null,
+        openIssues: 3,
+      };
+    }
     return null;
   }),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async () => () => {}),
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
@@ -225,16 +245,20 @@ describe("PortsPage", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toBeInTheDocument();
 
-    const first = screen.getByRole("tab", { name: /Zelda64Recomp/ });
-    expect(first).toHaveAttribute("aria-selected", "true");
+    const select = screen.getByRole("combobox", {
+      name: "ports.projectTabs",
+    }) as HTMLSelectElement;
+    expect(select.value).toBe("0");
+    expect(select.options[0].textContent).toContain("Zelda64Recomp");
 
-    const second = screen.getByRole("tab", { name: /Zelda 64 Recompiled/ });
-    fireEvent.click(second);
+    fireEvent.change(select, { target: { value: "1" } });
 
     await waitFor(() => {
-      expect(second).toHaveAttribute("aria-selected", "true");
+      expect(select.value).toBe("1");
     });
-    expect(first).toHaveAttribute("aria-selected", "false");
+    expect(
+      screen.getByText("Zelda 64 Recompiled", { selector: ".ports-modal__subtitle" }),
+    ).toBeInTheDocument();
   });
 
   it("shows the stale banner with a retry action", async () => {

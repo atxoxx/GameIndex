@@ -94,6 +94,11 @@ describe("parseDecompsList", () => {
     expect(totk.origin).toBe("Port");
   });
 
+  it("resolves the row thumbnail as an absolute cover URL", () => {
+    expect(projects[0].imageUrl).toBe("https://decomps.net/media/thumbs/fzBsCMucXe.jpg");
+    expect(projects[1].imageUrl).toBeNull();
+  });
+
   it("keeps the AI-assisted marker next to the language", () => {
     expect(projects[1].languages).toBe("AI-assisted, C");
   });

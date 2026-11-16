@@ -52,6 +52,8 @@ export interface PortSourceProject {
   stars: number | null;
   /** Supported targets in the source's own words (`Windows`, `Linux`, ...). */
   targets: string[];
+  /** Cover/screenshot URL supplied by the source, when it has one. */
+  imageUrl?: string | null;
   /** Community rating on a 0-5 scale, when the source provides one. */
   communityRating: number | null;
   /** PCGamingWiki's REAL AI-usage rating (0-5), when listed. */
@@ -98,18 +100,37 @@ export interface PortsCatalog {
   syncing?: boolean;
 }
 
-/** Live progress for the background sync, polled by the Ports page. */
+/** Per-source progress during a sync. */
+export interface PortSourceProgress {
+  id: PortSourceId;
+  /** Entries fetched so far. */
+  done: number;
+  /** Expected entries, 0 while unknown. */
+  total: number;
+  finished: boolean;
+  ok: boolean;
+  error?: string;
+}
+
+/** Live progress for the background sync, pushed to the Ports page. */
 export interface PortsSyncProgress {
   active: boolean;
-  /** Source currently being fetched. */
-  current: PortSourceId | null;
-  /** Entries fetched for `current`. */
-  done: number;
-  /** Expected entries for `current`, 0 while unknown. */
-  total: number;
-  /** Projects in the last merged catalog. */
-  merged: number;
   startedAt: number | null;
+  /** Projects in the current partial merge. */
+  merged: number;
+  sources: PortSourceProgress[];
+}
+
+/**
+ * `ports:sync` event payload. `catalog` is present on source-done/done so the
+ * page can paint rows as each catalog arrives instead of waiting for all five.
+ */
+export interface PortsSyncEvent {
+  phase: "start" | "progress" | "source-done" | "done";
+  version: number;
+  syncing: boolean;
+  progress: PortsSyncProgress;
+  catalog?: PortsCatalog;
 }
 
 export interface PortRepoMeta {

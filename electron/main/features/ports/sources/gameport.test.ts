@@ -267,6 +267,12 @@ describe("parseGameportDetail", () => {
     expect(project.targets).toEqual([]);
   });
 
+  it("takes the project page's primary image as the cover", () => {
+    expect(project.imageUrl).toBe(
+      "https://images.igdb.com/igdb/image/upload/t_cover_big/co8a4m.jpg",
+    );
+  });
+
   it("maps kinds, status, languages, stars and the community rating", () => {
     expect(project).toMatchObject({
       source: "gameport",
@@ -326,6 +332,7 @@ describe("parseGameportDetail", () => {
     expect(project.platform).toBe("");
     expect(project.portName).toBe("recomp");
     expect(project.stars).toBe(42);
+    expect(project.imageUrl).toBeNull();
     expect(project.links).toEqual([
       { label: "github.com/example/recomp", url: "https://github.com/example/recomp", kind: "github" },
     ]);

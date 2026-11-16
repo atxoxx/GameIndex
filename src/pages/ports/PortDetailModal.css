@@ -1,0 +1,88 @@
+/**
+ * Ports detail modal.
+ *
+ * The modal paints from merged catalog data, so the only bespoke chrome here
+ * is the project switcher (games with more than one port) and the secondary
+ * repository description line. The switcher keeps the toolbar select language
+ * from `PortsPage.css` (`.ports-select`): same surface, border and radius,
+ * compact height, chevron drawn in CSS so no icon button is needed.
+ */
+
+.ports-modal__project-select {
+  /* Local geometry knobs: the compact control size and the header-column cap. */
+  --ports-project-select-height: 36px;
+  --ports-project-select-max-width: 320px;
+  --ports-project-select-chevron: 6px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  width: 100%;
+  max-width: var(--ports-project-select-max-width);
+  margin-top: var(--space-2xs);
+}
+
+.ports-modal__project-select > span {
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ports-modal__project-select select {
+  appearance: none;
+  width: 100%;
+  height: var(--ports-project-select-height);
+  padding: 0 calc(var(--space-xl) + var(--space-2xs)) 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.ports-modal__project-select select:hover,
+.ports-modal__project-select select:focus-visible {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  outline: none;
+}
+
+.ports-modal__project-select select:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Chevron, centred on the (fixed-height) select box. */
+.ports-modal__project-select::after {
+  content: "";
+  position: absolute;
+  right: var(--space-md);
+  bottom: calc(
+    (var(--ports-project-select-height) - var(--ports-project-select-chevron)) / 2
+  );
+  width: var(--ports-project-select-chevron);
+  height: var(--ports-project-select-chevron);
+  border-right: 1.5px solid var(--color-text-tertiary);
+  border-bottom: 1.5px solid var(--color-text-tertiary);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* Repository description shown under the repo name when About uses notes. */
+.ports-modal__repo-desc {
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 820px) {
+  .ports-modal__project-select {
+    max-width: none;
+  }
+}

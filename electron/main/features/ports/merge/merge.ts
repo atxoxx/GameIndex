@@ -274,6 +274,7 @@ export function mergePortSources(sourceRows: PortSourceProject[]): PortProject[]
       stars: bestStars(entries),
       platforms: targets,
       targets: entries.flatMap((entry) => entry.targets),
+      imageUrl: entries.find((entry) => entry.imageUrl)?.imageUrl ?? null,
       communityRating: bestRating(entries),
       realRating: bestRealRating(entries),
       group: primary.group || vendorForPlatform(platform),

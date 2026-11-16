@@ -156,6 +156,7 @@ export function parseRecompfyiPayload(payload: unknown): PortSourceProject[] {
       links: linksOf(row),
       stars: null,
       targets: union(textList(row.targets), textList(row.builds)),
+      imageUrl: null,
       communityRating: null,
       realRating: null,
       group: "",

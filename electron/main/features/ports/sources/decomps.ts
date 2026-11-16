@@ -174,6 +174,8 @@ function parseRows(html: string, pageUrl: string): DecompsRow[] {
     const gameUrl = absoluteUrl(pageUrl, gameAnchor.attr("href"));
     const sourceUrl = repoKey ? absoluteUrl(SITE, progressHref) : gameUrl;
     const repoUrl = repoKey ? repoUrlFromRepoHref(progressHref, repoKey) : "";
+    // The row's thumbnail (`/media/thumbs/<id>.jpg`) is the game's cover art.
+    const thumb = cleanText(row.find("img.pj-th").first().attr("src"));
 
     rows.push({
       gameUrl,
@@ -200,6 +202,7 @@ function parseRows(html: string, pageUrl: string): DecompsRow[] {
           : [],
         stars: parseStarText(row.find('.thr-meta span[title^="Stars"]').first().text()),
         targets: [],
+        imageUrl: thumb ? absoluteUrl(SITE, thumb) : null,
         communityRating: null,
         realRating: null,
         group: "",

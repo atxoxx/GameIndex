@@ -117,6 +117,7 @@ export function parseUnbakedGame(detail: unknown, slug: string): PortSourceProje
       links: linksOf(portName, text(project.url)),
       stars: starsOf(project.stars),
       targets: ownTargets.length ? ownTargets : textList(game.runs_on),
+      imageUrl: null,
       communityRating: null,
       realRating: null,
       group: "",

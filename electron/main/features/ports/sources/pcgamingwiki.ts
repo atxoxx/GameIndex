@@ -24,5 +24,6 @@ export async function fetchPcgamingwikiProjects(): Promise<PortSourceProject[]> 
   if (!html) throw new Error("the wiki returned no table markup");
   const projects = parsePortsHtml(html);
   if (projects.length === 0) throw new Error("no port rows were parsed");
-  return projects;
+  // The wiki table has no cover art; state that explicitly for the merge.
+  return projects.map((project) => ({ ...project, imageUrl: null }));
 }

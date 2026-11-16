@@ -23,9 +23,15 @@ import { Button } from "../../components/ui/Button";
 import { SubTabs } from "../../components/ui/SubTabs";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
-import type { PortLink, PortProject, PortReadme } from "../../types/port";
+import type {
+  PortLink,
+  PortProject,
+  PortReadme,
+  PortRepoMeta,
+} from "../../types/port";
 import { PORT_SOURCES } from "../../types/port";
 import "../../styles/game-notes.css";
+import "./PortDetailModal.css";
 import {
   formatCount,
   formatDate,
@@ -44,6 +50,14 @@ interface PortDetailModalProps {
   onClose: () => void;
 }
 
+/**
+ * Session caches for the two optional network responses, keyed by merged
+ * project id. Reopening the modal (or flipping back to a project) then paints
+ * instantly instead of showing the README skeleton again.
+ */
+const repoMetaCache = new Map<string, PortRepoMeta | null>();
+const readmeCache = new Map<string, PortReadme>();
+
 function linkHost(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -59,26 +73,51 @@ function primaryRepo(project: PortProject): PortLink | null {
 /**
  * Detail view for one catalog row.
  *
- * The README comes from the project's repository and is rendered with the
- * app's dependency-free Markdown renderer, so no remote HTML is ever injected.
- * Repository facts (description, stars, last push) ride along with the same
- * backend call and are cached for hours.
+ * Everything on the overview - about text, rating, platforms, origin, status,
+ * links and sources - comes from the merged catalog row, so the modal paints
+ * with no network round trip. On open it only asks the main process for the
+ * repository facts card (`get_port_repo`, disk-cached for hours); the README
+ * itself is fetched lazily when its tab is selected and then cached per
+ * project. The README is rendered with the app's dependency-free Markdown
+ * renderer, so no remote HTML is ever injected.
  */
 export default function PortDetailModal({ group, onClose }: PortDetailModalProps) {
   const { t } = useLanguage();
   const copyText = useCopyToClipboard();
   const [tab, setTab] = useState<PortTab>("overview");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [readme, setReadme] = useState<PortReadme | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [readmeState, setReadmeState] = useState<{
+    id: string;
+    data: PortReadme;
+  } | null>(null);
+  const [readmeLoadingId, setReadmeLoadingId] = useState<string | null>(null);
+  const [repoMetaState, setRepoMetaState] = useState<{
+    id: string;
+    meta: PortRepoMeta | null;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const activeProjectIndex = Math.min(activeIndex, group.projects.length - 1);
   const project: PortProject =
-    group.projects[Math.min(activeIndex, group.projects.length - 1)] ?? group.primary;
-  const cover = usePortCover(group.game, true);
+    group.projects[activeProjectIndex] ?? group.primary;
+  const cover = usePortCover(group.game, {
+    initialUrl: project.imageUrl ?? group.primary.imageUrl ?? null,
+  });
   const repoLink = primaryRepo(project);
-  const repo = readme?.repo ?? null;
+  const repoUrl = repoLink?.url ?? null;
+  const readme = readmeState?.id === project.id ? readmeState.data : null;
+  const repo =
+    (repoMetaState?.id === project.id ? repoMetaState.meta : null) ??
+    readme?.repo ??
+    null;
   const repoStars = repo?.stars ?? project.stars;
+  const aboutText = project.notes || repo?.description || "";
+  // The README tab owns its own skeleton/error state; nothing README-shaped is
+  // requested until the tab is opened.
+  const readmeLoading =
+    tab === "readme" &&
+    !!repoUrl &&
+    (readmeLoadingId === project.id || readme === null);
 
   // Opening another group (same mounted modal) starts on its first project.
   useEffect(() => {
@@ -110,40 +149,80 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  // Repository facts for the overview card. Cheap (the main process caches it
+  // on disk for hours) and never required for the first paint.
   useEffect(() => {
-    if (!repoLink) {
-      setReadme({
-        markdown: "",
-        sourceUrl: "",
-        repo: null,
-        error: t("ports.readme.noRepo"),
-      });
+    if (!repoUrl) return;
+    const cached = repoMetaCache.get(project.id);
+    if (cached !== undefined) {
+      setRepoMetaState({ id: project.id, meta: cached });
       return;
     }
     let mounted = true;
-    setLoading(true);
-    setReadme(null);
-    invoke<PortReadme>("get_port_readme", { url: repoLink.url })
+    invoke<PortRepoMeta | null>("get_port_repo", { url: repoUrl })
       .then((result) => {
-        if (mounted) setReadme(result);
+        const meta = result ?? null;
+        repoMetaCache.set(project.id, meta);
+        if (mounted) setRepoMetaState({ id: project.id, meta });
       })
-      .catch((error) => {
-        if (mounted) {
-          setReadme({
-            markdown: "",
-            sourceUrl: repoLink.url,
-            repo: null,
-            error: String(error),
-          });
-        }
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
+      .catch(() => {
+        repoMetaCache.set(project.id, null);
+        if (mounted) setRepoMetaState({ id: project.id, meta: null });
       });
     return () => {
       mounted = false;
     };
-  }, [project.id, repoLink, t]);
+  }, [project.id, repoUrl]);
+
+  // The README is fetched only once its tab is opened, then cached per project.
+  useEffect(() => {
+    if (tab !== "readme") return;
+    if (!repoUrl) {
+      setReadmeState({
+        id: project.id,
+        data: {
+          markdown: "",
+          sourceUrl: "",
+          repo: null,
+          error: t("ports.readme.noRepo"),
+        },
+      });
+      setReadmeLoadingId(null);
+      return;
+    }
+    const cached = readmeCache.get(project.id);
+    if (cached) {
+      setReadmeState({ id: project.id, data: cached });
+      setReadmeLoadingId(null);
+      return;
+    }
+    let mounted = true;
+    setReadmeLoadingId(project.id);
+    invoke<PortReadme>("get_port_readme", { url: repoUrl })
+      .then((result) => {
+        readmeCache.set(project.id, result);
+        if (mounted) setReadmeState({ id: project.id, data: result });
+      })
+      .catch((error) => {
+        if (mounted) {
+          setReadmeState({
+            id: project.id,
+            data: {
+              markdown: "",
+              sourceUrl: repoUrl,
+              repo: null,
+              error: String(error),
+            },
+          });
+        }
+      })
+      .finally(() => {
+        if (mounted) setReadmeLoadingId(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [tab, project.id, repoUrl, t]);
 
   const open = (url: string) => {
     void openUrl(url);
@@ -255,6 +334,23 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                 </span>
               ) : null}
             </div>
+            {group.projects.length > 1 ? (
+              <label className="ports-modal__project-select">
+                <span>{t("ports.projectTabs")}</span>
+                <select
+                  value={String(activeProjectIndex)}
+                  onChange={(event) => setActiveIndex(Number(event.target.value))}
+                >
+                  {group.projects.map((item, index) => (
+                    <option key={item.id} value={index}>
+                      {item.status
+                        ? `${item.portName} · ${item.status}`
+                        : item.portName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </div>
 
           <div className="ports-modal__head-actions">
@@ -281,34 +377,6 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
           </div>
         </header>
 
-        {group.projects.length > 1 ? (
-          <div
-            className="ports-modal__projects"
-            role="tablist"
-            aria-label={t("ports.projectTabs")}
-          >
-            {group.projects.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={index === activeIndex}
-                className={`ports-project-tab${index === activeIndex ? " is-active" : ""}`}
-                onClick={() => setActiveIndex(index)}
-              >
-                <span
-                  className={`ports-project-tab__dot is-${originTone(item.origin)}`}
-                  aria-hidden
-                />
-                <span className="ports-project-tab__name">{item.portName}</span>
-                {item.status ? (
-                  <span className="ports-project-tab__status">{item.status}</span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         <SubTabs
           className="ports-modal__subtabs"
           ariaLabel={t("ports.modalTabs")}
@@ -324,21 +392,14 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
           <div className="ports-modal__main">
             {tab === "overview" ? (
               <>
-                {repo?.description ? (
+                {aboutText ? (
                   <section className="ports-modal__section">
                     <h3>{t("ports.about.title")}</h3>
-                    <p className="ports-modal__description">{repo.description}</p>
+                    <p className="ports-modal__description">{aboutText}</p>
                   </section>
                 ) : null}
 
-                {project.notes ? (
-                  <section className="ports-modal__section">
-                    <h3>{t("ports.notes.title")}</h3>
-                    <p className="ports-modal__description">{project.notes}</p>
-                  </section>
-                ) : null}
-
-                {repo && (repo.stars != null || repo.updatedAt || repo.license) ? (
+                {repo ? (
                   <section className="ports-modal__section">
                     <h3>{t("ports.repo.title")}</h3>
                     <div className="ports-modal__repo">
@@ -346,6 +407,11 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                         <RepoMark kind={repo.host === "gitlab" ? "gitlab" : "github"} width={15} height={15} />
                         {repo.owner}/{repo.repo}
                       </span>
+                      {project.notes && repo.description ? (
+                        <span className="ports-modal__repo-desc">
+                          {repo.description}
+                        </span>
+                      ) : null}
                       <span className="ports-modal__repo-stats">
                         {repoStars != null ? (
                           <span>
@@ -377,7 +443,7 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                   </section>
                 ) : null}
 
-                {project.links.length === 0 && !project.notes ? (
+                {project.links.length === 0 && !aboutText ? (
                   <section className="ports-modal__section">
                     <p className="ports-modal__muted">{t("ports.noDetails")}</p>
                   </section>
@@ -385,7 +451,7 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
               </>
             ) : (
               <section className="ports-modal__readme">
-                {loading ? (
+                {readmeLoading ? (
                   <div className="ports-readme-skeleton" aria-hidden>
                     <span />
                     <span />
