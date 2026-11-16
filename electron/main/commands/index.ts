@@ -44,6 +44,7 @@ import { registerBackupCommands } from "./backup";
 import { registerCaptureCommands } from "./capture";
 import { registerMediaCommands } from "./media";
 import { registerExtrasCommands } from "./extras";
+import { registerUpdaterCommands } from "./updater";
 
 export function registerCommandHandlers(): void {
   registerCommands(settingsCommands, { override: true });
@@ -76,6 +77,7 @@ export function registerCommandHandlers(): void {
   registerCaptureCommands();
   registerMediaCommands();
   registerExtrasCommands();
+  registerUpdaterCommands();
   registerStubCommands();
 }
 
@@ -190,23 +192,6 @@ const surfaceCommands: Record<string, CommandHandler> = {
     app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: false });
     return null;
   },
-  updater_install_info: () => {
-    // The in-app updater is still a stub, and `latest.json` publishes Windows
-    // artifacts only: reporting a Windows channel on Linux would make the
-    // update UI request an installer it cannot run. `dev` is a valid mode with
-    // no channel, so nothing is offered on non-Windows builds.
-    const windows = process.platform === "win32";
-    return {
-      target: windows ? "windows-x86_64" : null,
-      mode: "dev",
-      currentVersion: app.getVersion(),
-    };
-  },
-  portable_update_apply: () => {
-    getSurfaces().quit();
-    return null;
-  },
-  portable_update_cancel: () => null,
 };
 
 /**

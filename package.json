@@ -29,6 +29,7 @@
     "adm-zip": "^0.6.1",
     "better-sqlite3": "^13.1.1",
     "cheerio": "^1.2.0",
+    "electron-updater": "^6.8.11",
     "parse-torrent": "^11.0.24",
     "quickjs-emscripten": "^0.32.0",
     "webtorrent": "^3.0.21"
@@ -54,7 +55,6 @@
     "@vitejs/plugin-react": "^4.6.0",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
-    "electron-updater": "^6.8.11",
     "electron-vite": "^4.0.0",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",

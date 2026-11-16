@@ -119,7 +119,9 @@ export async function downloadPortableUpdate(
   };
 
   const expectedSize = asOptionalNumber(args.sizeBytes ?? args.size);
-  const expectedHash = asString(args.sha256 ?? args.hash)
+  const rawHash = asString(args.sha256 ?? args.hash);
+  const signature = asString(args.signature);
+  const expectedHash = (rawHash || signature)
     .trim()
     .toLowerCase()
     .replace(/^sha256:/, "");

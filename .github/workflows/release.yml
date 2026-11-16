@@ -135,13 +135,32 @@ jobs:
             gh release create "$channel" \
               --prerelease \
               --title "GameIndex Electron updates" \
-              --notes "Rolling electron-updater metadata for the Electron build."
+              --notes "Rolling electron-updater feed for the Electron build."
 
-          metadata="$(mktemp -d)"
-          gh release download "$tag" -p 'latest*.yml' -D "$metadata" --clobber
+          # Surface the versioned release's notes in the update modal.
+          notes="$(gh release view "$tag" --json body --jq '.body // ""')"
+          if [ -n "$notes" ]; then
+            gh release edit "$channel" --notes "$notes" >/dev/null
+          fi
 
-          if compgen -G "$metadata/latest*.yml" >/dev/null; then
-            gh release upload "$channel" "$metadata"/latest*.yml --clobber
+          assets="$(mktemp -d)"
+          gh release download "$tag" \
+            -p '*.exe' -p '*.AppImage' -p '*.deb' -p '*.blockmap' -p 'latest*.yml' \
+            -D "$assets" --clobber
+
+          if compgen -G "$assets/*" >/dev/null; then
+            # Drop only assets older than two weeks: that clears superseded
+            # versions without deleting the other platform's fresh artifacts
+            # when one build job in the matrix failed.
+            cutoff="$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+            gh release view "$channel" --json assets \
+              --jq --arg cutoff "$cutoff" '.assets[] | select(.createdAt < $cutoff) | .name' |
+              while read -r name; do
+                if [ -n "$name" ]; then
+                  gh release delete-asset "$channel" "$name" --yes >/dev/null 2>&1 || true
+                fi
+              done
+            gh release upload "$channel" "$assets"/* --clobber
           else
-            echo "::warning::No latest*.yml assets found on $tag"
+            echo "::warning::No updater artifacts found on $tag"
           fi

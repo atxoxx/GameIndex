@@ -2,6 +2,14 @@ appId: com.gameindex.app
 productName: GameIndex
 copyright: Copyright © GameIndex
 
+# electron-updater feed. The release workflow keeps installers and `latest*.yml`
+# in a rolling `electron-latest` prerelease so the feed URL is stable while the
+# versioned release stays a reviewed draft. The portable build uses the same
+# release's `_portable.exe` asset.
+publish:
+  provider: generic
+  url: https://github.com/atxoxx/GameIndex/releases/download/electron-latest
+
 directories:
   output: release
   buildResources: build

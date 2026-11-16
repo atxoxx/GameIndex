@@ -204,6 +204,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   // Portable artifact details from the update manifest + staged download path.
   const [portableUrl, setPortableUrl] = useState<string | null>(null);
   const [portableSignature, setPortableSignature] = useState<string | null>(null);
+  const [portableSha256, setPortableSha256] = useState<string | null>(null);
+  const [portableSize, setPortableSize] = useState<number | null>(null);
+  const [portableFileName, setPortableFileName] = useState<string | null>(null);
   const [stagedPath, setStagedPath] = useState<string | null>(null);
 
   // Last progress event (ts/bytes) + smoothed speed (EMA, alpha 0.3).
@@ -247,6 +250,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setUpdateInfo(null);
     setPortableUrl(null);
     setPortableSignature(null);
+    setPortableSha256(null);
+    setPortableSize(null);
+    setPortableFileName(null);
     setStagedPath(null);
     setShowUpdateNotification(false);
   }, []);
@@ -329,15 +335,28 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
             date: update.date || undefined,
           });
 
-          // Extract the portable artifact (url + signature) from the raw latest.json.
+          // Extract the portable artifact (url + hash) from the raw manifest.
           if (isPortable) {
             const manifest = update.rawJson as {
-              platforms?: Record<string, { url?: string; signature?: string }>;
+              platforms?: Record<
+                string,
+                {
+                  url?: string;
+                  signature?: string;
+                  sha256?: string | null;
+                  size?: number | null;
+                  fileName?: string | null;
+                }
+              >;
             };
             const artifact = manifest.platforms?.[target];
-            if (artifact?.url && artifact?.signature) {
+            const hash = artifact?.sha256 ?? artifact?.signature ?? null;
+            if (artifact?.url && hash) {
               setPortableUrl(artifact.url);
-              setPortableSignature(artifact.signature);
+              setPortableSignature(artifact.signature ?? hash);
+              setPortableSha256(hash);
+              setPortableSize(typeof artifact.size === "number" ? artifact.size : null);
+              setPortableFileName(artifact.fileName ?? null);
             } else {
               setStatus("error");
               setError(t("updater.errorNoArtifact"));
@@ -426,7 +445,14 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     try {
       const result = await invoke<{ path: string; sizeBytes: number }>(
         "portable_update_download",
-        { url: portableUrl, signature: portableSignature, onEvent: channel },
+        {
+          url: portableUrl,
+          signature: portableSignature,
+          sha256: portableSha256,
+          sizeBytes: portableSize,
+          fileName: portableFileName,
+          onEvent: channel,
+        },
       );
       setStagedPath(result.path);
       if (result.sizeBytes > 0) {
@@ -446,7 +472,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       }
       return null;
     }
-  }, [portableUrl, portableSignature, t]);
+  }, [portableUrl, portableSignature, portableSha256, portableSize, portableFileName, t]);
 
   const portableApply = useCallback((path: string) => {
     setStatus("restarting");
@@ -467,9 +493,18 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
         await updateObj.downloadAndInstall((event: any) => {
           if (event.event === "Started") {
-            total = event.data?.contentLength || 0;
+            total = event.data?.contentLength || event.data?.total || 0;
           } else if (event.event === "Progress") {
-            downloaded += event.data?.chunkLength || 0;
+            // The Tauri plugin reports deltas; the Electron updater reports the
+            // absolute transferred byte count, so prefer that when present.
+            const absolute = event.data?.downloaded;
+            downloaded =
+              typeof absolute === "number"
+                ? absolute
+                : downloaded + (event.data?.chunkLength || 0);
+            if (typeof event.data?.total === "number" && event.data.total > 0) {
+              total = event.data.total;
+            }
             const percent =
               total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
             setProgress({ downloaded, total, percent, speedBytesPerSec: 0, etaSeconds: null });

@@ -464,9 +464,9 @@ Settings → Proton / Wine → **Linux System Diagnostics** probes the machine a
 
 - Linux ships as an **AppImage** and a **`.deb`**.
 - In Settings → General, GameIndex classifies how it was installed and only offers updates through
-  the matching channel: AppImage updates replace the AppImage file, `.deb` updates install the new
-  package — both handled by the Tauri updater plugin; other bundles (RPM, etc.) are treated as
-  manual/unsupported and don't surface an update prompt.
+  the matching channel: AppImage updates replace the AppImage file through
+  `electron-updater`; `.deb` packages are not self-updatable and are treated as
+  manual/unsupported, so no launch ever tries to install another channel's artifact.
 - Update checks are quiet for unsupported installs, so no launch ever tries to install another
   platform's artifact.
 - **Release History** (same settings section) opens a browsable changelog fetched straight from the
