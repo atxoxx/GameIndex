@@ -3773,6 +3773,7 @@ export const en: TranslationDict = {
   "game.execExtras.browseButton": "Browse…",
   "game.execExtras.browseFile": "Choose file…",
   "game.execExtras.defaultHint": "Always used by the Play button",
+  "game.execExtras.makeDefault": "Set as default",
   "game.execExtras.copyPath": "Copy path",
   "game.execExtras.copied": "Copied",
   "game.execExtras.pathMissing": "File not found",

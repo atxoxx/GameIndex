@@ -3762,6 +3762,7 @@ export const zhCN: TranslationDict = {
   "game.execExtras.browseButton": "浏览…",
   "game.execExtras.browseFile": "选择文件…",
   "game.execExtras.defaultHint": "始终由“开始游戏”按钮使用",
+  "game.execExtras.makeDefault": "设为默认",
   "game.execExtras.copyPath": "复制路径",
   "game.execExtras.copied": "已复制",
   "game.execExtras.pathMissing": "找不到文件",

@@ -3762,6 +3762,7 @@ export const de: TranslationDict = {
   "game.execExtras.browseButton": "Durchsuchen…",
   "game.execExtras.browseFile": "Datei auswählen…",
   "game.execExtras.defaultHint": "Wird immer von der Wiedergabe-Schaltfläche verwendet",
+  "game.execExtras.makeDefault": "Als Standard festlegen",
   "game.execExtras.copyPath": "Pfad kopieren",
   "game.execExtras.copied": "Kopiert",
   "game.execExtras.pathMissing": "Datei nicht gefunden",

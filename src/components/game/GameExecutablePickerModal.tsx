@@ -11,6 +11,7 @@ import {
   Play,
   Plus,
   Shield,
+  Star,
   Terminal,
   Trash2,
   X,
@@ -25,10 +26,11 @@ import "../../styles/exec-extras.css";
  * GameExecutablePickerModal
  *
  * Opens from the hero play button's chevron on games that have extra
- * executables configured. Lists the main executable (launch-only, it is
- * always the default target) and every additional executable with its
- * per-exe label / arguments / run-as-admin settings, launches on click,
- * and lets the user add or remove executables right here.
+ * executables configured. Lists the execution targets: the main executable
+ * (the target the Play button uses) and every additional executable with its
+ * per-exe label / arguments / run-as-admin settings. Any extra can be promoted
+ * to the default target, which swaps it with the current main path. Launches
+ * on click and lets the user add or remove executables right here.
  *
  * Layout: one card per target. The main card is accent-tinted and carries the
  * "Default" chip; extra cards put the (editable) label + arguments on the first
@@ -168,6 +170,37 @@ export default function GameExecutablePickerModal({
     setExes(exes.filter((_, i) => i !== index));
   }
 
+  /**
+   * Promote an extra executable to the game's default launch target.
+   *
+   * `game.path` is what the hero Play button spawns, so making an extra the
+   * default swaps the two entries: the chosen path becomes the main one (with
+   * its arguments/admin flag), and the old main path becomes an extra so it can
+   * still be launched from this dialog.
+   */
+  function makeDefault(index: number) {
+    const chosen = exes[index];
+    if (!chosen) return;
+    const remaining = exes.filter((_, i) => i !== index);
+    const previousMain: GameExecutable[] = game.path
+      ? [
+          {
+            path: game.path,
+            label: fileNameOf(game.path),
+            arguments: game.launchArguments || undefined,
+            runAsAdmin: game.runAsAdmin || undefined,
+          },
+        ]
+      : [];
+    const nextExtras = [...previousMain, ...remaining];
+    updateGame(game.id, {
+      path: chosen.path,
+      launchArguments: chosen.arguments?.trim() ? chosen.arguments : undefined,
+      runAsAdmin: chosen.runAsAdmin || undefined,
+      extraExecutables: nextExtras.length > 0 ? nextExtras : undefined,
+    });
+  }
+
   async function copyPath(path: string) {
     if (!path) return;
     const copied = await copyTextToClipboard(path);
@@ -256,7 +289,10 @@ export default function GameExecutablePickerModal({
                 onClose();
                 launchGame(game);
               }}
-              disabled={isRunning}
+              disabled={isRunning || missing.has(game.path)}
+              title={t("game.execExtras.launchNamed", {
+                label: game.path ? fileNameOf(game.path) : game.name,
+              })}
             >
               <Play size={14} aria-hidden />
               {t("game.execExtras.launch")}
@@ -308,6 +344,15 @@ export default function GameExecutablePickerModal({
               <div className="exe-picker-actions">
                 <button
                   type="button"
+                  className="exe-picker-icon"
+                  onClick={() => makeDefault(index)}
+                  title={t("game.execExtras.makeDefault")}
+                  aria-label={t("game.execExtras.makeDefault")}
+                >
+                  <Star size={15} />
+                </button>
+                <button
+                  type="button"
                   className={`exe-picker-icon${exe.runAsAdmin ? " is-active" : ""}`}
                   onClick={() => updateExe(index, { runAsAdmin: !exe.runAsAdmin })}
                   title={t("game.execExtras.runAsAdmin")}
@@ -323,7 +368,8 @@ export default function GameExecutablePickerModal({
                     onClose();
                     onLaunch(exe);
                   }}
-                  disabled={isRunning}
+                  disabled={isRunning || missing.has(exe.path)}
+                  title={t("game.execExtras.launchNamed", { label: fileNameOf(exe.path) })}
                 >
                   <Play size={14} aria-hidden />
                   {t("game.execExtras.launch")}

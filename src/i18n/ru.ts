@@ -3762,6 +3762,7 @@ export const ru: TranslationDict = {
   "game.execExtras.browseButton": "Обзор…",
   "game.execExtras.browseFile": "Выбрать файл…",
   "game.execExtras.defaultHint": "Всегда используется кнопкой «Играть»",
+  "game.execExtras.makeDefault": "Сделать по умолчанию",
   "game.execExtras.copyPath": "Скопировать путь",
   "game.execExtras.copied": "Скопировано",
   "game.execExtras.pathMissing": "Файл не найден",
