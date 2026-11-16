@@ -198,6 +198,9 @@ export default function GameExecutablePickerModal({
       launchArguments: chosen.arguments?.trim() ? chosen.arguments : undefined,
       runAsAdmin: chosen.runAsAdmin || undefined,
       extraExecutables: nextExtras.length > 0 ? nextExtras : undefined,
+      // A Steam title would otherwise hand the launch to steam:// and start
+      // the default game instead of the binary the user picked.
+      steamBypass: true,
     });
   }
 

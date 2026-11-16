@@ -311,6 +311,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
     readNumber(args, "steamAppId") ?? deriveSteamAppId(gameId, gamePath);
   const launchArguments = readString(args, "launchArguments");
   const runAsAdmin = readBoolean(args, "runAsAdmin");
+  const bypassSteam = readBoolean(args, "bypassSteam");
   const preLaunchScript = readString(args, "preLaunchScript");
   const preLaunchAdmin = readBoolean(args, "preLaunchAdmin");
   const postExitScript = readString(args, "postExitScript");
@@ -360,7 +361,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
     // A game whose path is already a protocol URL (custom launcher, GOG, …).
     await openProtocol(gamePath, "launcher");
     exePath = null;
-  } else if (platform === "Steam" && steamAppId) {
+  } else if (platform === "Steam" && steamAppId && !bypassSteam) {
     const appId = requireSteamAppId(steamAppId);
 
     // Steam owns the launch, so Wine/Proton settings are persisted as the
@@ -462,7 +463,7 @@ export async function launchGame(args: Record<string, unknown>): Promise<string>
   emitProgress(gameId, "startingGame");
 
   let installDir: string | null = null;
-  if (platform === "Steam" && steamAppId) {
+  if (platform === "Steam" && steamAppId && !bypassSteam) {
     try {
       installDir = await steamGameInstallPath(steamAppId);
     } catch {

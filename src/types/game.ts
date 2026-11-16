@@ -281,6 +281,10 @@ export interface Game {
    *  hero play-button chevron, the context menu and the command palette.
    *  `path` always remains the default launch target. */
   extraExecutables?: GameExecutable[];
+  /** Spawn `path` directly instead of handing a Steam title to the Steam
+   *  client. Set when the user promotes a custom executable to the default
+   *  target; Steam does not know how to start an alternate binary. */
+  steamBypass?: boolean;
   playStatus?: PlayStatus;
   /** When true, the game is excluded from playtime tracking and passive process detection. */
   untracked?: boolean;

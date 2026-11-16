@@ -339,6 +339,10 @@ export function useLaunch(options: {
         gpuSelection,
         launchArguments: launchArgs,
         runAsAdmin: IS_WINDOWS_HOST ? (exeOverride?.runAsAdmin ?? (game.runAsAdmin || null)) : null,
+        // An extra executable is a real file, not a Steam app: the Steam
+        // client would always start the default game instead. Same for a
+        // custom default promoted through the executable picker.
+        bypassSteam: Boolean(exeOverride) || game.steamBypass === true,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,
         preLaunchScript: game.preLaunchScript || null,
         preLaunchAdmin: game.preLaunchAdmin || null,
