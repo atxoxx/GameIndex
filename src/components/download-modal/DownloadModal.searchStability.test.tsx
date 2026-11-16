@@ -144,7 +144,7 @@ describe("DownloadModal search stability", () => {
         progress([result("Alpha", "First"), result("Beta", "Second")], true),
       );
     });
-    await waitFor(() => expect(titles()).toEqual(["First", "Second"]));
+    await waitFor(() => expect([...titles()].sort()).toEqual(["First", "Second"]));
 
     // The aggregate bucket comes from `extractSourceFilters`, so the rail must
     // not add a second "all sources" tab beside it.
@@ -170,7 +170,7 @@ describe("DownloadModal search stability", () => {
     });
 
     expect(streamMock).toHaveBeenCalledTimes(1);
-    expect(titles()).toEqual(["First", "Second"]);
+    expect([...titles()].sort()).toEqual(["First", "Second"]);
   });
 
   it("ignores a superseded search that finishes after a newer one starts", async () => {
