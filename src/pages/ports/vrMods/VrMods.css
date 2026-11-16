@@ -55,6 +55,40 @@
   pointer-events: none;
 }
 
+/* Shown while the lazily imported details chunk loads. */
+.vrmod-details-skeleton {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+}
+
+.vrmod-details-skeleton span {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary) 25%,
+    var(--color-bg-tertiary) 50%,
+    var(--color-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: vrmod-shimmer 1.2s linear infinite;
+}
+
+.vrmod-details-skeleton span:nth-child(2n) {
+  width: 72%;
+}
+
+@keyframes vrmod-shimmer {
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vrmod-details-skeleton span { animation: none; }
+}
+
 /* Full-details list from a source's structured fields. */
 .vrmod-details {
   display: grid;

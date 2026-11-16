@@ -34,6 +34,8 @@ import type {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
 const OUTPUT = path.join(ROOT, "src", "data", "vr-mods.catalog.json");
+/** Heavy structured details live apart so the grid chunk stays small. */
+const OUTPUT_DETAILS = path.join(ROOT, "src", "data", "vr-mods.details.json");
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 GameIndex-CatalogBuilder/1.0";
@@ -193,7 +195,9 @@ function dedupeRepeated(value: string): string {
   return value;
 }
 
-async function harvestPcvrCentral(): Promise<{ entries: VrModEntry[]; ok: boolean; error?: string }> {
+async function harvestPcvrCentral(
+  detailsMap: Map<string, string>,
+): Promise<{ entries: VrModEntry[]; ok: boolean; error?: string }> {
   try {
     log("fetching pcvrcentral sitemap ...");
     const sitemap = await getText("https://pcvrcentral.com/sitemap.xml", 60_000);
@@ -246,7 +250,12 @@ async function harvestPcvrCentral(): Promise<{ entries: VrModEntry[]; ok: boolea
             gameTitle: game,
             modName,
             description,
-            details: details.join("\n"),
+            details: (() => {
+              if (details.length === 0) return "";
+              const key = `d:pcvrcentral:${slug}`;
+              detailsMap.set(key, details.join("\n"));
+              return key;
+            })(),
             links: dedupeLinks(links),
             image: imageHref ? new URL(imageHref, url).toString() : null,
             date: null,
@@ -274,9 +283,10 @@ async function harvestPcvrCentral(): Promise<{ entries: VrModEntry[]; ok: boolea
   }
 }
 
+const detailsMap = new Map<string, string>();
 const [vrPortNews, pcvrCentral] = await Promise.all([
   harvestVrPortNews(),
-  harvestPcvrCentral(),
+  harvestPcvrCentral(detailsMap),
 ]);
 
 const uniqueEntries = new Map<string, VrModEntry>();
@@ -313,8 +323,15 @@ const catalog: VrModsCatalog = {
 };
 
 fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-const tmp = `${OUTPUT}.${process.pid}.tmp`;
-fs.writeFileSync(tmp, JSON.stringify(catalog), "utf8");
-fs.renameSync(tmp, OUTPUT);
-log(`wrote ${OUTPUT}`);
-log(`${entries.length} entries, ${(fs.statSync(OUTPUT).size / 1024 / 1024).toFixed(2)} MB`);
+function writeAtomic(file: string, value: unknown): void {
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(value), "utf8");
+  fs.renameSync(tmp, file);
+}
+writeAtomic(OUTPUT, catalog);
+writeAtomic(OUTPUT_DETAILS, { keys: [...detailsMap.keys()], lines: Object.fromEntries(detailsMap) });
+log(`wrote ${OUTPUT} and ${OUTPUT_DETAILS}`);
+log(
+  `${entries.length} entries, catalog ${(fs.statSync(OUTPUT).size / 1024 / 1024).toFixed(2)} MB, ` +
+    `details ${(fs.statSync(OUTPUT_DETAILS).size / 1024 / 1024).toFixed(2)} MB`,
+);

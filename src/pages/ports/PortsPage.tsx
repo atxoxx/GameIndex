@@ -468,8 +468,18 @@ export default function PortsPage() {
       {pageTab === "vrMods" ? (
         <Suspense
           fallback={
-            <div className="ports-empty" role="status">
-              <h2>{t("ports.vrMods.loading")}</h2>
+            <div className="ports-page" role="status" aria-label={t("ports.vrMods.loading")}>
+              <div className="ports-grid" aria-busy="true">
+                {Array.from({ length: 12 }).map((_, index) => (
+                  <div key={index} className="ports-card ports-card--skeleton">
+                    <span className="ports-card__art" />
+                    <span className="ports-card__body">
+                      <span className="ports-skeleton-line" />
+                      <span className="ports-skeleton-line is-short" />
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           }
         >

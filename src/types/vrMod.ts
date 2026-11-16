@@ -37,7 +37,10 @@ export interface VrModEntry {
   modName: string;
   /** One-line summary shown in the modal's Overview tab. */
   description: string;
-  /** Longer install / compatibility details, when the source supplies them. */
+  /**
+   * Long details are stored in a separate lazy chunk; this is its `d:` key.
+   * A plain string is treated as inline text (legacy snapshots / fixtures).
+   */
   details: string;
   /** Deduped links for this entry. */
   links: VrModLink[];
@@ -85,6 +88,14 @@ export interface VrModsCatalog {
    * filtered result can drop entries without re-reading the snapshot. */
   groups?: VrModGameGroup[];
   sources: VrSourceSummary[];
+}
+
+/** Heavy per-mod details, loaded on demand when the Overview tab is opened. */
+export interface VrModDetails {
+  /** The `d:` keys requested, echoed back for correlation. */
+  keys: string[];
+  /** Multiline structured source fields, keyed by `d:slug`. */
+  lines: Record<string, string>;
 }
 
 export interface VrRepoMeta {

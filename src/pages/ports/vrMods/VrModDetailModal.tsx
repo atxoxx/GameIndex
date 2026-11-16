@@ -22,7 +22,7 @@ import { Button } from "../../../components/ui/Button";
 import { SubTabs } from "../../../components/ui/SubTabs";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
-import type { VrModGameGroup, VrReadme, VrRepoMeta } from "../../../types/vrMod";
+import type { VrModDetails, VrModGameGroup, VrReadme, VrRepoMeta } from "../../../types/vrMod";
 import "../../../styles/game-notes.css";
 import { formatCount, formatDate, platformAccent } from "../portFormat";
 import { RepoMark } from "../portIcons";
@@ -39,6 +39,16 @@ interface VrModDetailModalProps {
 
 const repoMetaCache = new Map<string, VrRepoMeta | null>();
 const readmeCache = new Map<string, VrReadme>();
+const detailsCache = new Map<string, string[]>();
+
+/** The heavy details payload is one lazily fetched chunk, shared by every modal. */
+let detailsPayload: Promise<VrModDetails> | null = null;
+function getDetails(): Promise<VrModDetails> {
+  detailsPayload ??= import("../../../data/vr-mods.details.json").then(
+    (module) => (module.default ?? module) as VrModDetails,
+  );
+  return detailsPayload;
+}
 
 function linkHost(url: string): string {
   try {
@@ -69,6 +79,8 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [repoMetaState, setRepoMetaState] = useState<{ url: string; meta: VrRepoMeta | null } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [detailState, setDetailState] = useState<{ key: string; lines: string[] } | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const activeIndex = Math.min(linkIndex, Math.max(0, group.githubLinks.length - 1));
@@ -80,12 +92,29 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
   );
   const primaryKind = group.kinds[0] ?? "unknown";
   const description = group.entries.find((entry) => entry.description)?.description ?? "";
-  const details = useMemo(() => {
-    const lines = group.entries.flatMap((entry) =>
-      entry.details.split("\n").map((line) => line.trim()).filter(Boolean),
-    );
-    return [...new Set(lines)];
+  const { inlineDetails, detailKey } = useMemo(() => {
+    const inline: string[] = [];
+    const keys: string[] = [];
+    for (const entry of group.entries) {
+      const value = entry.details;
+      if (!value) continue;
+      if (value.startsWith("d:")) keys.push(value);
+      else inline.push(...value.split("\n").map((line) => line.trim()).filter(Boolean));
+    }
+    return {
+      inlineDetails: [...new Set(inline)],
+      detailKey: [...new Set(keys)].join(","),
+    };
   }, [group.entries]);
+  const details = useMemo(
+    () => [
+      ...new Set([
+        ...inlineDetails,
+        ...(detailState?.key === detailKey ? detailState.lines : []),
+      ]),
+    ],
+    [inlineDetails, detailState, detailKey],
+  );
   const readme = readmeState?.url === repoUrl ? readmeState.data : null;
   const repo = (repoMetaState?.url === repoUrl ? repoMetaState.meta : null) ?? readme?.repo ?? null;
   const showReadmeLoading = tab === "readme" && !!repoUrl && (readmeLoading || readme === null);
@@ -94,6 +123,43 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
     setLinkIndex(0);
     setTab("overview");
   }, [group.key]);
+
+  // Structured details live in a separate chunk: fetch it once, on first
+  // Overview open, instead of shipping 1 MB in the grid bundle.
+  useEffect(() => {
+    if (tab !== "overview" || !detailKey) return;
+    const cached = detailsCache.get(detailKey);
+    if (cached) {
+      setDetailState({ key: detailKey, lines: cached });
+      setDetailsLoading(false);
+      return;
+    }
+    let mounted = true;
+    setDetailsLoading(true);
+    getDetails()
+      .then((payload) => {
+        const lines = [
+          ...new Set(
+            detailKey
+              .split(",")
+              .flatMap((key) => (payload.lines[key] ?? "").split("\n"))
+              .map((line) => line.trim())
+              .filter(Boolean),
+          ),
+        ];
+        detailsCache.set(detailKey, lines);
+        if (mounted) setDetailState({ key: detailKey, lines });
+      })
+      .catch(() => {
+        if (mounted) setDetailState({ key: detailKey, lines: [] });
+      })
+      .finally(() => {
+        if (mounted) setDetailsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [tab, detailKey]);
 
   useEffect(() => {
     const restoreFocus = document.activeElement as HTMLElement | null;
@@ -321,9 +387,14 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
                   </section>
                 ) : null}
 
-                {details.length > 0 ? (
+                {details.length > 0 || detailsLoading ? (
                   <section className="ports-modal__section">
                     <h3>{t("ports.vrMods.details.title")}</h3>
+                    {detailsLoading ? (
+                      <div className="vrmod-details-skeleton" aria-hidden>
+                        <span /><span /><span /><span />
+                      </div>
+                    ) : (
                     <dl className="vrmod-details">
                       {details.map((line) => {
                         const split = line.indexOf(":");
@@ -342,6 +413,7 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
                         );
                       })}
                     </dl>
+                    )}
                   </section>
                 ) : null}
 

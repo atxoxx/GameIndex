@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { memo, useState, type CSSProperties } from "react";
 import { Layers } from "lucide-react";
 
 import { ArtworkImage } from "../../../components/ui/ArtworkImage";
@@ -14,7 +14,7 @@ interface VrModCardProps {
 }
 
 /** One card per game, laid out like the Ports card so the virtual grid matches. */
-export default function VrModCard({ group, onOpen }: VrModCardProps) {
+function VrModCard({ group, onOpen }: VrModCardProps) {
   const { t } = useLanguage();
   const { ref, revealed } = useReveal<HTMLButtonElement>();
   const [failed, setFailed] = useState(false);
@@ -91,3 +91,7 @@ export default function VrModCard({ group, onOpen }: VrModCardProps) {
     </button>
   );
 }
+
+/** Group objects and `onOpen` are stable, so scrolling and modal opens skip
+ * re-rendering the cards that are already on screen. */
+export default memo(VrModCard);

@@ -79,6 +79,21 @@ Edited: `src/pages/ports/PortsPage.tsx` (+ CSS), `src/pages/ports/PortsVirtualGr
 (generic keyed groups), `electron/main/commands/index.ts`, `electron/main/commands/commandCatalog.ts`,
 `package.json` (`build:vr-catalog` script), `src/i18n/*.ts` (6 files).
 
+## Performance work
+
+- Heavy structured details (the ~1 MB of pcvrcentral "Full details" fields) live in a separate
+  `vr-mods.details.json` chunk. Entries hold `d:` keys; the modal fetches the chunk once on first
+  Overview open and caches the extracted lines per key. The initial VR chunk dropped from ~3.7 MB
+  to ~2.75 MB.
+- `VrModsTab` precomputes the grouped catalog, search haystacks, facet sets, stats and three
+  pre-sorted orders once at module load using a single `Intl.Collator`. Filtering a result set is
+  now a linear scan of a pre-sorted array (~1 ms) instead of regrouping 3,166 entries and sorting
+  2,461 groups with `localeCompare` (~70 ms per keystroke).
+- Cards are `memo`-ized with stable callbacks; the virtual grid, shared IntersectionObserver image
+  loader and rAF-throttled scrolling are unchanged and continue to keep the DOM small.
+- The lazy subtab boundary now shows a card-skeleton fallback, and the modal's detail section shows
+  a shimmer while its chunk loads.
+
 ## Verification (2026-11-16)
 
 - `npm run build:vr-catalog` -> 3,166 entries, 2,461 deduplicated games, 3.45 MB snapshot.
