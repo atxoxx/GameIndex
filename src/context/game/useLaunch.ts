@@ -195,6 +195,9 @@ export function useLaunch(options: {
 
     try {
       // ── Mod Organizer 2: launch with virtualized filesystem (USVFS) ──
+      // An explicitly chosen executable stays under MO2's virtual filesystem,
+      // but must be the binary MO2 launches rather than the default target.
+      const mo2LaunchTarget = exeOverride?.path || undefined;
       if (isMo2Enabled) {
         const preferredInstancePath = game.mo2InstancePath || mo2Config?.instancePath;
 
@@ -254,9 +257,11 @@ export function useLaunch(options: {
           gameName: game.name,
           instancePath: selection.instance.instancePath,
           profileName: selection.profile || "Default",
-          executable: selection.executable || game.path || "",
+          executable: mo2LaunchTarget || selection.executable || game.path || "",
           moExePath: selection.instance.moExePath ?? null,
-          runAsAdmin: IS_WINDOWS_HOST ? (game.runAsAdmin || null) : null,
+          runAsAdmin: IS_WINDOWS_HOST
+            ? (exeOverride?.runAsAdmin ?? (game.runAsAdmin || null))
+            : null,
         });
         if (splashOn) armSplashFallback(game.id);
         showToast(
@@ -273,7 +278,9 @@ export function useLaunch(options: {
       // Playnite routes play via `Launcher.exe -launchTitleInFolder
       // "<installDir>"` so Rockstar's DRM / Social Club bootstrap
       // runs. We do the same when the game carries a `rockstarTitleId`.
-      if (game.rockstarTitleId) {
+      // A chosen executable is a real file: launching it through the DRM
+      // client would start the default game instead. Same as Steam's bypass.
+      if (game.rockstarTitleId && !exeOverride) {
         await invoke<string>("rockstar_launch_game", {
           gameId: game.id,
           gameName: game.name,
@@ -289,7 +296,7 @@ export function useLaunch(options: {
       // Playnite routes play via the `uplay://launch/<id>` protocol so
       // Ubisoft's DRM bootstrap runs. We do the same when the game
       // carries a `uplayGameId`.
-      if (game.uplayGameId) {
+      if (game.uplayGameId && !exeOverride) {
         await invoke<string>("uplay_launch_game", {
           gameId: game.id,
           gameName: game.name,

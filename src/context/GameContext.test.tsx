@@ -221,6 +221,40 @@ describe("GameProvider launch flow", () => {
     );
   });
 
+  it("launches a chosen executable directly for a Rockstar or Ubisoft title", async () => {
+    for (const overrides of [
+      { platform: "Rockstar", rockstarTitleId: "title-1" },
+      { platform: "Ubisoft", uplayGameId: "uplay-42" },
+    ]) {
+      cleanup();
+      vi.mocked(invoke).mockClear();
+      loadedGames = [makeGame(overrides)];
+      render(
+        <GameProvider>
+          <Probe />
+        </GameProvider>,
+      );
+      await flush();
+
+      fireEvent.click(screen.getByText("launch-extra"));
+      await flush();
+
+      expect(mockedInvoke).not.toHaveBeenCalledWith(
+        "rockstar_launch_game",
+        expect.anything(),
+      );
+      expect(mockedInvoke).not.toHaveBeenCalledWith("uplay_launch_game", expect.anything());
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "launch_game",
+        expect.objectContaining({
+          gamePath: "C:/games/alpha-mod.exe",
+          launchArguments: "-mod",
+          bypassSteam: true,
+        }),
+      );
+    }
+  });
+
   it("surfaces a launch_game rejection and does not leave the game stuck running (error path)", async () => {    loadedGames = [makeGame({ lastPlayed: 1_600_000_000_000 })];
     localStorage.setItem(SPLASH_KEY, "true");
     launchHandler = () => Promise.reject(new Error("spawn failed"));
