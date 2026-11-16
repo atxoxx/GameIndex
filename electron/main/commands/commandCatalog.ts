@@ -301,6 +301,7 @@ export const COMMAND_CATALOG = [
   "overlay_get_recent_screenshots",
   "overlay_get_session",
   "overlay_get_settings",
+  "overlay_get_state",
   "overlay_hide",
   "overlay_load_history",
   "overlay_move_by",

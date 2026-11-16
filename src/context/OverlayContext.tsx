@@ -1061,7 +1061,23 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   // Resize the HUD window to match the presentation: the compact ticker vs the
   // expanded panel. The backend re-anchors it to the configured corner so the
   // interactive area always matches the visible content.
+  const firstMountRef = useRef(true);
   useEffect(() => {
+    // First mount: pull the presentation the backend holds instead of pushing
+    // the boot default. The HUD reloads on crash recovery or after the idle
+    // dispose, and pushing "collapsed" there raced the backend replay and
+    // flipped an open panel back to the ticker.
+    if (firstMountRef.current) {
+      firstMountRef.current = false;
+      void invoke<{ collapsed?: boolean }>("overlay_get_state")
+        .then((state) => {
+          if (typeof state?.collapsed === "boolean") setCollapsed(state.collapsed);
+        })
+        .catch(() => {
+          /* no backend */
+        });
+      return;
+    }
     void invoke("overlay_set_collapsed", { collapsed }).catch(() => {
       /* no Tauri runtime */
     });

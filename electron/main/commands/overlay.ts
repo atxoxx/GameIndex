@@ -19,6 +19,7 @@ import {
   getOverlaySession,
   getOverlaySettings,
   getOverlayCapabilities,
+  getOverlayCollapsed,
   hideOverlay,
   loadOverlayHistory,
   moveOverlayBy,
@@ -98,6 +99,7 @@ export const overlayCommands: Record<string, CommandHandler> = {
 
   // ── Settings / hotkeys ──────────────────────────────────────────
   overlay_get_settings: () => getOverlaySettings(),
+  overlay_get_state: () => ({ collapsed: getOverlayCollapsed() }),
   overlay_save_settings: (args) => {
     const settings = args.settings;
     if (!settings || typeof settings !== "object") {

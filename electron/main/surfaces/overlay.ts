@@ -194,6 +194,15 @@ export function getOverlaySettings(): OverlaySettings {
   return getStore().settings;
 }
 
+/**
+ * Current presentation (ticker vs panel). The renderer pulls this after a
+ * mount instead of pushing its boot default: a reload while the panel was open
+ * used to race the replay and flip the HUD back to the ticker.
+ */
+export function getOverlayCollapsed(): boolean {
+  return collapsed;
+}
+
 export function getOverlaySession(): OverlaySession | null {
   return session;
 }
@@ -250,6 +259,32 @@ function targetWorkArea(): Rect {
   }
 }
 
+/**
+ * Work area of the display nearest `point`, falling back to the cursor's
+ * display. Used for the saved HUD position: the overlay must be clamped onto
+ * the monitor it was placed on, never onto whichever monitor the cursor
+ * happens to hover (that pinned the window to the wrong monitor's edge).
+ */
+function workAreaForPoint(point: { x: number; y: number } | null): Rect {
+  try {
+    const probe = point ?? screen.getCursorScreenPoint();
+    const area = screen.getDisplayNearestPoint(probe).workArea;
+    return { x: area.x, y: area.y, width: area.width, height: area.height };
+  } catch {
+    return { x: 0, y: 0, width: 1920, height: 1080 };
+  }
+}
+
+/** Work area of the display the window itself sits on. */
+function workAreaForWindow(win: BrowserWindow): Rect | null {
+  try {
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    return { x: area.x, y: area.y, width: area.width, height: area.height };
+  } catch {
+    return null;
+  }
+}
+
 /** Pure corner math, matching the Rust `corner_rect`. */
 export function cornerRect(
   corner: OverlayCorner,
@@ -285,14 +320,21 @@ export function cornerRect(
 
 /** An explicit dragged position wins; otherwise anchor to the corner. */
 function resolvePosition(settings: OverlaySettings, size: [number, number]): { x: number; y: number } {
-  const workArea = targetWorkArea();
-  if (typeof settings.posX === "number" && typeof settings.posY === "number") {
+  const saved =
+    typeof settings.posX === "number" && typeof settings.posY === "number"
+      ? { x: settings.posX, y: settings.posY }
+      : null;
+  // A dragged position is restored on the monitor it was placed on; only a
+  // corner-anchored HUD follows the cursor's display (the monitor-follow loop
+  // handles that case).
+  const workArea = workAreaForPoint(saved);
+  if (saved) {
     return {
       x: Math.round(
-        clamp(settings.posX, workArea.x, Math.max(workArea.x, workArea.x + workArea.width - size[0])),
+        clamp(saved.x, workArea.x, Math.max(workArea.x, workArea.x + workArea.width - size[0])),
       ),
       y: Math.round(
-        clamp(settings.posY, workArea.y, Math.max(workArea.y, workArea.y + workArea.height - size[1])),
+        clamp(saved.y, workArea.y, Math.max(workArea.y, workArea.y + workArea.height - size[1])),
       ),
     };
   }
@@ -302,6 +344,15 @@ function resolvePosition(settings: OverlaySettings, size: [number, number]): { x
 
 function applyGeometry(win: BrowserWindow, settings: OverlaySettings, isCollapsed: boolean): void {
   if (win.isDestroyed()) return;
+  // The window-level minimum must follow the presentation: the expanded panel
+  // stays user-resizable down to MIN_PANEL_*, the ticker down to MIN_TICKER_*.
+  // Without this the frameless window had no minimum at all on Windows.
+  const [minWidth, minHeight] = minOverlaySize(isCollapsed);
+  try {
+    win.setMinimumSize(minWidth, minHeight);
+  } catch {
+    /* unsupported */
+  }
   const size = overlaySize(settings, isCollapsed);
   const { x, y } = resolvePosition(settings, size);
   const current = win.getBounds();
@@ -424,7 +475,13 @@ export function createOverlayWindow(): BrowserWindow {
     if (disposeTimer) clearTimeout(disposeTimer);
     disposeTimer = setTimeout(() => {
       disposeTimer = null;
-      if (!win.isDestroyed() && !win.isVisible()) win.destroy();
+      if (win.isDestroyed() || win.isVisible()) return;
+      // A running game session keeps the HUD warm: destroying it mid-game
+      // would turn the next hotkey press into a cold boot and the recreated
+      // HUD would have lost the session replay. The idle-desktop dispose
+      // (no session) is unaffected and still frees the renderer.
+      if (session) return;
+      win.destroy();
     }, OVERLAY_DISPOSE_AFTER_MS);
     disposeTimer.unref?.();
   });
@@ -461,6 +518,10 @@ export function createOverlayWindow(): BrowserWindow {
     emitTo(target, EVENT_SESSION, session);
     emitTo(target, EVENT_TOGGLE, { collapsed });
     target.setAlwaysOnTop(true, "screen-saver");
+    // A crash-recovery reload needs its sampler again: the previous sampler
+    // died with the renderer, and without this a visible HUD sits on "—"
+    // until the next presentation change.
+    if (session) spawnLiveMetrics(getOverlaySettings());
   });
 
   // Recover from a renderer crash or a hung HUD instead of leaving an empty
@@ -499,7 +560,11 @@ export function createOverlayWindow(): BrowserWindow {
     }
     stopFollow();
     stopLiveMetrics();
-    session = null;
+    // The session belongs to the game, not to this window: the 10-minute
+    // dispose may have closed it while the game is still running, and wiping
+    // the session here made the recreated HUD believe no game was tracked
+    // until the next lifecycle event. `setSession(null)` on real game exit is
+    // the only place that clears it.
     emit(EVENT_CLOSED, null);
   });
 
@@ -714,10 +779,14 @@ export function saveOverlayBounds(): void {
   // Programmatic resizes (content auto-fit, a ticker/panel switch) fire the
   // same move/resize events as a manual drag. Keep the HUD corner-anchored
   // while it still sits exactly where the corner math puts it, so those events
-  // can't silently pin an absolute position and kill monitor-follow.
+  // can't silently pin an absolute position and kill monitor-follow. The
+  // anchor is computed against the display the window itself is on — using the
+  // cursor's display would pin a corner-anchored HUD on a second monitor the
+  // moment the cursor moved to the primary one.
+  const windowArea = workAreaForWindow(win) ?? targetWorkArea();
   const cornerAnchor = cornerRect(
     settings.corner,
-    targetWorkArea(),
+    windowArea,
     size,
     OVERLAY_MARGIN,
   );
@@ -773,7 +842,9 @@ export function moveOverlayBy(dx: number, dy: number): void {
   if (!win) return;
   const settings = getOverlaySettings();
   const size = overlaySize(settings, collapsed);
-  const workArea = targetWorkArea();
+  // Drag math is relative to the display the HUD is on; clamping into the
+  // cursor's work area could teleport the window across monitors mid-drag.
+  const workArea = workAreaForWindow(win) ?? targetWorkArea();
 
   // The renderer sends physical pixels (pointer deltas × devicePixelRatio);
   // BrowserWindow geometry is DIP.
@@ -1208,9 +1279,13 @@ let displayWatchersInstalled = false;
 let displayWatcherTimer: NodeJS.Timeout | null = null;
 
 /**
- * Re-anchor the HUD when monitors are added/removed or their resolution/DPI
- * changes. A saved manual position is clamped back onto the surviving work
- * area so a disconnected monitor cannot strand the overlay off-screen.
+ * Re-apply the HUD geometry when monitors are added/removed or their
+ * resolution/DPI changes. The clamp inside `resolvePosition` keeps a position
+ * that belonged to a disconnected monitor on the nearest surviving display, so
+ * the overlay can never be stranded off-screen — but the persisted coordinates
+ * are left untouched: entering/exiting exclusive fullscreen fires
+ * `display-metrics-changed`, and rewriting the saved position there used to
+ * permanently drag the HUD whenever a game toggled fullscreen.
  */
 function installDisplayWatchers(): void {
   if (displayWatchersInstalled) return;
@@ -1223,16 +1298,6 @@ function installDisplayWatchers(): void {
       const win = getOverlayWindow();
       if (!win) return;
       const settings = getOverlaySettings();
-      const size = overlaySize(settings, collapsed);
-      const pos = resolvePosition(settings, size);
-      if (
-        (settings.posX != null || settings.posY != null) &&
-        (settings.posX !== pos.x || settings.posY !== pos.y)
-      ) {
-        settings.posX = pos.x;
-        settings.posY = pos.y;
-        persist();
-      }
       followMonitorOrigin = null;
       applyGeometry(win, settings, collapsed);
       win.setAlwaysOnTop(true, "screen-saver");

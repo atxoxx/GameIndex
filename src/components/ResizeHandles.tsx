@@ -26,7 +26,17 @@ const HANDLES: HandleDef[] = [
  *
  * Calls Tauri's `startResizeDragging` on mouse down, delegating window
  * resizing to the native window manager.
+ *
+ * In the Electron build the call is a no-op shim — Windows/Linux keep their
+ * native resize border (`thickFrame`) and the OS handles edge dragging. The
+ * handles must not render there at all: with `pointer-events: auto` they sit
+ * exactly on the native resize border and swallow the mouse, which made the
+ * window feel unresizable even though the border was right underneath.
  */
+const IS_ELECTRON =
+  typeof window !== "undefined" &&
+  Boolean((window as { __giBridge?: unknown }).__giBridge);
+
 export default function ResizeHandles() {
   const [isResizable, setIsResizable] = useState(true);
 
@@ -81,7 +91,10 @@ export default function ResizeHandles() {
     };
   }, []);
 
-  if (!isResizable) return null;
+  // In Electron the component must not render at all (not even when the shim
+  // reports resizable): the invisible handles sit exactly on the native resize
+  // border and swallow the mouse there. Checked after the hooks on purpose.
+  if (IS_ELECTRON || !isResizable) return null;
 
   const handleMouseDown = (direction: ResizeDirection) => (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Left mouse button only
