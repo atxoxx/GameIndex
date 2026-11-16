@@ -18,6 +18,7 @@ backup_save_config
 backup_verify_archive
 bigscreen_prefs_get
 bigscreen_prefs_set
+bigscreen_prefs_clear
 cancel_runner_install
 cancel_scan_exes
 capture_delete_clip

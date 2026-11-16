@@ -72,6 +72,12 @@ export const settingsCommands: Record<string, CommandHandler> = {
     return null;
   },
 
+  /** Drop the stored preferences (the renderer falls back to defaults). */
+  bigscreen_prefs_clear: () => {
+    setAppSetting("bigscreen_prefs", null);
+    return null;
+  },
+
   /**
    * Source links are a first-run-empty list: no source backend is ported yet.
    * Returning `[]` is the normal "nothing configured" state, not fake data, so
