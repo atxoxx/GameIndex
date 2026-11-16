@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 600;
   font-family: var(--font-display);
   color: var(--color-text-primary);
@@ -66,9 +66,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0;
-  height: 30px;
-  width: 30px;
-  min-width: 30px;
+  height: 32px;
+  width: 32px;
+  min-width: 32px;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
@@ -93,8 +93,8 @@
 
 .topnav-search-trigger:hover,
 .topnav-search-trigger:focus-visible {
-  width: 220px;
-  min-width: 220px;
+  width: 240px;
+  min-width: 240px;
   gap: var(--space-sm);
   padding: 0 var(--space-sm);
   color: var(--color-text-primary);
@@ -269,7 +269,7 @@
 .topnav-tabs {
   display: flex;
   align-items: center;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -277,14 +277,11 @@
   flex-shrink: 1;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  /* The badge hangs 3px above its tab and carries a 2px ring shadow (see
-     .topnav-tab-badge), and a focused tab paints a 3px ring. A uniform 2px
-     inset had `overflow-y: hidden` shaving the badge flat and clipping the
-     focus ring, so the inset clears badge + ring on every side. */
-  padding: calc(var(--space-2xs) + var(--space-4xs)) var(--space-2xs) var(--space-2xs);
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
+  /* A plain row of destinations: the header is chrome, not another card. */
+  padding: var(--space-2xs) 0;
+  background: transparent;
+  border-radius: 0;
+  border: 0;
 }
 
 .topnav-tabs::-webkit-scrollbar {
@@ -295,11 +292,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  height: 28px;
-  padding: 0 var(--space-sm);
+  height: 30px;
+  padding: 0 var(--space-md);
   border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   text-decoration: none;
   cursor: pointer;
@@ -324,8 +321,8 @@
 .topnav-tab.active {
   color: var(--color-text-primary);
   background: var(--color-surface-raised);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-xs);
 }
 
 .topnav-tab-icon {

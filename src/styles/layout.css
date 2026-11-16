@@ -114,14 +114,18 @@ html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
-  margin: var(--space-sm);
+  /* Flush workspace: the app reads as one desktop surface (chrome above, a
+     hairline between navigation and content) instead of a rounded dashboard
+     card floating inside the window. */
+  margin: 0;
   background-color: var(--color-bg-secondary);
   background-image: var(--mesh-gradient);
   background-repeat: no-repeat;
   background-size: cover;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-3);
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
   position: relative;
   isolation: isolate;
 }
@@ -132,6 +136,11 @@ html[data-sidebar-position="right"] .app-layout.sidebar-collapsed .app-sidebar {
    ============================== */
 .main-content {
   min-height: 100%;
+  width: 100%;
+  /* Ultrawide: keep line lengths and card grids readable instead of letting a
+     2560px window stretch the same layout to the edges. */
+  max-width: 1800px;
+  margin-inline: auto;
 }
 
 

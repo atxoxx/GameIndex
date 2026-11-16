@@ -51,7 +51,7 @@
 
 /* Sizes */
 .ui-btn--sm {
-  height: 28px;
+  height: 30px;
   padding: 0 var(--space-md);
   font-size: var(--text-xs);
   gap: var(--space-xs);
@@ -74,7 +74,7 @@
 }
 
 .ui-btn--icon-only.ui-btn--sm {
-  width: 28px;
+  width: 30px;
   padding: 0;
 }
 
@@ -347,9 +347,11 @@
 
 .ui-table th {
   padding: var(--space-sm) var(--space-md);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   background: var(--color-surface-raised);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
@@ -361,6 +363,7 @@
   color: var(--color-text-primary);
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   vertical-align: middle;
+  font-variant-numeric: tabular-nums;
 }
 
 .ui-table tbody tr {

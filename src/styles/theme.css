@@ -147,11 +147,11 @@
      One canonical scale, sized in rem so text follows OS/browser zoom
      and the UI-scale presets. 2xs is the micro-label floor; 5xl/6xl
      are the display tier for hero headings. */
-  --text-2xs: 0.6875rem; /* 11px — micro-labels only */
-  --text-xs: 0.75rem;    /* 12px */
-  --text-sm: 0.8125rem;  /* 13px */
-  --text-md: 0.875rem;   /* 14px — body / default */
-  --text-lg: 1rem;       /* 16px */
+  --text-2xs: 0.75rem;   /* 12px — micro-labels only */
+  --text-xs: 0.8125rem;  /* 13px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-md: 0.9375rem;  /* 15px — body / default */
+  --text-lg: 1.0625rem;  /* 17px */
   --text-xl: 1.25rem;    /* 20px */
   --text-2xl: 1.5rem;    /* 24px */
   --text-3xl: 2rem;      /* 32px */
@@ -160,9 +160,16 @@
   --text-6xl: 3.5rem;    /* 56px — hero ceiling */
 
   /* Line heights — tight relaxed 1.20→1.25 for display readability */
+  --line-height-none: 1;
   --line-height-tight: 1.25;
+  --line-height-snug: 1.4;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.7;
+
+  /* Tracking: display type tightens, eyebrow/meta labels open up. */
+  --tracking-tight: -0.012em;
+  --tracking-display: -0.025em;
+  --tracking-wide: 0.02em;
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;

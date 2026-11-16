@@ -42,7 +42,7 @@ html[data-game-accent] .sidebar {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  height: 34px;
+  height: 36px;
   padding: 0 var(--space-sm) 0 var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 82%, transparent);
   border: 1px solid var(--color-border);
@@ -193,10 +193,10 @@ html[data-game-accent] .sidebar {
   -webkit-backdrop-filter: blur(10px) saturate(130%);
   border-bottom: 1px solid var(--color-border-faint);
   font-size: var(--text-2xs);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   user-select: none;
 }
 
@@ -239,10 +239,10 @@ html[data-game-accent] .sidebar {
   margin: -2px 0;
   border-radius: var(--radius-xs);
   font-size: var(--text-2xs);
-  font-weight: 700;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.07em;
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
 }
