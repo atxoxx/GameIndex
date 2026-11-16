@@ -1701,6 +1701,7 @@ export const de: TranslationDict = {
   "downloadModal.reliability": "{pct}% Erfolg",
   "downloadModal.reliabilityTooltip": "{completed} von {total} Downloads dieser Quelle abgeschlossen",
   "downloadModal.searchSyntaxHint": "Alle Wörter müssen passen; \"Anführungszeichen\" für eine exakte Phrase",
+  "downloadModal.searchTimeout": "Die Quellensuche ist abgelaufen. Prüfen Sie die aktivierten Quellen und versuchen Sie es erneut.",
   "downloadModal.selectThis": "Dies auswählen",
   "downloadModal.sortRecommended": "Empfohlen",
   "downloadModal.sortNameAsc": "Name (A–Z)",

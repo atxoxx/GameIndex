@@ -623,11 +623,32 @@ export default function DownloadModal({
   // a slow, older stream can never flip the step or blank the visible results
   // after a newer search has taken over.
   const searchGenerationRef = useRef(0);
+  /** The id of the streaming search currently owned by this modal. */
+  const searchIdRef = useRef<string | null>(null);
+  /** Watchdog for a wedged stream; cleared on completion and on unmount. */
+  const searchTimeoutRef = useRef<number | null>(null);
+  /** Latest translator, read only when the timeout fires (keeps runSearch stable). */
+  const tRef = useRef(t);
+  tRef.current = t;
 
   // ── Step 1: ownership check + streaming source search in parallel ──
   const runSearch = useCallback(async () => {
     const generation = ++searchGenerationRef.current;
     const isStale = () => generation !== searchGenerationRef.current;
+
+    // A modal reopen or retry must cancel the previous stream instead of
+    // leaving it running in the main process (it would compete for the plugin
+    // sandboxes and the network with the new search).
+    const previousSearchId = searchIdRef.current;
+    if (previousSearchId) {
+      void invoke("search_downloads_stream", {
+        searchId: previousSearchId,
+        cancel: true,
+        query: gameName,
+      }).catch(() => {});
+    }
+    const searchId = `modal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    searchIdRef.current = searchId;
 
     setStep("checking");
     setError(null);
@@ -635,6 +656,25 @@ export default function DownloadModal({
     setMatches([]);
     setSelectedId(null);
     setSearchProgress(null);
+
+    // Several sources can hang; a terminal frame is promised, but this cap
+    // guarantees the modal cannot sit on "0/N" forever if the backend wedges.
+    if (searchTimeoutRef.current !== null) {
+      window.clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+    const timeout = window.setTimeout(() => {
+      if (isStale()) return;
+      searchTimeoutRef.current = null;
+      void invoke("search_downloads_stream", {
+        searchId,
+        cancel: true,
+        query: gameName,
+      }).catch(() => {});
+      setError(tRef.current("downloadModal.searchTimeout"));
+      setStep("error");
+    }, 90_000);
+    searchTimeoutRef.current = timeout;
 
     // Read the remaining inputs from refs so a late metadata/steam-id update
     // cannot recreate this callback and re-run the search under the user.
@@ -697,6 +737,7 @@ export default function DownloadModal({
           }
         },
         searchHintsRef.current,
+        searchId,
       ).catch((e: unknown) => {
         console.error("[DownloadModal] searchDownloadsStream failed:", e);
         return [];
@@ -709,12 +750,29 @@ export default function DownloadModal({
       console.error("[DownloadModal] initial checks failed:", err);
       setError(String(err));
       setStep("error");
+    } finally {
+      window.clearTimeout(timeout);
+      if (searchTimeoutRef.current === timeout) searchTimeoutRef.current = null;
     }
   }, [gameName, searchDownloadsStream]);
 
   useEffect(() => {
     runSearch();
-  }, [runSearch]);
+    return () => {
+      if (searchTimeoutRef.current !== null) {
+        window.clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+      const id = searchIdRef.current;
+      searchIdRef.current = null;
+      if (!id) return;
+      void invoke("search_downloads_stream", {
+        searchId: id,
+        cancel: true,
+        query: gameName,
+      }).catch(() => {});
+    };
+  }, [runSearch, gameName]);
 
   const cancelFileListing = useCallback(() => {
     cancelledRef.current = true;

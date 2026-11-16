@@ -1701,6 +1701,7 @@ export const es: TranslationDict = {
   "downloadModal.reliability": "{pct}% de éxito",
   "downloadModal.reliabilityTooltip": "{completed} de {total} descargas de esta fuente completadas",
   "downloadModal.searchSyntaxHint": "Deben coincidir todas las palabras; usa \"comillas\" para una frase exacta",
+  "downloadModal.searchTimeout": "La búsqueda de fuentes agotó el tiempo. Comprueba las fuentes activas e inténtalo de nuevo.",
   "downloadModal.selectThis": "Seleccionar",
   "downloadModal.sortRecommended": "Recomendado",
   "downloadModal.sortNameAsc": "Nombre (A–Z)",

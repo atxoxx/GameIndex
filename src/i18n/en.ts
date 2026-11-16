@@ -1701,6 +1701,7 @@ export const en: TranslationDict = {
   "downloadModal.reliability": "{pct}% success",
   "downloadModal.reliabilityTooltip": "{completed} of {total} downloads from this source completed",
   "downloadModal.searchSyntaxHint": "Match all words; use \"quotes\" for an exact phrase",
+  "downloadModal.searchTimeout": "The source search timed out. Check the enabled sources and try again.",
   "downloadModal.selectThis": "Select this",
   "downloadModal.sortRecommended": "Recommended",
   "downloadModal.sortNameAsc": "Name (A–Z)",

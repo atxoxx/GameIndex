@@ -1701,6 +1701,7 @@ export const zhCN: TranslationDict = {
   "downloadModal.reliability": "成功率 {pct}%",
   "downloadModal.reliabilityTooltip": "此来源的 {total} 次下载中已完成 {completed} 次",
   "downloadModal.searchSyntaxHint": "需匹配所有词；用\"引号\"表示精确短语",
+  "downloadModal.searchTimeout": "来源搜索超时。请检查已启用的来源并重试。",
   "downloadModal.selectThis": "选择此项",
   "downloadModal.sortRecommended": "推荐",
   "downloadModal.sortNameAsc": "名称（A–Z）",

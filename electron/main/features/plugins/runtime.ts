@@ -129,6 +129,13 @@ export class PluginRuntime {
   private readonly limits: SandboxLimits;
   private readonly logger: (...args: unknown[]) => void;
   private readonly cache = new Map<string, CachedResults>();
+  /**
+   * Requests currently evaluating a (plugin, query) pair. Closing/reopening
+   * the palette used to start a duplicate sandbox request for the same query
+   * while the first was still in flight, which doubled the upstream traffic and
+   * made slow plugins time out. Followers now await the same promise.
+   */
+  private readonly inFlight = new Map<string, Promise<PluginRawResult[]>>();
 
   constructor(options: PluginRuntimeOptions) {
     this.logger = options.logger ?? ((...args) => console.warn(...args));
@@ -515,6 +522,9 @@ export class PluginRuntime {
     for (const key of [...this.cache.keys()]) {
       if (key.startsWith(prefix)) this.cache.delete(key);
     }
+    for (const key of [...this.inFlight.keys()]) {
+      if (key.startsWith(prefix)) this.inFlight.delete(key);
+    }
   }
 
   // ── Internals ─────────────────────────────────────────────────────────
@@ -592,32 +602,44 @@ export class PluginRuntime {
       }
     }
 
-    const source = this.registry.readSource(record.id);
-    const manifest = await this.evaluateSource(source, record.id);
-    const results = await this.runSandbox(record, source, manifest, query);
+    const running = this.inFlight.get(key);
+    if (running) return running;
 
-    if (ttl > 0) {
-      const now = Date.now();
-      // Drop expired entries so the map does not retain every query ever run.
-      for (const [entryKey, entry] of this.cache) {
-        if (now - entry.at >= PLUGIN_CACHE_TTL_MS) this.cache.delete(entryKey);
-      }
-      while (this.cache.size >= PLUGIN_CACHE_MAX_ENTRIES) {
-        let oldestKey: string | null = null;
-        let oldestAt = Number.POSITIVE_INFINITY;
+    const task = (async (): Promise<PluginRawResult[]> => {
+      const source = this.registry.readSource(record.id);
+      const manifest = await this.evaluateSource(source, record.id);
+      const results = await this.runSandbox(record, source, manifest, query);
+
+      if (ttl > 0) {
+        const now = Date.now();
+        // Drop expired entries so the map does not retain every query ever run.
         for (const [entryKey, entry] of this.cache) {
-          if (entry.at < oldestAt) {
-            oldestAt = entry.at;
-            oldestKey = entryKey;
-          }
+          if (now - entry.at >= PLUGIN_CACHE_TTL_MS) this.cache.delete(entryKey);
         }
-        if (oldestKey === null) break;
-        this.cache.delete(oldestKey);
+        while (this.cache.size >= PLUGIN_CACHE_MAX_ENTRIES) {
+          let oldestKey: string | null = null;
+          let oldestAt = Number.POSITIVE_INFINITY;
+          for (const [entryKey, entry] of this.cache) {
+            if (entry.at < oldestAt) {
+              oldestAt = entry.at;
+              oldestKey = entryKey;
+            }
+          }
+          if (oldestKey === null) break;
+          this.cache.delete(oldestKey);
+        }
+        this.cache.set(key, { at: now, results });
       }
-      this.cache.set(key, { at: now, results });
-    }
 
-    return results;
+      return results;
+    })();
+
+    this.inFlight.set(key, task);
+    try {
+      return await task;
+    } finally {
+      if (this.inFlight.get(key) === task) this.inFlight.delete(key);
+    }
   }
 
   private async searchRecords(

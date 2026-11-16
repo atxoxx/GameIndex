@@ -1701,6 +1701,7 @@ export const ru: TranslationDict = {
   "downloadModal.reliability": "Успех {pct}%",
   "downloadModal.reliabilityTooltip": "Завершено {completed} из {total} загрузок из этого источника",
   "downloadModal.searchSyntaxHint": "Совпадать должны все слова; используйте \"кавычки\" для точной фразы",
+  "downloadModal.searchTimeout": "Поиск по источникам занял слишком много времени. Проверьте включённые источники и повторите попытку.",
   "downloadModal.selectThis": "Выбрать",
   "downloadModal.sortRecommended": "Рекомендуется",
   "downloadModal.sortNameAsc": "Название (А–Я)",

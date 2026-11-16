@@ -170,6 +170,14 @@ export async function streamDownloadSearch(
 
   if (request.cancel) {
     if (searchId) {
+      // Mark the running search before dropping it: deleting the map entry
+      // alone left the old pipeline running (and competing with the reopened
+      // modal for the plugin sandboxes and network).
+      const running = activeSearches.get(searchId);
+      if (running) {
+        running.cancelled = true;
+        running.superseded = true;
+      }
       activeSearches.delete(searchId);
       emit(SEARCH_EVENT, {
         searchId,
@@ -181,6 +189,18 @@ export async function streamDownloadSearch(
       } satisfies DownloadSearchProgressEvent);
     }
     return [];
+  }
+
+  // A new streaming search supersedes every older one. Closing and reopening
+  // the modal used to leave the previous run (and its plugin/network work)
+  // alive, so the new search could sit behind it without emitting frames.
+  if (searchId) {
+    for (const [id, run] of activeSearches) {
+      if (id === searchId) continue;
+      run.cancelled = true;
+      run.superseded = true;
+      activeSearches.delete(id);
+    }
   }
 
   if (!request.query) {

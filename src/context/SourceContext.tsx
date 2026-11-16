@@ -276,10 +276,13 @@ export async function searchDownloadsStream(
   steamAppId?: number,
   onProgress?: (event: SearchProgressEvent) => void,
   hints?: SearchHints,
+  searchIdOverride?: string,
 ): Promise<DownloadSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const searchId = `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const searchId =
+    searchIdOverride?.trim() ||
+    `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   let unlisten: (() => void) | null = null;
   if (onProgress) {
