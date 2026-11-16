@@ -19,12 +19,16 @@ import { isAuthWindowContents, isAuthWindowCreationInProgress, cleanChromeUserAg
 import { registerCommandHandlers } from "./commands";
 import { startDiscordPresence } from "./features/discord/presence";
 import { installSmokeTest } from "./smoke";
+import { installMemoryFlags } from "./lib/memoryFlags";
+import { installSystemMemoryHooks } from "./lib/memoryPurge";
 
 /** Must run before the app is ready. */
 // Cloudflare Turnstile (GOG/itch logins) rejects Electron's default UA token
 // and a hand-written Chrome UA that disagrees with the browser's Client Hints.
 app.userAgentFallback = cleanChromeUserAgent();
 app.commandLine.appendSwitch("disable-blink-features", "AutomationControlled");
+// Process-count and heap/cache bounds (see the module header for the tradeoffs).
+installMemoryFlags();
 registerAssetScheme();
 installSmokeTest();
 
@@ -49,6 +53,9 @@ if (!singleInstance) {
     .then(async () => {
       installAssetProtocol();
       registerIpcHandlers();
+      // Suspend/lock purge: hidden windows should not carry decoded caches
+      // across a sleep.
+      installSystemMemoryHooks();
       // Discord Rich Presence owns the IPC pipe to the desktop client; the
       // renderer only decides what to advertise.
       startDiscordPresence();

@@ -13,6 +13,7 @@ import { BrowserWindow } from "electron";
 import { onEvent, setWindowLabel } from "../ipc";
 import { isQuitting } from "../quitState";
 import { getAppSetting } from "../state/appSettings";
+import { installWindowMemoryPurge } from "../lib/memoryPurge";
 import { attachWindowEvents } from "./events";
 import { isTrayAvailable } from "./tray";
 import { loadRenderer, preloadPath } from "./renderer";
@@ -72,6 +73,11 @@ export function createMainWindow(): BrowserWindow {
   // After the first reveal Chromium may throttle a hidden (tray / gameplay)
   // window again, freezing animations and clamping timers.
   win.once("show", () => win.webContents.setBackgroundThrottling(true));
+
+  // A tray-resident / minimize-on-launch window keeps decoded images, compiled
+  // scripts and V8 heap pages resident forever. Once the window has been hidden
+  // for a minute, drop the rebuildable caches (see lib/memoryPurge.ts).
+  installWindowMemoryPurge(win);
 
   win.on("close", (event) => {
     if (forceClose || isQuitting()) return;

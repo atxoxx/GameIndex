@@ -7,7 +7,7 @@
  * inert markers because a number of feature gates in the UI still check
  * `"__TAURI__" in window` to decide whether native commands exist.
  */
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 import type { DropState, GiBridge } from "../../src/shims/bridge";
 
 interface WindowInfo {
@@ -51,6 +51,22 @@ let dragDepth = 0;
 type EventHandler = (payload: unknown) => void;
 const eventHandlers = new Map<string, Set<EventHandler>>();
 let eventDispatcherInstalled = false;
+
+// Memory purge from the main process (`lib/memoryPurge.ts`): the preload is the
+// only place with `webFrame`, so Blink's decoded image / script / CSS caches are
+// dropped from here. Static listener — no renderer code has to opt in, and it
+// also covers pages (splash, popouts) that never subscribe to events.
+ipcRenderer.on(
+  "gi:event",
+  (_event: Electron.IpcRendererEvent, message: { event?: string } | undefined) => {
+    if (message?.event !== "gi:purge-memory") return;
+    try {
+      webFrame.clearCache();
+    } catch {
+      /* nothing to free / unsupported */
+    }
+  },
+);
 
 function ensureEventDispatcher(): void {
   if (eventDispatcherInstalled) return;
