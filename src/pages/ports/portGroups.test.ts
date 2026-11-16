@@ -53,13 +53,19 @@ describe("groupPorts", () => {
     ]);
   });
 
-  it("keeps the same title on different platforms separate", () => {
+  it("folds the same title on different platforms into one game", () => {
     const groups = groupPorts([
       project({ id: "1", game: "San Francisco Rush 2049", platform: "Arcade (Multiplatform)" }),
       project({ id: "2", game: "San Francisco Rush 2049", platform: "Nintendo 64" }),
     ]);
 
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].projects).toHaveLength(2);
+    expect(groups[0].platform).toBe("Arcade (Multiplatform)");
+    expect(groups[0].originalPlatforms).toEqual([
+      "Arcade (Multiplatform)",
+      "Nintendo 64",
+    ]);
   });
 
   it("picks the most complete status and flags mixed origins", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PortSourceProject } from "../../../../../src/types/port";
-import { mergePortSources, normalizeTitle, repoKeyOf } from "./merge";
+import { mergePortSources, normalizeTitle, repoKeyOf, isSameGameTitle } from "./merge";
 import { canonicalPlatform, canonicalTarget, sortTargets, vendorForPlatform } from "./platforms";
 
 function entry(overrides: Partial<PortSourceProject>): PortSourceProject {
@@ -153,6 +153,32 @@ describe("mergePortSources", () => {
     ]);
     expect(merged).toHaveLength(1);
     expect(merged[0].sources.map((source) => source.id)).toEqual(["gameport", "unbaked"]);
+  });
+
+  it("merges a shortened title with its subtitle on the same repo", () => {
+    const merged = mergePortSources([
+      entry({
+        source: "recompfyi",
+        game: "ACE COMBAT X",
+        links: [repo("sal063/ace-combat-x")],
+      }),
+      entry({
+        source: "gameport",
+        game: "Ace Combat X: Skies of Deception",
+        links: [repo("sal063/ace-combat-x")],
+      }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].game).toBe("Ace Combat X: Skies of Deception");
+    expect(merged[0].sources.map((source) => source.id)).toEqual([
+      "gameport",
+      "recompfyi",
+    ]);
+  });
+
+  it("keeps numbered sequels apart even on the same repo", () => {
+    expect(isSameGameTitle("Doom", "Doom 64")).toBe(false);
+    expect(isSameGameTitle("ACE COMBAT X", "Ace Combat X: Skies of Deception")).toBe(true);
   });
 
   it("attaches a repo-less row to the matching project title", () => {

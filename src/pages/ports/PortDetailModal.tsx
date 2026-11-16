@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -100,6 +100,22 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
   const activeProjectIndex = Math.min(activeIndex, group.projects.length - 1);
   const project: PortProject =
     group.projects[activeProjectIndex] ?? group.primary;
+  const projectOptions = useMemo(() => {
+    const buckets = new Map<string, { project: PortProject; index: number }[]>();
+    group.projects.forEach((item, index) => {
+      const platform = item.platform || t("ports.unknownPlatform");
+      const bucket = buckets.get(platform) ?? [];
+      bucket.push({ project: item, index });
+      buckets.set(platform, bucket);
+    });
+    return [...buckets.entries()];
+  }, [group.projects, t]);
+  const renderProjectOption = (item: PortProject, index: number) => (
+    <option key={item.id} value={index}>
+      {item.portName}
+      {item.status ? ` · ${item.status}` : ""}
+    </option>
+  );
   const cover = usePortCover(group.game, {
     initialUrl: project.imageUrl ?? group.primary.imageUrl ?? null,
   });
@@ -341,13 +357,17 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                   value={String(activeProjectIndex)}
                   onChange={(event) => setActiveIndex(Number(event.target.value))}
                 >
-                  {group.projects.map((item, index) => (
-                    <option key={item.id} value={index}>
-                      {item.status
-                        ? `${item.portName} · ${item.status}`
-                        : item.portName}
-                    </option>
-                  ))}
+                  {group.originalPlatforms.length > 1
+                    ? projectOptions.map(([platform, items]) => (
+                        <optgroup key={platform} label={platform}>
+                          {items.map(({ project: item, index }) =>
+                            renderProjectOption(item, index),
+                          )}
+                        </optgroup>
+                      ))
+                    : group.projects.map((item, index) =>
+                        renderProjectOption(item, index),
+                      )}
                 </select>
               </label>
             ) : null}

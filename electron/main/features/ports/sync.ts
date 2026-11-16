@@ -44,6 +44,8 @@ import { fetchDecompsProjects } from "./sources/decomps";
 import { fetchGameportProjects } from "./sources/gameport";
 
 const SNAPSHOT_VERSION = 2;
+/** Separate from the source snapshots so a merge change can rebuild without re-crawling. */
+const MERGE_VERSION = 3;
 const SOURCE_TTL_MS = 12 * 60 * 60_000;
 /** A freshly merged catalog is not rebuilt again for this long. */
 const MIN_REFRESH_MS = 60 * 60_000;
@@ -147,7 +149,7 @@ function readSnapshot(id: PortSourceId): SourceSnapshot | null {
 
 function readMerged(): PortsCatalog | null {
   const cached = readJson<MergedCache>(catalogFile());
-  if (!cached || cached.version !== SNAPSHOT_VERSION) return null;
+  if (!cached || cached.version !== MERGE_VERSION) return null;
   if (!Array.isArray(cached.projects) || !Array.isArray(cached.sources)) return null;
   return {
     source: cached.source,
@@ -159,7 +161,7 @@ function readMerged(): PortsCatalog | null {
 }
 
 function writeMerged(catalog: PortsCatalog): void {
-  writeJson(catalogFile(), { ...catalog, version: SNAPSHOT_VERSION } satisfies MergedCache);
+  writeJson(catalogFile(), { ...catalog, version: MERGE_VERSION } satisfies MergedCache);
 }
 
 function cloneProgress(value: PortsSyncProgress): PortsSyncProgress {

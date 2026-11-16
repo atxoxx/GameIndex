@@ -11,11 +11,14 @@ import { statusRank } from "./portFormat";
  * under Arcade *and* N64, and those sections must keep their own placement.
  */
 export interface PortGameGroup {
-  /** Stable key: platform + normalized title. */
+  /** Stable key: the normalized game title. */
   key: string;
   /** Display title, with a trailing project-disambiguation removed. */
   game: string;
+  /** Primary original platform (the first project's). */
   platform: string;
+  /** Every original platform represented in the group, primary first. */
+  originalPlatforms: string[];
   projects: PortProject[];
   /** The project the card/modal opens on (first wiki row). */
   primary: PortProject;
@@ -46,8 +49,23 @@ export function baseGameName(name: string): string {
     .trim();
 }
 
+/**
+ * One card per **game**, regardless of platform: the same title ported on PSP
+ * and PS2 is one entry whose modal switches between the platform variants.
+ * `project.platform` is already canonicalized by the merge, and variant titles
+ * that share a repository are merged before this step.
+ */
 export function portGameKey(project: PortProject): string {
-  return `${project.platform.toLowerCase()}|${baseGameName(project.game).toLowerCase()}`;
+  return normalizeTitle(baseGameName(project.game));
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function bestStatus(projects: PortProject[]): string {
@@ -96,10 +114,14 @@ export function groupPorts(projects: PortProject[]): PortGameGroup[] {
         if (!sources.has(source.id)) sources.set(source.id, source);
       }
     }
+    const originalPlatforms = [
+      ...new Set(bucket.map((project) => project.platform).filter(Boolean)),
+    ];
     result.push({
       key,
       game: baseGameName(primary.game) || primary.game,
       platform: primary.platform,
+      originalPlatforms,
       projects: bucket,
       primary,
       status: bestStatus(bucket),

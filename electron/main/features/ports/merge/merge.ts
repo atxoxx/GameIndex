@@ -32,6 +32,32 @@ export function normalizeTitle(raw: string): string {
     .trim();
 }
 
+/**
+ * True when two titles are the same game spelled at different lengths, e.g.
+ * `ACE COMBAT X` and `Ace Combat X: Skies of Deception`. Only a subtitle
+ * separator (or a parenthetical) may follow the short title, so `Doom` and
+ * `Doom 64` stay different games.
+ */
+export function isSameGameTitle(a: string, b: string): boolean {
+  const left = a.toLowerCase().replace(/\s+/g, " ").trim();
+  const right = b.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!left || !right) return left === right;
+  if (left === right) return true;
+  const short = left.length < right.length ? left : right;
+  const long = short === left ? right : left;
+  return (
+    long.startsWith(`${short}:`) ||
+    long.startsWith(`${short} - `) ||
+    long.startsWith(`${short} \u2013 `) ||
+    long.startsWith(`${short} (`)
+  );
+}
+
+function sameGameTitles(titles: string[]): boolean {
+  if (titles.length <= 1) return true;
+  return titles.every((title) => isSameGameTitle(titles[0], title));
+}
+
 /** `github:owner/repo`, or null for non-repository links. */
 export function repoKeyOf(link: PortLink): string | null {
   if (link.kind === "website") return null;
@@ -174,19 +200,19 @@ export function mergePortSources(sourceRows: PortSourceProject[]): PortProject[]
   // A repo used for one game can merge across title spelling differences
   // ("Morrowind" vs "The Elder Scrolls III: Morrowind"). A repo used for many
   // games (CPS-2 Recomp, engines) must keep one cluster per game title.
-  const titlesByRepo = new Map<string, Set<string>>();
+  const titlesByRepo = new Map<string, string[]>();
   for (const entry of ordered) {
     const repo = repoKeyOfProject(entry);
     if (!repo) continue;
-    const titles = titlesByRepo.get(repo) ?? new Set<string>();
-    titles.add(normalizeTitle(entry.game));
+    const titles = titlesByRepo.get(repo) ?? [];
+    titles.push(entry.game);
     titlesByRepo.set(repo, titles);
   }
 
   for (const entry of ordered) {
     const repo = repoKeyOfProject(entry);
     const titleKey = `${normalizeTitle(entry.game)}|${canonicalPlatform(entry.platform).toLowerCase()}`;
-    const singleGameRepo = repo ? (titlesByRepo.get(repo)?.size ?? 0) === 1 : false;
+    const singleGameRepo = repo ? sameGameTitles(titlesByRepo.get(repo) ?? []) : false;
     const repoTitleKey = repo
       ? singleGameRepo
         ? repo

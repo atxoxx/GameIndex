@@ -48,6 +48,9 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
   const origin = group.origin || t("ports.origin.mixed");
   const originKey = group.origin ? originTone(group.origin) : "default";
   const count = group.projects.length;
+  const extraPlatforms = Math.max(0, group.originalPlatforms.length - 1);
+  const platformLabel =
+    extraPlatforms > 0 ? `${group.platform} +${extraPlatforms}` : group.platform;
   const cardPlatforms = group.platforms.filter((platform) =>
     (PORT_CARD_PLATFORMS as readonly string[]).includes(platform),
   );
@@ -84,7 +87,12 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
             <span className="ports-card__initials">{initials(group.game)}</span>
           </span>
         )}
-        <span className="ports-card__platform">{group.platform}</span>
+        <span
+          className="ports-card__platform"
+          title={group.originalPlatforms.join(" / ")}
+        >
+          {platformLabel}
+        </span>
         <span className={`ports-card__status is-${statusTone(group.status)}`}>{status}</span>
         {group.stars != null || group.communityRating != null ? (
           <span className="ports-card__signals">
