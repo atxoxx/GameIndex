@@ -16,6 +16,13 @@ function project(overrides: Partial<PortProject>): PortProject {
     platform: "Nintendo 64",
     group: "Nintendo",
     links: [],
+    source: "pcgamingwiki",
+    sourceUrl: "https://example.com",
+    sources: [{ id: "pcgamingwiki", name: "PCGamingWiki", url: "https://example.com" }],
+    platforms: [],
+    stars: null,
+    communityRating: null,
+    targets: [],
     ...overrides,
   };
 }
@@ -74,5 +81,27 @@ describe("groupPorts", () => {
     ]);
     expect(group.origin).toBe("Recompilation");
     expect(group.status).toBe("Playable");
+  });
+
+  it("folds platforms, sources, stars and ratings into the group", () => {
+    const [group] = groupPorts([
+      project({
+        id: "1",
+        platforms: ["Linux", "Windows"],
+        stars: 120,
+        sources: [{ id: "gameport", name: "gameport.games", url: "https://gameport.games" }],
+      }),
+      project({
+        id: "2",
+        platforms: ["macOS"],
+        stars: 340,
+        communityRating: 4.2,
+      }),
+    ]);
+
+    expect(group.platforms).toEqual(["Windows", "macOS", "Linux"]);
+    expect(group.stars).toBe(340);
+    expect(group.communityRating).toBe(4.2);
+    expect(group.sources.map((source) => source.id)).toEqual(["gameport", "pcgamingwiki"]);
   });
 });

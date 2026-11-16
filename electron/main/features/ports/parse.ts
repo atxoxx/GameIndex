@@ -6,23 +6,13 @@
  */
 import { load } from "cheerio";
 
-import type { PortProject } from "../../../../src/types/port";
+import { PORTS_SOURCE_URL, type PortSourceProject } from "../../../../src/types/port";
 
 const WIKI_BASE = "https://www.pcgamingwiki.com";
 const MAX_PROJECTS = 4000;
 
 function clean(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
-}
-
-function slug(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
 }
 
 function linkKind(url: string): "github" | "gitlab" | "website" {
@@ -41,12 +31,11 @@ function linkKind(url: string): "github" | "gitlab" | "website" {
  * `group` (Nintendo / SEGA / ...) and `platform` (Nintendo 64 / Genesis / ...).
  * The wiki emits one table per platform and occasional `h1` group headings.
  */
-export function parsePortsHtml(html: string): PortProject[] {
+export function parsePortsHtml(html: string): PortSourceProject[] {
   const $ = load(html);
   const root = $(".mw-parser-output").length ? $(".mw-parser-output") : $("body");
-  const projects: PortProject[] = [];
+  const projects: PortSourceProject[] = [];
   const seen = new Set<string>();
-  const idCounts = new Map<string, number>();
   let group = "";
   let platform = "";
 
@@ -141,12 +130,9 @@ export function parsePortsHtml(html: string): PortProject[] {
         if (seen.has(dedupeKey)) return;
         seen.add(dedupeKey);
 
-        const baseId = `${slug(platform)}-${slug(game)}-${slug(portName)}`;
-        const count = idCounts.get(baseId) ?? 0;
-        idCounts.set(baseId, count + 1);
-
         projects.push({
-          id: count === 0 ? baseId : `${baseId}-${count + 1}`,
+          source: "pcgamingwiki",
+          sourceUrl: wikiUrl ?? PORTS_SOURCE_URL,
           game,
           portName,
           origin: clean(cell(originColumn)?.text()),
@@ -157,6 +143,9 @@ export function parsePortsHtml(html: string): PortProject[] {
           platform,
           group,
           links,
+          stars: null,
+          targets: [],
+          communityRating: null,
           wikiUrl,
         });
       });
@@ -167,7 +156,7 @@ export function parsePortsHtml(html: string): PortProject[] {
   const groupsByPlatform = new Map<string, Set<string>>();
   for (const project of projects) {
     const groups = groupsByPlatform.get(project.platform) ?? new Set<string>();
-    groups.add(project.group);
+    groups.add(project.group ?? "");
     groupsByPlatform.set(project.platform, groups);
   }
   for (const project of projects) {

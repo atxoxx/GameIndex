@@ -1,9 +1,17 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { Layers } from "lucide-react";
+import { Layers, Star } from "lucide-react";
 
 import { ArtworkImage } from "../../components/ui/ArtworkImage";
 import { useLanguage } from "../../context/LanguageContext";
-import { initials, originTone, platformAccent, statusTone } from "./portFormat";
+import { PORT_CARD_PLATFORMS } from "../../types/port";
+import {
+  formatCount,
+  initials,
+  originTone,
+  platformAccent,
+  shortPlatform,
+  statusTone,
+} from "./portFormat";
 import type { PortGameGroup } from "./portGroups";
 import { usePortCover, useReveal } from "./usePortCover";
 
@@ -34,6 +42,9 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
   const origin = group.origin || t("ports.origin.mixed");
   const originKey = group.origin ? originTone(group.origin) : "default";
   const count = group.projects.length;
+  const cardPlatforms = group.platforms.filter((platform) =>
+    (PORT_CARD_PLATFORMS as readonly string[]).includes(platform),
+  );
   const title =
     count > 1
       ? `${group.game} - ${t("ports.projectCount", { count })}`
@@ -68,6 +79,23 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
         )}
         <span className="ports-card__platform">{group.platform}</span>
         <span className={`ports-card__status is-${statusTone(group.status)}`}>{status}</span>
+        {group.stars != null || group.communityRating != null ? (
+          <span className="ports-card__signals">
+            {group.stars != null ? (
+              <span className="ports-card__signal" title={t("ports.stars")}>
+                <Star size={10} aria-hidden /> {formatCount(group.stars)}
+              </span>
+            ) : null}
+            {group.communityRating != null ? (
+              <span
+                className="ports-card__signal ports-card__signal--rating"
+                title={t("ports.rating")}
+              >
+                {group.communityRating.toFixed(1)}/5
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </span>
 
       <span className="ports-card__body">
@@ -79,6 +107,15 @@ export default function PortCard({ group, onOpen }: PortCardProps) {
         ) : (
           <span className="ports-card__port">{project.portName}</span>
         )}
+        {cardPlatforms.length > 0 ? (
+          <span className="ports-card__platforms">
+            {cardPlatforms.map((platform) => (
+              <span key={platform} className="ports-card__os">
+                {shortPlatform(platform)}
+              </span>
+            ))}
+          </span>
+        ) : null}
         <span className="ports-card__meta">
           <span className={`ports-chip is-${originKey}`}>{origin}</span>
           {group.languages ? (

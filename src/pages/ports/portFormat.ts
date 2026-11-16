@@ -5,7 +5,13 @@ export type PortTone = "success" | "warning" | "info" | "accent" | "default";
 /** Colour bucket for a wiki status value. */
 export function statusTone(status: string): PortTone {
   const value = status.toLowerCase();
-  if (value.includes("playable") || value.includes("released")) return "success";
+  if (
+    value.includes("playable") ||
+    value.includes("released") ||
+    value.includes("complete")
+  ) {
+    return "success";
+  }
   if (value.includes("develop") || value.includes("progress") || value.includes("%"))
     return "warning";
   if (value.includes("planned") || value.includes("announce")) return "info";
@@ -23,16 +29,37 @@ export function originTone(origin: string): PortTone {
   return "default";
 }
 
-/** Sort rank for status: playable first, then work in progress, then planned. */
+/** Sort rank for status: playable/finished first, then work in progress, then planned. */
 export function statusRank(status: string): number {
   const value = status.toLowerCase();
-  if (value.includes("playable")) return 0;
+  if (
+    value.includes("playable") ||
+    value.includes("complete") ||
+    value.includes("released")
+  ) {
+    return 0;
+  }
   if (value.includes("progress")) return 1;
   if (value.includes("develop")) return 2;
   if (value.includes("pre-release")) return 3;
   if (value.includes("planned")) return 4;
   if (!value) return 6;
   return 5;
+}
+
+const PLATFORM_SHORT: Record<string, string> = {
+  Windows: "Win",
+  macOS: "Mac",
+  Linux: "Linux",
+  "Steam Deck": "Deck",
+  "Nintendo Switch": "Switch",
+  Android: "Android",
+  iOS: "iOS",
+};
+
+/** Compact label for the card's target-platform badges. */
+export function shortPlatform(platform: string): string {
+  return PLATFORM_SHORT[platform] ?? platform;
 }
 
 export function initials(value: string): string {

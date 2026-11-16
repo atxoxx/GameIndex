@@ -1,11 +1,24 @@
 /**
  * Unofficial PC ports: static recompilations, decompilations, recreations and
- * wrappers catalogued by PCGamingWiki's "List of unofficial ports".
+ * wrappers, merged from several public catalogs.
  *
- * The catalog is fetched live from the wiki's MediaWiki API by the main
- * process; everything here is plain data so the renderer can filter, group and
- * sort without knowing how it was scraped.
+ * `PortSourceProject` is what one source adapter produces; `PortProject` is the
+ * merged, renderer-facing row (sources, platforms, stars and rating folded in).
  */
+
+export type PortSourceId =
+  | "pcgamingwiki"
+  | "gameport"
+  | "recompfyi"
+  | "unbaked"
+  | "decomps";
+
+export interface PortSourceRef {
+  id: PortSourceId;
+  name: string;
+  /** Page for this project on that source. */
+  url: string;
+}
 
 export type PortLinkKind = "github" | "gitlab" | "website";
 
@@ -16,41 +29,87 @@ export interface PortLink {
   kind: PortLinkKind;
 }
 
-/** One row of the wiki table: a project that ports one game. */
-export interface PortProject {
-  /** Stable id derived from the row's content. */
-  id: string;
+/** One project row as a single source reports it. */
+export interface PortSourceProject {
+  source: PortSourceId;
+  /** Canonical page for this project/entry on the source. */
+  sourceUrl: string;
   /** The original game being ported. */
   game: string;
+  /** Original platform, as the source labels it (`N64`, `PS1`, `PC`, ...). */
+  platform: string;
   /** The project / fork name. */
   portName: string;
-  /** `Recompilation`, `Decompilation`, `Recreation`, `Wrapper`, ... */
+  /** `Recompilation`, `Decompilation`, `Source port`, ... */
   origin: string;
-  /** `Playable`, `Development`, `Planned`, ... */
+  /** `Playable`, `In progress`, `Planned`, ... */
   status: string;
-  /** Comma-separated source languages, as the wiki reports them. */
+  /** Source languages, comma-separated when several. */
   languages: string;
+  notes: string;
+  links: PortLink[];
+  /** GitHub stars as reported by the source, when it has them. */
+  stars: number | null;
+  /** Supported targets in the source's own words (`Windows`, `Linux`, ...). */
+  targets: string[];
+  /** Community rating on a 0-5 scale, when the source provides one. */
+  communityRating: number | null;
   /** PCGamingWiki's REAL AI-usage rating (0-5), when listed. */
   realRating: number | null;
-  notes: string;
-  /** Console / platform section the row was listed under, e.g. `Nintendo 64`. */
-  platform: string;
-  /** Wiki top-level grouping, e.g. `Nintendo`, `SEGA`, `Microsoft`. */
-  group: string;
-  /** Project links (GitHub/GitLab/website), in wiki order. */
-  links: PortLink[];
-  /** PCGamingWiki article for the original game, when one exists. */
+  /** Vendor/family, when the source groups entries (`Nintendo`, `SEGA`, ...). */
+  group?: string;
+  /** Wiki/encyclopedia article for the original game, when one exists. */
   wikiUrl?: string;
 }
 
-export interface PortsCatalog {
-  /** Human-facing source page. */
-  source: string;
-  /** When the payload was scraped (ms epoch). */
+/** The merged row the catalog and UI use. */
+export interface PortProject extends PortSourceProject {
+  /** Stable merged id. */
+  id: string;
+  /** Vendor/family for the details panel. */
+  group: string;
+  /** Every source that lists this project. */
+  sources: PortSourceRef[];
+  /** Canonical supported targets (`Windows`, `macOS`, `Linux`, ...). */
+  platforms: string[];
+}
+
+export interface PortSourceSummary {
+  id: PortSourceId;
+  name: string;
+  url: string;
+  /** Rows this source contributed to the last merge. */
+  count: number;
+  ok: boolean;
+  error?: string;
   fetchedAt: number;
-  /** True when the network failed and an older on-disk copy is being served. */
+}
+
+export interface PortsCatalog {
+  /** Human-facing description of the merged catalog. */
+  source: string;
+  /** When the merged payload was produced (ms epoch). */
+  fetchedAt: number;
+  /** True when one or more sources failed and a cached copy is in use. */
   stale: boolean;
   projects: PortProject[];
+  sources: PortSourceSummary[];
+  /** True while a background refresh is running. */
+  syncing?: boolean;
+}
+
+/** Live progress for the background sync, polled by the Ports page. */
+export interface PortsSyncProgress {
+  active: boolean;
+  /** Source currently being fetched. */
+  current: PortSourceId | null;
+  /** Entries fetched for `current`. */
+  done: number;
+  /** Expected entries for `current`, 0 while unknown. */
+  total: number;
+  /** Projects in the last merged catalog. */
+  merged: number;
+  startedAt: number | null;
 }
 
 export interface PortRepoMeta {
@@ -91,9 +150,35 @@ export interface PortCover {
 
 export const PORTS_SOURCE_URL = "https://www.pcgamingwiki.com/wiki/List_of_unofficial_ports";
 
-/** Orders the wiki's status values so "sort by status" reads sensibly. */
+/** Display name + home page for every catalog source. */
+export const PORT_SOURCES: Record<PortSourceId, { name: string; url: string }> = {
+  gameport: { name: "gameport.games", url: "https://gameport.games/" },
+  recompfyi: { name: "recomp.fyi", url: "https://recomp.fyi/" },
+  unbaked: { name: "unbaked.games", url: "https://unbaked.games/" },
+  decomps: { name: "decomps.net", url: "https://decomps.net/" },
+  pcgamingwiki: { name: "PCGamingWiki", url: PORTS_SOURCE_URL },
+};
+
+/**
+ * Trust order when two sources describe the same project. Gameport has the
+ * richest status/rating data, then recomp.fyi, then the others.
+ */
+export const PORT_SOURCE_PRIORITY: PortSourceId[] = [
+  "gameport",
+  "recompfyi",
+  "unbaked",
+  "decomps",
+  "pcgamingwiki",
+];
+
+/** Target platforms shown as badges on cards. */
+export const PORT_CARD_PLATFORMS = ["Windows", "macOS", "Linux"] as const;
+
+/** Orders status values so "sort by status" reads sensibly. */
 export const PORT_STATUS_ORDER = [
   "playable",
+  "complete",
+  "released",
   "in progress",
   "development",
   "pre-release",

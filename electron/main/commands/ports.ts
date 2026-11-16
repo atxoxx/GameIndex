@@ -1,13 +1,19 @@
 /**
  * Ports catalogue commands (unofficial PC ports tab).
  *
- * Thin argument normalization over `features/ports/**`; failures surface to
- * the renderer as readable messages because the tab owns its error state.
+ * `get_ports_catalog` answers from the merged cache instantly and
+ * `refresh_ports_catalog` performs the slow multi-source sync, so the renderer
+ * can paint the last catalog while refreshing in the background. Sync progress
+ * is exposed for the page's "syncing" indicator.
  */
 import { registerCommands, type CommandArgs, type CommandHandler } from "../ipc";
-import { fetchPortsCatalog } from "../features/ports/catalog";
 import { getPortCover, getPortCovers } from "../features/ports/covers";
 import { fetchPortReadme, fetchPortRepoMeta } from "../features/ports/readme";
+import {
+  getPortsCatalog,
+  getPortsSyncProgress,
+  refreshPortsCatalog,
+} from "../features/ports/sync";
 
 function text(args: CommandArgs, key: string): string {
   const value = args[key];
@@ -19,7 +25,11 @@ function flag(args: CommandArgs, key: string): boolean {
 }
 
 export const portCommands: Record<string, CommandHandler> = {
-  get_ports_catalog: (args) => fetchPortsCatalog(flag(args, "refresh")),
+  get_ports_catalog: () => getPortsCatalog(),
+
+  refresh_ports_catalog: (args) => refreshPortsCatalog(flag(args, "force")),
+
+  get_ports_sync_status: () => getPortsSyncProgress(),
 
   get_port_cover: (args) => {
     const name = text(args, "name");

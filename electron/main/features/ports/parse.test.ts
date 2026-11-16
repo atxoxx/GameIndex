@@ -117,9 +117,13 @@ describe("parsePortsHtml", () => {
     expect(projects[2].platform).toBe("Arcade (SEGA)");
   });
 
-  it("gives every row a stable unique id", () => {
-    const ids = projects.map((project) => project.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids[0]).toContain("alien-vs-predator");
+  it("marks every row as a PCGamingWiki entry with no extra source data", () => {
+    for (const project of projects) {
+      expect(project.source).toBe("pcgamingwiki");
+      expect(project.stars).toBeNull();
+      expect(project.communityRating).toBeNull();
+      expect(project.targets).toEqual([]);
+      expect(project.sourceUrl).toMatch(/^https:\/\/www\.pcgamingwiki\.com\//);
+    }
   });
 });

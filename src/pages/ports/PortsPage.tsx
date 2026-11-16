@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowDown,
   ArrowUp,
-  ArrowUpRight,
   CheckCircle2,
   CircuitBoard,
   Hammer,
@@ -20,11 +18,11 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { StatBand } from "../../components/ui/StatBand";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { PORTS_SOURCE_URL, type PortsCatalog } from "../../types/port";
+import { PORT_SOURCES, PORT_SOURCE_PRIORITY, type PortSourceId, type PortsCatalog, type PortsSyncProgress } from "../../types/port";
 import PortCard from "./PortCard";
 import PortDetailModal from "./PortDetailModal";
 import { formatDate, platformAccent, statusRank } from "./portFormat";
-import { groupPorts, type PortGameGroup } from "./portGroups";
+import { groupPorts, orderTargets, type PortGameGroup } from "./portGroups";
 import "./PortsPage.css";
 
 type PortSort = "name" | "port" | "platform" | "status";
@@ -35,19 +33,26 @@ interface PortFilters {
   platform: string;
   status: string;
   origin: string;
+  source: PortSourceId | "all";
+  runsOn: string;
   sort: PortSort;
   direction: SortDirection;
 }
 
 const FILTERS_KEY = "gamelib_ports_filters_v1";
-/** Cards rendered per page; the wiki lists ~1,000 projects. */
+/** Cards rendered per page; the catalog has thousands of projects. */
 const PAGE_SIZE = 120;
+/** Skip the background refresh when the merged catalog is this fresh. */
+const REFRESH_AFTER_MS = 60 * 60_000;
+const SOURCE_IDS = new Set<string>(PORT_SOURCE_PRIORITY);
 
 const DEFAULT_FILTERS: PortFilters = {
   search: "",
   platform: "all",
   status: "all",
   origin: "all",
+  source: "all",
+  runsOn: "all",
   sort: "name",
   direction: "asc",
 };
@@ -64,6 +69,11 @@ function parseStoredFilters(raw: unknown): PortFilters {
     platform: typeof value.platform === "string" ? value.platform : "all",
     status: typeof value.status === "string" ? value.status : "all",
     origin: typeof value.origin === "string" ? value.origin : "all",
+    source:
+      typeof value.source === "string" && SOURCE_IDS.has(value.source)
+        ? (value.source as PortSourceId)
+        : "all",
+    runsOn: typeof value.runsOn === "string" ? value.runsOn : "all",
     sort,
     direction: value.direction === "desc" ? "desc" : "asc",
   };
@@ -81,12 +91,13 @@ interface PortSection {
 }
 
 /**
- * Ports - unofficial PC ports catalogued by PCGamingWiki.
+ * Ports - merged unofficial-port catalog.
  *
- * The wiki is the source of truth; it is fetched live by the main process on
- * every open (with a short cache and an offline fallback). This page owns
- * search, platform/status/origin filters, sorting and the grouped grid, and it
- * resolves cover art lazily per visible card.
+ * The main process keeps one merged catalog from five public sources. This page
+ * paints the saved copy immediately, then refreshes stale sources in the
+ * background (the first run fetches everything and can take a few minutes).
+ * It owns search, platform/status/origin/source/runs-on filters, sorting, the
+ * grouped grid and lazy cover art.
  */
 export default function PortsPage() {
   const { t } = useLanguage();
@@ -95,6 +106,7 @@ export default function PortsPage() {
   const [catalog, setCatalog] = useState<PortsCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [progress, setProgress] = useState<PortsSyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<PortGameGroup | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -116,33 +128,73 @@ export default function PortsPage() {
     }
   }, [filters]);
 
-  const load = useCallback(
-    async (refresh: boolean) => {
-      if (refresh) setRefreshing(true);
-      else setLoading(true);
+  const loadCached = useCallback(async (): Promise<PortsCatalog | null> => {
+    try {
+      const cached = await invoke<PortsCatalog>("get_ports_catalog");
+      setCatalog(cached);
+      return cached;
+    } catch (loadError) {
+      setError(String(loadError));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refresh = useCallback(
+    async (force: boolean) => {
+      setRefreshing(true);
       setError(null);
       try {
-        const next = await invoke<PortsCatalog>("get_ports_catalog", { refresh });
+        const next = await invoke<PortsCatalog>("refresh_ports_catalog", { force });
         setCatalog(next);
-        if (refresh) {
+        if (force) {
           showToast(
             t("ports.toast.refreshed", { count: next.projects.length }),
             next.stale ? "warning" : "success",
           );
         }
+        return next;
       } catch (loadError) {
         setError(String(loadError));
+        return null;
       } finally {
-        setLoading(false);
         setRefreshing(false);
+        setProgress(null);
       }
     },
     [showToast, t],
   );
 
   useEffect(() => {
-    void load(false);
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      const cached = await loadCached();
+      if (cancelled) return;
+      const needsRefresh =
+        !cached ||
+        cached.projects.length === 0 ||
+        Date.now() - cached.fetchedAt > REFRESH_AFTER_MS;
+      if (needsRefresh) void refresh(cached?.projects.length === 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadCached, refresh]);
+
+  // The refresh IPC resolves only after every source finishes, so the page
+  // polls the sync status for a live "source · 320/900" line.
+  useEffect(() => {
+    if (!refreshing) return;
+    const poll = () => {
+      void invoke<PortsSyncProgress>("get_ports_sync_status")
+        .then(setProgress)
+        .catch(() => {});
+    };
+    poll();
+    const id = window.setInterval(poll, 1_200);
+    return () => window.clearInterval(id);
+  }, [refreshing]);
 
   const projects = catalog?.projects ?? [];
 
@@ -161,9 +213,14 @@ export default function PortsPage() {
     return [...set].sort(compareText);
   }, [projects]);
 
-  // A saved filter can point at a platform/status the wiki no longer lists
-  // (renamed sections, a project removed). Reset just those facets so the
-  // dropdown never renders blank.
+  const targets = useMemo(
+    () => orderTargets(projects.flatMap((project) => project.platforms ?? [])),
+    [projects],
+  );
+
+  // A saved filter can point at a platform/status/source that no longer exists
+  // (renamed sections, a project removed, a source offline). Reset just those
+  // facets so no dropdown renders blank.
   useEffect(() => {
     if (!catalog) return;
     setFilters((current) => {
@@ -179,16 +236,21 @@ export default function PortsPage() {
         current.origin !== "all" && !origins.includes(current.origin)
           ? "all"
           : current.origin;
+      const runsOn =
+        current.runsOn !== "all" && !targets.includes(current.runsOn)
+          ? "all"
+          : current.runsOn;
       if (
         platform === current.platform &&
         status === current.status &&
-        origin === current.origin
+        origin === current.origin &&
+        runsOn === current.runsOn
       ) {
         return current;
       }
-      return { ...current, platform, status, origin };
+      return { ...current, platform, status, origin, runsOn };
     });
-  }, [catalog, platforms, statuses, origins]);
+  }, [catalog, platforms, statuses, origins, targets]);
 
   const filtered = useMemo(() => {
     const query = filters.search.trim().toLowerCase();
@@ -196,6 +258,18 @@ export default function PortsPage() {
       if (filters.platform !== "all" && project.platform !== filters.platform) return false;
       if (filters.status !== "all" && project.status !== filters.status) return false;
       if (filters.origin !== "all" && project.origin !== filters.origin) return false;
+      if (
+        filters.source !== "all" &&
+        !(project.sources ?? []).some((source) => source.id === filters.source)
+      ) {
+        return false;
+      }
+      if (
+        filters.runsOn !== "all" &&
+        !(project.platforms ?? []).includes(filters.runsOn)
+      ) {
+        return false;
+      }
       if (!query) return true;
       const haystack = [
         project.game,
@@ -206,6 +280,7 @@ export default function PortsPage() {
         project.status,
         project.languages,
         project.notes,
+        ...(project.sources ?? []).map((source) => source.name),
       ]
         .join(" ")
         .toLowerCase();
@@ -327,7 +402,21 @@ export default function PortsPage() {
     filters.search.trim().length > 0 ||
     filters.platform !== "all" ||
     filters.status !== "all" ||
-    filters.origin !== "all";
+    filters.origin !== "all" ||
+    filters.source !== "all" ||
+    filters.runsOn !== "all";
+
+  const syncingSource = progress?.current ? PORT_SOURCES[progress.current].name : null;
+  const syncLabel = syncingSource
+    ? progress && progress.total > 0
+      ? t("ports.syncingProgress", {
+          source: syncingSource,
+          done: progress.done,
+          total: progress.total,
+        })
+      : t("ports.syncingSource", { source: syncingSource })
+    : t("ports.syncing");
+  const failedSources = (catalog?.sources ?? []).filter((source) => !source.ok);
 
   return (
     <div className="ports-page">
@@ -340,20 +429,18 @@ export default function PortsPage() {
             icon={<CircuitBoard size={22} />}
             actions={
               <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  leftIcon={<ArrowUpRight size={15} />}
-                  onClick={() => void openUrl(PORTS_SOURCE_URL)}
-                >
-                  {t("ports.openSource")}
-                </Button>
+                {refreshing ? (
+                  <span className="ports-sync" role="status">
+                    <span className="ports-sync__spinner" aria-hidden />
+                    {syncLabel}
+                  </span>
+                ) : null}
                 <Button
                   variant="secondary"
                   size="sm"
                   leftIcon={<RefreshCw size={15} />}
                   isLoading={refreshing}
-                  onClick={() => void load(true)}
+                  onClick={() => void refresh(true)}
                 >
                   {t("ports.refresh")}
                 </Button>
@@ -367,8 +454,11 @@ export default function PortsPage() {
         <div className="ports-stale" role="status">
           <span>
             {t("ports.stale", { date: formatDate(new Date(catalog.fetchedAt).toISOString()) ?? "" })}
+            {failedSources.length > 0
+              ? ` · ${failedSources.map((source) => source.name).join(", ")}`
+              : ""}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => void load(true)}>
+          <Button variant="ghost" size="sm" onClick={() => void refresh(true)}>
             {t("ports.retry")}
           </Button>
         </div>
@@ -484,6 +574,38 @@ export default function PortsPage() {
             </label>
 
             <label className="ports-select">
+              <span>{t("ports.filter.source")}</span>
+              <select
+                value={filters.source}
+                onChange={(event) =>
+                  patchFilters({ source: event.target.value as PortSourceId | "all" })
+                }
+              >
+                <option value="all">{t("ports.filter.allSources")}</option>
+                {PORT_SOURCE_PRIORITY.map((id) => (
+                  <option key={id} value={id}>
+                    {PORT_SOURCES[id].name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="ports-select">
+              <span>{t("ports.filter.runsOn")}</span>
+              <select
+                value={filters.runsOn}
+                onChange={(event) => patchFilters({ runsOn: event.target.value })}
+              >
+                <option value="all">{t("ports.filter.anyPlatform")}</option>
+                {targets.map((target) => (
+                  <option key={target} value={target}>
+                    {target}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="ports-select">
               <span>{t("ports.sort.label")}</span>
               <select
                 value={filters.sort}
@@ -552,12 +674,19 @@ export default function PortsPage() {
                 </div>
               ))}
             </div>
+          ) : projects.length === 0 && refreshing ? (
+            <div className="ports-empty ports-empty--sync">
+              <span className="ports-sync__spinner ports-sync__spinner--lg" aria-hidden />
+              <h2>{t("ports.firstSync.title")}</h2>
+              <p>{t("ports.firstSync.body")}</p>
+              <span className="ports-sync__progress">{syncLabel}</span>
+            </div>
           ) : error ? (
             <div className="ports-empty ports-empty--error">
               <CircuitBoard size={38} strokeWidth={1.4} />
               <h2>{t("ports.error.title")}</h2>
               <p>{error}</p>
-              <Button variant="primary" onClick={() => void load(true)}>
+              <Button variant="primary" onClick={() => void refresh(true)}>
                 {t("ports.retry")}
               </Button>
             </div>

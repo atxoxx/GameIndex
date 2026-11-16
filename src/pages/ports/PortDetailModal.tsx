@@ -24,6 +24,7 @@ import { SubTabs } from "../../components/ui/SubTabs";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import type { PortLink, PortProject, PortReadme } from "../../types/port";
+import { PORT_SOURCES } from "../../types/port";
 import "../../styles/game-notes.css";
 import {
   formatCount,
@@ -77,6 +78,7 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
   const cover = usePortCover(group.game, true);
   const repoLink = primaryRepo(project);
   const repo = readme?.repo ?? null;
+  const repoStars = repo?.stars ?? project.stars;
 
   // Opening another group (same mounted modal) starts on its first project.
   useEffect(() => {
@@ -167,6 +169,9 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
     ...(project.languages
       ? [{ label: t("ports.facts.language"), value: project.languages }]
       : []),
+    ...(project.platforms.length
+      ? [{ label: t("ports.facts.platforms"), value: project.platforms.join(", ") }]
+      : []),
   ];
 
   return createPortal(
@@ -223,6 +228,16 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
               {project.languages ? (
                 <span className="ports-chip is-default">
                   <Languages size={12} aria-hidden /> {project.languages}
+                </span>
+              ) : null}
+              {project.stars != null ? (
+                <span className="ports-chip is-default" title={t("ports.stars")}>
+                  <Star size={12} aria-hidden /> {formatCount(project.stars)}
+                </span>
+              ) : null}
+              {project.communityRating != null ? (
+                <span className="ports-chip is-accent" title={t("ports.rating")}>
+                  {project.communityRating.toFixed(1)}/5
                 </span>
               ) : null}
               {project.realRating != null ? (
@@ -332,9 +347,9 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                         {repo.owner}/{repo.repo}
                       </span>
                       <span className="ports-modal__repo-stats">
-                        {repo.stars != null ? (
+                        {repoStars != null ? (
                           <span>
-                            <Star size={13} aria-hidden /> {formatCount(repo.stars)}
+                            <Star size={13} aria-hidden /> {formatCount(repoStars)}
                           </span>
                         ) : null}
                         {repo.updatedAt ? (
@@ -468,6 +483,38 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
               </section>
             ) : null}
 
+            <section className="ports-modal__section">
+              <h3>{t("ports.sources.title")}</h3>
+              <div className="ports-modal__links">
+                {(project.sources.length > 0
+                  ? project.sources
+                  : [
+                      {
+                        id: project.source,
+                        name: PORT_SOURCES[project.source].name,
+                        url: project.sourceUrl || PORT_SOURCES[project.source].url,
+                      },
+                    ]
+                ).map((source) => (
+                  <button
+                    key={`${source.id}-${source.url}`}
+                    type="button"
+                    className="ports-link-row"
+                    onClick={() => open(source.url)}
+                  >
+                    <span className="ports-link-row__icon">
+                      <Layers size={15} />
+                    </span>
+                    <span className="ports-link-row__text">
+                      <span className="ports-link-row__label">{source.name}</span>
+                      <span className="ports-link-row__host">{linkHost(source.url)}</span>
+                    </span>
+                    <ArrowUpRight size={14} className="ports-link-row__arrow" />
+                  </button>
+                ))}
+              </div>
+            </section>
+
             <div className="ports-modal__side-actions">
               <Button
                 variant="secondary"
@@ -498,9 +545,11 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
             <button
               type="button"
               className="ports-link-btn"
-              onClick={() => open("https://www.pcgamingwiki.com/wiki/List_of_unofficial_ports")}
+              onClick={() =>
+                open(project.sourceUrl || PORT_SOURCES[project.source].url)
+              }
             >
-              PCGamingWiki
+              {PORT_SOURCES[project.source].name}
             </button>
           </span>
           <Button variant="secondary" size="sm" onClick={onClose}>

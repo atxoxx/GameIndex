@@ -1,4 +1,4 @@
-import type { PortProject } from "../../types/port";
+import type { PortProject, PortSourceRef } from "../../types/port";
 import { statusRank } from "./portFormat";
 
 /**
@@ -24,6 +24,14 @@ export interface PortGameGroup {
   /** Shared origin, or `""` when the group mixes origins. */
   origin: string;
   languages: string;
+  /** Union of supported targets across the group's projects. */
+  platforms: string[];
+  /** Highest source-provided star count in the group. */
+  stars: number | null;
+  /** Best community rating (0-5) in the group. */
+  communityRating: number | null;
+  /** Every catalog that lists at least one project of this game. */
+  sources: PortSourceRef[];
 }
 
 /**
@@ -50,6 +58,25 @@ function bestStatus(projects: PortProject[]): string {
   )[0].status;
 }
 
+const TARGET_ORDER = ["Windows", "macOS", "Linux"];
+
+/** Union of target labels with the card trio first. */
+export function orderTargets(targets: string[]): string[] {
+  return [...new Set(targets.filter(Boolean))].sort((a, b) => {
+    const ai = TARGET_ORDER.indexOf(a);
+    const bi = TARGET_ORDER.indexOf(b);
+    if (ai !== -1 || bi !== -1) {
+      return (ai === -1 ? TARGET_ORDER.length : ai) - (bi === -1 ? TARGET_ORDER.length : bi);
+    }
+    return a.localeCompare(b);
+  });
+}
+
+function bestNumber(values: (number | null)[]): number | null {
+  const present = values.filter((value): value is number => value != null && Number.isFinite(value));
+  return present.length === 0 ? null : Math.max(...present);
+}
+
 export function groupPorts(projects: PortProject[]): PortGameGroup[] {
   const groups = new Map<string, PortProject[]>();
   for (const project of projects) {
@@ -63,6 +90,12 @@ export function groupPorts(projects: PortProject[]): PortGameGroup[] {
   for (const [key, bucket] of groups) {
     const primary = bucket[0];
     const origins = [...new Set(bucket.map((project) => project.origin).filter(Boolean))];
+    const sources = new Map<string, PortSourceRef>();
+    for (const project of bucket) {
+      for (const source of project.sources ?? []) {
+        if (!sources.has(source.id)) sources.set(source.id, source);
+      }
+    }
     result.push({
       key,
       game: baseGameName(primary.game) || primary.game,
@@ -72,6 +105,10 @@ export function groupPorts(projects: PortProject[]): PortGameGroup[] {
       status: bestStatus(bucket),
       origin: origins.length === 1 ? origins[0] : "",
       languages: bucket.find((project) => project.languages)?.languages ?? "",
+      platforms: orderTargets(bucket.flatMap((project) => project.platforms ?? [])),
+      stars: bestNumber(bucket.map((project) => project.stars)),
+      communityRating: bestNumber(bucket.map((project) => project.communityRating)),
+      sources: [...sources.values()],
     });
   }
   return result;
