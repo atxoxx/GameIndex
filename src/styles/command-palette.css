@@ -1699,6 +1699,212 @@
 
 /* ── Narrow screens ─────────────────────────────────────────────────────── */
 
+/* ── Refinement: calmer chrome, roomier rows, richer preview ──────────
+   Layered on top of the original sheet so every theme/UI-style rule keeps
+   working: only layout, spacing and type tokens change here. */
+
+.cp-panel {
+  width: min(47.5rem, 94vw);
+  max-height: min(78vh, 46rem);
+  border-radius: var(--radius-2xl);
+}
+
+.cp-panel.with-preview {
+  width: min(67.5rem, 96vw);
+}
+
+.cp-header {
+  min-height: 3.75rem;
+  padding: 0 var(--space-xl);
+  gap: var(--space-md);
+}
+
+.cp-header-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-text-secondary);
+}
+
+.cp-input {
+  font-size: var(--text-xl);
+}
+
+.cp-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.cp-header-tools {
+  gap: var(--space-sm);
+}
+
+.cp-scopes {
+  padding: var(--space-xs) var(--space-lg) var(--space-2xs);
+}
+
+.cp-scopes-track {
+  gap: var(--space-2xs);
+}
+
+.cp-scope {
+  height: 1.875rem;
+  padding: 0 var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.cp-scope:hover {
+  background: var(--cp-well);
+  color: var(--color-text-primary);
+}
+
+.cp-scope.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cp-scope-count {
+  min-width: 1.25rem;
+  height: 1.125rem;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-scope.is-active .cp-scope-count {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+}
+
+.cp-list {
+  padding: var(--space-2xs) var(--space-sm) var(--space-sm);
+}
+
+.cp-group-block {
+  margin-bottom: var(--space-2xs);
+}
+
+.cp-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-sm) var(--space-2xs);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+}
+
+.cp-group-count {
+  margin-left: auto;
+  padding: 0 var(--space-2xs);
+  border: 1px solid var(--cp-hairline);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-row {
+  min-height: 3rem;
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.cp-row-media,
+.cp-row-thumb {
+  width: 2rem;
+  height: 2.5rem;
+}
+
+.cp-row-title {
+  max-width: 58%;
+}
+
+.cp-row-sub {
+  color: var(--color-text-secondary);
+}
+
+.cp-preview {
+  width: 21rem;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 28%, transparent);
+}
+
+.cp-preview-scroll {
+  padding: var(--space-lg) var(--space-lg) var(--space-xl);
+}
+
+.cp-preview-eyebrow {
+  display: block;
+  margin-bottom: var(--space-2xs);
+  color: var(--color-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.cp-preview-head.is-generic .cp-preview-art.is-icon {
+  border-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--cp-well));
+  color: var(--color-accent);
+}
+
+.cp-preview-copy {
+  font-size: var(--text-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.cp-preview-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--cp-hairline);
+  border-radius: var(--radius-md);
+  background: var(--cp-well);
+}
+
+.cp-preview-tips-title {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cp-preview-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.cp-preview-tip .cp-kbd {
+  min-width: 1.5rem;
+  height: 1.375rem;
+  padding: 0 var(--space-2xs);
+  border: 1px solid var(--cp-hairline);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.cp-empty > svg:not(.cp-spinner) {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--cp-well);
+}
+
 @media (max-width: 900px) {
   .cp-backdrop {
     padding: var(--space-md);

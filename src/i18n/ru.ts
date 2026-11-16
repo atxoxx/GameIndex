@@ -7897,6 +7897,8 @@ export const ru: TranslationDict = {
   "commandPalette.previewTitle": "Просмотр",
   "commandPalette.previewEmpty": "Ничего не выбрано",
   "commandPalette.previewEmptyHint": "Перемещайтесь по результатам, чтобы увидеть игру, карточку магазина или загрузку.",
+  "commandPalette.previewRecentDesc": "Запустите этот поиск снова, чтобы открыть подходящие игры и команды.",
+  "commandPalette.previewTipsTitle": "Сокращения поиска",
   "commandPalette.hintClosePreview": "Закрыть просмотр",
   "commandPalette.inspectorAchievements": "Достижения",
   "commandPalette.sectionRecentGames": "Недавно сыгранные",

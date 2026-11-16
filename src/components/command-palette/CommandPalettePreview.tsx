@@ -18,6 +18,23 @@ import type { PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime, formatSummaryParagraphs, itemHasDrawerActions } from "./commandPaletteUtils";
 import { gameDisplayName } from "../../types/game";
 
+/** Human label for the item's section in the generic preview. */
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  recent: "commandPalette.recentSearch",
+  games: "commandPalette.scopeGames",
+  mods: "commandPalette.scopeMods",
+  wishlist: "commandPalette.scopeWishlist",
+  actions: "commandPalette.scopeActions",
+  navigation: "commandPalette.scopeNavigation",
+  themes: "commandPalette.scopeThemes",
+  downloads: "commandPalette.scopeDownloads",
+  store: "commandPalette.scopeStore",
+  docs: "commandPalette.scopeDocs",
+  settings: "commandPalette.scopeSettings",
+  utility: "commandPalette.scopeUtility",
+  all: "commandPalette.scopeAll",
+};
+
 interface CommandPalettePreviewProps {
   item: PaletteItem | null;
   t: (key: string, vars?: Record<string, unknown>) => string;
@@ -373,6 +390,12 @@ export default function CommandPalettePreview({
     }
 
     // Generic fallback — actions, pages, settings, docs, themes, tools.
+    const categoryKey = CATEGORY_LABEL_KEYS[item.category] ?? "commandPalette.scopeAll";
+    const isQuery = item.category === "recent" && Boolean(item.recentQuery);
+    const detail =
+      item.description ??
+      (isQuery ? t("commandPalette.previewRecentDesc") : item.subtitle ?? null);
+
     return (
       <>
         <div className="cp-preview-head is-generic">
@@ -382,10 +405,10 @@ export default function CommandPalettePreview({
             </span>
           </div>
           <div className="cp-preview-heading">
+            <span className="cp-preview-eyebrow">{t(categoryKey)}</span>
             <h3 className="cp-preview-title">
               {item.calcData ? item.calcData.result : item.title}
             </h3>
-            {item.subtitle && <span className="cp-preview-sub">{item.subtitle}</span>}
             {item.calcData && (
               <span className="cp-preview-sub">{item.calcData.expression}</span>
             )}
@@ -411,8 +434,27 @@ export default function CommandPalettePreview({
           {pinButton}
         </div>
 
+        {detail && <p className="cp-preview-copy">{detail}</p>}
+
+        {isQuery && (
+          <div className="cp-preview-tips">
+            <span className="cp-preview-tips-title">{t("commandPalette.previewTipsTitle")}</span>
+            <div className="cp-preview-tip">
+              <kbd className="cp-kbd">@</kbd>
+              <span>{t("commandPalette.cheatSheetPrefixGames")}</span>
+            </div>
+            <div className="cp-preview-tip">
+              <kbd className="cp-kbd">/</kbd>
+              <span>{t("commandPalette.cheatSheetPrefixNav")}</span>
+            </div>
+            <div className="cp-preview-tip">
+              <kbd className="cp-kbd">&gt;</kbd>
+              <span>{t("commandPalette.cheatSheetPrefixActions")}</span>
+            </div>
+          </div>
+        )}
+
         {item.calcData?.details && <p className="cp-preview-copy">{item.calcData.details}</p>}
-        {item.description && <p className="cp-preview-copy">{item.description}</p>}
 
         {item.metaDetails && item.metaDetails.length > 0 && (
           <div className="cp-preview-grid">

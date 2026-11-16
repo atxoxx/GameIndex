@@ -379,6 +379,18 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     item.onSelect();
   };
 
+  // One count per rendered section; the list is capped by the item hook, so
+  // this stays a cheap single pass.
+  const groupCounts = useMemo(() => {
+    const counts = new Map<PaletteGroup, number>();
+    for (const item of items) {
+      const group: PaletteGroup =
+        item.group ?? (item.category === "all" ? "utility" : item.category);
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+    return counts;
+  }, [items]);
+
   const { handleInputKeyDown, handleListKeyDown } = useCommandPaletteKeyboard({
     items,
     selectedIndex,
@@ -552,6 +564,9 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                       {showGroup && (
                         <div className="cp-group">
                           <span>{t(GROUP_TITLE_KEYS[group])}</span>
+                          <span className="cp-group-count" aria-hidden="true">
+                            {groupCounts.get(group) ?? 0}
+                          </span>
                           {group === "store" && isSearchingIgdb && (
                             <span className="cp-group-status">
                               <Loader2 size={11} className="cp-spinner" aria-hidden="true" />

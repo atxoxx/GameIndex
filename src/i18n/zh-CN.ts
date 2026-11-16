@@ -7896,6 +7896,8 @@ export const zhCN: TranslationDict = {
   "commandPalette.previewTitle": "预览",
   "commandPalette.previewEmpty": "未选择项目",
   "commandPalette.previewEmptyHint": "在结果中移动，即可预览游戏、商店条目或下载。",
+  "commandPalette.previewRecentDesc": "再次执行此搜索以打开匹配的游戏和命令。",
+  "commandPalette.previewTipsTitle": "搜索快捷语法",
   "commandPalette.hintClosePreview": "关闭预览",
   "commandPalette.inspectorAchievements": "成就",
   "commandPalette.sectionRecentGames": "最近游玩",

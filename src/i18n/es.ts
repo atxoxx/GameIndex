@@ -7897,6 +7897,8 @@ export const es: TranslationDict = {
   "commandPalette.previewTitle": "Vista previa",
   "commandPalette.previewEmpty": "Nada seleccionado",
   "commandPalette.previewEmptyHint": "Recorre los resultados para previsualizar un juego, una ficha de tienda o una descarga.",
+  "commandPalette.previewRecentDesc": "Vuelve a ejecutar esta búsqueda para abrir los juegos y comandos coincidentes.",
+  "commandPalette.previewTipsTitle": "Atajos de búsqueda",
   "commandPalette.hintClosePreview": "Cerrar vista previa",
   "commandPalette.inspectorAchievements": "Logros",
   "commandPalette.sectionRecentGames": "Jugados recientemente",
