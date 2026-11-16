@@ -122,6 +122,13 @@ function Probe() {
       >
         launch-extra
       </button>
+      <button
+        onClick={() =>
+          gameA && void launchGame(gameA, { path: "C:/games/companion.exe" })
+        }
+      >
+        launch-extra-noargs
+      </button>
       <button onClick={() => gameB && enqueueEnrich({ id: gameB.id, name: gameB.name })}>
         enrich-b
       </button>
@@ -217,6 +224,27 @@ describe("GameProvider launch flow", () => {
         gamePath: "C:/games/alpha-mod.exe",
         launchArguments: "-mod",
         bypassSteam: true,
+      }),
+    );
+  });
+
+  it("does not inherit the main game's launch arguments for an auxiliary exe", async () => {
+    loadedGames = [makeGame({ launchArguments: "-beamng-game-flag" })];
+    render(
+      <GameProvider>
+        <Probe />
+      </GameProvider>,
+    );
+    await flush();
+
+    fireEvent.click(screen.getByText("launch-extra-noargs"));
+    await flush();
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "launch_game",
+      expect.objectContaining({
+        gamePath: "C:/games/companion.exe",
+        launchArguments: null,
       }),
     );
   });

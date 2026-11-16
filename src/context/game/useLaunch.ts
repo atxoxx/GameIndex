@@ -314,7 +314,11 @@ export function useLaunch(options: {
       // save-backup health. Abort with a warning when saves are
       // newer than the latest backup.
       let gamePath = exeOverride?.path || game.path || "";
-      let launchArgs = exeOverride?.arguments || game.launchArguments || null;
+      // An auxiliary executable gets only its own arguments. Inheriting the
+      // main game's args (e.g. BeamNG's flags) into a companion app breaks it.
+      let launchArgs = exeOverride
+        ? exeOverride.arguments?.trim() || null
+        : game.launchArguments || null;
       if (game.emulatorId && game.romPath) {
         const plan = await invoke<RomLaunchPlan>("rom_launch_plan", { gameId: game.id });
         gamePath = plan.executablePath;
