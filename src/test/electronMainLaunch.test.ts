@@ -4,6 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { filePathFromAssetUrl } from "../../electron/main/lib/assetPath";
 import { pickWineExeArg } from "../../electron/main/features/launch/processes";
+import { buildSpawnPlan } from "../../electron/main/features/launch/spawnPlan";
+
+const isWindows = process.platform === "win32";
 
 const tempRoot = path.join(os.tmpdir(), `gameindex-launch-test-${process.pid}`);
 
@@ -57,5 +60,38 @@ describe("Wine argv executable detection", () => {
       pickWineExeArg(["proton", "run", "Z:\\game\\Explorer.exe", "Z:\\game\\Game.exe"], null),
     ).toBe("Z:\\game\\Game.exe");
     expect(pickWineExeArg(["wine", "wineserver"], null)).toBeNull();
+  });
+});
+
+describe("spawn plan", () => {
+  it.runIf(isWindows)("never uses verbatim mode for an executable path with spaces", () => {
+    const plan = buildSpawnPlan("F:\\SteamLibrary\\beaming data\\BeamNG.Earth-1.10.1-beta.exe", null);
+    expect(plan.verbatim).toBe(false);
+    expect(plan.file).toContain("beaming data");
+    expect(plan.args).toEqual([]);
+  });
+
+  it.runIf(isWindows)("splits arguments normally when the executable path has spaces", () => {
+    const plan = buildSpawnPlan("F:\\My Games\\companion.exe", "-windowed -res 1920x1080");
+    expect(plan.verbatim).toBe(false);
+    expect(plan.args).toEqual(["-windowed", "-res", "1920x1080"]);
+  });
+
+  it.runIf(isWindows)("keeps the raw argument string for space-free paths", () => {
+    const plan = buildSpawnPlan("C:\\games\\game.exe", '-windowed -save "C:\\my saves"');
+    expect(plan.verbatim).toBe(true);
+    expect(plan.args).toEqual(['-windowed -save "C:\\my saves"']);
+  });
+
+  it.runIf(isWindows)("routes a spaced .bat through cmd with verbatim quoting", () => {
+    const plan = buildSpawnPlan("F:\\My Games\\start game.bat", null);
+    expect(plan.file).toBe("cmd.exe");
+    expect(plan.verbatim).toBe(true);
+    expect(plan.args).toContain('"F:\\My Games\\start game.bat"');
+  });
+
+  it.runIf(!isWindows)("splits the argument string", () => {
+    const plan = buildSpawnPlan("/games/a b/game", "-windowed -res 1920x1080");
+    expect(plan.args).toEqual(["-windowed", "-res", "1920x1080"]);
   });
 });

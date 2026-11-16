@@ -24,7 +24,8 @@ import { emit } from "../../ipc";
 import { getAppSetting } from "../../state/appSettings";
 import { getGameRootDir } from "./paths";
 import { registerLaunchedSession } from "./sessions";
-import { runScriptBlocking, spawnCompanion, splitLaunchArgs } from "./scripts";
+import { runScriptBlocking, spawnCompanion } from "./scripts";
+import { buildSpawnArgs, buildSpawnPlan } from "./spawnPlan";
 import { steamGameInstallPath, steamLaunchUrl } from "./steam";
 import {
   gameCompatibilityProfile,
@@ -135,49 +136,19 @@ function isElevationError(error: unknown): boolean {
   return message.includes("elevation") || message.includes("740");
 }
 
-function quoteForVerbatim(value: string): string {
-  return value.includes(" ") ? `"${value}"` : value;
-}
-
-/** Build the argv for `spawn` (scripts are routed through their interpreter). */
-function buildSpawnArgs(exePath: string): { file: string; args: string[] } {
-  if (IS_WINDOWS) {
-    const ext = path.extname(exePath).toLowerCase();
-    if (ext === ".bat" || ext === ".cmd") {
-      return { file: "cmd.exe", args: ["/C", quoteForVerbatim(exePath)] };
-    }
-    if (ext === ".ps1") {
-      return {
-        file: "powershell.exe",
-        args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", quoteForVerbatim(exePath)],
-      };
-    }
-  }
-  return { file: exePath, args: [] };
-}
-
 async function spawnProgram(
   exePath: string,
   launchArguments: string | null,
   cwd: string | null,
 ): Promise<ChildProcess> {
-  const { file, args } = buildSpawnArgs(exePath);
-  const spawnArgs = [...args];
-  if (launchArguments) {
-    if (IS_WINDOWS) {
-      // A raw argument string, exactly like Rust's `raw_arg`: the OS parses it.
-      spawnArgs.push(launchArguments);
-    } else {
-      spawnArgs.push(...splitLaunchArgs(launchArguments));
-    }
-  }
+  const plan = buildSpawnPlan(exePath, launchArguments);
 
   return await new Promise<ChildProcess>((resolve, reject) => {
-    const child = spawn(file, spawnArgs, {
+    const child = spawn(plan.file, plan.args, {
       cwd: cwd ?? undefined,
       stdio: "ignore",
       windowsHide: false,
-      windowsVerbatimArguments: IS_WINDOWS,
+      windowsVerbatimArguments: plan.verbatim,
       detached: false,
     });
     child.once("error", (error) => reject(error));
