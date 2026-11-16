@@ -110,6 +110,18 @@ function Probe() {
       <span data-testid="desc-a">{gameA?.description ?? ""}</span>
       <span data-testid="dev-b">{gameB?.developer ?? ""}</span>
       <button onClick={() => gameA && void launchGame(gameA)}>launch</button>
+      <button
+        onClick={() =>
+          gameA &&
+          void launchGame(gameA, {
+            path: "C:/games/alpha-mod.exe",
+            arguments: "-mod",
+            runAsAdmin: true,
+          })
+        }
+      >
+        launch-extra
+      </button>
       <button onClick={() => gameB && enqueueEnrich({ id: gameB.id, name: gameB.name })}>
         enrich-b
       </button>
@@ -178,6 +190,7 @@ describe("GameProvider launch flow", () => {
       postExitScript: null,
       postExitAdmin: null,
       companionApps: null,
+      bypassSteam: false,
     });
 
     // The game is registered as running with a fresh lastPlayed stamp.
@@ -186,8 +199,29 @@ describe("GameProvider launch flow", () => {
     expect(showToastMock).toHaveBeenCalledWith(expect.any(String), "success");
   });
 
-  it("surfaces a launch_game rejection and does not leave the game stuck running (error path)", async () => {
-    loadedGames = [makeGame({ lastPlayed: 1_600_000_000_000 })];
+  it("launches an extra executable directly even for a Steam title", async () => {
+    loadedGames = [makeGame({ platform: "Steam", steamAppId: 123 })];
+    render(
+      <GameProvider>
+        <Probe />
+      </GameProvider>,
+    );
+    await flush();
+
+    fireEvent.click(screen.getByText("launch-extra"));
+    await flush();
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "launch_game",
+      expect.objectContaining({
+        gamePath: "C:/games/alpha-mod.exe",
+        launchArguments: "-mod",
+        bypassSteam: true,
+      }),
+    );
+  });
+
+  it("surfaces a launch_game rejection and does not leave the game stuck running (error path)", async () => {    loadedGames = [makeGame({ lastPlayed: 1_600_000_000_000 })];
     localStorage.setItem(SPLASH_KEY, "true");
     launchHandler = () => Promise.reject(new Error("spawn failed"));
 
