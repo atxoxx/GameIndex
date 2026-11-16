@@ -37,6 +37,7 @@ import {
   attachSession,
   finalizeSession,
   finalizeSessionsOnQuit,
+  HEAL_SHORT_RUN_SECS,
   markSessionLost,
   markSessionRestored,
   runSessionPeriodic,
@@ -318,6 +319,11 @@ function nextDelayMs(): number {
   return POLL_INTERVAL_ACTIVE_MS;
 }
 
+/** Short runs get a longer lost-process grace: a launcher may still be handing
+ *  off to the real game (`Game.exe` -> `Game.x64.exe`) when its first process
+ *  exits, and finalizing too early shows a false "it closed by itself". */
+const SHORT_RUN_HANDOFF_GRACE_MS = 8_000;
+
 function graceMs(session: ActiveSession): number {
   if (!session.launchedByApp) return SESSION_LOST_GRACE_MS;
   // A launcher/bootstrapper/updater exiting usually means "the game is about
@@ -325,7 +331,11 @@ function graceMs(session: ActiveSession): number {
   const exeName = baseNameLower(session.matchedExe);
   const stem = exeName.includes(".") ? exeName.slice(0, exeName.lastIndexOf(".")) : exeName;
   const looksLikeLauncher = stem !== "" && isSkipName(stem);
-  return looksLikeLauncher ? LAUNCHER_HANDOFF_GRACE_MS : SESSION_LOST_GRACE_MS;
+  if (looksLikeLauncher) return LAUNCHER_HANDOFF_GRACE_MS;
+  if (session.attachedAtMs > 0 && Date.now() - session.attachedAtMs < HEAL_SHORT_RUN_SECS * 1000) {
+    return SHORT_RUN_HANDOFF_GRACE_MS;
+  }
+  return SESSION_LOST_GRACE_MS;
 }
 
 function largestProcess(processes: ProcessInfo[]): ProcessInfo | null {
@@ -386,6 +396,18 @@ function findSessionProcess(
       (process) => exeStemLower(process.exePath) === expectedStem,
     );
     if (stemMatches.length > 0) return largestProcess(stemMatches);
+
+    // Launchers commonly hand off to a sibling binary with a derived name
+    // (`Game.exe` -> `Game.x64.exe`, `game-launcher.exe` -> `game.exe`). Those
+    // remain the same game: matching the prefix inside the install dir avoids
+    // finalizing the session (and showing "it crashed") while the real process
+    // is already running.
+    const related = insideDir.filter((process) => {
+      const stem = exeStemLower(process.exePath);
+      if (!stem) return false;
+      return stem.startsWith(expectedStem) || expectedStem.startsWith(stem);
+    });
+    if (related.length > 0) return largestProcess(related);
   } else if (insideDir.length > 0) {
     return largestProcess(insideDir);
   }

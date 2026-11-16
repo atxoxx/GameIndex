@@ -5,6 +5,7 @@
 // good (games the user always quit quickly stay quiet).
 
 import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, FolderOpen, Terminal, X } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useGames } from "../context/GameContext";
@@ -51,17 +52,34 @@ export default function WatchdogHealBridge() {
   const game = failure ? games.find((g) => g.id === failure.gameId) ?? null : null;
   const close = useCallback(() => setFailure(null), []);
 
+  /** The launch target that failed: an extra executable keeps its own path and
+   *  arguments, so "Relaunch" retries exactly what just died. */
+  const failedExtra = failure?.executable
+    ? game?.extraExecutables?.find(
+        (exe) => exe.path.toLowerCase() === failure.executable?.toLowerCase(),
+      ) ?? null
+    : null;
+  const executableName = failure?.executable
+    ? failure.executable.split(/[/\\]/).pop() || failure.executable
+    : null;
+
   function relaunch(asAdmin: boolean) {
     if (!game || !failure) return;
     setFailure(null);
-    launchGame(game, asAdmin ? { path: game.path, runAsAdmin: true } : undefined);
+    const override = failedExtra
+      ? { ...failedExtra, runAsAdmin: asAdmin || failedExtra.runAsAdmin }
+      : asAdmin
+        ? { path: game.path, runAsAdmin: true }
+        : undefined;
+    launchGame(game, override);
     showToast(t("gameContext.launched", { name: game.name }), "info");
   }
 
   function openFolder() {
-    if (!game?.path) return;
+    const target = failure?.executable || game?.path;
+    if (!target) return;
     close();
-    openPath(installFolderOf(game.path)).catch((err) =>
+    openPath(installFolderOf(target)).catch((err) =>
       showToast(t("watchdog.folderError", { error: String(err) }), "error")
     );
   }
@@ -85,52 +103,69 @@ export default function WatchdogHealBridge() {
         aria-modal="true"
         aria-labelledby="heal-modal-title"
       >
-        <div className="modal-header">
-          <div className="modal-header-icon modal-header-icon--warning">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </div>
-          <div className="modal-header-text">
-            <h2 className="modal-title" id="heal-modal-title">
-              {t("watchdog.title", { name: failure.gameName })}
-            </h2>
-          </div>
+        <div className="modal-header heal-modal__header">
+          <h2 className="modal-title" id="heal-modal-title">
+            {t("watchdog.title", { name: failure.gameName })}
+          </h2>
+          <button
+            type="button"
+            className="heal-modal__close"
+            onClick={close}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+          >
+            <X size={16} aria-hidden />
+          </button>
         </div>
 
         <div className="modal-body heal-modal__body">
-          <p className="heal-modal__reason">
-            {reason === "crashed"
-              ? t("watchdog.crashed", { seconds: failure.elapsedSeconds })
-              : t("watchdog.notFound")}
-          </p>
-          <p className="heal-modal__hint">
-            {reason === "crashed" ? t("watchdog.crashedHint") : t("watchdog.notFoundHint")}
-          </p>
+          <div className="heal-modal__diagnosis">
+            <span className="heal-modal__diagnosis-icon" aria-hidden>
+              <AlertTriangle size={16} />
+            </span>
+            <div className="heal-modal__diagnosis-text">
+              <p className="heal-modal__reason">
+                {reason === "crashed"
+                  ? t("watchdog.crashed", { seconds: failure.elapsedSeconds })
+                  : t("watchdog.notFound")}
+              </p>
+              <p className="heal-modal__hint">
+                {reason === "crashed" ? t("watchdog.crashedHint") : t("watchdog.notFoundHint")}
+              </p>
+            </div>
+          </div>
+
+          {executableName ? (
+            <div className="heal-modal__facts">
+              <span className="heal-modal__fact" title={failure.executable}>
+                <Terminal size={12} aria-hidden />
+                <span className="heal-modal__fact-text">{executableName}</span>
+              </span>
+            </div>
+          ) : null}
+
+          {failure.executable || game?.path ? (
+            <div className="heal-modal__links">
+              <button type="button" className="heal-modal__link" onClick={openFolder}>
+                <FolderOpen size={13} aria-hidden />
+                {t("watchdog.openFolder")}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="modal-footer heal-modal__footer">
-          <div className="heal-modal__actions">
-            <Button variant="secondary" size="md" onClick={() => relaunch(false)}>
-              {t("watchdog.relaunch")}
-            </Button>
+          <Button variant="ghost" size="sm" onClick={muteAndClose}>
+            {t("watchdog.mute")}
+          </Button>
+          <div className="heal-modal__primary">
             {IS_WINDOWS_HOST && (
               <Button variant="secondary" size="md" onClick={() => relaunch(true)}>
                 {t("watchdog.relaunchAdmin")}
               </Button>
             )}
-            {game?.path && (
-              <Button variant="ghost" size="md" onClick={openFolder}>
-                {t("watchdog.openFolder")}
-              </Button>
-            )}
-            <Button variant="ghost" size="md" onClick={muteAndClose}>
-              {t("watchdog.mute")}
-            </Button>
-            <Button variant="ghost" size="md" onClick={close}>
-              {t("watchdog.dismiss")}
+            <Button variant="primary" size="md" onClick={() => relaunch(false)}>
+              {t("watchdog.relaunch")}
             </Button>
           </div>
         </div>

@@ -328,6 +328,7 @@ export async function finalizeSession(
       gameName: session.gameName,
       elapsedSeconds: elapsed,
       attached: session.attachedAtMs > 0,
+      executable: session.matchedExe || undefined,
     };
     emit("game-failed", failure);
   }

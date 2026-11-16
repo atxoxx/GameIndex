@@ -16,6 +16,8 @@ export interface WatchdogFailure {
   /** True when the watcher saw the game process run (instant crash);
    *  false when no process ever appeared (broken launch chain). */
   attached: boolean;
+  /** Executable the session was tracking (may be an extra launch target). */
+  executable?: string;
 }
 
 type MuteMap = Record<string, true>;

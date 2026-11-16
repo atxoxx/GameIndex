@@ -90,6 +90,8 @@ export interface GameFailurePayload {
   gameName: string;
   elapsedSeconds: number;
   attached: boolean;
+  /** Executable the session was tracking, for the diagnosis line. */
+  executable?: string;
 }
 
 export interface GameSessionStatePayload {
