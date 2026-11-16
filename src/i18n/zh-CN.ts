@@ -3447,6 +3447,7 @@ export const zhCN: TranslationDict = {
   "game.quickStats.compatibility": "兼容性",
   "game.quickStats.storage": "存储占用",
   "game.quickStats.value": "每小时价值",
+  "game.quickStats.valueShort": "性价比",
   "game.quickStats.setCost": "设置价格",
   "game.quickStats.setCostHint": "在「编辑 -> 详情」中填写购买价格，即可查看每小时游戏成本。",
   "game.quickStats.needPlaytime": "游玩至少 30 分钟后可查看每小时成本。",

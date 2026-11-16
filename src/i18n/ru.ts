@@ -3447,6 +3447,7 @@ export const ru: TranslationDict = {
   "game.quickStats.compatibility": "Совместимость",
   "game.quickStats.storage": "Место на диске",
   "game.quickStats.value": "Ценность",
+  "game.quickStats.valueShort": "Цена/качество",
   "game.quickStats.setCost": "Указать цену",
   "game.quickStats.setCostHint": "Укажите цену покупки в разделе «Изменить -> Детали», чтобы видеть стоимость часа игры.",
   "game.quickStats.needPlaytime": "Поиграйте хотя бы 30 минут, чтобы увидеть стоимость часа.",

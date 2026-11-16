@@ -18,7 +18,12 @@ export function QuickStatCard({ item }: { item: StatBandItem }) {
             {item.icon}
           </span>
         )}
-        <span className="quick-stat-card__label">{item.label}</span>
+        <span
+          className="quick-stat-card__label"
+          title={typeof item.label === "string" ? item.label : undefined}
+        >
+          {item.label}
+        </span>
       </span>
 
       <span className="quick-stat-card__value">

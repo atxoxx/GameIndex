@@ -3447,6 +3447,7 @@ export const fr: TranslationDict = {
   "game.quickStats.compatibility": "Compatibilité",
   "game.quickStats.storage": "Stockage",
   "game.quickStats.value": "Rapport qualité-prix",
+  "game.quickStats.valueShort": "Qualité-prix",
   "game.quickStats.setCost": "Définir le prix",
   "game.quickStats.setCostHint": "Renseignez le prix d'achat dans Modifier -> Détails pour voir le coût par heure de jeu.",
   "game.quickStats.needPlaytime": "Jouez au moins 30 minutes pour voir le coût horaire.",

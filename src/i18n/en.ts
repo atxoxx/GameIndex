@@ -3456,6 +3456,7 @@ export const en: TranslationDict = {
   "game.quickStats.compatibility": "Compatibility",
   "game.quickStats.storage": "Storage",
   "game.quickStats.value": "Value",
+  "game.quickStats.valueShort": "Value",
   "game.quickStats.setCost": "Set cost",
   "game.quickStats.setCostHint": "Set the purchase cost in Edit -> Details to see how much this game costs per hour.",
   "game.quickStats.needPlaytime": "Play at least 30 minutes to see the $/hour rate.",

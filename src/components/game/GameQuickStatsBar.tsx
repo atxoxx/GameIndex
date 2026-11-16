@@ -175,7 +175,7 @@ export default function GameQuickStatsBar({
       const valueFigure = noCost ? { value: valueText } : splitFigure(valueText);
       next.push({
         id: "value",
-        label: t("game.quickStats.value"),
+        label: t("game.quickStats.valueShort"),
         icon: <IconTag size={14} />,
         value: valueFigure.value,
         unit: valueFigure.unit,
