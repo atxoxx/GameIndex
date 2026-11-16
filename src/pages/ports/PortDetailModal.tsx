@@ -12,6 +12,7 @@ import {
   FileText,
   Globe,
   Languages,
+  Layers,
   Star,
   X,
 } from "lucide-react";
@@ -32,12 +33,13 @@ import {
   statusTone,
 } from "./portFormat";
 import { RepoMark } from "./portIcons";
+import type { PortGameGroup } from "./portGroups";
 import { usePortCover } from "./usePortCover";
 
 type PortTab = "overview" | "readme";
 
 interface PortDetailModalProps {
-  project: PortProject;
+  group: PortGameGroup;
   onClose: () => void;
 }
 
@@ -61,17 +63,26 @@ function primaryRepo(project: PortProject): PortLink | null {
  * Repository facts (description, stars, last push) ride along with the same
  * backend call and are cached for hours.
  */
-export default function PortDetailModal({ project, onClose }: PortDetailModalProps) {
+export default function PortDetailModal({ group, onClose }: PortDetailModalProps) {
   const { t } = useLanguage();
   const copyText = useCopyToClipboard();
   const [tab, setTab] = useState<PortTab>("overview");
+  const [activeIndex, setActiveIndex] = useState(0);
   const [readme, setReadme] = useState<PortReadme | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const cover = usePortCover(project.game, true);
+  const project: PortProject =
+    group.projects[Math.min(activeIndex, group.projects.length - 1)] ?? group.primary;
+  const cover = usePortCover(group.game, true);
   const repoLink = primaryRepo(project);
   const repo = readme?.repo ?? null;
+
+  // Opening another group (same mounted modal) starts on its first project.
+  useEffect(() => {
+    setActiveIndex(0);
+    setTab("overview");
+  }, [group.key]);
 
   // Scroll lock + focus restore, matching the edit modal's behavior.
   useEffect(() => {
@@ -197,9 +208,9 @@ export default function PortDetailModal({ project, onClose }: PortDetailModalPro
           </span>
 
           <div className="ports-modal__headings">
-            <span className="ports-modal__eyebrow">{project.platform}</span>
+            <span className="ports-modal__eyebrow">{group.platform}</span>
             <h2 className="ports-modal__title" id="ports-modal-title">
-              {project.game}
+              {group.game}
             </h2>
             <p className="ports-modal__subtitle">{project.portName}</p>
             <div className="ports-modal__badges">
@@ -220,6 +231,12 @@ export default function PortDetailModal({ project, onClose }: PortDetailModalPro
                   title={t("ports.facts.realRatingHint")}
                 >
                   <Star size={12} aria-hidden /> REAL {project.realRating}/5
+                </span>
+              ) : null}
+              {group.projects.length > 1 ? (
+                <span className="ports-chip is-accent">
+                  <Layers size={12} aria-hidden />{" "}
+                  {t("ports.projectCount", { count: group.projects.length })}
                 </span>
               ) : null}
             </div>
@@ -248,6 +265,34 @@ export default function PortDetailModal({ project, onClose }: PortDetailModalPro
             </button>
           </div>
         </header>
+
+        {group.projects.length > 1 ? (
+          <div
+            className="ports-modal__projects"
+            role="tablist"
+            aria-label={t("ports.projectTabs")}
+          >
+            {group.projects.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={index === activeIndex}
+                className={`ports-project-tab${index === activeIndex ? " is-active" : ""}`}
+                onClick={() => setActiveIndex(index)}
+              >
+                <span
+                  className={`ports-project-tab__dot is-${originTone(item.origin)}`}
+                  aria-hidden
+                />
+                <span className="ports-project-tab__name">{item.portName}</span>
+                {item.status ? (
+                  <span className="ports-project-tab__status">{item.status}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <SubTabs
           className="ports-modal__subtabs"

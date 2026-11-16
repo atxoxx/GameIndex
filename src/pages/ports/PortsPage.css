@@ -263,10 +263,32 @@
   gap: var(--space-lg) var(--space-md);
 }
 
-.ports-more {
+.ports-sentinel {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding-top: var(--space-sm);
+  min-height: var(--space-3xl);
+}
+
+.ports-sentinel__spinner {
+  width: 18px;
+  height: 18px;
+  border: var(--space-3xs) solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: var(--radius-full);
+  animation: ports-spin 700ms linear infinite;
+}
+
+@keyframes ports-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ports-sentinel__spinner {
+    animation: none;
+  }
 }
 
 /* -- Card ------------------------------------------------------------------ */
@@ -430,6 +452,18 @@
   white-space: nowrap;
   font-size: var(--text-2xs);
   color: var(--color-text-tertiary);
+}
+
+.ports-card__projects {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-accent);
 }
 
 .ports-card__meta {
@@ -676,6 +710,84 @@
 .ports-modal__icon-btn:hover {
   color: var(--color-text-primary);
   border-color: var(--color-border-highlight);
+}
+
+.ports-modal__projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  max-height: 96px;
+  overflow-y: auto;
+  padding: var(--space-sm) var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-primary) 35%, transparent);
+  flex-shrink: 0;
+}
+
+.ports-project-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.ports-project-tab:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-highlight);
+}
+
+.ports-project-tab.is-active {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+
+.ports-project-tab__dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-muted);
+}
+
+.ports-project-tab__dot.is-accent {
+  background: var(--color-accent);
+}
+
+.ports-project-tab__dot.is-info {
+  background: var(--color-info);
+}
+
+.ports-project-tab__dot.is-warning {
+  background: var(--color-warning);
+}
+
+.ports-project-tab__dot.is-success {
+  background: var(--color-success);
+}
+
+.ports-project-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ports-project-tab__status {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  color: var(--color-text-muted);
 }
 
 .ports-modal__subtabs {

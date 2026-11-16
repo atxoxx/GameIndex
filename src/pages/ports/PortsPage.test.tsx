@@ -34,6 +34,13 @@ const catalog = vi.hoisted((): PortsCatalog => {
         origin: "Decompilation",
         status: "Development",
       }),
+      project({
+        id: "c",
+        game: "Zelda 64",
+        portName: "Zelda 64 Recompiled",
+        origin: "Decompilation",
+        status: "Development",
+      }),
     ],
   };
 });
@@ -95,13 +102,15 @@ beforeEach(() => {
 });
 
 describe("PortsPage", () => {
-  it("renders catalog cards with origin and status", async () => {
+  it("renders one card per game with origin, status and project count", async () => {
     await renderPage();
 
-    expect(screen.getByText("Zelda 64")).toBeInTheDocument();
+    expect(screen.getAllByText("Zelda 64")).toHaveLength(1);
     expect(screen.getByText("Super Mario World")).toBeInTheDocument();
-    expect(screen.getAllByText("Recompilation").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Playable").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Development").length).toBeGreaterThan(0);
+    expect(screen.getByText("ports.projectCount")).toBeInTheDocument();
+    expect(screen.getByText("ports.origin.mixed")).toBeInTheDocument();
   });
 
   it("filters by search tokens", async () => {
@@ -142,7 +151,26 @@ describe("PortsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: /ports.tab.readme/i }));
 
     expect(await screen.findByText("Project README")).toBeInTheDocument();
-    expect(screen.getByText("A native port.")).toBeInTheDocument();
+    expect(screen.getAllByText("A native port.").length).toBeGreaterThan(0);
+  });
+
+  it("switches between projects of a grouped game in the modal", async () => {
+    await renderPage();
+
+    fireEvent.click(screen.getByText("Zelda 64"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+
+    const first = screen.getByRole("tab", { name: /Zelda64Recomp/ });
+    expect(first).toHaveAttribute("aria-selected", "true");
+
+    const second = screen.getByRole("tab", { name: /Zelda 64 Recompiled/ });
+    fireEvent.click(second);
+
+    await waitFor(() => {
+      expect(second).toHaveAttribute("aria-selected", "true");
+    });
+    expect(first).toHaveAttribute("aria-selected", "false");
   });
 
   it("shows the stale banner with a retry action", async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -20,10 +20,11 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { StatBand } from "../../components/ui/StatBand";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { PORTS_SOURCE_URL, type PortProject, type PortsCatalog } from "../../types/port";
+import { PORTS_SOURCE_URL, type PortsCatalog } from "../../types/port";
 import PortCard from "./PortCard";
 import PortDetailModal from "./PortDetailModal";
 import { formatDate, platformAccent, statusRank } from "./portFormat";
+import { groupPorts, type PortGameGroup } from "./portGroups";
 import "./PortsPage.css";
 
 type PortSort = "name" | "port" | "platform" | "status";
@@ -76,7 +77,7 @@ interface PortSection {
   key: string;
   label: string;
   accent?: string;
-  projects: PortProject[];
+  groups: PortGameGroup[];
 }
 
 /**
@@ -95,7 +96,7 @@ export default function PortsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<PortProject | null>(null);
+  const [selected, setSelected] = useState<PortGameGroup | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [filters, setFilters] = useState<PortFilters>(() => {
     try {
@@ -212,12 +213,15 @@ export default function PortsPage() {
     });
   }, [projects, filters]);
 
-  const sorted = useMemo(() => {
+  const filteredGroups = useMemo(() => groupPorts(filtered), [filtered]);
+  const allGroups = useMemo(() => groupPorts(projects), [projects]);
+
+  const sortedGroups = useMemo(() => {
     const direction = filters.direction === "asc" ? 1 : -1;
-    const compare = (a: PortProject, b: PortProject): number => {
+    const compare = (a: PortGameGroup, b: PortGameGroup): number => {
       switch (filters.sort) {
         case "port":
-          return compareText(a.portName, b.portName);
+          return compareText(a.primary.portName, b.primary.portName);
         case "platform":
           return compareText(a.platform, b.platform) || compareText(a.game, b.game);
         case "status":
@@ -226,80 +230,94 @@ export default function PortsPage() {
           return compareText(a.game, b.game);
       }
     };
-    return [...filtered].sort((a, b) => compare(a, b) * direction);
-  }, [filtered, filters.sort, filters.direction]);
+    return [...filteredGroups].sort((a, b) => compare(a, b) * direction);
+  }, [filteredGroups, filters.sort, filters.direction]);
 
-  // A filtered/sorted list starts a fresh page so the first results are visible
-  // immediately instead of keeping a scroll of "show more" clicks.
+  // A filter/sort change starts a fresh page so the first results are visible
+  // immediately instead of keeping a scroll of auto-loads.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [filters]);
 
-  const visible = useMemo(
-    () => sorted.slice(0, visibleCount),
-    [sorted, visibleCount],
+  const visibleGroups = useMemo(
+    () => sortedGroups.slice(0, visibleCount),
+    [sortedGroups, visibleCount],
   );
-  const remaining = Math.max(0, sorted.length - visible.length);
+  const remaining = Math.max(0, sortedGroups.length - visibleGroups.length);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Infinite scroll: the sentinel sits past the last section. Re-observing on
+  // every page keeps loading while it is still near the viewport (a tall
+  // window fills up in one go), then stops as soon as it falls below the
+  // rootMargin.
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setVisibleCount((count) => Math.min(count + PAGE_SIZE, sortedGroups.length));
+      },
+      { rootMargin: "700px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [remaining, sortedGroups.length, visibleCount]);
 
   const sections = useMemo<PortSection[]>(() => {
     if (filters.sort === "platform") {
-      const groups = new Map<string, PortProject[]>();
-      for (const project of visible) {
-        const key = project.platform || t("ports.unknownPlatform");
-        const bucket = groups.get(key) ?? [];
-        bucket.push(project);
-        groups.set(key, bucket);
+      const buckets = new Map<string, PortGameGroup[]>();
+      for (const group of visibleGroups) {
+        const key = group.platform || t("ports.unknownPlatform");
+        const bucket = buckets.get(key) ?? [];
+        bucket.push(group);
+        buckets.set(key, bucket);
       }
-      const keys = [...groups.keys()];
+      const keys = [...buckets.keys()];
       if (filters.direction === "desc") keys.reverse();
       return keys.map((key) => ({
         key,
         label: key,
         accent: platformAccent(key),
-        projects: groups.get(key) ?? [],
+        groups: buckets.get(key) ?? [],
       }));
     }
 
     if (filters.sort === "status") {
-      const groups = new Map<string, PortProject[]>();
-      for (const project of visible) {
-        const key = project.status || t("ports.status.unknown");
-        const bucket = groups.get(key) ?? [];
-        bucket.push(project);
-        groups.set(key, bucket);
+      const buckets = new Map<string, PortGameGroup[]>();
+      for (const group of visibleGroups) {
+        const key = group.status || t("ports.status.unknown");
+        const bucket = buckets.get(key) ?? [];
+        bucket.push(group);
+        buckets.set(key, bucket);
       }
-      const keys = [...groups.keys()].sort((a, b) => statusRank(a) - statusRank(b));
+      const keys = [...buckets.keys()].sort((a, b) => statusRank(a) - statusRank(b));
       if (filters.direction === "desc") keys.reverse();
       return keys.map((key) => ({
         key,
         label: key,
-        projects: groups.get(key) ?? [],
+        groups: buckets.get(key) ?? [],
       }));
     }
 
-    return [{ key: "all", label: "", projects: visible }];
-  }, [visible, filters.sort, filters.direction, t]);
+    return [{ key: "all", label: "", groups: visibleGroups }];
+  }, [visibleGroups, filters.sort, filters.direction, t]);
 
   const stats = useMemo(() => {
-    const playable = projects.filter((project) =>
-      project.status.toLowerCase().includes("playable"),
-    ).length;
-    const building = projects.filter((project) => {
-      const status = project.status.toLowerCase();
-      return (
-        status.includes("develop") ||
-        status.includes("progress") ||
-        status.includes("planned") ||
-        status.includes("pre-release")
-      );
+    const playable = allGroups.filter((group) => statusRank(group.status) === 0).length;
+    const building = allGroups.filter((group) => {
+      const rank = statusRank(group.status);
+      return rank >= 1 && rank <= 4;
     }).length;
     return {
-      total: projects.length,
+      games: allGroups.length,
+      projects: projects.length,
       playable,
       building,
       platforms: platforms.length,
     };
-  }, [projects, platforms.length]);
+  }, [allGroups, projects.length, platforms.length]);
 
   const patchFilters = useCallback((patch: Partial<PortFilters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -363,9 +381,10 @@ export default function PortsPage() {
               ariaLabel={t("ports.stats.label")}
               items={[
                 {
-                  id: "total",
-                  label: t("ports.stats.total"),
-                  value: stats.total,
+                  id: "games",
+                  label: t("ports.stats.games"),
+                  value: stats.games,
+                  detail: t("ports.stats.projectsDetail", { count: stats.projects }),
                   icon: <Layers size={14} />,
                   tone: "accent",
                 },
@@ -495,8 +514,8 @@ export default function PortsPage() {
           <div className="ports-toolbar__meta">
             <span>
               {t("ports.resultCount", {
-                shown: filtered.length,
-                total: projects.length,
+                shown: visibleGroups.length,
+                total: sortedGroups.length,
               })}
             </span>
             {catalog ? (
@@ -542,7 +561,7 @@ export default function PortsPage() {
                 {t("ports.retry")}
               </Button>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sortedGroups.length === 0 ? (
             <div className="ports-empty">
               <Search size={34} strokeWidth={1.4} />
               <h2>{t("ports.empty.title")}</h2>
@@ -571,24 +590,19 @@ export default function PortsPage() {
                   {section.label ? (
                     <header className="ports-section__head">
                       <h2>{section.label}</h2>
-                      <span className="ports-section__count">{section.projects.length}</span>
+                      <span className="ports-section__count">{section.groups.length}</span>
                     </header>
                   ) : null}
                   <div className="ports-grid">
-                    {section.projects.map((project) => (
-                      <PortCard key={project.id} project={project} onOpen={setSelected} />
+                    {section.groups.map((group) => (
+                      <PortCard key={group.key} group={group} onOpen={setSelected} />
                     ))}
                   </div>
                 </section>
               ))}
               {remaining > 0 ? (
-                <div className="ports-more">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
-                  >
-                    {t("ports.loadMore", { count: remaining })}
-                  </Button>
+                <div ref={sentinelRef} className="ports-sentinel" aria-hidden>
+                  <span className="ports-sentinel__spinner" />
                 </div>
               ) : null}
             </div>
@@ -597,7 +611,7 @@ export default function PortsPage() {
       </PageWidget>
 
       {selected ? (
-        <PortDetailModal project={selected} onClose={() => setSelected(null)} />
+        <PortDetailModal group={selected} onClose={() => setSelected(null)} />
       ) : null}
     </div>
   );
