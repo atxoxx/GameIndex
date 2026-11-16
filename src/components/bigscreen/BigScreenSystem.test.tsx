@@ -74,7 +74,7 @@ describe("BigScreenSystem tile landing", () => {
     pads.tabCycler = null;
     renderHub("/settings");
 
-    expect(tiles()).toHaveLength(8);
+    expect(tiles()).toHaveLength(9);
 
     fireEvent.click(tiles()[0]);
     expect(screen.getByTestId("path").textContent).toBe("/downloads");
@@ -93,6 +93,6 @@ describe("BigScreenSystem tile landing", () => {
   it("keeps the landing for a System route the hub does not own", () => {
     renderHub("/saves");
 
-    expect(tiles()).toHaveLength(8);
+    expect(tiles()).toHaveLength(9);
   });
 });

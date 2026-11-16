@@ -24,6 +24,7 @@ function SidebarActiveFiltersBase({
   onRemoveYear,
   onRemoveRating,
   onRemoveVrOnly,
+  onRemoveRecompOnly,
   onReset,
 }: SidebarActiveFiltersProps) {
   const { t } = useLanguage();
@@ -86,6 +87,14 @@ function SidebarActiveFiltersBase({
       key: "vr-only",
       label: t("library.filter.vrOnly"),
       remove: onRemoveVrOnly,
+    });
+  }
+
+  if (filterState.recompOnly) {
+    chips.push({
+      key: "recomp-only",
+      label: t("library.clearRecompFilter"),
+      remove: onRemoveRecompOnly,
     });
   }
 

@@ -63,7 +63,7 @@ export const STUDIO_NAV_GROUPS: StudioNavGroup[] = [
   {
     id: "tools",
     labelKey: "settings.studio.groupTools",
-    pages: ["downloads", "storage", "mods", "saves", "emulators"],
+    pages: ["downloads", "storage", "mods", "saves", "emulators", "ports"],
   },
 ];
 
@@ -122,6 +122,7 @@ const EXTRA_KEYWORDS: Record<string, string> = {
   navActivity: "activity playtime sessions history",
   navNews: "news feed articles",
   navEmulators: "emulators roms consoles",
+  navPorts: "ports recomp decompilation unofficial pc ports",
   navMods: "mods plugins",
   navAchievements: "achievements trophies",
   navStorage: "storage disk space",

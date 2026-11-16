@@ -46,6 +46,7 @@ interface LibraryFilterContextValue {
   setSource: (s: LibrarySource) => void;
   setPlayStatus: (ps: PlayStatus | "all") => void;
   setVrOnly: (v: boolean) => void;
+  setRecompOnly: (v: boolean) => void;
   setSort: (s: LibrarySort) => void;
   removeGenre: (g: string) => void;
   removePlatform: (p: string) => void;
@@ -56,6 +57,7 @@ interface LibraryFilterContextValue {
   removeSearch: () => void;
   removeSource: () => void;
   removeVrOnly: () => void;
+  removeRecompOnly: () => void;
   reset: () => void;
 }
 
@@ -148,6 +150,10 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
     (v: boolean) => setFilters((f) => ({ ...f, vrOnly: v })),
     []
   );
+  const setRecompOnly = useCallback(
+    (v: boolean) => setFilters((f) => ({ ...f, recompOnly: v })),
+    []
+  );
   const setSort = useCallback(
     (s: LibrarySort) => setFilters((f) => ({ ...f, sort: s })),
     []
@@ -195,6 +201,10 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
     () => setFilters((f) => ({ ...f, vrOnly: false })),
     []
   );
+  const removeRecompOnly = useCallback(
+    () => setFilters((f) => ({ ...f, recompOnly: false })),
+    []
+  );
   const reset = useCallback(() => setFilters(EMPTY_LIBRARY_FILTERS), []);
 
   const value = useMemo<LibraryFilterContextValue>(
@@ -209,6 +219,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       setSource,
       setPlayStatus,
       setVrOnly,
+      setRecompOnly,
       setSort,
       removeGenre,
       removePlatform,
@@ -219,6 +230,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       removeSearch,
       removeSource,
       removeVrOnly,
+      removeRecompOnly,
       reset,
     }),
     [
@@ -232,6 +244,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       setSource,
       setPlayStatus,
       setVrOnly,
+      setRecompOnly,
       setSort,
       removeGenre,
       removePlatform,
@@ -242,6 +255,7 @@ export function LibraryFilterProvider({ children }: { children: ReactNode }) {
       removeSearch,
       removeSource,
       removeVrOnly,
+      removeRecompOnly,
       reset,
     ]
   );

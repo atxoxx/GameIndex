@@ -272,6 +272,7 @@ export type InterfaceItemKey =
   | "navDeals"
   | "navNews"
   | "navEmulators"
+  | "navPorts"
   | "navMods"
   | "navActivity"
   | "navAchievements"
@@ -311,6 +312,7 @@ export const DEFAULT_INTERFACE_VISIBILITY: InterfaceVisibility = {
   navDeals: true,
   navNews: true,
   navEmulators: true,
+  navPorts: true,
   navMods: true,
   navActivity: true,
   navAchievements: true,
@@ -355,6 +357,7 @@ export const DEFAULT_NAVBAR_TAB_ORDER: InterfaceItemKey[] = [
   "navActivity",
   "navNews",
   "navEmulators",
+  "navPorts",
   "navMods",
   "navAchievements",
   "navStorage",
@@ -402,18 +405,28 @@ function normalizeKeyOrder(
  *  then append every known tab that is missing so tabs added in later
  *  releases still show up at the end of the user's arrangement. */
 export function normalizeNavbarTabOrder(raw: unknown): InterfaceItemKey[] {
-  const normalized = normalizeKeyOrder(raw, DEFAULT_NAVBAR_TAB_ORDER);
+  let normalized = normalizeKeyOrder(raw, DEFAULT_NAVBAR_TAB_ORDER);
+  const stored = Array.isArray(raw) ? raw : null;
   // Orders saved before `navSaves` existed get it appended at the tail by
   // `normalizeKeyOrder`. Slot it where the shipped default places it (right
   // after Storage) so existing installs see it "between Storage and
-  // Community" too — but only when the stored order never named it, so an
+  // Community" too - but only when the stored order never named it, so an
   // explicit user placement is always preserved.
-  if (Array.isArray(raw) && !raw.includes("navSaves")) {
+  if (stored && !stored.includes("navSaves")) {
     const without: InterfaceItemKey[] = normalized.filter((key) => key !== "navSaves");
     const anchor = without.indexOf("navStorage");
     if (anchor >= 0) without.splice(anchor + 1, 0, "navSaves");
     else without.push("navSaves");
-    return without;
+    normalized = without;
+  }
+  // Ports ships between Emulators and Mods; existing orders never named it, so
+  // normalizeKeyOrder would otherwise put the new tab at the very end.
+  if (stored && !stored.includes("navPorts")) {
+    const without: InterfaceItemKey[] = normalized.filter((key) => key !== "navPorts");
+    const anchor = without.indexOf("navEmulators");
+    if (anchor >= 0) without.splice(anchor + 1, 0, "navPorts");
+    else without.push("navPorts");
+    normalized = without;
   }
   return normalized;
 }
@@ -721,6 +734,7 @@ const FIRST_LAUNCH_INTERFACE_OVERRIDES: Partial<InterfaceVisibility> = {
   navDeals: false,
   navNews: false,
   navEmulators: false,
+  navPorts: false,
   navMods: false,
   navActivity: false,
   navAchievements: false,

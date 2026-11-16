@@ -72,6 +72,7 @@ function renderChips({
       onRemovePlayStatus={vi.fn()}
       onRemoveSource={vi.fn()}
       onRemoveVrOnly={vi.fn()}
+      onRemoveRecompOnly={vi.fn()}
       onClearShelf={onClearShelf}
       onSaveAsShelf={onSaveAsShelf}
       onResetAll={onResetAll}

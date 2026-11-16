@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import {
   PLAY_STATUS_DETAILS,
   gameDisplayName,
+  gameIsRecomp,
   gameIsVr,
   type Game,
 } from "../../types/game";
@@ -52,6 +53,7 @@ function SidebarGameItemBase({
   const coverRef = useRef<HTMLDivElement | null>(null);
   const displayName = gameDisplayName(game);
   const isVr = gameIsVr(game);
+  const isRecomp = gameIsRecomp(game);
 
   const [isNearViewport, setIsNearViewport] = useState(false);
   // Always ask SteamGridDB while the row is visible: the poster, hero and
@@ -281,6 +283,11 @@ function SidebarGameItemBase({
           {isVr && (
             <span className="sidebar-game-vr-badge" title={t("library.vrBadge")}>
               {t("library.vrBadge")}
+            </span>
+          )}
+          {isRecomp && (
+            <span className="sidebar-game-recomp-badge" title={t("library.recompBadge")}>
+              {t("library.recompBadge")}
             </span>
           )}
           <span className="sidebar-game-name__text">

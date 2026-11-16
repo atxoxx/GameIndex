@@ -1,5 +1,5 @@
 import type { Game, LibrarySource } from "../types/game";
-import { gameIsVr, parsePlayTime } from "../types/game";
+import { gameIsRecomp, gameIsVr, parsePlayTime } from "../types/game";
 import type { LibraryFilters } from "./libraryFilters";
 import {
   gameMatchesSearchTokens,
@@ -81,6 +81,7 @@ export function gameMatchesShelfRules(
   if (!includesAny(game.playerPerspectives, rules.perspectives)) return false;
 
   if (rules.vrOnly && !gameIsVr(game)) return false;
+  if (rules.recompOnly && !gameIsRecomp(game)) return false;
 
   if (rules.yearMin != null || rules.yearMax != null) {
     const year = parseReleaseYear(game.releaseDate);
@@ -166,6 +167,7 @@ export function rulesFromFilters(filters: LibraryFilters): ShelfRules {
   if (filters.source !== "all") rules.sources = [filters.source];
   if (filters.playStatus !== "all") rules.playStatus = filters.playStatus;
   if (filters.vrOnly) rules.vrOnly = true;
+  if (filters.recompOnly) rules.recompOnly = true;
   return rules;
 }
 
@@ -181,5 +183,6 @@ export function shelfRulesToFilters(rules: ShelfRules): Partial<LibraryFilters> 
   if (rules.sources && rules.sources.length === 1) partial.source = rules.sources[0];
   if (rules.playStatus) partial.playStatus = rules.playStatus;
   if (rules.vrOnly) partial.vrOnly = true;
+  if (rules.recompOnly) partial.recompOnly = true;
   return partial;
 }

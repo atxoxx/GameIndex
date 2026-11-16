@@ -29,6 +29,18 @@ describe("normalizeNavbarTabOrder", () => {
     expect(result).toHaveLength(DEFAULT_NAVBAR_TAB_ORDER.length);
   });
 
+  it("slots Ports between Emulators and Mods for orders saved before it existed", () => {
+    const stored = DEFAULT_NAVBAR_TAB_ORDER.filter((key) => key !== "navPorts");
+    const result = normalizeNavbarTabOrder(stored);
+    expect(result.indexOf("navPorts")).toBe(result.indexOf("navEmulators") + 1);
+    expect(result.indexOf("navMods")).toBe(result.indexOf("navPorts") + 1);
+  });
+
+  it("keeps an explicit Ports placement", () => {
+    const stored = ["navPorts", ...DEFAULT_NAVBAR_TAB_ORDER.filter((key) => key !== "navPorts")];
+    expect(normalizeNavbarTabOrder(stored)[0]).toBe("navPorts");
+  });
+
   it("falls back to the default order for malformed or empty input", () => {
     expect(normalizeNavbarTabOrder(null)).toEqual(DEFAULT_NAVBAR_TAB_ORDER);
     expect(normalizeNavbarTabOrder("navStore")).toEqual(

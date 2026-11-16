@@ -25,6 +25,8 @@ export interface ShelfRules {
   playStatus?: PlayStatus | "all";
   /** Virtual-reality titles only. */
   vrOnly?: boolean;
+  /** Recompilation/decompilation port titles only. */
+  recompOnly?: boolean;
   /** Release-year bounds (inclusive). */
   yearMin?: number | null;
   yearMax?: number | null;
@@ -173,6 +175,7 @@ export function parseShelfRules(raw: unknown): ShelfRules {
   const perspectives = strArray(o.perspectives);
   if (perspectives) rules.perspectives = perspectives;
   if (o.vrOnly === true) rules.vrOnly = true;
+  if (o.recompOnly === true) rules.recompOnly = true;
 
   const numericKeys: (keyof ShelfRules)[] = [
     "yearMin",

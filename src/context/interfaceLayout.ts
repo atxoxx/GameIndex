@@ -128,6 +128,11 @@ export type PageWidgetKey =
   | "emuBiosBoard"
   | "emuSidebar"
   | "emuDetail"
+  // Ports
+  | "portsHeader"
+  | "portsStats"
+  | "portsToolbar"
+  | "portsGrid"
   // Mods
   | "modsHeader"
   | "modsCockpit"
@@ -250,6 +255,11 @@ export const PAGE_WIDGET_KEYS: PageWidgetKey[] = [
   "emuBiosBoard",
   "emuSidebar",
   "emuDetail",
+  // Ports
+  "portsHeader",
+  "portsStats",
+  "portsToolbar",
+  "portsGrid",
   // Mods
   "modsHeader",
   "modsCockpit",
@@ -374,6 +384,11 @@ export const WIDGET_CLASS: Record<PageWidgetKey, string> = {
   emuBiosBoard: "ui-item-emuBiosBoard",
   emuSidebar: "ui-item-emuSidebar",
   emuDetail: "ui-item-emuDetail",
+  // Ports
+  portsHeader: "ui-item-portsHeader",
+  portsStats: "ui-item-portsStats",
+  portsToolbar: "ui-item-portsToolbar",
+  portsGrid: "ui-item-portsGrid",
   // Mods
   modsHeader: "ui-item-modsHeader",
   modsCockpit: "ui-item-modsCockpit",
@@ -498,6 +513,11 @@ export const WIDGET_LABEL_KEY: Record<PageWidgetKey, string> = {
   emuBiosBoard: "settings.interface.widgetEmuBiosBoard",
   emuSidebar: "settings.interface.widgetEmuSidebar",
   emuDetail: "settings.interface.widgetEmuDetail",
+  // Ports
+  portsHeader: "settings.interface.widgetPortsHeader",
+  portsStats: "settings.interface.widgetPortsStats",
+  portsToolbar: "settings.interface.widgetPortsToolbar",
+  portsGrid: "settings.interface.widgetPortsGrid",
   // Mods
   modsHeader: "settings.interface.widgetModsHeader",
   modsCockpit: "settings.interface.widgetModsCockpit",
@@ -533,6 +553,7 @@ export type InterfacePageKey =
   | "community"
   | "friends"
   | "emulators"
+  | "ports"
   | "mods"
   | "saves";
 
@@ -770,6 +791,12 @@ export const INTERFACE_PAGES: InterfacePageDef[] = [
       "emuSidebar",
       "emuDetail",
     ],
+  },
+  {
+    key: "ports",
+    labelKey: "nav.ports",
+    routes: ["/ports"],
+    items: ["portsHeader", "portsStats", "portsToolbar", "portsGrid"],
   },
   {
     key: "mods",

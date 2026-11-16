@@ -55,6 +55,7 @@ const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
 const SavesPage = lazy(() => import("../pages/saves/SavesPage"));
 const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
 const EmulatorsPage = lazy(() => import("../pages/EmulatorsPage"));
+const PortsPage = lazy(() => import("../pages/ports/PortsPage"));
 const ModsPage = lazy(() => import("../pages/mods/ModsPage"));
 const ModsDiscoverPage = lazy(() => import("../pages/mods/ModsDiscoverPage"));
 const ReelsPage = lazy(() => import("../pages/ReelsPage"));
@@ -135,6 +136,7 @@ const ICONS = {
   achievements: <Icon><circle cx="12" cy="8" r="5" /><path d="m8.5 12.5-1 8 4.5-2.5 4.5 2.5-1-8" /></Icon>,
   mods: <Icon><path d="M8 5h8l2 4v10H6V9l2-4Z" /><path d="M9 5v4h6V5" /><path d="M9 13h6M9 16h4" /></Icon>,
   emulators: <Icon><rect x="3" y="6" width="18" height="12" rx="3" /><path d="M8 12h4M10 10v4M16 11h.01M18 13h.01" /></Icon>,
+  ports: <Icon><rect x="7" y="7" width="10" height="10" rx="1.5" /><path d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4" /></Icon>,
   docs: <Icon><path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M14 3v4h4M8 11h8M8 15h8" /></Icon>,
   settings: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4h-.1a1.7 1.7 0 0 0-1.6 1Z" /></Icon>,
   activity: <Icon><path d="M3 12h4l3-8 4 16 3-8h4" /></Icon>,
@@ -211,6 +213,7 @@ export const PRIMARY_SECTIONS: BigScreenSection[] = [
       "/saves",
       "/achievements",
       "/mods",
+      "/ports",
       "/emulators",
       "/docs",
       "/reels",
@@ -229,6 +232,7 @@ export const SYSTEM_SECTIONS: BigScreenSection[] = [
   { id: "system", path: "/saves", labelKey: "nav.saves", icon: ICONS.saves, matches: ["/saves"] },
   { id: "system", path: "/achievements", labelKey: "nav.achievements", icon: ICONS.achievements, matches: ["/achievements"] },
   { id: "system", path: "/mods", labelKey: "nav.mods", icon: ICONS.mods, matches: ["/mods"] },
+  { id: "system", path: "/ports", labelKey: "nav.ports", icon: ICONS.ports, matches: ["/ports"] },
   { id: "system", path: "/emulators", labelKey: "nav.emulators", icon: ICONS.emulators, matches: ["/emulators"] },
   { id: "system", path: "/docs", labelKey: "nav.docs", icon: ICONS.docs, matches: ["/docs"] },
   { id: "system", path: "/settings", labelKey: "bigscreen.system.preferences", icon: ICONS.settings, matches: ["/settings"] },
@@ -398,6 +402,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "friends", desktop: () => <FriendsPage />, bigscreen: () => <BigScreenFriends /> },
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "emulators/:emulatorId", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
+  { path: "ports", desktop: () => <PortsPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="nav.ports" subtitleKey="ports.subtitle"><PortsPage /></BigScreenDesktopFallback> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
   { path: "mods/discover", desktop: () => <ModsDiscoverPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="mods.discover.title" subtitleKey="mods.discover.subtitle"><ModsDiscoverPage /></BigScreenDesktopFallback> },
   { path: "reels", desktop: () => <ReelsPage />, bigscreen: () => <BigScreenDesktopFallback titleKey="reels.title" subtitleKey="reels.subtitle"><ReelsPage /></BigScreenDesktopFallback> },

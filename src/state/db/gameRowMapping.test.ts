@@ -122,6 +122,7 @@ describe("game row mapping", () => {
       compatibility: { enabled: true, runnerType: "proton" },
       isVr: true,
       // Fields the Rust column set does not know about.
+      recomp: true,
       detectedExe: "C:\\detected.exe",
       humbleGameId: "humble_1",
       humbleIsTrove: true,
@@ -165,6 +166,26 @@ describe("game row mapping", () => {
     // A string where an integer belongs used to be possible in the JSON era.
     const decoded = decodeGame(rowFrom({ id: "g3", steamAppId: "440" } as unknown as Game));
     expect(decoded.steamAppId).toBe("440");
+  });
+
+  it("persists the recomp flag through extra_json", () => {
+    const game = {
+      id: "g-recomp",
+      name: "Ocarina of Time",
+      path: "",
+      platform: "Local",
+      installed: true,
+      playTime: "0h",
+      addedAt: 1,
+      recomp: true,
+    } as Game;
+
+    const encoded = encodeGame(game);
+    expect(encoded.values).not.toHaveProperty("recomp");
+    expect(extraJsonOf(encoded)).toContain('"recomp":true');
+
+    const decoded = decodeGame({ ...encoded.values, extra_json: extraJsonOf(encoded) });
+    expect(decoded.recomp).toBe(true);
   });
 
   it("summary drops exactly the seven heavy fields", () => {

@@ -112,6 +112,7 @@ export default function LibraryPage() {
     setSource,
     setPlayStatus,
     setVrOnly,
+    setRecompOnly,
     setSort,
     removeGenre,
     removePlatform,
@@ -122,6 +123,7 @@ export default function LibraryPage() {
     removeSearch,
     removeSource,
     removeVrOnly,
+    removeRecompOnly,
     reset,
   } = useLibraryFilters(games, { completedAtOf });
 
@@ -177,7 +179,8 @@ export default function LibraryPage() {
     (filters.ratingMin != null ? 1 : 0) +
     (filters.status !== "all" ? 1 : 0) +
     (filters.playStatus !== "all" ? 1 : 0) +
-    (filters.vrOnly ? 1 : 0);
+    (filters.vrOnly ? 1 : 0) +
+    (filters.recompOnly ? 1 : 0);
 
   // ── Navigation ───────────────────────────────────────────────────────────
   const handleCardClick = useCallback(
@@ -389,6 +392,7 @@ export default function LibraryPage() {
         filters.source,
         filters.playStatus,
         filters.vrOnly,
+        filters.recompOnly,
         filters.sort,
         groupBy,
         activeShelfId,
@@ -495,6 +499,7 @@ export default function LibraryPage() {
                 onRemovePlayStatus={removePlayStatus}
                 onRemoveSource={removeSource}
                 onRemoveVrOnly={removeVrOnly}
+                onRemoveRecompOnly={removeRecompOnly}
                 onClearShelf={() => setActiveShelf(null)}
                 onSaveAsShelf={openShelfBuilder}
                 onResetAll={resetAll}
@@ -539,6 +544,7 @@ export default function LibraryPage() {
             onPlayStatusChange={setPlayStatus}
             onSourceChange={setSource}
             onVrOnlyChange={setVrOnly}
+            onRecompOnlyChange={setRecompOnly}
             onReset={resetAll}
             onSaveAsShelf={openShelfBuilder}
           />

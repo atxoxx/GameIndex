@@ -19,6 +19,8 @@ export function CatalogSection() {
     setEditReleaseStatus,
     editIsVr,
     setEditIsVr,
+    editRecomp,
+    setEditRecomp,
     editSimilarGamesNames,
     setEditSimilarGamesNames,
     editAlternativeNames,
@@ -98,6 +100,16 @@ export function CatalogSection() {
           onChange={(event) => setEditIsVr(event.target.checked)}
         />
         <span>{t("edit.label.isVr")}</span>
+      </label>
+
+      <label className="edit-checkbox-row" htmlFor="edit-is-recomp">
+        <input
+          id="edit-is-recomp"
+          type="checkbox"
+          checked={editRecomp}
+          onChange={(event) => setEditRecomp(event.target.checked)}
+        />
+        <span>{t("edit.label.isRecomp")}</span>
       </label>
 
       <FieldGrid>

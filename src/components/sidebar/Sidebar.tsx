@@ -109,6 +109,7 @@ export default function Sidebar() {
     setStatus,
     setPlayStatus,
     setVrOnly,
+    setRecompOnly,
     setSort,
     removeGenre,
     removePlatform,
@@ -118,6 +119,7 @@ export default function Sidebar() {
     removePlayStatus,
     removeSource,
     removeVrOnly,
+    removeRecompOnly,
     reset,
   } = useLibraryFilters(games);
 
@@ -253,7 +255,8 @@ export default function Sidebar() {
     (filterState.yearMin != null || filterState.yearMax != null ? 1 : 0) +
     (filterState.ratingMin != null ? 1 : 0) +
     (filterState.playStatus !== "all" ? 1 : 0) +
-    (filterState.vrOnly ? 1 : 0);
+    (filterState.vrOnly ? 1 : 0) +
+    (filterState.recompOnly ? 1 : 0);
 
   const isFilteringActive =
     filterState.search.trim() !== "" ||
@@ -908,6 +911,7 @@ export default function Sidebar() {
         onRemoveSource={removeSource}
         onRemovePlayStatus={removePlayStatus}
         onRemoveVrOnly={removeVrOnly}
+        onRemoveRecompOnly={removeRecompOnly}
         onRemoveGenre={removeGenre}
         onRemovePlatform={removePlatform}
         onRemoveYear={removeYear}
@@ -1265,6 +1269,7 @@ export default function Sidebar() {
             status={filterState.status}
             playStatus={filterState.playStatus}
             vrOnly={filterState.vrOnly}
+            recompOnly={filterState.recompOnly}
             selectedGenres={filterState.genres}
             selectedPlatforms={filterState.platforms}
             yearMin={filterState.yearMin}
@@ -1278,6 +1283,7 @@ export default function Sidebar() {
             onStatusChange={setStatus}
             onPlayStatusChange={setPlayStatus}
             onVrOnlyChange={setVrOnly}
+            onRecompOnlyChange={setRecompOnly}
             onGenresChange={setGenres}
             onPlatformsChange={setPlatforms}
             onYearRangeChange={setYearRange}

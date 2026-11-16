@@ -65,6 +65,16 @@ export function gameIsVr(game: Game): boolean {
   return game.isVr ?? detectVr(game);
 }
 
+/**
+ * Resolve whether a game is a recompilation/decompilation port. The
+ * persisted `recomp` flag is the only source — `true` = recomp, `false`
+ * = explicitly not, `undefined` = never decided (treated as not a
+ * recomp). No heuristics: a port title is not detectable from the name.
+ */
+export function gameIsRecomp(game: Game): boolean {
+  return game.recomp ?? false;
+}
+
 export interface Game {
   id: string;
   name: string;
@@ -257,6 +267,14 @@ export interface Game {
    * which also derives from `genres`/`name`.
    */
    isVr?: boolean;
+  /**
+   * Recompilation / decompilation port flag (e.g. a native recomp of a
+   * console title). `true` = recompilation/decompilation port, `false` =
+   * explicitly not, `undefined` = never decided — callers should fall
+   * back to `gameIsRecomp(game)`, which treats an undecided flag as
+   * "not a recomp".
+   */
+  recomp?: boolean;
   /** What the user paid for this game (user-entered, or prefilled from a
    *  price lookup). `undefined` = unknown — excluded from $/hour stats. */
   purchaseCost?: number;
@@ -1353,6 +1371,9 @@ export interface GameMetadataResult {
    *  IGDB VR platforms, or a standalone "VR" title token). `undefined`
    *  when the source can't tell. */
   isVr?: boolean;
+  /** Recompilation/decompilation port flag detected by the backend
+   *  source. `undefined` when the source can't tell. */
+  recomp?: boolean;
 }
 
 /** Image URLs from a metadata source. */

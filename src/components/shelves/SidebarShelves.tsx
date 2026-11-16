@@ -40,7 +40,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
     reorderShelves,
     updateShelf,
   } = useShelves();
-  const { filters, reset, setSearch, setGenres, setPlatforms, setYearRange, setRatingMin, setStatus, setSource, setPlayStatus, setVrOnly, setSort } =
+  const { filters, reset, setSearch, setGenres, setPlatforms, setYearRange, setRatingMin, setStatus, setSource, setPlayStatus, setVrOnly, setRecompOnly, setSort } =
     useLibraryFilterState();
 
   // Persisted so the user's choice survives a relaunch; defaults to
@@ -88,6 +88,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
       if (partial.source) setSource(partial.source);
       if (partial.playStatus) setPlayStatus(partial.playStatus);
       if (partial.vrOnly) setVrOnly(true);
+      if (partial.recompOnly) setRecompOnly(true);
       setSort(shelf.sort);
       setActiveShelf(shelf.id);
     },
@@ -102,6 +103,7 @@ export function SidebarShelves({ isIconRail }: SidebarShelvesProps) {
       setSource,
       setPlayStatus,
       setVrOnly,
+      setRecompOnly,
       setSort,
       setActiveShelf,
     ]

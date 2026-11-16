@@ -24,6 +24,7 @@ import {
   extractSteamAppIdFromWebsites,
   gameDisplayName,
   gameIsVr,
+  gameIsRecomp,
 } from "../../../types/game";
 import type { Mo2Instance } from "../../../types/mo2";
 import { mergeMo2Instances } from "../../../utils/mo2Selection";
@@ -129,6 +130,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
   // the checkbox reflects what the badge already shows, and write an
   // explicit value on save to make the user's choice sticky.
   const [editIsVr, setEditIsVr] = useState(() => gameIsVr(game));
+  const [editRecomp, setEditRecomp] = useState(() => gameIsRecomp(game));
   const [editAlternativeNames, setEditAlternativeNames] = useState<string[]>(game.alternativeNames || []);
 
   const [editIcon, setEditIcon] = useState(game.iconUrl || "");
@@ -975,6 +977,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       setEditGameModes(result.gameModes || []);
       setEditPlayerPerspectives(result.playerPerspectives || []);
       if (result.isVr != null) setEditIsVr(result.isVr);
+      if (result.recomp != null) setEditRecomp(result.recomp);
 
       if (iconUrl) setEditIcon(iconUrl);
       if (coverUrl) setEditCover(coverUrl);
@@ -1407,6 +1410,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       gameCategory: editGameCategory.trim() || undefined,
       releaseStatus: editReleaseStatus.trim() || undefined,
       isVr: editIsVr,
+      recomp: editRecomp,
       languageSupports: newLanguageSupports,
       metadataSource: editMetadataSource ? editMetadataSource : undefined,
       metadataUrl: editMetadataUrl ? editMetadataUrl : undefined,
@@ -1661,6 +1665,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     editGameCategory,
     editReleaseStatus,
     editIsVr,
+    editRecomp,
     editSimilarGamesNames,
     editAlternativeNames,
     editMetadataSource,
@@ -1792,6 +1797,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     editGameCategory: setEditGameCategory,
     editReleaseStatus: setEditReleaseStatus,
     editIsVr: setEditIsVr,
+    editRecomp: setEditRecomp,
     editSimilarGamesNames: setEditSimilarGamesNames,
     editAlternativeNames: setEditAlternativeNames,
     editMetadataSource: setEditMetadataSource,
@@ -1973,6 +1979,8 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     setEditReleaseStatus,
     editIsVr,
     setEditIsVr,
+    editRecomp,
+    setEditRecomp,
     editAlternativeNames,
     setEditAlternativeNames,
     editPlatform,

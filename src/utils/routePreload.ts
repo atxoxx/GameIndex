@@ -27,6 +27,7 @@ const ROUTE_CHUNK_MAP: Record<string, Importer> = {
   "/community": () => import("../pages/CommunityPage"),
   "/friends": () => import("../pages/friends/FriendsPage"),
   "/emulators": () => import("../pages/EmulatorsPage"),
+  "/ports": () => import("../pages/ports/PortsPage"),
   "/mods": () => import("../pages/mods/ModsPage"),
   "/settings": () => import("../pages/SettingsPage"),
   "/docs": () => import("../pages/DocsPage"),

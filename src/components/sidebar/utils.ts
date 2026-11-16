@@ -1,5 +1,5 @@
 import type { Game, PlayStatus } from "../../types/game";
-import { gameDisplayName, gameIsVr, PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
+import { gameDisplayName, gameIsRecomp, gameIsVr, PLAY_STATUS_DETAILS, parsePlayTime } from "../../types/game";
 import type {
   SidebarGroup,
   SidebarGroupBy,
@@ -141,7 +141,8 @@ export function loadSidebarGroupBy(): SidebarGroupBy {
       raw === "letter" ||
       raw === "installed" ||
       raw === "decade" ||
-      raw === "vr"
+      raw === "vr" ||
+      raw === "recomp"
     ) {
       return raw;
     }
@@ -397,6 +398,13 @@ export function groupGames(
     map.set("non_vr", { title: t("sidebar.groupBy.nonVr"), games: [] });
     for (const game of games) {
       const bucket = gameIsVr(game) ? "vr" : "non_vr";
+      map.get(bucket)!.games.push(game);
+    }
+  } else if (groupBy === "recomp") {
+    map.set("recomp", { title: t("sidebar.groupBy.recomp"), games: [], badgeColor: "var(--color-info)" });
+    map.set("non_recomp", { title: t("sidebar.groupBy.nonRecomp"), games: [] });
+    for (const game of games) {
+      const bucket = gameIsRecomp(game) ? "recomp" : "non_recomp";
       map.get(bucket)!.games.push(game);
     }
   }

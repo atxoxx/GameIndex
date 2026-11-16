@@ -85,6 +85,7 @@ function Harness(props: {
         onPlayStatusChange={props.onPlayStatusChange ?? vi.fn()}
         onSourceChange={props.onSourceChange ?? vi.fn()}
         onVrOnlyChange={vi.fn()}
+        onRecompOnlyChange={vi.fn()}
         onReset={props.onReset ?? vi.fn()}
         onSaveAsShelf={props.onSaveAsShelf ?? vi.fn()}
       />

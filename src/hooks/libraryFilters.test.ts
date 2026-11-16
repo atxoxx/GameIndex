@@ -185,3 +185,27 @@ describe("vrOnly filter", () => {
     expect(gameMatchesFilters(cleared, { ...EMPTY_LIBRARY_FILTERS, vrOnly: true })).toBe(false);
   });
 });
+
+describe("recompOnly filter", () => {
+  it("keeps tagged recompilations and drops untagged games", () => {
+    const recomp = makeGame({ name: "Ocarina of Time", recomp: true });
+    const native = makeGame({ name: "Hades" });
+    const filters = { ...EMPTY_LIBRARY_FILTERS, recompOnly: true };
+    expect(gameMatchesFilters(recomp, filters)).toBe(true);
+    expect(gameMatchesFilters(native, filters)).toBe(false);
+  });
+
+  it("honours an explicit non-recomp override", () => {
+    const cleared = makeGame({ name: "Ocarina of Time", recomp: false });
+    expect(gameMatchesFilters(cleared, { ...EMPTY_LIBRARY_FILTERS, recompOnly: true })).toBe(false);
+  });
+
+  it("clearing the facet restores every game", () => {
+    const recomp = makeGame({ name: "Ocarina of Time", recomp: true });
+    const native = makeGame({ name: "Hades" });
+    const active = { ...EMPTY_LIBRARY_FILTERS, recompOnly: true };
+    const cleared = { ...active, recompOnly: false };
+    expect(filterGames([recomp, native], active)).toEqual([recomp]);
+    expect(filterGames([recomp, native], cleared)).toEqual([recomp, native]);
+  });
+});

@@ -174,6 +174,7 @@ export const SEARCH_FIELDS: EditSearchField[] = [
   { id: "edit-game-category", labelKey: "edit.label.gameType", section: "catalog", keywords: ["dlc", "expansion", "type"] },
   { id: "edit-release-status", labelKey: "edit.label.releaseStatus", section: "catalog", keywords: ["early access", "released"] },
   { id: "edit-is-vr", labelKey: "edit.label.isVr", section: "catalog", keywords: ["vr", "virtual reality"] },
+  { id: "edit-is-recomp", labelKey: "edit.label.isRecomp", section: "catalog", keywords: ["recomp", "recompilation", "decomp", "decompilation", "port"] },
   { id: "edit-similar-games", labelKey: "edit.label.similarGames", section: "catalog", keywords: ["similar", "related"] },
   { id: "edit-alternative-names", labelKey: "edit.label.alternativeNames", section: "catalog", keywords: ["alias", "alternate title"] },
   { id: "edit-metadata-source", labelKey: "edit.label.metadataSource", section: "catalog", keywords: ["igdb", "steam", "launchbox", "source"] },

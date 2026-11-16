@@ -8,6 +8,7 @@ import {
   Boxes,
   Calendar,
   CalendarClock,
+  CircuitBoard,
   Clock,
   Cpu,
   Download,
@@ -158,6 +159,11 @@ export const WIDGET_ICON: Record<PageWidgetKey, LucideIcon> = {
   emuBiosBoard: ShieldCheck,
   emuSidebar: PanelLeft,
   emuDetail: Terminal,
+  // Ports
+  portsHeader: CircuitBoard,
+  portsStats: BarChart3,
+  portsToolbar: Filter,
+  portsGrid: LayoutGrid,
   // Mods
   modsHeader: Boxes,
   modsCockpit: SlidersHorizontal,

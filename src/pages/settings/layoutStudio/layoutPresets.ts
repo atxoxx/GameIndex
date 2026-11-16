@@ -84,6 +84,7 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
         navDeals: false,
         navNews: false,
         navEmulators: false,
+        navPorts: false,
         navMods: false,
         navActivity: false,
         navAchievements: false,
@@ -145,6 +146,7 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
       interfaceVisibility: {
         ...DEFAULT_INTERFACE_VISIBILITY,
         navMods: false,
+        navPorts: false,
         navEmulators: false,
         navCommunity: false,
         btnDocs: false,

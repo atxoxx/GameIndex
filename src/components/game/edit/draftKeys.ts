@@ -64,6 +64,7 @@ export const SECTION_DRAFT_KEYS: Record<EditSectionKey, readonly string[]> = {
     "editGameCategory",
     "editReleaseStatus",
     "editIsVr",
+    "editRecomp",
     "editSimilarGamesNames",
     "editAlternativeNames",
     "editMetadataSource",

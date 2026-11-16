@@ -31,6 +31,7 @@ interface LibraryFilterPopoverProps {
   onPlayStatusChange: (playStatus: PlayStatus | "all") => void;
   onSourceChange: (source: LibrarySource) => void;
   onVrOnlyChange: (vrOnly: boolean) => void;
+  onRecompOnlyChange: (recompOnly: boolean) => void;
   onReset: () => void;
   onSaveAsShelf: () => void;
 }
@@ -77,6 +78,7 @@ export default function LibraryFilterPopover({
   onPlayStatusChange,
   onSourceChange,
   onVrOnlyChange,
+  onRecompOnlyChange,
   onReset,
   onSaveAsShelf,
 }: LibraryFilterPopoverProps) {
@@ -419,6 +421,18 @@ export default function LibraryFilterPopover({
             <span className="library-facet-switch-knob" />
           </span>
           <span className="library-facet-switch-label">{t("library.filter.vrOnly")}</span>
+        </label>
+
+        <label className="library-facet-switch">
+          <input
+            type="checkbox"
+            checked={filters.recompOnly}
+            onChange={(event) => onRecompOnlyChange(event.target.checked)}
+          />
+          <span className="library-facet-switch-track" aria-hidden="true">
+            <span className="library-facet-switch-knob" />
+          </span>
+          <span className="library-facet-switch-label">{t("library.filter.recompOnly")}</span>
         </label>
       </div>
 

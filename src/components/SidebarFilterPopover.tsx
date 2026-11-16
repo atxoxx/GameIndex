@@ -66,6 +66,8 @@ interface SidebarFilterPopoverProps {
   playStatus: PlayStatus | "all";
   /** When true the sidebar list is narrowed to VR games only. */
   vrOnly: boolean;
+  /** When true the sidebar list is narrowed to recompilation/decompilation ports only. */
+  recompOnly: boolean;
   /** Currently selected genres (OR). */
   selectedGenres: string[];
   /** Currently selected platforms (exact match). */
@@ -89,6 +91,7 @@ interface SidebarFilterPopoverProps {
   onStatusChange: (s: LibraryStatus) => void;
   onPlayStatusChange: (ps: PlayStatus | "all") => void;
   onVrOnlyChange: (v: boolean) => void;
+  onRecompOnlyChange: (v: boolean) => void;
   onGenresChange: (g: string[]) => void;
   onPlatformsChange: (p: string[]) => void;
   onYearRangeChange: (min: number | null, max: number | null) => void;
@@ -155,6 +158,7 @@ export default function SidebarFilterPopover({
   status,
   playStatus,
   vrOnly,
+  recompOnly,
   selectedGenres,
   selectedPlatforms,
   yearMin,
@@ -168,6 +172,7 @@ export default function SidebarFilterPopover({
   onStatusChange,
   onPlayStatusChange,
   onVrOnlyChange,
+  onRecompOnlyChange,
   onGenresChange,
   onPlatformsChange,
   onYearRangeChange,
@@ -479,6 +484,21 @@ export default function SidebarFilterPopover({
               onClick={() => onVrOnlyChange(!vrOnly)}
             >
               {t("library.filter.vrOnly")}
+            </button>
+          </div>
+        </section>
+
+        {/* ── Recomp only: toggle ── */}
+        <section className="sidebar-filter-popover-section">
+          <h4 className="sidebar-filter-popover-heading">{t("library.filter.recomp")}</h4>
+          <div className="sidebar-filter-popover-segmented">
+            <button
+              type="button"
+              className={`sidebar-filter-popover-segment${recompOnly ? " active" : ""}`}
+              aria-pressed={recompOnly}
+              onClick={() => onRecompOnlyChange(!recompOnly)}
+            >
+              {t("library.filter.recompOnly")}
             </button>
           </div>
         </section>

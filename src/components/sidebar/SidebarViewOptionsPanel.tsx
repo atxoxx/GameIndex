@@ -32,6 +32,7 @@ const GROUP_BY_OPTIONS: { id: SidebarGroupBy; labelKey: string }[] = [
   { id: "installed", labelKey: "sidebar.groupBy.installed" },
   { id: "decade", labelKey: "sidebar.groupBy.decade" },
   { id: "vr", labelKey: "sidebar.groupBy.vr" },
+  { id: "recomp", labelKey: "sidebar.groupBy.recomp" },
 ];
 
 const DENSITY_OPTIONS: { id: SidebarDensity; labelKey: string }[] = [

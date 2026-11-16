@@ -44,6 +44,7 @@ import { registerBackupCommands } from "./backup";
 import { registerCaptureCommands } from "./capture";
 import { registerMediaCommands } from "./media";
 import { registerExtrasCommands } from "./extras";
+import { registerPortCommands } from "./ports";
 import { registerUpdaterCommands } from "./updater";
 
 export function registerCommandHandlers(): void {
@@ -77,6 +78,7 @@ export function registerCommandHandlers(): void {
   registerCaptureCommands();
   registerMediaCommands();
   registerExtrasCommands();
+  registerPortCommands();
   registerUpdaterCommands();
   registerStubCommands();
 }

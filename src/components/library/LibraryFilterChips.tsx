@@ -19,6 +19,7 @@ interface LibraryFilterChipsProps {
   onRemovePlayStatus: () => void;
   onRemoveSource: () => void;
   onRemoveVrOnly: () => void;
+  onRemoveRecompOnly: () => void;
   onClearShelf: () => void;
   onSaveAsShelf: () => void;
   onResetAll: () => void;
@@ -51,6 +52,7 @@ export default function LibraryFilterChips({
   onRemovePlayStatus,
   onRemoveSource,
   onRemoveVrOnly,
+  onRemoveRecompOnly,
   onClearShelf,
   onSaveAsShelf,
   onResetAll,
@@ -68,7 +70,8 @@ export default function LibraryFilterChips({
     filters.status !== "all" ||
     filters.source !== "all" ||
     filters.playStatus !== "all" ||
-    filters.vrOnly;
+    filters.vrOnly ||
+    filters.recompOnly;
 
   if (!hasAny) return null;
 
@@ -140,6 +143,9 @@ export default function LibraryFilterChips({
           chip("rating", `${filters.ratingMin}+`, onRemoveRating)}
 
         {filters.vrOnly && chip("vr", t("library.filter.vrOnly"), onRemoveVrOnly)}
+
+        {filters.recompOnly &&
+          chip("recomp", t("library.filter.recompOnly"), onRemoveRecompOnly)}
       </div>
 
       <div className="library-chips-actions">

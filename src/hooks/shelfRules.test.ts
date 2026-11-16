@@ -132,6 +132,7 @@ describe("rulesFromFilters / shelfRulesToFilters", () => {
       playStatus: "backlog",
       ratingMin: 80,
       vrOnly: true,
+      recompOnly: true,
     });
     expect(rules).toMatchObject({
       genres: ["RPG"],
@@ -140,6 +141,7 @@ describe("rulesFromFilters / shelfRulesToFilters", () => {
       playStatus: "backlog",
       ratingMin: 80,
       vrOnly: true,
+      recompOnly: true,
     });
 
     const back = shelfRulesToFilters(rules);
@@ -149,6 +151,7 @@ describe("rulesFromFilters / shelfRulesToFilters", () => {
     expect(back.playStatus).toBe("backlog");
     expect(back.ratingMin).toBe(80);
     expect(back.vrOnly).toBe(true);
+    expect(back.recompOnly).toBe(true);
   });
 
   it("omits unconstrained facets", () => {

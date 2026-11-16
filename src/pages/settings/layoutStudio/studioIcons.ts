@@ -4,6 +4,7 @@
 
 import {
   Activity,
+  CircuitBoard,
   Download,
   FileText,
   GalleryHorizontal,
@@ -55,6 +56,7 @@ export const STUDIO_PAGE_ICON: Record<InterfacePageKey, LucideIcon> = {
   community: Users,
   friends: UserCheck,
   emulators: Monitor,
+  ports: CircuitBoard,
   mods: Puzzle,
   saves: Save,
 };

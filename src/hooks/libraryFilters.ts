@@ -1,5 +1,5 @@
 import type { Game, LibrarySource, PlayStatus } from "../types/game";
-import { gameDisplayName, gameIsVr, parsePlayTime } from "../types/game";
+import { gameDisplayName, gameIsRecomp, gameIsVr, parsePlayTime } from "../types/game";
 
 /** Status facets for the library filter sidebar. */
 export type LibraryStatus = "all" | "installed" | "not_installed";
@@ -87,6 +87,8 @@ export interface LibraryFilters {
   playStatus: PlayStatus | "all";
   /** When true, only virtual-reality games are shown. */
   vrOnly: boolean;
+  /** When true, only recompilation/decompilation port games are shown. */
+  recompOnly: boolean;
   /** Sort order for the filtered list. */
   sort: LibrarySort;
 }
@@ -110,6 +112,7 @@ export const EMPTY_LIBRARY_FILTERS: LibraryFilters = {
   source: "all",
   playStatus: "all",
   vrOnly: false,
+  recompOnly: false,
   sort: "alphabetical",
 };
 
@@ -358,6 +361,9 @@ export function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean
   // VR games only
   if (filters.vrOnly && !gameIsVr(game)) return false;
 
+  // Recompilation/decompilation ports only
+  if (filters.recompOnly && !gameIsRecomp(game)) return false;
+
   return true;
 }
 
@@ -373,7 +379,8 @@ export function hasActiveFilters(filters: LibraryFilters): boolean {
     filters.status !== "all" ||
     filters.source !== "all" ||
     filters.playStatus !== "all" ||
-    filters.vrOnly
+    filters.vrOnly ||
+    filters.recompOnly
   );
 }
 
@@ -406,6 +413,7 @@ export function parseStoredFilters(raw: unknown): LibraryFilters {
         ? (obj.playStatus as PlayStatus)
         : "all",
     vrOnly: obj.vrOnly === true,
+    recompOnly: obj.recompOnly === true,
     sort: parseLibrarySort(obj.sort),
   };
 }
@@ -523,6 +531,7 @@ export function parseStoredPreset(raw: unknown): FilterPreset | null {
         ? (f.playStatus as PlayStatus)
         : "all",
     vrOnly: f.vrOnly === true,
+    recompOnly: f.recompOnly === true,
     sort: filtersSort,
   };
 

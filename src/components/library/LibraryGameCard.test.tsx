@@ -35,6 +35,7 @@ vi.mock("../../context/LanguageContext", () => ({
         "library.running": "Running",
         "library.moreActions": "More actions",
         "library.vrBadge": "VR",
+        "library.recompBadge": "Recomp",
         "library.romBadge": "ROM",
         "game.status.playing": "Playing",
         "game.status.backlog": "Backlog",
@@ -187,6 +188,19 @@ describe("LibraryGameCard", () => {
 
     expect(onToggleSelect).toHaveBeenCalledWith(game);
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("renders the recomp badge when the game is tagged as a recompilation", () => {
+    renderCard({ game: { ...game, recomp: true } });
+
+    const badge = screen.getByText("Recomp");
+    expect(badge).toHaveClass("lib-card-chip--recomp");
+  });
+
+  it("hides the recomp badge for an untagged game", () => {
+    renderCard();
+
+    expect(screen.queryByText("Recomp")).not.toBeInTheDocument();
   });
 
   it("renders a compact card without chips", () => {

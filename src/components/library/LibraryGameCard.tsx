@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Play } from "lucide-react";
 import type { Game, LibraryDensity } from "../../types/game";
-import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsVr } from "../../types/game";
+import { PLAY_STATUS_DETAILS, gameDisplayName, gameIsRecomp, gameIsVr } from "../../types/game";
 import { useGameCardActions } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
@@ -108,6 +108,7 @@ function LibraryGameCardBase({
 
   const rating = game.igdbRating ?? game.criticRating;
   const isVr = gameIsVr(game);
+  const isRecomp = gameIsRecomp(game);
   const playStatus = game.playStatus || "backlog";
   const statusMeta = PLAY_STATUS_DETAILS[playStatus];
 
@@ -201,6 +202,9 @@ function LibraryGameCardBase({
             </span>
           ) : (
             <span className="lib-card-list-muted">–</span>
+          )}
+          {isRecomp && (
+            <span className="lib-card-chip lib-card-chip--recomp">{t("library.recompBadge")}</span>
           )}
         </div>
 
@@ -382,6 +386,9 @@ function LibraryGameCardBase({
             )}
             {game.emulatorId && game.romPath && (
               <span className="lib-card-chip lib-card-chip--rom">{t("library.romBadge")}</span>
+            )}
+            {isRecomp && (
+              <span className="lib-card-chip lib-card-chip--recomp">{t("library.recompBadge")}</span>
             )}
           </div>
         )}

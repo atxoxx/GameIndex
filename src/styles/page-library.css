@@ -1307,6 +1307,11 @@
   background: color-mix(in srgb, var(--color-info) 14%, transparent);
 }
 
+.library-page .lib-card-chip--recomp {
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 14%, transparent);
+}
+
 .library-page .lib-card-chip--status .lib-card-chip-dot {
   width: 5px;
   height: 5px;
