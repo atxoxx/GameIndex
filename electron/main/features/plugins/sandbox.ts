@@ -21,7 +21,9 @@
  * ## Globals
  *
  * The sandbox exposes exactly the documented I/O surface:
- * `httpGet`, `httpGetJson`, `httpGetXml`, `console` and `definePlugin`.
+ * `httpGet`, `httpGetJson`, `httpGetXml`, `httpGetAll`, `httpRequest`,
+ * `httpRequestJson`, `httpHead`, `httpGetBytes`, `httpGetTorrent`, `parseHtml`,
+ * `sleep`, `console` and `definePlugin`.
  * There is no `require`, no `import`, no filesystem, no `process`, no `fetch`
  * and no timers — QuickJS starts with none of those.
  *
@@ -41,6 +43,7 @@ import {
 import { normalizeManifest, type PluginManifest } from "./manifest";
 import type { PluginRawResult } from "./types";
 import { parseFeed } from "./xml";
+import * as cheerio from "cheerio";
 
 export const DEFAULT_MEMORY_LIMIT_BYTES = 64 * 1024 * 1024;
 export const DEFAULT_TIMEOUT_MS = 20_000;
@@ -58,6 +61,13 @@ const HTTP_TIMEOUT_MS = 15_000;
 const HTTP_MIN_REQUEST_MS = 1_500;
 /** Headroom kept before the sandbox's own interrupt deadline. */
 const HTTP_DEADLINE_MARGIN_MS = 250;
+/** A plugin can fan out to this many pages in one `httpGetAll` call. */
+const MAX_PARALLEL_FETCHES = 24;
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+const MAX_REQUEST_HEADER_COUNT = 32;
+const MAX_REQUEST_HEADER_BYTES = 8 * 1024;
+/** Longest `sleep()` a plugin may request; the sandbox deadline caps it too. */
+const MAX_SLEEP_MS = 2_000;
 const MAX_CONSOLE_LINE = 2_000;
 const MAX_FILE_LIST_ENTRIES = 2_000;
 const MAX_DIRECT_URLS = 50;
@@ -77,23 +87,50 @@ export interface SandboxNetworkPolicy {
   rateLimitMs?: number;
 }
 
+export interface HttpRequestOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  /** Refuse bodies bigger than this without buffering them. */
+  maxBytes?: number;
+}
+
+export interface HttpResponseText {
+  status: number;
+  ok: boolean;
+  url: string;
+  text: string;
+  /** Present when the transport can expose response headers (`httpHead`). */
+  headers?: { get(name: string): string | null };
+}
+
 /** Minimal shape of `httpText` from `lib/http.ts`. */
-export type HttpTextFn = (
+export type HttpTextFn = (url: string, options: HttpRequestOptions) => Promise<HttpResponseText>;
+
+/** Parse a `.torrent` (or magnet) into `httpGetTorrent`'s shape, as JSON. */
+export type FetchTorrentFn = (
   url: string,
-  options: {
-    headers?: Record<string, string>;
-    timeoutMs?: number;
-    signal?: AbortSignal;
-    /** Refuse bodies bigger than this without buffering them. */
-    maxBytes?: number;
-  },
-) => Promise<{ status: number; ok: boolean; url: string; text: string }>;
+  options: HttpRequestOptions,
+) => Promise<string | null>;
+
+/** Fetch a binary body for `httpGetBytes`, base64-encoded. */
+export type FetchBytesFn = (url: string, options: HttpRequestOptions) => Promise<string>;
 
 export interface SandboxOptions {
   pluginId?: string;
   limits?: SandboxLimits;
   network?: SandboxNetworkPolicy;
   httpText?: HttpTextFn;
+  /**
+   * Torrent parsing lives in the host (it needs a full bencode/torrent
+   * decoder), so `httpGetTorrent` is injected rather than reimplemented in
+   * QuickJS. Returning null means "not a parseable torrent".
+   */
+  fetchTorrent?: FetchTorrentFn;
+  /** Binary fetch for `httpGetBytes`; returns base64 (QuickJS has no bytes). */
+  fetchBytes?: FetchBytesFn;
   logger?: (line: string) => void;
 }
 
@@ -208,6 +245,84 @@ function optionalStringArg(
   return value ? value : undefined;
 }
 
+/** Tolerant read of the `httpRequest(url, options)` object. */
+function readRequestOptions(value: unknown): {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  referer?: string;
+} {
+  const out: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    referer?: string;
+  } = {};
+  if (value === null || typeof value !== "object") return out;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.method === "string" && raw.method.trim()) out.method = raw.method.trim();
+  if (typeof raw.referer === "string" && raw.referer) out.referer = raw.referer;
+  if (typeof raw.body === "string") out.body = raw.body;
+  if (raw.headers !== null && typeof raw.headers === "object") {
+    const headers: Record<string, string> = {};
+    for (const [name, headerValue] of Object.entries(raw.headers)) {
+      if (typeof headerValue === "string") headers[name] = headerValue;
+    }
+    out.headers = headers;
+  }
+  return out;
+}
+
+/**
+ * Normalize `httpGetAll(urlsOrRequests, referers?)` into ordered fetch targets:
+ * plain URLs with an optional parallel `referers` array, or `{url, referer}`
+ * objects. The batch is capped so one plugin cannot fan out unboundedly.
+ */
+function fetchTargets(
+  list: unknown,
+  referers: unknown,
+): Array<{ url: string; referer?: string }> {
+  const fallbackReferers = Array.isArray(referers) ? referers : [];
+  const entries = Array.isArray(list) ? list : [];
+  const out: Array<{ url: string; referer?: string }> = [];
+  for (let index = 0; index < entries.length && out.length < MAX_PARALLEL_FETCHES; index += 1) {
+    const entry = entries[index];
+    if (typeof entry === "string") {
+      if (!entry) continue;
+      const referer =
+        typeof fallbackReferers[index] === "string" ? (fallbackReferers[index] as string) : undefined;
+      out.push(referer ? { url: entry, referer } : { url: entry });
+      continue;
+    }
+    if (entry !== null && typeof entry === "object") {
+      const value = entry as Record<string, unknown>;
+      const url = typeof value.url === "string" ? value.url : "";
+      if (!url) continue;
+      const referer = typeof value.referer === "string" ? value.referer : undefined;
+      out.push(referer ? { url, referer } : { url });
+    }
+  }
+  return out;
+}
+
+/** `parseHtml` extraction: selector → `{text, html, attrs}` rows. */
+export function selectHtml(
+  html: string,
+  selector: string,
+  limit: number,
+): Array<{ text: string; html: string; attrs: Record<string, string> }> {
+  const $ = cheerio.load(html);
+  const rows: Array<{ text: string; html: string; attrs: Record<string, string> }> = [];
+  $(selector)
+    .slice(0, limit)
+    .each((_index, element) => {
+      const node = $(element);
+      const attrs: Record<string, string> = { ...(node.attr() ?? {}) };
+      rows.push({ text: node.text().trim(), html: node.html() ?? "", attrs });
+    });
+  return rows;
+}
+
 async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
   const limits: Required<SandboxLimits> = {
     memoryLimitBytes: options.limits?.memoryLimitBytes ?? DEFAULT_MEMORY_LIMIT_BYTES,
@@ -279,11 +394,63 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
     }
   };
 
-  const fetchText = async (url: string, referer?: string): Promise<string> => {
+  /**
+   * Validate a request, apply the host's rate limit and charge the request
+   * budget. Returns the normalized request to execute.
+   */
+  const prepareRequest = async (
+    url: string,
+    init: { method?: string; headers?: Record<string, string>; body?: string; referer?: string },
+  ): Promise<{ method: string; headers: Record<string, string>; body?: string }> => {
     checkEgress(url);
     if (!options.httpText) {
       throw new Error("httpGet: no HTTP transport is configured");
     }
+
+    const method = (init.method ?? "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" && method !== "POST") {
+      throw new Error(`httpRequest: unsupported method ${method}`);
+    }
+
+    const headers: Record<string, string> = {};
+    const given = init.headers ?? {};
+    const names = Object.keys(given);
+    if (names.length > MAX_REQUEST_HEADER_COUNT) {
+      throw new Error(`httpRequest: too many headers (max ${MAX_REQUEST_HEADER_COUNT})`);
+    }
+    let headerBytes = 0;
+    for (const name of names) {
+      const value = given[name];
+      if (typeof value !== "string") {
+        throw new Error(`httpRequest: header ${name} must be a string`);
+      }
+      if (/[\r\n]/.test(name) || /[\r\n]/.test(value)) {
+        throw new Error("httpRequest: header contains CR or LF");
+      }
+      headerBytes += name.length + value.length;
+      headers[name] = value;
+    }
+    if (headerBytes > MAX_REQUEST_HEADER_BYTES) {
+      throw new Error("httpRequest: headers are too large");
+    }
+    if (init.referer) {
+      if (/[\r\n]/.test(init.referer)) {
+        throw new Error("httpGet: referer contains CR or LF");
+      }
+      headers.referer = init.referer;
+    }
+
+    const body = init.body;
+    if (body !== undefined) {
+      if (method !== "POST") {
+        throw new Error("httpRequest: only POST requests may carry a body");
+      }
+      if (typeof body !== "string") throw new Error("httpRequest: body must be a string");
+      if (body.length > MAX_REQUEST_BODY_BYTES) {
+        throw new Error(`httpRequest: request body too large (max ${MAX_REQUEST_BODY_BYTES} bytes)`);
+      }
+    }
+
     const host = hostOf(url) ?? "";
     const wait = reserveHostSlot(host, network.rateLimitMs ?? 0);
     if (wait > 0) {
@@ -302,12 +469,15 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
       );
     }
 
-    if (referer && /[\r\n]/.test(referer)) {
-      throw new Error("httpGet: referer contains CR or LF");
-    }
-    const headers: Record<string, string> = {};
-    if (referer) headers.referer = referer;
+    return { method, headers, body };
+  };
 
+  /** Execute a prepared request, retrying only idempotent methods. */
+  const executeRequest = async (
+    url: string,
+    request: { method: string; headers: Record<string, string>; body?: string },
+  ): Promise<HttpResponseText> => {
+    const retryable = request.method === "GET" || request.method === "HEAD";
     let lastError = "";
     let attempts = 0;
     for (let attempt = 0; attempt < HTTP_MAX_ATTEMPTS; attempt += 1) {
@@ -328,10 +498,12 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
       // Never let a single request outlive the sandbox that is waiting on it.
       const timeoutMs = Math.min(HTTP_TIMEOUT_MS, budget);
       attempts += 1;
-      let response: { status: number; ok: boolean; url: string; text: string };
+      let response: HttpResponseText;
       try {
-        response = await options.httpText(url, {
-          headers,
+        response = await options.httpText!(url, {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
           timeoutMs,
           signal: controller.signal,
           maxBytes: limits.maxResponseBytes,
@@ -339,6 +511,7 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
       } catch (error) {
         if (controller.signal.aborted) throw new Error("httpGet: search cancelled");
         lastError = errorMessage(error);
+        if (!retryable) break;
         continue;
       }
       if (response.ok) {
@@ -347,9 +520,9 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
             `httpGet: ${url} response too large (${response.text.length} > ${limits.maxResponseBytes} bytes)`,
           );
         }
-        return response.text;
+        return response;
       }
-      if (response.status >= 500) {
+      if (response.status >= 500 && retryable) {
         lastError = `HTTP ${response.status}`;
         continue;
       }
@@ -361,6 +534,12 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
         attempts > 0 ? ` after ${attempts} attempt${attempts === 1 ? "" : "s"}` : ""
       }: ${lastError || "search budget exhausted"}`,
     );
+  };
+
+  const fetchText = async (url: string, referer?: string): Promise<string> => {
+    const request = await prepareRequest(url, { referer });
+    const response = await executeRequest(url, request);
+    return response.text;
   };
 
   // ── Globals ─────────────────────────────────────────────────────────────
@@ -411,6 +590,183 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
   );
   context.setProp(context.global, "__httpGetXmlJson", httpGetXmlJson);
   httpGetXmlJson.dispose();
+
+  // `httpRequest`: GET/HEAD/POST with optional headers and a JSON body. The
+  // host validates the method, header bytes and body size before the request.
+  const httpRequestFn = context.newAsyncifiedFunction(
+    "__httpRequest",
+    guardAsync("httpRequest", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const url = readStringArg(context, args[0], "httpRequest(url)");
+      const optionsHandle = args[1];
+      let options: { method?: string; headers?: Record<string, string>; body?: string; referer?: string } = {};
+      if (optionsHandle && context.typeof(optionsHandle) === "object") {
+        options = readRequestOptions(context.dump(optionsHandle));
+      }
+      const request = await prepareRequest(url, options);
+      const response = await executeRequest(url, request);
+      return context.newString(response.text);
+    }),
+  );
+  context.setProp(context.global, "__httpRequest", httpRequestFn);
+  httpRequestFn.dispose();
+
+  // `httpGetAll`: parallel fetches that keep their order; a failed page is "".
+  const httpGetAllFn = context.newAsyncifiedFunction(
+    "httpGetAll",
+    guardAsync("httpGetAll", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const targets = fetchTargets(context.dump(args[0]), context.dump(args[1]));
+      const texts = await Promise.all(
+        targets.map(async (target) => {
+          try {
+            const request = await prepareRequest(target.url, { referer: target.referer });
+            const response = await executeRequest(target.url, request);
+            return response.text;
+          } catch {
+            // One dead page never fails the batch.
+            return "";
+          }
+        }),
+      );
+      const array = context.newArray();
+      texts.forEach((text, index) => {
+        const handle = context.newString(text);
+        context.setProp(array, index, handle);
+        handle.dispose();
+      });
+      return array;
+    }),
+  );
+  context.setProp(context.global, "__httpGetAll", httpGetAllFn);
+  httpGetAllFn.dispose();
+
+  // `httpHead`: status + response headers without a body. The JSON round-trip
+  // keeps object construction out of the host.
+  const httpHeadFn = context.newAsyncifiedFunction(
+    "__httpHead",
+    guardAsync("httpHead", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const url = readStringArg(context, args[0], "httpHead(url)");
+      const referer = optionalStringArg(context, args[1]);
+      const request = await prepareRequest(url, { method: "HEAD", referer });
+      const response = await executeRequest(url, request);
+      const header = (name: string) => response.headers?.get(name) ?? null;
+      return context.newString(
+        JSON.stringify({
+          status: response.status,
+          finalUrl: response.url,
+          contentType: header("content-type"),
+          contentLength: header("content-length"),
+        }),
+      );
+    }),
+  );
+  context.setProp(context.global, "__httpHead", httpHeadFn);
+  httpHeadFn.dispose();
+
+  // `httpGetBytes`: binary body as base64 (QuickJS strings are UTF-16 text).
+  const httpGetBytesFn = context.newAsyncifiedFunction(
+    "__httpGetBytes",
+    guardAsync("httpGetBytes", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const url = readStringArg(context, args[0], "httpGetBytes(url)");
+      const referer = optionalStringArg(context, args[1]);
+      checkEgress(url);
+      if (!options.fetchBytes) throw new Error("httpGetBytes: no binary transport is configured");
+      const host = hostOf(url) ?? "";
+      const wait = reserveHostSlot(host, network.rateLimitMs ?? 0);
+      if (wait > 0) await sleep(wait);
+      state.requests += 1;
+      if (state.requests > limits.maxRequests) {
+        throw new Error(
+          `httpGetBytes: request budget exhausted (${limits.maxRequests} requests per search)`,
+        );
+      }
+      const budget = timeLeft() - HTTP_DEADLINE_MARGIN_MS;
+      if (budget < HTTP_MIN_REQUEST_MS) throw new Error("httpGetBytes: search budget exhausted");
+      const headers: Record<string, string> = {};
+      if (referer) headers.referer = referer;
+      const base64 = await options.fetchBytes(url, {
+        headers,
+        timeoutMs: Math.min(HTTP_TIMEOUT_MS, budget),
+        signal: controller.signal,
+        maxBytes: limits.maxResponseBytes,
+      });
+      return context.newString(base64);
+    }),
+  );
+  context.setProp(context.global, "__httpGetBytes", httpGetBytesFn);
+  httpGetBytesFn.dispose();
+
+  // `httpGetTorrent`: fetch + parse a .torrent (or magnet) in the host and
+  // return `{name, totalSize, infohash, files}` — the shape the file-selection
+  // UI expects.
+  const httpGetTorrentFn = context.newAsyncifiedFunction(
+    "__httpGetTorrent",
+    guardAsync("httpGetTorrent", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const url = readStringArg(context, args[0], "httpGetTorrent(url)");
+      const referer = optionalStringArg(context, args[1]);
+      if (!options.fetchTorrent) {
+        throw new Error("httpGetTorrent: no torrent transport is configured");
+      }
+      // A magnet needs no network, so it bypasses egress/rate limiting.
+      if (!/^magnet:/i.test(url)) {
+        checkEgress(url);
+        const host = hostOf(url) ?? "";
+        const wait = reserveHostSlot(host, network.rateLimitMs ?? 0);
+        if (wait > 0) await sleep(wait);
+        state.requests += 1;
+        if (state.requests > limits.maxRequests) {
+          throw new Error(
+            `httpGetTorrent: request budget exhausted (${limits.maxRequests} requests per search)`,
+          );
+        }
+      }
+      const budget = timeLeft() - HTTP_DEADLINE_MARGIN_MS;
+      if (budget < HTTP_MIN_REQUEST_MS && !/^magnet:/i.test(url)) {
+        throw new Error("httpGetTorrent: search budget exhausted");
+      }
+      const headers: Record<string, string> = {};
+      if (referer) {
+        if (/[\r\n]/.test(referer)) throw new Error("httpGetTorrent: referer contains CR or LF");
+        headers.referer = referer;
+      }
+      const json = await options.fetchTorrent(url, {
+        headers,
+        timeoutMs: Math.min(HTTP_TIMEOUT_MS, Math.max(HTTP_MIN_REQUEST_MS, budget)),
+        signal: controller.signal,
+      });
+      return context.newString(json ?? "null");
+    }),
+  );
+  context.setProp(context.global, "__httpGetTorrent", httpGetTorrentFn);
+  httpGetTorrentFn.dispose();
+
+  // `parseHtml`: CSS-selector extraction in the host (cheerio), so plugins can
+  // stop hand-rolling regexes over scraped pages.
+  const parseHtmlFn = context.newAsyncifiedFunction(
+    "__parseHtml",
+    guardAsync("parseHtml", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const html = readStringArg(context, args[0], "parseHtml(html)");
+      const selector = readStringArg(context, args[1], "parseHtml(selector)");
+      const limitRaw = Number(context.dump(args[2]));
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(200, Math.floor(limitRaw)) : 100;
+      return context.newString(JSON.stringify(selectHtml(html, selector, limit)));
+    }),
+  );
+  context.setProp(context.global, "__parseHtml", parseHtmlFn);
+  parseHtmlFn.dispose();
+
+  // `sleep`: yields inside the sandbox while respecting its own deadline.
+  const sleepFn = context.newAsyncifiedFunction(
+    "sleep",
+    guardAsync("sleep", async (...args: QuickJSHandle[]): Promise<QuickJSHandle> => {
+      const requested = Number(context.dump(args[0]));
+      const ms = Number.isFinite(requested) ? Math.max(0, Math.min(MAX_SLEEP_MS, requested)) : 0;
+      const allowed = Math.min(ms, Math.max(0, timeLeft() - HTTP_DEADLINE_MARGIN_MS));
+      if (allowed > 0) await sleep(allowed);
+      return context.undefined;
+    }),
+  );
+  context.setProp(context.global, "sleep", sleepFn);
+  sleepFn.dispose();
 
   const consoleObject = context.newObject();
   for (const level of ["log", "warn", "error", "info", "debug"] as const) {
@@ -493,6 +849,27 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
     };
     globalThis.httpGetXml = function (url, referer) {
       return JSON.parse(__httpGetXmlJson(url, referer));
+    };
+    globalThis.httpRequest = function (url, options) {
+      return __httpRequest(url, options);
+    };
+    globalThis.httpRequestJson = function (url, options) {
+      return JSON.parse(httpRequest(url, options));
+    };
+    globalThis.httpGetAll = function (urls, referers) {
+      return __httpGetAll(urls, referers);
+    };
+    globalThis.httpHead = function (url, referer) {
+      return JSON.parse(__httpHead(url, referer));
+    };
+    globalThis.httpGetBytes = function (url, referer) {
+      return __httpGetBytes(url, referer);
+    };
+    globalThis.httpGetTorrent = function (url, referer) {
+      return JSON.parse(__httpGetTorrent(url, referer));
+    };
+    globalThis.parseHtml = function (html, selector, limit) {
+      return JSON.parse(__parseHtml(html, selector, limit));
     };
     `,
     "plugin-globals.js",

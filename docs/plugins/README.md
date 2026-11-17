@@ -259,6 +259,9 @@ schema.
 - [ ] `platformCategory` is `pc`, `console` or `hybrid`.
 - [ ] `search` returns an array and returns `[]` for empty/unmatched queries.
 - [ ] Every network call is wrapped in `try/catch` and fails soft.
+- [ ] A site that can answer with an anti-bot challenge (Cloudflare, Anubis)
+      is detected and reported with a clear `Error`, so the search says why it
+      is empty instead of silently returning `[]`.
 - [ ] Loops are bounded; no unbounded `while` over remote data.
 - [ ] No reliance on state persisting between searches.
 - [ ] `node scripts/lint-plugins.mjs` passes.
@@ -273,5 +276,6 @@ schema.
 - [`manifest.schema.json`](./manifest.schema.json) — JSON Schema (draft
   2020-12) for the descriptor.
 - `scripts/lint-plugins.mjs` — static checks for the rules above.
-- `scripts/test-plugins.mjs` — runs a plugin's `search` against the live
-  network outside the app.
+- `plugins_test_search` (the app's backend command) — runs an installed
+  plugin's `search` against the live network inside the real sandbox, so the
+  request budget, `allowedHosts` and timeout behave exactly as in a search.

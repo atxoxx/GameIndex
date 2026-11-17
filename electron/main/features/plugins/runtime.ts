@@ -15,10 +15,13 @@
  */
 import fs from "node:fs";
 
-import { httpText } from "../../lib/http";
+import { httpBuffer, httpText } from "../../lib/http";
 import {
   evaluatePluginSource,
   runPluginSearch,
+  type FetchBytesFn,
+  type FetchTorrentFn,
+  type HttpRequestOptions,
   type HttpTextFn,
   type SandboxLimits,
 } from "./sandbox";
@@ -65,6 +68,9 @@ const PLUGIN_CACHE_MAX_ENTRIES = 64;
  */
 const EMPTY_RESULT_TTL_MS = 60 * 1000;
 const MAX_ALIASES = 8;
+/** A `.torrent` bigger than this is not a real release. */
+const MAX_TORRENT_BYTES = 8 * 1024 * 1024;
+const MAX_TORRENT_FILE_ENTRIES = 2_000;
 
 export interface InstallPluginArgs {
   /** Candidate returned by `plugins_import_file`. */
@@ -83,6 +89,9 @@ export interface PluginRuntimeOptions {
   /** Where secret config values live (SQLite in the app, file in tests). */
   configStore?: PluginConfigStore;
   httpText?: HttpTextFn;
+  /** Overrides for the torrent/binary transports (tests, harnesses). */
+  fetchTorrent?: FetchTorrentFn;
+  fetchBytes?: FetchBytesFn;
   limits?: SandboxLimits;
   logger?: (...args: unknown[]) => void;
   now?: () => number;
@@ -132,6 +141,8 @@ function formatUploadDate(unixSeconds: number): string {
 export class PluginRuntime {
   private readonly registry: PluginRegistry;
   private readonly httpText: HttpTextFn;
+  private readonly fetchTorrent: FetchTorrentFn;
+  private readonly fetchBytes: FetchBytesFn;
   private readonly limits: SandboxLimits;
   private readonly logger: (...args: unknown[]) => void;
   private readonly cache = new Map<string, CachedResults>();
@@ -156,6 +167,10 @@ export class PluginRuntime {
     this.httpText =
       options.httpText ??
       ((url, requestOptions) => httpText(url, requestOptions));
+    this.fetchTorrent =
+      options.fetchTorrent ?? ((url, requestOptions) => this.parseTorrent(url, requestOptions));
+    this.fetchBytes =
+      options.fetchBytes ?? ((url, requestOptions) => this.readBytes(url, requestOptions));
     this.limits = options.limits ?? {};
   }
 
@@ -560,8 +575,63 @@ export class PluginRuntime {
       pluginId: label,
       limits: this.limits,
       httpText: this.httpText,
+      fetchTorrent: this.fetchTorrent,
+      fetchBytes: this.fetchBytes,
       logger: (line) => this.logger(line),
     });
+  }
+
+  /**
+   * `httpGetTorrent`: fetch the .torrent (or parse a magnet) and hand back the
+   * file list. Torrent decoding needs `parse-torrent`, which cannot run in the
+   * QuickJS sandbox, so the host does it here.
+   */
+  private async parseTorrent(url: string, options: HttpRequestOptions): Promise<string | null> {
+    const specifier = "parse-torrent";
+    const mod = (await import(specifier)) as {
+      default?: (input: string | Uint8Array) => unknown;
+    };
+    const parse = mod.default;
+    if (typeof parse !== "function") throw new Error("parse-torrent failed to load");
+
+    let input: string | Uint8Array = url;
+    if (!/^magnet:/i.test(url)) {
+      const buffer = await httpBuffer(url, {
+        headers: options.headers,
+        timeoutMs: options.timeoutMs,
+        signal: options.signal,
+        maxBytes: MAX_TORRENT_BYTES,
+      });
+      input = new Uint8Array(buffer);
+    }
+
+    const parsed = (await parse(input)) as {
+      name?: string;
+      length?: number;
+      infoHash?: string;
+      files?: Array<{ path?: string; name?: string; length?: number }>;
+    } | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return JSON.stringify({
+      name: parsed.name ?? "",
+      totalSize: parsed.length ?? 0,
+      infohash: parsed.infoHash ?? null,
+      files: (parsed.files ?? []).slice(0, MAX_TORRENT_FILE_ENTRIES).map((file) => ({
+        name: file.path ?? file.name ?? "file",
+        size: file.length ?? 0,
+      })),
+    });
+  }
+
+  /** `httpGetBytes`: binary body for plugins that need raw bytes as base64. */
+  private async readBytes(url: string, options: HttpRequestOptions): Promise<string> {
+    const buffer = await httpBuffer(url, {
+      headers: options.headers,
+      timeoutMs: options.timeoutMs,
+      signal: options.signal,
+      maxBytes: options.maxBytes,
+    });
+    return buffer.toString("base64");
   }
 
   private reloadManifest(record: PluginRecord): Promise<PluginManifest> {
@@ -583,6 +653,8 @@ export class PluginRuntime {
       config: this.registry.configValues(record.id),
       limits: this.limits,
       httpText: this.httpText,
+      fetchTorrent: this.fetchTorrent,
+      fetchBytes: this.fetchBytes,
       logger: (line) => this.logger(line),
     });
   }

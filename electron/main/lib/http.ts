@@ -291,12 +291,43 @@ export async function httpJson<T>(url: string, options: HttpOptions = {}): Promi
   }
 }
 
+/**
+ * Read a response body into a Buffer with an optional size cap, checked against
+ * `content-length` first and enforced while the body streams.
+ */
+async function readBufferCapped(response: Response, maxBytes?: number): Promise<Buffer> {
+  if (!response.body) return Buffer.alloc(0);
+  const cap = maxBytes !== undefined && maxBytes > 0 ? maxBytes : undefined;
+  if (cap !== undefined) {
+    const declared = Number(response.headers.get("content-length") ?? "");
+    if (Number.isFinite(declared) && declared > cap) {
+      await response.body.cancel().catch(() => undefined);
+      throw new Error(`response too large (${declared} > ${cap} bytes)`);
+    }
+  }
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    bytes += value.byteLength;
+    if (cap !== undefined && bytes > cap) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error(`response too large (> ${cap} bytes)`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
+}
+
 export async function httpBuffer(url: string, options: HttpOptions = {}): Promise<Buffer> {
   const response = await request(url, options);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
-  return Buffer.from(await response.arrayBuffer());
+  return readBufferCapped(response, options.maxBytes);
 }
 
 export interface DownloadResult {
