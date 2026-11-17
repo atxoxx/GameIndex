@@ -9893,7 +9893,7 @@ export const ru: TranslationDict = {
   "settings.overlay.tickerAutoDim": "Затухание при простое",
   "settings.overlay.tickerAutoDimDesc": "Приглушает бегущую строку через столько секунд без ввода, чтобы пассивная статистика не требовала внимания. 0 — отключено.",
   "settings.overlay.tickerAutoHide": "Скрытие при простое",
-  "settings.overlay.tickerAutoHideDesc": "Полностью скрывает окно бегущей строки через столько секунд без ввода. Клавиша переключения возвращает его. 0 — отключено.",
+  "settings.overlay.tickerAutoHideDesc": "Полностью скрывает окно тикера после стольких секунд без ввода. Приостанавливается во время игровой сессии, чтобы HUD оставался видимым всю игру. Клавиша переключения возвращает его. 0 — отключает.",
   "overlay.settings.capture": "Запись",
   "overlay.settings.screenshotFormat": "Формат",
   "overlay.settings.screenshotHotkey": "Клавиша скриншота",

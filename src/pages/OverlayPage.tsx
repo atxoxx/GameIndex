@@ -21,11 +21,13 @@ const IDLE_TICK_MS = 500;
  * While collapsed, the ticker can dim — and eventually hide — itself after
  * idle seconds away from interaction (`tickerAutoDimSeconds` /
  * `tickerAutoHideSeconds`): passive telemetry should not sit at full opacity
- * or on screen forever once nobody is looking. The global toggle hotkey is
- * the "peek": showing the window resets the idle timers.
+ * or on screen forever once nobody is looking. The hide step is suspended while
+ * a game session runs — the game owns the pointer and keyboard, so the HUD
+ * would otherwise disappear seconds into every session. The global toggle
+ * hotkey is the "peek": showing the window resets the idle timers.
  */
 export default function OverlayPage() {
-  const { collapsed, collapse, settings } = useOverlay();
+  const { collapsed, collapse, settings, session } = useOverlay();
 
   useEffect(() => {
     if (collapsed) return;
@@ -41,6 +43,7 @@ export default function OverlayPage() {
 
   const dimSeconds = Math.max(0, Math.floor(settings.tickerAutoDimSeconds ?? 0));
   const hideSeconds = Math.max(0, Math.floor(settings.tickerAutoHideSeconds ?? 0));
+  const sessionActive = Boolean(session?.gameId);
   const idleEnabled = collapsed && (dimSeconds > 0 || hideSeconds > 0);
   const { opacity } = settings;
   const idleStateRef = useRef<IdleAction>("none");
@@ -100,7 +103,7 @@ export default function OverlayPage() {
   useVisibleInterval(
     () => {
       const elapsed = (performance.now() - lastActivityRef.current) / 1000;
-      const next = idleAction(elapsed, dimSeconds, hideSeconds);
+      const next = idleAction(elapsed, dimSeconds, hideSeconds, sessionActive);
       if (next === idleStateRef.current) return;
       idleStateRef.current = next;
       if (next === "dim") {

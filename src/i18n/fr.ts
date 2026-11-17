@@ -9892,7 +9892,7 @@ export const fr: TranslationDict = {
   "settings.overlay.tickerAutoDim": "Atténuer après inactivité",
   "settings.overlay.tickerAutoDimDesc": "Atténue le bandeau après ce nombre de secondes sans interaction, pour que des stats passives ne réclament pas en permanence l'attention. 0 désactive.",
   "settings.overlay.tickerAutoHide": "Masquer après inactivité",
-  "settings.overlay.tickerAutoHideDesc": "Masque complètement la fenêtre du bandeau après ce nombre de secondes sans interaction. La touche de bascule la ramène. 0 désactive.",
+  "settings.overlay.tickerAutoHideDesc": "Masque complètement la fenêtre du bandeau après ce nombre de secondes sans interaction. Suspendu pendant une session de jeu, pour que le HUD reste visible pendant toute la partie. La touche de bascule la ramène. 0 désactive.",
   "overlay.settings.capture": "Capture",
   "overlay.settings.screenshotFormat": "Format",
   "overlay.settings.screenshotHotkey": "Touche de capture",

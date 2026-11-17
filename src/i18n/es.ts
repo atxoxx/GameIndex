@@ -9893,7 +9893,7 @@ export const es: TranslationDict = {
   "settings.overlay.tickerAutoDim": "Atenuar tras inactividad",
   "settings.overlay.tickerAutoDimDesc": "Atenúa la cinta tras estos segundos sin interacción, para que las estadísticas pasivas no pidan atención constantemente. 0 desactiva.",
   "settings.overlay.tickerAutoHide": "Ocultar tras inactividad",
-  "settings.overlay.tickerAutoHideDesc": "Oculta por completo la ventana de la cinta tras estos segundos sin interacción. La tecla de alternancia la recupera. 0 desactiva.",
+  "settings.overlay.tickerAutoHideDesc": "Oculta por completo la ventana de la cinta tras estos segundos sin interacción. Se suspende durante una sesión de juego, para que el HUD siga visible durante toda la partida. La tecla de alternancia la recupera. 0 desactiva.",
   "overlay.settings.capture": "Captura",
   "overlay.settings.screenshotFormat": "Formato",
   "overlay.settings.screenshotHotkey": "Tecla de captura",

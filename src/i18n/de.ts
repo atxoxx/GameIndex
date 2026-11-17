@@ -9890,7 +9890,7 @@ export const de: TranslationDict = {
   "settings.overlay.videoHideOverlay": "HUD beim Aufnehmen ausblenden",
   "settings.overlay.videoHideOverlayDesc": "Das Overlay aus dem aufgenommenen Video heraushalten.",
   "settings.overlay.tickerAutoDim": "Inaktiv abdunkeln",
-  "settings.overlay.tickerAutoHideDesc": "Blendet das Ticker-Fenster nach so vielen Sekunden ohne Eingabe komplett aus. Die Umschalt-Taste holt es zurück. 0 deaktiviert.",
+  "settings.overlay.tickerAutoHideDesc": "Blendet das Ticker-Fenster nach so vielen Sekunden ohne Eingabe komplett aus. Während einer Spielsitzung ausgesetzt, damit das HUD das ganze Spiel über sichtbar bleibt. Die Umschalt-Taste holt es zurück. 0 deaktiviert.",
   "settings.overlay.tickerAutoDimDesc": "Dunkelt den Ticker nach so vielen Sekunden ohne Eingabe ab, damit passive Werte nicht ständig um Aufmerksamkeit rufen. 0 deaktiviert.",
   "settings.overlay.tickerAutoHide": "Inaktiv ausblenden",
   "overlay.settings.capture": "Aufnahme",

@@ -32,4 +32,16 @@ describe("idleAction", () => {
   it("ignores negative thresholds", () => {
     expect(idleAction(10, -5, -5)).toBe("none");
   });
+
+  it("keeps the HUD up for the whole session", () => {
+    // A running game owns the mouse and keyboard, so "no input" says nothing
+    // about whether anybody wants the HUD. Hiding there removed the overlay
+    // seconds into every session.
+    expect(idleAction(5, 0, 5, true)).toBe("none");
+    expect(idleAction(600, 0, 5, true)).toBe("none");
+    // Dimming is still allowed while a session runs.
+    expect(idleAction(600, 30, 5, true)).toBe("dim");
+    // The hide threshold comes back as soon as the session ends.
+    expect(idleAction(600, 30, 5, false)).toBe("hide");
+  });
 });

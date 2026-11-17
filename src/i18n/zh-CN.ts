@@ -9892,7 +9892,7 @@ export const zhCN: TranslationDict = {
   "settings.overlay.tickerAutoDim": "空闲变暗",
   "settings.overlay.tickerAutoDimDesc": "在无操作这么多秒后将信息条调暗，让被动数据显示不至于一直喧宾夺主。0 为关闭。",
   "settings.overlay.tickerAutoHide": "空闲隐藏",
-  "settings.overlay.tickerAutoHideDesc": "在无操作这么多秒后完全隐藏信息条窗口。切换热键可以将其唤回。0 为关闭。",
+  "settings.overlay.tickerAutoHideDesc": "在这么多秒无输入后完全隐藏滚动条窗口。游戏会话进行期间暂停，使 HUD 在整局游戏中保持可见。切换快捷键可将其恢复。0 表示关闭。",
   "overlay.settings.capture": "捕获",
   "overlay.settings.screenshotFormat": "格式",
   "overlay.settings.screenshotHotkey": "截图键",

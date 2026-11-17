@@ -9883,7 +9883,7 @@ export const en: TranslationDict = {
   "settings.overlay.tickerAutoDim": "Idle dim",
   "settings.overlay.tickerAutoDimDesc": "Dim the ticker after this many seconds without input, so passive stats stop shouting for attention. 0 disables it.",
   "settings.overlay.tickerAutoHide": "Idle hide",
-  "settings.overlay.tickerAutoHideDesc": "Hide the ticker window entirely after this many seconds without input. The toggle hotkey brings it back. 0 disables it.",
+  "settings.overlay.tickerAutoHideDesc": "Hide the ticker window entirely after this many seconds without input. Suspended while a game session is running, so the HUD stays for the whole game. The toggle hotkey brings it back. 0 disables it.",
 
   "overlay.settings.capture": "Capture",
   "overlay.settings.screenshotFormat": "Format",
