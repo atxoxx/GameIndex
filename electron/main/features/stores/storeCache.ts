@@ -14,7 +14,7 @@
  */
 import { storeCacheCodec } from "../../state/db/codecs";
 import { createSqliteStore } from "../../state/sqliteStore";
-import { fetchIgdbGameBySlug, fetchIgdbStoreGames } from "../metadata/igdb";
+import { fetchIgdbGameBySlug, fetchIgdbStoreGames, fetchRandomIgdbStoreGames } from "../metadata/igdb";
 import type { GameMetadataResult, StoreGameSummary } from "../../../../src/types/game";
 import { argNumber, argString, argStringArray } from "./types";
 
@@ -480,17 +480,29 @@ export async function getStoreGameDetail(
   }
 }
 
-/** `get_random_store_games`: random cached summaries (never invented rows). */
-export function getRandomStoreGames(limit: number): StoreGameSummary[] {
+/** `get_random_store_games`: a fresh IGDB sample, falling back to the cached
+ *  catalogue when IGDB is unavailable (offline, missing key, rate limited). */
+export async function getRandomStoreGames(limit: number): Promise<StoreGameSummary[]> {
+  const size = Math.max(1, Math.trunc(limit) || 10);
+  try {
+    const fresh = await fetchRandomIgdbStoreGames(size);
+    if (fresh.length > 0) return fromIgdb(fresh);
+  } catch (error) {
+    console.warn(
+      "[store] random IGDB sample failed:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
   const all = allCachedSummaries();
-  const size = Math.min(Math.max(1, Math.trunc(limit) || 10), all.length);
-  if (size <= 0) return [];
+  const cachedSize = Math.min(size, all.length);
+  if (cachedSize <= 0) return [];
   const pool = [...all];
   for (let index = pool.length - 1; index > 0; index -= 1) {
     const swap = Math.floor(Math.random() * (index + 1));
     [pool[index], pool[swap]] = [pool[swap], pool[index]];
   }
-  return pool.slice(0, size);
+  return pool.slice(0, cachedSize);
 }
 
 /** Cache stats, used by the scan report and diagnostics. */

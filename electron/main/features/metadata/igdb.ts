@@ -767,6 +767,51 @@ export async function fetchIgdbGameBySlug(slug: string): Promise<MetadataResult 
   return rows[0] ? mapIgdbGame(rows[0]) : null;
 }
 
+/**
+ * A uniformly random slice of the IGDB catalogue suitable for Store cards.
+ *
+ * IGDB has no random sort, so the catalogue count is cached briefly and a
+ * random offset is used against a stable popularity ordering. Fetching a
+ * larger page and shuffling it avoids the neighbour bias of taking 12 rows
+ * from one offset. Titles without a cover or release date are excluded so the
+ * surprise grid never shows an unusable card.
+ */
+const RANDOM_STORE_WHERE =
+  "game_type = 0 & cover != null & total_rating_count > 20 & first_release_date != null";
+const RANDOM_COUNT_TTL_MS = 10 * 60_000;
+let randomStoreCount: { count: number; at: number } | null = null;
+
+export async function fetchRandomIgdbStoreGames(limit: number): Promise<StoreGameSummary[]> {
+  requireIgdbCredentials();
+  const size = Math.min(Math.max(1, Math.trunc(limit) || 12), 50);
+  const pageSize = Math.min(50, Math.max(size * 4, 24));
+
+  let count = 0;
+  if (randomStoreCount && Date.now() - randomStoreCount.at < RANDOM_COUNT_TTL_MS) {
+    count = randomStoreCount.count;
+  } else {
+    const result = await igdbPost<{ count?: number }>(
+      "games/count",
+      `where ${RANDOM_STORE_WHERE};`,
+    );
+    count = Math.max(0, Math.trunc(Number(result?.count) || 0));
+    randomStoreCount = { count, at: Date.now() };
+  }
+  if (count <= 0) return [];
+
+  const maxOffset = Math.max(0, count - pageSize);
+  const offset = maxOffset > 0 ? Math.floor(Math.random() * (maxOffset + 1)) : 0;
+  const rows = await igdbQueryGames(
+    `fields ${STORE_SUMMARY_FIELDS}; where ${RANDOM_STORE_WHERE}; sort total_rating_count desc; limit ${pageSize}; offset ${offset};`,
+  );
+  const pool = rows.map(mapIgdbSummary).filter((game) => Boolean(game.coverUrl));
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [pool[index], pool[swap]] = [pool[swap], pool[index]];
+  }
+  return pool.slice(0, size);
+}
+
 /** Enrich an ordered list of Steam appids into IGDB store summaries. */
 export async function enrichSteamAppIds(appids: number[], limit: number): Promise<StoreGameSummary[]> {
   if (appids.length === 0) return [];
