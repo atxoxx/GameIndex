@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { MediaFetchBrowser } from "./MediaFetchBrowser";
+import { MediaCandidateGallery } from "./MediaCandidateGallery";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve([])),
@@ -90,6 +91,35 @@ describe("MediaFetchBrowser title search", () => {
       expect(invokeMock).toHaveBeenCalledWith(
         "search_game_metadata",
         expect.objectContaining({ gameName: "Halo", steamAppId: 123 })
+      )
+    );
+  });
+
+  it("starts inline galleries from the shared artwork title and reports edits", async () => {
+    const onQueryChange = vi.fn();
+    render(
+      <MediaCandidateGallery
+        slot="cover"
+        gameName="Halo"
+        initialQuery="Halo 3"
+        onQueryChange={onQueryChange}
+        onApply={vi.fn()}
+        variant="inline"
+      />
+    );
+
+    const input = screen.getByLabelText("Search game title") as HTMLInputElement;
+    expect(input.value).toBe("Halo 3");
+    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Halo 3: ODST" } });
+    expect(onQueryChange).toHaveBeenCalledWith("Halo 3: ODST");
+
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "search_game_metadata",
+        expect.objectContaining({ gameName: "Halo 3: ODST", steamAppId: undefined })
       )
     );
   });

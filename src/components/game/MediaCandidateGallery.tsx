@@ -466,9 +466,16 @@ interface MediaCandidateGalleryProps {
   onApplied?: () => void;
   /** "modal" keeps the scrollable browser body; "inline" flows in the page. */
   variant?: "modal" | "inline";
-  /** Hide the title search when embedded inline; the edit modal opens the
-   *  full search modal from its pinned artwork panel instead. */
+  /** Hide the title search when embedding the gallery somewhere that provides
+   *  its own search field. The edit modal keeps it visible inline. */
   showSearch?: boolean;
+  /** Initial search title (defaults to `gameName`). The edit modal keeps one
+   *  title for all four artwork slots and passes it back on mount. */
+  initialQuery?: string;
+  /** Controlled search title. Omit for the standalone modal. */
+  query?: string;
+  /** Called whenever the user edits the search title or picks a suggestion. */
+  onQueryChange?: (value: string) => void;
 }
 
 /** The media picker body: title search, format/animation filters and the
@@ -484,9 +491,13 @@ export function MediaCandidateGallery({
   onApplied,
   variant = "modal",
   showSearch = true,
+  initialQuery,
+  query,
+  onQueryChange,
 }: MediaCandidateGalleryProps) {
   const { t } = useLanguage();
   const slotLabel = t(SLOT_LABEL_KEY[slot]);
+  const startQuery = initialQuery?.trim() || gameName;
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [launchboxCandidates, setLaunchboxCandidates] = useState<Candidate[]>([]);
@@ -497,12 +508,13 @@ export function MediaCandidateGallery({
   // The chooser starts on the game's own name but the title can be edited and
   // re-searched, which is how users find art for remasters, ports or games the
   // metadata match missed. `draftQuery` is the editable input and `search` is
-  // the request whose results are on screen — carrying the SteamGridDB entry
+  // the request whose results are on screen - carrying the SteamGridDB entry
   // picked from the suggestions, if the user picked one.
-  const [draftQuery, setDraftQuery] = useState(gameName);
+  const [draftQuery, setDraftQuery] = useState(startQuery);
+  const currentQuery = query ?? draftQuery;
   const [pickedGame, setPickedGame] = useState<SgdbGameSuggestion | null>(null);
   const [search, setSearch] = useState<SearchRequest>({
-    query: gameName,
+    query: startQuery,
     sgdbGameId: null,
     nonce: 0,
   });
@@ -515,7 +527,7 @@ export function MediaCandidateGallery({
 
   useEffect(() => {
     if (!showSearch) return;
-    const term = draftQuery.trim();
+    const term = currentQuery.trim();
     if (!suggestionsOpen || term.length < SUGGEST_MIN_CHARS) {
       setSuggestions([]);
       setSuggestionsLoading(false);
@@ -541,7 +553,7 @@ export function MediaCandidateGallery({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [draftQuery, suggestionsOpen, showSearch]);
+  }, [currentQuery, suggestionsOpen, showSearch]);
 
   const shownQuery = search.query.trim() || gameName;
 
@@ -586,14 +598,15 @@ export function MediaCandidateGallery({
 
   function runSearch() {
     setSearch((prev) => ({
-      query: draftQuery.trim() || gameName,
+      query: currentQuery.trim() || gameName,
       sgdbGameId: pickedGame?.id ?? null,
       nonce: prev.nonce + 1,
     }));
   }
 
   function handleQueryChange(value: string) {
-    setDraftQuery(value);
+    if (query === undefined) setDraftQuery(value);
+    onQueryChange?.(value);
     // A new title invalidates the entry picked from the dropdown.
     setPickedGame(null);
     setSuggestionsOpen(true);
@@ -601,7 +614,8 @@ export function MediaCandidateGallery({
 
   function chooseSuggestion(suggestion: SgdbGameSuggestion) {
     pickedTermRef.current = suggestion.name;
-    setDraftQuery(suggestion.name);
+    if (query === undefined) setDraftQuery(suggestion.name);
+    onQueryChange?.(suggestion.name);
     setPickedGame(suggestion);
     setSuggestionsOpen(false);
     setSuggestions([]);
@@ -702,11 +716,11 @@ export function MediaCandidateGallery({
               className="media-fetch-search-input"
               type="text"
               role="combobox"
-              value={draftQuery}
+              value={currentQuery}
               onChange={(e) => handleQueryChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               onFocus={() => {
-                if (draftQuery.trim() !== pickedTermRef.current) setSuggestionsOpen(true);
+                if (currentQuery.trim() !== pickedTermRef.current) setSuggestionsOpen(true);
               }}
               onBlur={() => setSuggestionsOpen(false)}
               placeholder={t("editImage.searchPlaceholder")}

@@ -64,6 +64,7 @@ delete_achievement
 delete_clip
 delete_compatibility_runner
 delete_emulator
+delete_game_artwork
 delete_game_note
 delete_game_notes_for_game
 delete_games
@@ -191,6 +192,7 @@ launch_game
 list_compatibility_runners
 list_emulator_downloads
 list_emulators
+list_game_artwork
 list_media_files
 list_wine_prefixes
 load_achievements_cache

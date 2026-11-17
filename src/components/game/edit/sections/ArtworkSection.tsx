@@ -4,6 +4,7 @@ import { ArtworkSlotCard } from "../ArtworkSlotCard";
 import { SectionHeader } from "../EditFields";
 import { useEditGame } from "../EditGameContext";
 import { IMAGE_SUBTAB_CONFIG, type ArtworkSlot } from "../editConstants";
+import { DownloadedArtwork } from "./DownloadedArtwork";
 
 const ASPECT: Record<ArtworkSlot, string> = {
   hero: "16 / 5",
@@ -18,7 +19,6 @@ export function ArtworkSection() {
   const {
     t,
     game,
-    editName,
     editIcon,
     editCover,
     editHero,
@@ -30,6 +30,8 @@ export function ArtworkSection() {
     handleApplyFetchedImage,
     dirtyBySection,
     resetSection,
+    artworkSearchQuery,
+    setArtworkSearchQuery,
   } = useEditGame();
   const [sourceSlot, setSourceSlot] = useState<ArtworkSlot>("cover");
 
@@ -73,11 +75,14 @@ export function ArtworkSection() {
         })}
       </div>
 
+      <DownloadedArtwork />
+
       <div className="edit-artwork-sources">
         <div className="edit-artwork-sources-head">
           <div>
             <h3 className="edit-subheading">{t("edit.media.fromSources")}</h3>
             <p className="edit-muted-note">{t("edit.artwork.sourcesHint")}</p>
+            <p className="edit-muted-note">{t("edit.artwork.searchHint")}</p>
           </div>
           <div className="edit-chip-row" role="group" aria-label={t("edit.artwork.slotPicker")}>
             {ORDER.map((slot) => (
@@ -97,11 +102,13 @@ export function ArtworkSection() {
         <MediaCandidateGallery
           key={sourceSlot}
           slot={sourceSlot}
-          gameName={editName.trim() || game.name}
+          gameName={game.name}
+          initialQuery={artworkSearchQuery}
+          query={artworkSearchQuery}
+          onQueryChange={setArtworkSearchQuery}
           steamAppId={game.steamAppId}
           onApply={(url) => handleApplyFetchedImage(sourceSlot, url)}
           variant="inline"
-          showSearch={false}
         />
       </div>
     </section>

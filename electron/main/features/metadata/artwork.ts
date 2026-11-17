@@ -8,11 +8,19 @@
  */
 import { app, nativeImage } from "electron";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { userDataPath } from "../../lib/paths";
 import { httpBuffer } from "../../lib/http";
+import { getGame, patchGameRecord } from "../../state/libraryStore";
+import { percentDecodeArtworkUrl } from "../media/artworkScan";
+import type {
+  DeleteGameArtworkResult,
+  GameArtworkFile,
+  GameArtworkSlot,
+} from "../../../../src/types/artwork";
 
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 
@@ -218,7 +226,7 @@ export async function downloadArtwork(
   }
 }
 
-/** `store_artwork_file` — copy a user-picked local image into the store. */
+/** `store_artwork_file` - copy a user-picked local image into the store. */
 export function storeArtworkFile(
   gameId: string,
   slot: string,
@@ -233,6 +241,218 @@ export function storeArtworkFile(
   } catch {
     return null;
   }
+}
+
+const ARTWORK_IMAGE_EXT = /\.(jpe?g|png|webp|gif|ico|avif)$/i;
+
+/** Canonical slot for a stored file stem (`banner` is written as `hero`). */
+export function artworkSlotForFile(fileName: string): GameArtworkSlot | null {
+  const stem = fileName.replace(/\.[^.]+$/, "").toLowerCase();
+  if (stem === "banner") return "hero";
+  if (stem === "cover" || stem === "hero" || stem === "logo" || stem === "icon") {
+    return stem;
+  }
+  return null;
+}
+
+const ARTWORK_URL_FIELDS: {
+  field: string;
+  sourceField?: string;
+  slot: GameArtworkSlot;
+}[] = [
+  { field: "coverArtUrl", sourceField: "coverSourceUrl", slot: "cover" },
+  { field: "iconUrl", slot: "icon" },
+  { field: "bannerUrl", slot: "hero" },
+  { field: "logoUrl", sourceField: "logoSourceUrl", slot: "logo" },
+];
+
+/** True when a stored artwork URL points at this exact absolute file. */
+function artworkUrlPointsAt(
+  record: Record<string, unknown>,
+  field: string,
+  absoluteLower: string,
+): boolean {
+  const value = record[field];
+  if (typeof value !== "string" || !value) return false;
+  const decoded = percentDecodeArtworkUrl(value).replace(/\\/g, "/").toLowerCase();
+  return decoded.includes(absoluteLower);
+}
+
+function referencedArtworkFields(
+  game: ReturnType<typeof getGame>,
+  absolute: string,
+): { field: string; sourceField?: string; slot: GameArtworkSlot }[] {
+  if (!game) return [];
+  const record = game as unknown as Record<string, unknown>;
+  const absoluteLower = absolute.replace(/\\/g, "/").toLowerCase();
+  return ARTWORK_URL_FIELDS.filter((entry) =>
+    artworkUrlPointsAt(record, entry.field, absoluteLower),
+  );
+}
+
+interface ArtworkRoot {
+  key: string;
+  dir: string;
+  location: "current" | "legacy";
+}
+
+/** The current store plus the pre-Electron artwork folders that legacy game
+ *  rows still reference. Keys are stable so the renderer can delete a file
+ *  without ever sending an absolute path. */
+function artworkRoots(): ArtworkRoot[] {
+  const roots: ArtworkRoot[] = [
+    { key: "current", dir: artworkRoot(), location: "current" },
+  ];
+  const appData = app.getPath("appData");
+  const currentRoot = path.resolve(artworkRoot());
+  const samePath = (a: string, b: string): boolean =>
+    process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
+  for (const name of ["com.gameindex.app", "GameIndex"]) {
+    const dir = path.join(appData, name, "artwork");
+    // On Windows `%APPDATA%\GameIndex` and `...\gameindex` are the same folder
+    // as the current store, only cased differently.
+    if (samePath(path.resolve(dir), currentRoot)) continue;
+    try {
+      if (!fs.statSync(dir).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    roots.push({ key: name, dir, location: "legacy" });
+  }
+  return roots;
+}
+
+function artworkFileKey(root: ArtworkRoot, safeGame: string, fileName: string): string {
+  return root.location === "current"
+    ? `artwork/${safeGame}/${fileName}`
+    : `legacy/${root.key}/${safeGame}/${fileName}`;
+}
+
+function resolveArtworkFileKey(
+  roots: ArtworkRoot[],
+  fileKey: string,
+): { root: ArtworkRoot; safeGame: string; fileName: string } | null {
+  const normalized = String(fileKey ?? "").replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  if (parts[0] === "artwork" && parts.length === 3) {
+    const current = roots.find((root) => root.location === "current");
+    return current ? { root: current, safeGame: parts[1], fileName: parts[2] } : null;
+  }
+  if (parts[0] === "legacy" && parts.length === 4) {
+    const root = roots.find((entry) => entry.key === parts[1] && entry.location === "legacy");
+    return root ? { root, safeGame: parts[2], fileName: parts[3] } : null;
+  }
+  return null;
+}
+
+/**
+ * Every artwork file currently stored for one game.
+ *
+ * Generated `_thumb.webp` siblings are hidden by default: they are a cache, not
+ * a user choice, and deleting the full-size file removes its thumbnail with it.
+ */
+export async function listGameArtwork(gameId: string): Promise<GameArtworkFile[]> {
+  const safeGame = safeArtworkComponent(gameId);
+  const game = getGame(gameId);
+  const out: GameArtworkFile[] = [];
+
+  for (const root of artworkRoots()) {
+    const gameDir = path.join(root.dir, safeGame);
+    const entries = await fsp.readdir(gameDir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isFile() || !ARTWORK_IMAGE_EXT.test(entry.name)) continue;
+      if (/_thumb\.webp$/i.test(entry.name)) continue;
+      const absolute = path.join(gameDir, entry.name);
+      let stat: fs.Stats;
+      try {
+        stat = await fsp.stat(absolute);
+        if (!stat.isFile()) continue;
+      } catch {
+        continue;
+      }
+      out.push({
+        fileKey: artworkFileKey(root, safeGame, entry.name),
+        fileName: entry.name,
+        slot: artworkSlotForFile(entry.name),
+        thumbnail: false,
+        sizeBytes: stat.size,
+        modifiedAt: Math.floor(stat.mtimeMs / 1000),
+        url: pathToFileURL(absolute).toString(),
+        referenced: referencedArtworkFields(game, absolute).length > 0,
+        location: root.location,
+      });
+    }
+  }
+
+  out.sort((a, b) => b.modifiedAt - a.modifiedAt || a.fileName.localeCompare(b.fileName));
+  return out;
+}
+
+/**
+ * Delete one stored artwork file and clear any game column that referenced it.
+ *
+ * The relative path is anchored to this game's artwork folder, so a stale
+ * renderer list cannot remove another game's file. Deleting a full-size image
+ * also removes its generated `_thumb.webp` sibling.
+ */
+export async function deleteGameArtwork(
+  gameId: string,
+  fileKey: string,
+): Promise<DeleteGameArtworkResult> {
+  const safeGame = safeArtworkComponent(gameId);
+  const roots = artworkRoots();
+  const resolved = resolveArtworkFileKey(roots, fileKey);
+  if (!resolved || resolved.safeGame !== safeGame) {
+    throw new Error("That file does not belong to this game's artwork folder.");
+  }
+  const { root, fileName } = resolved;
+  if (
+    !fileName ||
+    fileName !== path.basename(fileName) ||
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    fileName.includes("..")
+  ) {
+    throw new Error("Invalid artwork file name.");
+  }
+
+  const gameDir = path.resolve(root.dir, safeGame);
+  const absolute = path.resolve(gameDir, fileName);
+  if (!absolute.startsWith(`${gameDir}${path.sep}`)) {
+    throw new Error("Invalid artwork file path.");
+  }
+
+  const game = getGame(gameId);
+  const patch: Record<string, string> = {};
+  const cleared = new Set<GameArtworkSlot>();
+  for (const entry of referencedArtworkFields(game, absolute)) {
+    patch[entry.field] = "";
+    if (entry.sourceField) patch[entry.sourceField] = "";
+    cleared.add(entry.slot);
+  }
+  if (Object.keys(patch).length > 0) patchGameRecord(gameId, patch);
+
+  let freedBytes = 0;
+  let deleted = false;
+  const remove = async (file: string): Promise<void> => {
+    try {
+      const stat = await fsp.stat(file);
+      if (!stat.isFile()) return;
+      await fsp.unlink(file);
+      freedBytes += stat.size;
+      deleted = true;
+    } catch {
+      /* already gone or locked */
+    }
+  };
+  await remove(absolute);
+  if (!/_thumb\.webp$/i.test(fileName)) {
+    await remove(
+      path.join(path.dirname(absolute), `${fileName.replace(/\.[^.]+$/, "")}_thumb.webp`),
+    );
+  }
+
+  return { deleted, freedBytes, clearedSlots: [...cleared] };
 }
 
 /** `ensure_artwork_thumbnails` — backfill missing thumbnails, return the count. */

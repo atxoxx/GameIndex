@@ -14,7 +14,7 @@
  */
 import { registerCommand, type CommandArgs, type CommandHandler } from "../ipc";
 
-import { artworkAssetUrl, downloadArtwork, downloadImageAsDataUrl, ensureArtworkThumbnails, storeArtworkFile } from "../features/metadata/artwork";
+import { artworkAssetUrl, deleteGameArtwork, downloadArtwork, downloadImageAsDataUrl, ensureArtworkThumbnails, listGameArtwork, storeArtworkFile } from "../features/metadata/artwork";
 import { fetchGamepassCatalog, fetchGamePricesBatch, fetchGiveaways, fetchIsthereanydealDeals } from "../features/metadata/deals";
 import { fetchIgdbPlatforms, fetchIgdbStoreGames, fetchSpotlightGames } from "../features/metadata/igdb";
 import { fetchSteamGenresAndTags, fetchGameReviews, getSteamGameStats, getSteamPlayerCount, getSteamPlayerHistory } from "../features/metadata/steam";
@@ -123,6 +123,9 @@ export const metadataCommands: Record<string, CommandHandler> = {
   sgdb_search_games: (args) => sgdbSearchGames(str(args, "query") ?? ""),
 
   artwork_asset_url: (args) => artworkAssetUrl(str(args, "relativePath") ?? ""),
+  list_game_artwork: (args) => listGameArtwork(str(args, "gameId") ?? ""),
+  delete_game_artwork: (args) =>
+    deleteGameArtwork(str(args, "gameId") ?? "", str(args, "fileKey") ?? ""),
   ensure_artwork_thumbnails: () => ensureArtworkThumbnails(),
   download_image: (args) => downloadImageAsDataUrl(str(args, "url") ?? ""),
   download_artwork: (args) =>

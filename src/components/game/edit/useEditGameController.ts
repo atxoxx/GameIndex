@@ -139,6 +139,10 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
   const [editLogo, setEditLogo] = useState(game.logoUrl || "");
   const [editCoverSource, setEditCoverSource] = useState(game.coverSourceUrl);
   const [editLogoSource, setEditLogoSource] = useState(game.logoSourceUrl);
+  // Artwork search title is shared by all four illustration slots and kept
+  // while the modal stays open (switching sections or slots does not reset it).
+  const [artworkSearchQuery, setArtworkSearchQuery] = useState(game.name);
+  const [artworkFilesVersion, setArtworkFilesVersion] = useState(0);
   const [editScreenshots, setEditScreenshots] = useState<string[]>(game.screenshots || []);
   const [editVideos, setEditVideos] = useState<string[]>(game.videos || []);
   const [editWebsites, setEditWebsites] = useState<string[]>(game.websites || []);
@@ -914,6 +918,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
         )
       );
       persistImageSlot(slot, assetUrl, url);
+      setArtworkFilesVersion((value) => value + 1);
       artworkSavedToast(slot);
       return true;
     }
@@ -1039,6 +1044,14 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
 
       setEditMetadataSource(result.sourceName);
       setEditMetadataUrl(result.sourceUrl);
+      // Follow the corrected title when the artwork search was still the old
+      // game name; a deliberately different search is kept.
+      setArtworkSearchQuery((query) =>
+        query.trim().toLowerCase() === game.name.trim().toLowerCase()
+          ? result.title || game.name
+          : query
+      );
+      setArtworkFilesVersion((value) => value + 1);
 
       showToast(t("edit.toast.metadataApplied", { source: result.sourceName }), "success");
       setShowMetadataPanel(false);
@@ -1070,6 +1083,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
             )
           );
           persistImageSlot(key, assetUrl);
+          setArtworkFilesVersion((value) => value + 1);
           artworkSavedToast(key);
         }
       }
@@ -1080,10 +1094,19 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
 
   function handleRemoveImage(key: "icon" | "cover" | "hero" | "logo") {
     persistImageSlot(key, "");
+    setArtworkFilesVersion((value) => value + 1);
     showToast(
       t("editExtras.artworkRemoved", { slot: t(ARTWORK_SLOT_LABEL_KEYS[key]) }),
       "info"
     );
+  }
+
+  /** Called after the downloaded-files list removes a stored file. The
+   *  backend already cleared the columns, so only the draft state needs to
+   *  follow; `persistImageSlot` keeps the baseline in sync. */
+  function clearArtworkSlots(slots: ("icon" | "cover" | "hero" | "logo")[]) {
+    for (const slot of slots) persistImageSlot(slot, "");
+    setArtworkFilesVersion((value) => value + 1);
   }
 
   async function handleApplyIgdbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {
@@ -2208,6 +2231,10 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     mediaFetchSlot,
     setMediaFetchSlot,
     fetchingImageKey,
+    artworkSearchQuery,
+    setArtworkSearchQuery,
+    artworkFilesVersion,
+    clearArtworkSlots,
     handlePrefillCost,
     resetPlaytimeEdits,
     handleFetchMetadata,

@@ -1660,6 +1660,104 @@
   flex-wrap: wrap;
 }
 
+.edit-downloaded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.edit-downloaded-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.edit-downloaded-total {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.edit-downloaded-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.edit-downloaded-card {
+  display: flex;
+  flex: 1 1 calc(var(--space-4xl) * 1.5);
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: calc(var(--space-4xl) * 1.5);
+  padding: var(--space-xs);
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  background: var(--panel-tint);
+}
+
+.edit-downloaded-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(45deg, var(--color-border-faint) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-border-faint) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-border-faint) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-border-faint) 75%);
+  background-size: var(--space-md) var(--space-md);
+  background-position: 0 0, 0 var(--space-sm), var(--space-sm) calc(var(--space-sm) * -1), calc(var(--space-sm) * -1) 0;
+}
+
+.edit-downloaded-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.edit-downloaded-badge {
+  position: absolute;
+  top: var(--space-2xs);
+  right: var(--space-2xs);
+  padding: 0 var(--space-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-overlay);
+  color: var(--color-success);
+  font-size: var(--text-2xs);
+}
+
+.edit-downloaded-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.edit-downloaded-name {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-downloaded-sub {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.edit-downloaded-card .ui-btn {
+  align-self: flex-end;
+}
+
 .edit-media-editor {
   display: flex;
   flex-direction: column;
