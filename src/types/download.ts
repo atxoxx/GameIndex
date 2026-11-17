@@ -8,6 +8,7 @@ import {
   type SpeedUnit,
 } from "./game";
 import { getActiveLocale } from "../i18n";
+import { compareTextBase } from "../utils/textCompare";
 // wire format must stay byte-for-byte compatible, or `invoke<DownloadStatus>`
 // will fail to deserialize and every Tauri command will throw.
 //
@@ -868,7 +869,7 @@ export function compareDownloads(sort: DownloadSort): (a: TorrentDownload, b: To
     case "added-asc":
       return (a, b) => a.addedAt - b.addedAt;
     case "name-asc":
-      return (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      return (a, b) => compareTextBase(a.name, b.name);
     case "size-desc":
       return (a, b) => (b.totalSize ?? 0) - (a.totalSize ?? 0);
     case "progress-desc":

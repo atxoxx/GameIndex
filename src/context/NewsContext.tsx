@@ -11,6 +11,7 @@ import {
 import { useLanguage } from "./LanguageContext";
 import { useGames } from "./GameContext";
 import { useWishlist } from "../hooks/useWishlist";
+import { useVisibleInterval } from "../hooks/useVisibleInterval";
 import type {
   FeedHealthStatus,
   HistoryEntry,
@@ -446,12 +447,8 @@ export function NewsProvider({ children }: { children: ReactNode }) {
     void fetchAll(feeds);
   }, [hydrated, demand, isoKey, lastRefreshedAt, feeds, fetchAll]);
 
-  // Keep recency ranking honest without re-rendering on every tick.
-  useEffect(() => {
-    if (demand === 0) return;
-    const timer = setInterval(() => setClock(Date.now()), CLOCK_TICK_MS);
-    return () => clearInterval(timer);
-  }, [demand]);
+  // Keep recency ranking honest without ticking inside a hidden window.
+  useVisibleInterval(() => setClock(Date.now()), CLOCK_TICK_MS, demand > 0);
 
   const start = useCallback(() => {
     setDemand((count) => count + 1);

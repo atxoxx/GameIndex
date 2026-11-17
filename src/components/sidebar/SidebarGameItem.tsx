@@ -14,6 +14,7 @@ import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
 import { thumbVariantUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
 import { useSharedViewportVisibility } from "../../hooks/useSharedViewportVisibility";
+import { ArtworkImage } from "../ui/ArtworkImage";
 import HighlightedName from "./HighlightedName";
 import type { SidebarGameItemProps } from "./types";
 
@@ -54,6 +55,42 @@ function SidebarGameItemBase({
   const displayName = gameDisplayName(game);
   const isVr = gameIsVr(game);
   const isRecomp = gameIsRecomp(game);
+
+  // Route the row's art through ArtworkImage: its shared observer releases the
+  // decoded bitmap once the row scrolls away. With a plain <img>, a 1000-game
+  // library kept every sidebar thumbnail decoded for the whole session.
+  const coverThumb = game.coverArtUrl
+    ? thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl
+    : null;
+  const primaryArt = game.iconUrl ?? coverThumb ?? game.logoUrl ?? null;
+  const [artSrc, setArtSrc] = useState<string | null>(primaryArt);
+  useEffect(() => setArtSrc(primaryArt), [primaryArt]);
+
+  const handleArtError = () => {
+    if (!artSrc) return;
+    if (game.iconUrl && artSrc === game.iconUrl && coverThumb) {
+      setArtSrc(coverThumb);
+      return;
+    }
+    if (game.steamAppId && game.coverArtUrl) {
+      if (artSrc.includes("library_600x900_2x")) {
+        setArtSrc(
+          `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId}/library_600x900.jpg`,
+        );
+        return;
+      }
+      if (artSrc.includes("library_600x900")) {
+        setArtSrc(`https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId}/header.jpg`);
+        return;
+      }
+    }
+    if (artSrc === game.iconUrl) updateGame(game.id, { iconUrl: undefined });
+    else if (artSrc === game.logoUrl) {
+      updateGame(game.id, { logoUrl: undefined, logoSourceUrl: undefined });
+    } else {
+      updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
+    }
+  };
 
   const [isNearViewport, setIsNearViewport] = useState(false);
   // Always ask SteamGridDB while the row is visible: the poster, hero and
@@ -194,56 +231,16 @@ function SidebarGameItemBase({
       aria-selected={isSelected}
     >
       <div className="sidebar-game-icon">
-        {game.iconUrl ? (
-          <img
-            src={game.iconUrl}
+        {artSrc ? (
+          <ArtworkImage
+            src={artSrc}
             alt=""
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (game.coverArtUrl && img.dataset.fallback !== "cover") {
-                img.dataset.fallback = "cover";
-                img.src = thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl;
-                return;
-              }
-              // Icon and cover both fail (e.g. an artwork file was removed).
-              // Clear only the dead icon; the cover branch handles its own
-              // failure and the attempt marks stop this from looping.
-              updateGame(game.id, { iconUrl: undefined });
-            }}
-          />
-        ) : game.coverArtUrl ? (
-          <img
-            src={thumbVariantUrl(game.coverArtUrl) ?? game.coverArtUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              const img = e.currentTarget;
-              const appId = game.steamAppId;
-              if (appId) {
-                if (img.src.includes("library_600x900_2x")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-                  return;
-                }
-                if (img.src.includes("library_600x900")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
-                  return;
-                }
-              }
-              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });            }}
-          />
-        ) : game.logoUrl ? (
-          <img
-            src={game.logoUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="sidebar-game-logo"
-            onError={() => {
-              updateGame(game.id, { logoUrl: undefined, logoSourceUrl: undefined });
-            }}
+            className={
+              artSrc === game.logoUrl && !game.iconUrl && !coverThumb
+                ? "sidebar-game-logo"
+                : undefined
+            }
+            onError={handleArtError}
           />
         ) : (
           <svg

@@ -1,4 +1,5 @@
 import type { DisplayMatch } from "./types";
+import { compareText, compareTextBase } from "../../utils/textCompare";
 
 /** Reserved rail id for the "every source" entry. */
 export const ALL_SOURCES_ENTRY_ID = "all";
@@ -46,7 +47,7 @@ function builtInLabel(match: DisplayMatch, id: string): string {
 }
 
 function compareLabels(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { sensitivity: "base" });
+  return compareTextBase(a, b);
 }
 
 /**
@@ -94,7 +95,7 @@ export function buildSourceNavEntries(
     label: info.label,
     count: info.count,
     provider: "source" as const,
-  })).sort((a, b) => compareLabels(a.label, b.label) || a.id.localeCompare(b.id));
+  })).sort((a, b) => compareLabels(a.label, b.label) || compareText(a.id, b.id));
 
   entries.push(...sourceEntries);
 
@@ -187,7 +188,7 @@ export function groupMatchesBySource(
   const sourceGroups = Array.from(groups.values())
     .filter((group) => group.provider === "source")
     .sort(
-      (a, b) => compareLabels(a.label, b.label) || a.id.localeCompare(b.id),
+      (a, b) => compareLabels(a.label, b.label) || compareText(a.id, b.id),
     );
 
   return pluginGroup ? [...sourceGroups, pluginGroup] : sourceGroups;

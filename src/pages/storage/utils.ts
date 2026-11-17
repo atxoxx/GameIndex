@@ -1,6 +1,7 @@
 import type { Game, SizeUnit } from "../../types/game";
 import { formatSize } from "../../types/game";
 import { mountPointOf } from "./mounts";
+import { compareText, compareTextBase } from "../../utils/textCompare";
 
 // ─── Tabs, filters, columns ────────────────────────────────────────────────
 
@@ -88,18 +89,14 @@ function measuredAtValue(game: Game): number {
 function compareColumn(column: StorageSortColumn): (a: Game, b: Game) => number {
   switch (column) {
     case "name":
-      return (a, b) =>
-        (a.displayName || a.name).localeCompare(b.displayName || b.name, undefined, {
-          sensitivity: "base",
-        });
+      return (a, b) => compareTextBase(a.displayName || a.name, b.displayName || b.name);
     case "platform":
-      return (a, b) =>
-        (a.platform || "").localeCompare(b.platform || "", undefined, { sensitivity: "base" });
+      return (a, b) => compareTextBase(a.platform || "", b.platform || "");
     case "drive":
       return (a, b) => {
         const aDrive = a.sizeRootPath ? driveOf(a.sizeRootPath) : "";
         const bDrive = b.sizeRootPath ? driveOf(b.sizeRootPath) : "";
-        return aDrive.localeCompare(bDrive, undefined, { sensitivity: "base" });
+        return compareTextBase(aDrive, bDrive);
       };
     case "mods":
       return (a, b) => (a.modsSizeBytes ?? 0) - (b.modsSizeBytes ?? 0);
@@ -129,7 +126,7 @@ export function sortGamesByColumn(games: Game[], sort: StorageSort): Game[] {
       if (aSize === 0 && bSize > 0) return 1;
       if (bSize === 0 && aSize > 0) return -1;
     }
-    return sign * compare(a, b) || (a.displayName || a.name).localeCompare(b.displayName || b.name);
+    return sign * compare(a, b) || compareText(a.displayName || a.name, b.displayName || b.name);
   });
 }
 
@@ -515,7 +512,7 @@ export function libraryRoots(games: Game[]): string[] {
   return Array.from(counts.entries())
     .filter(([parent, count]) => count >= 2 || LIBRARY_DIR.test(parent))
     .map(([parent]) => parent)
-    .sort((a, b) => a.localeCompare(b));
+    .sort(compareText);
 }
 
 // ─── Path relocation ───────────────────────────────────────────────────────

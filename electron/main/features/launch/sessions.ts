@@ -13,7 +13,7 @@
 import { emit } from "../../ipc";
 import { setLastPlayed } from "../../state/libraryStore";
 import { appendSample, finishSession, startSession } from "../../state/sessionsStore";
-import { shutdownTelemetry, startTelemetry } from "../telemetry";
+import { shutdownTelemetry, startTelemetry, stopTelemetry } from "../telemetry";
 import { createSessionMetrics, type SessionMetrics } from "./metrics";
 import { getGameRootDir, baseNameLower } from "./paths";
 import { resolveProcessDetails } from "./processes";
@@ -318,9 +318,10 @@ export async function finalizeSession(
   if (remainingGameName) payload.remainingGameName = remainingGameName;
   emit("game-exited", payload);
 
-  // The telemetry probes stay warm between games (only app quit kills them), so
-  // the next launch shows FPS/temps immediately instead of recompiling the C#.
-  void activeSessions.size;
+  // Keep the probes warm for the idle grace period so an immediate relaunch
+  // still shows FPS/temps, then let them go. Without this call (the overlay was
+  // the only caller) RTSS/MAHM stayed resident for the entire app lifetime.
+  if (activeSessions.size === 0) stopTelemetry();
 
   if (!options.killedByUser && elapsed < HEAL_SHORT_RUN_SECS) {
     const failure: GameFailurePayload = {

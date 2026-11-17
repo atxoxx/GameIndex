@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo } from "react";
 import type { Game } from "../types/game";
 import { gameDisplayName, parsePlayTime } from "../types/game";
 import { useLibraryFilterState } from "../context/LibraryFilterContext";
+import { compareText } from "../utils/textCompare";
 import {
   EMPTY_LIBRARY_FILTERS,
   filterGames,
@@ -71,7 +72,7 @@ export function useLibraryFilters(games: Game[], options: UseLibraryFiltersOptio
         }
       }
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort(compareText);
   }, [games]);
 
   const availablePlatforms = useMemo(() => {
@@ -79,7 +80,7 @@ export function useLibraryFilters(games: Game[], options: UseLibraryFiltersOptio
     for (const game of games) {
       if (game.platform) set.add(game.platform);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort(compareText);
   }, [games]);
 
   const filteredGames = useMemo(() => {
@@ -103,7 +104,7 @@ export function useLibraryFilters(games: Game[], options: UseLibraryFiltersOptio
         if (sb !== sa) return sb - sa;
         switch (deferredFilters.sort) {
           case "alphabetical":
-            return gameDisplayName(a).localeCompare(gameDisplayName(b));
+            return compareText(gameDisplayName(a), gameDisplayName(b));
           case "date_added":
             return (b.addedAt ?? 0) - (a.addedAt ?? 0);
           case "most_played":

@@ -71,13 +71,33 @@ const lastFpsByProcess = new Map<string, number>();
  */
 const HELPER_IDLE_GRACE_MS = 5 * 60_000;
 let idleShutdownTimer: ReturnType<typeof setTimeout> | null = null;
+let lastDemandAt = 0;
 
-/** Cancel a pending probe shutdown: something is sampling again. */
+/**
+ * Record fresh sampling demand. A pending shutdown is not cancelled outright:
+ * its callback re-checks this timestamp and re-arms for the remaining grace if
+ * a HUD/diagnostics read arrived in the meantime. Cancelling without re-arming
+ * used to leave the probes resident forever after a late read.
+ */
 function noteDemand(): void {
-  if (idleShutdownTimer) {
-    clearTimeout(idleShutdownTimer);
+  lastDemandAt = Date.now();
+}
+
+/** Schedule the idle kill, accounting for demand seen during the grace period. */
+function scheduleIdleShutdown(): void {
+  if (!IS_WINDOWS) return;
+  if (idleShutdownTimer) clearTimeout(idleShutdownTimer);
+  const remaining = Math.max(0, HELPER_IDLE_GRACE_MS - (Date.now() - lastDemandAt));
+  idleShutdownTimer = setTimeout(() => {
     idleShutdownTimer = null;
-  }
+    if (Date.now() - lastDemandAt < HELPER_IDLE_GRACE_MS) {
+      scheduleIdleShutdown();
+      return;
+    }
+    stopRtssHelper();
+    stopMahmHelper();
+  }, remaining);
+  idleShutdownTimer.unref?.();
 }
 
 
@@ -233,18 +253,15 @@ export function startTelemetry(): void {
  * after that they are killed and their memory returned.
  */
 export function stopTelemetry(): void {
-  if (!IS_WINDOWS) return;
-  noteDemand();
-  idleShutdownTimer = setTimeout(() => {
-    idleShutdownTimer = null;
-    shutdownTelemetry();
-  }, HELPER_IDLE_GRACE_MS);
-  idleShutdownTimer.unref?.();
+  scheduleIdleShutdown();
 }
 
-/** Kill every probe (idle grace elapsed, or app quit). */
+/** Kill every probe immediately (idle grace elapsed, or app quit). */
 export function shutdownTelemetry(): void {
-  noteDemand();
+  if (idleShutdownTimer) {
+    clearTimeout(idleShutdownTimer);
+    idleShutdownTimer = null;
+  }
   stopRtssHelper();
   stopMahmHelper();
 }

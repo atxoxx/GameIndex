@@ -1,4 +1,5 @@
 import type { NewsCluster, NewsCardItem, NewsFilterState, NewsTimeRange } from "../../types/news";
+import { compareText } from "../textCompare";
 
 /** Everything the filter needs that is not part of the raw article set. */
 export interface FilterContext {
@@ -77,7 +78,7 @@ export function filterClusters(
     case "source":
       return [...filtered].sort(
         (a, b) =>
-          a.lead.sourceName.localeCompare(b.lead.sourceName) || b.latestAt - a.latestAt,
+          compareText(a.lead.sourceName, b.lead.sourceName) || b.latestAt - a.latestAt,
       );
     case "signal":
     default:
@@ -160,7 +161,7 @@ export function filterCardItems<T extends NewsCardItem>(
       );
     case "source":
       return [...filtered].sort(
-        (a, b) => a.article.sourceName.localeCompare(b.article.sourceName),
+        (a, b) => compareText(a.article.sourceName, b.article.sourceName),
       );
     case "signal":
     default:

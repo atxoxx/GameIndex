@@ -126,6 +126,9 @@ function pump(): void {
     stdout += chunk.toString("utf8");
     if (stdout.length > 16_384) stdout = stdout.slice(0, 16_384);
   });
+  // Drain stderr too: an undrained pipe can keep the child's handle alive
+  // when nvidia-smi writes a warning (e.g. a driver mismatch).
+  child.stderr?.on("data", () => {});
   child.on("error", () => {
     clearTimeout(timer);
     finish({}, true);

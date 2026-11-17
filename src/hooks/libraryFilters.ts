@@ -1,5 +1,6 @@
 import type { Game, LibrarySource, PlayStatus } from "../types/game";
 import { gameDisplayName, gameIsRecomp, gameIsVr, parsePlayTime } from "../types/game";
+import { compareText } from "../utils/textCompare";
 
 /** Status facets for the library filter sidebar. */
 export type LibraryStatus = "all" | "installed" | "not_installed";
@@ -434,7 +435,7 @@ export function sortGames(
   const sorted = [...games];
   switch (sort) {
     case "alphabetical":
-      sorted.sort((a, b) => gameDisplayName(a).localeCompare(gameDisplayName(b)));
+      sorted.sort((a, b) => compareText(gameDisplayName(a), gameDisplayName(b)));
       break;
     case "date_added":
       sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));

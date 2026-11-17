@@ -32,6 +32,26 @@ function emptyCache(): StoreCacheDocument {
   return { categories: {}, detailCache: {} };
 }
 
+/**
+ * Filter/slug combinations grow without bound otherwise, and the whole blob is
+ * serialised to the renderer on every Store mount. Keep the most recent keys.
+ */
+const MAX_CATEGORY_KEYS = 120;
+const MAX_DETAIL_KEYS = 600;
+
+function pruneKeys<T>(map: Record<string, CacheEntry<T>>, max: number): void {
+  const keys = Object.keys(map);
+  if (keys.length <= max) return;
+  keys.sort((a, b) => map[a].fetchedAt - map[b].fetchedAt);
+  for (const key of keys.slice(0, keys.length - max)) delete map[key];
+}
+
+function pruneDocument(doc: StoreCacheDocument): StoreCacheDocument {
+  pruneKeys(doc.categories, MAX_CATEGORY_KEYS);
+  pruneKeys(doc.detailCache, MAX_DETAIL_KEYS);
+  return doc;
+}
+
 const cacheStore = createSqliteStore<StoreCacheDocument>({
   domain: "store_cache",
   document: "store-cache",
@@ -69,7 +89,7 @@ const cacheStore = createSqliteStore<StoreCacheDocument>({
 /** Raw JSON string the renderer hydrates from (`load_store_cache`). */
 export function loadStoreCacheRaw(): string {
   try {
-    return JSON.stringify(cacheStore.read());
+    return JSON.stringify(pruneDocument(cacheStore.read()));
   } catch (error) {
     console.error("[store-cache] could not serialise cache:", error);
     return JSON.stringify(emptyCache());
@@ -127,7 +147,7 @@ export function saveStoreCacheRaw(data: string): void {
     }
   }
 
-  cacheStore.write({ categories, detailCache });
+  cacheStore.write(pruneDocument({ categories, detailCache }));
 }
 
 function allCachedSummaries(): StoreGameSummary[] {
@@ -273,7 +293,7 @@ function storeCacheWrite(key: string, rows: StoreGameSummary[]): void {
   try {
     cacheStore.update((doc) => {
       doc.categories[key] = { data: rows, fetchedAt: Date.now() };
-      return doc;
+      return pruneDocument(doc);
     });
   } catch (error) {
     console.warn("[store] could not persist the catalogue cache:", error);
@@ -448,7 +468,7 @@ export async function getStoreGameDetail(
     const data = fetched as unknown as GameMetadataResult;
     cacheStore.update((doc) => {
       doc.detailCache[slug] = { data, fetchedAt: Date.now() };
-      return doc;
+      return pruneDocument(doc);
     });
     return data;
   } catch (error) {

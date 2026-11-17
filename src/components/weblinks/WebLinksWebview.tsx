@@ -171,7 +171,7 @@ export default function WebLinksWebview({
       if (!localWebview || !active || !visibleRef.current) return;
       // Same skip as the shared nav hook: while the main window is minimized
       // to the tray / host game, nobody can click the toolbar, so keep the
-      // 500ms IPC tick for visible sessions only.
+      // IPC tick for visible sessions only.
       if (document.hidden) return;
       try {
         const current = await invoke<string>("webview_current_url", {
@@ -250,7 +250,9 @@ export default function WebLinksWebview({
         if (onNavStateChange) onNavStateChange({ back: false, forward: false });
 
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(pollCurrentUrl, 500);
+        // 1 Hz is plenty for keeping the back/forward buttons in sync and
+        // halves the IPC round-trips of the old 500 ms tick.
+        pollTimer = setInterval(pollCurrentUrl, 1000);
 
         webview.once("tauri://error", (e) => {
           console.error("Webview creation error:", e);
