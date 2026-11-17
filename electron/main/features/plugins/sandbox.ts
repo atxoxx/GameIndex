@@ -50,7 +50,18 @@ const MAX_PLUGIN_RESULTS = 500;
 const HTTP_MAX_ATTEMPTS = 3;
 const HTTP_RETRY_BACKOFF_MS = [500, 1000] as const;
 const HTTP_TIMEOUT_MS = 15_000;
+/**
+ * Below this much wall clock there is no point starting (or retrying) a request:
+ * the sandbox interrupt would fire mid-flight and the plugin would only see a
+ * confusing cancellation instead of the real upstream answer.
+ */
+const HTTP_MIN_REQUEST_MS = 1_500;
+/** Headroom kept before the sandbox's own interrupt deadline. */
+const HTTP_DEADLINE_MARGIN_MS = 250;
 const MAX_CONSOLE_LINE = 2_000;
+const MAX_FILE_LIST_ENTRIES = 2_000;
+const MAX_DIRECT_URLS = 50;
+const MAX_CHECKSUMS = 32;
 
 export interface SandboxLimits {
   memoryLimitBytes?: number;
@@ -73,6 +84,8 @@ export type HttpTextFn = (
     headers?: Record<string, string>;
     timeoutMs?: number;
     signal?: AbortSignal;
+    /** Refuse bodies bigger than this without buffering them. */
+    maxBytes?: number;
   },
 ) => Promise<{ status: number; ok: boolean; url: string; text: string }>;
 
@@ -213,7 +226,12 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
   const context = await newAsyncContext();
   const runtime = context.runtime;
   runtime.setMemoryLimit(limits.memoryLimitBytes);
-  runtime.setInterruptHandler(shouldInterruptAfterDeadline(Date.now() + limits.timeoutMs));
+  // One deadline for the whole sandbox: the interrupt handler stops runaway
+  // script, and the HTTP layer below refuses requests that could not finish
+  // inside what is left of it.
+  const deadline = Date.now() + limits.timeoutMs;
+  runtime.setInterruptHandler(shouldInterruptAfterDeadline(deadline));
+  const timeLeft = (): number => deadline - Date.now();
 
   const state: SandboxState = { manifest: null, hasSearch: false, requests: 0 };
   const controller = new AbortController();
@@ -268,7 +286,14 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
     }
     const host = hostOf(url) ?? "";
     const wait = reserveHostSlot(host, network.rateLimitMs ?? 0);
-    if (wait > 0) await sleep(wait);
+    if (wait > 0) {
+      if (wait + HTTP_MIN_REQUEST_MS + HTTP_DEADLINE_MARGIN_MS > timeLeft()) {
+        throw new Error(
+          `httpGet: ${host} is rate limited (${Math.round(wait / 1000)}s) and the search budget is nearly spent`,
+        );
+      }
+      await sleep(wait);
+    }
 
     state.requests += 1;
     if (state.requests > limits.maxRequests) {
@@ -284,16 +309,32 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
     if (referer) headers.referer = referer;
 
     let lastError = "";
+    let attempts = 0;
     for (let attempt = 0; attempt < HTTP_MAX_ATTEMPTS; attempt += 1) {
       if (attempt > 0) {
-        await sleep(HTTP_RETRY_BACKOFF_MS[attempt - 1] ?? 1000);
+        const backoff = HTTP_RETRY_BACKOFF_MS[attempt - 1] ?? 1000;
+        // A retry only makes sense when the request itself still fits.
+        if (backoff + HTTP_MIN_REQUEST_MS + HTTP_DEADLINE_MARGIN_MS > timeLeft()) {
+          lastError = lastError || "search budget exhausted";
+          break;
+        }
+        await sleep(backoff);
       }
+      const budget = timeLeft() - HTTP_DEADLINE_MARGIN_MS;
+      if (budget < HTTP_MIN_REQUEST_MS) {
+        lastError = lastError || "search budget exhausted";
+        break;
+      }
+      // Never let a single request outlive the sandbox that is waiting on it.
+      const timeoutMs = Math.min(HTTP_TIMEOUT_MS, budget);
+      attempts += 1;
       let response: { status: number; ok: boolean; url: string; text: string };
       try {
         response = await options.httpText(url, {
           headers,
-          timeoutMs: HTTP_TIMEOUT_MS,
+          timeoutMs,
           signal: controller.signal,
+          maxBytes: limits.maxResponseBytes,
         });
       } catch (error) {
         if (controller.signal.aborted) throw new Error("httpGet: search cancelled");
@@ -316,7 +357,9 @@ async function openSandbox(options: SandboxOptions): Promise<SandboxSession> {
       throw new Error(`httpGet: ${url} -> HTTP ${response.status}`);
     }
     throw new Error(
-      `httpGet: ${url} failed after ${HTTP_MAX_ATTEMPTS} attempts: ${lastError}`,
+      `httpGet: ${url} failed${
+        attempts > 0 ? ` after ${attempts} attempt${attempts === 1 ? "" : "s"}` : ""
+      }: ${lastError || "search budget exhausted"}`,
     );
   };
 
@@ -658,9 +701,10 @@ function asOptionalBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function asStringArray(value: unknown): string[] | undefined {
+function asStringArray(value: unknown, limit = Number.POSITIVE_INFINITY): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const out = value
+    .slice(0, limit)
     .map((entry) => asString(entry, 4_000))
     .filter((entry) => entry.length > 0);
   return out.length > 0 ? out : undefined;
@@ -701,7 +745,7 @@ function normalizeRawResult(value: unknown): PluginRawResult | null {
   if (category) row.category = category;
   const platform = asOptionalString(input.platform, 200);
   if (platform) row.platform = platform;
-  const directUrls = asStringArray(input.directUrls);
+  const directUrls = asStringArray(input.directUrls, MAX_DIRECT_URLS);
   if (directUrls) row.directUrls = directUrls;
   const provenance = asOptionalString(input.provenance, 500);
   if (provenance) row.provenance = provenance;
@@ -724,6 +768,7 @@ function normalizeRawResult(value: unknown): PluginRawResult | null {
 
   if (Array.isArray(input.fileList)) {
     const fileList = input.fileList
+      .slice(0, MAX_FILE_LIST_ENTRIES)
       .filter(
         (entry): entry is { name?: unknown; size?: unknown } =>
           entry !== null && typeof entry === "object",
@@ -737,6 +782,7 @@ function normalizeRawResult(value: unknown): PluginRawResult | null {
   }
   if (Array.isArray(input.checksums)) {
     const checksums = input.checksums
+      .slice(0, MAX_CHECKSUMS)
       .filter(
         (entry): entry is { algo?: unknown; value?: unknown } =>
           entry !== null && typeof entry === "object",

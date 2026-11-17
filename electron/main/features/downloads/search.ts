@@ -759,8 +759,12 @@ export async function runDownloadSearch(
         );
         if (rows.length === 0) {
           // Verbose titles miss upstream substring indexes; retry once with the
-          // cleaned short query, exactly like the Rust pipeline.
-          const cleaned = cleanSearchQuery(query);
+          // cleaned short query, exactly like the Rust pipeline — but never for
+          // a plugin that just failed (timeout, block, network). It already
+          // recorded its reason, and a second sandbox only doubles the upstream
+          // traffic before the same error row is reported.
+          const recorded = deps.pluginError(plugin.id);
+          const cleaned = recorded ? null : cleanSearchQuery(query);
           if (cleaned && cleaned !== query) {
             const retry = await withTimeout(
               deps.searchPlugin(plugin, cleaned, pluginOptions),

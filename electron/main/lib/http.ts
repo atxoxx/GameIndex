@@ -124,6 +124,11 @@ export interface HttpOptions {
   /** Redirect policy; defaults to following. */
   redirect?: RequestRedirect;
   signal?: AbortSignal;
+  /**
+   * Refuse a body bigger than this instead of buffering it. Enforced while the
+   * body streams: a scraped page cannot balloon memory just to be rejected later.
+   */
+  maxBytes?: number;
 }
 
 const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -185,6 +190,9 @@ async function request(url: string, options: HttpOptions = {}): Promise<Response
           ? retryAfter * 1000
           : Math.min(5_000, 400 * 2 ** attempt);
         attempt += 1;
+        // Release the discarded body before retrying: an unread body keeps the
+        // connection (and its buffers) alive until the garbage collector runs.
+        await response.body?.cancel().catch(() => undefined);
         await sleep(delay);
         continue;
       }
@@ -224,13 +232,47 @@ export interface TextResponse {
   headers: Headers;
 }
 
+/**
+ * Read a response body as text with an optional size cap.
+ *
+ * The cap is checked twice: against `content-length` when the server declares
+ * one (fail before downloading anything) and while the body streams (servers
+ * lie, and chunked responses declare nothing). The reader is cancelled on
+ * overshoot so the connection is not drained into memory.
+ */
+async function readTextCapped(response: Response, maxBytes?: number): Promise<string> {
+  if (maxBytes === undefined || maxBytes <= 0) return response.text();
+  if (!response.body) return "";
+  const declared = Number(response.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body.cancel().catch(() => undefined);
+    throw new Error(`response too large (${declared} > ${maxBytes} bytes)`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    bytes += value.byteLength;
+    if (bytes > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error(`response too large (> ${maxBytes} bytes)`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 export async function httpText(url: string, options: HttpOptions = {}): Promise<TextResponse> {
   const response = await request(url, options);
   return {
     status: response.status,
     ok: response.ok,
     url: response.url,
-    text: await response.text(),
+    text: await readTextCapped(response, options.maxBytes),
     headers: response.headers,
   };
 }
@@ -238,7 +280,7 @@ export async function httpText(url: string, options: HttpOptions = {}): Promise<
 /** GET + JSON parse. Throws with the status and a short body excerpt on failure. */
 export async function httpJson<T>(url: string, options: HttpOptions = {}): Promise<T> {
   const response = await request(url, options);
-  const text = await response.text();
+  const text = await readTextCapped(response, options.maxBytes);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}: ${text.slice(0, 300)}`);
   }

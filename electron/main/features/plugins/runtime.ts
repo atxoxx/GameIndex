@@ -58,6 +58,12 @@ import type {
 export const MIN_MATCH_SCORE = 0.2;
 const PLUGIN_CACHE_TTL_MS = 15 * 60 * 1000;
 const PLUGIN_CACHE_MAX_ENTRIES = 64;
+/**
+ * Empty answers are cached for a minute at most: a challenge page, a rate limit
+ * or an upstream hiccup that the plugin parses as "no results" must not pin the
+ * plugin to zero hits for the whole 15-minute TTL.
+ */
+const EMPTY_RESULT_TTL_MS = 60 * 1000;
 const MAX_ALIASES = 8;
 
 export interface InstallPluginArgs {
@@ -589,6 +595,50 @@ export class PluginRuntime {
     return PLUGIN_CACHE_TTL_MS;
   }
 
+  /**
+   * The manifest that describes the plugin file on disk.
+   *
+   * The index stores the manifest validated at install/toggle time, so while the
+   * file is byte-identical (hash match) it goes straight to the search sandbox:
+   * `runPluginSearch` evaluates the source itself, and re-validating it in a
+   * *second* QuickJS context used to double every search's CPU and memory.
+   *
+   * A file edited on disk pays for the re-evaluation once and has the stored
+   * manifest — and with it the egress policy (`allowedHosts`, `rateLimitMs`) —
+   * refreshed for the next searches.
+   */
+  private async manifestFor(record: PluginRecord, source: string): Promise<PluginManifest> {
+    const hash = sha256Hex(source);
+    const stored = record.manifest;
+    const storedIsTrusted =
+      record.fileHash === hash &&
+      stored != null &&
+      stored.id === record.id &&
+      typeof stored.version === "string" &&
+      stored.version.length > 0;
+    if (storedIsTrusted) return stored;
+
+    const manifest = await this.evaluateSource(source, record.id);
+    try {
+      this.registry.writeManifest(record.id, manifest);
+      this.registry.patch(record.id, {
+        fileHash: hash,
+        manifest: toStoredManifest(manifest),
+        name: manifest.name,
+        version: manifest.version,
+        author: manifest.author,
+        description: manifest.description,
+        sourceUrl: manifest.sourceUrl,
+        platformCategory: normalizePlatformCategory(manifest.platformCategory),
+      });
+    } catch (error) {
+      // A stale index entry is not a search failure: this run still uses the
+      // freshly evaluated manifest.
+      this.logger(`[plugins] could not refresh ${record.id}:`, error);
+    }
+    return manifest;
+  }
+
   private async searchRecord(
     record: PluginRecord,
     query: string,
@@ -597,8 +647,10 @@ export class PluginRuntime {
     const ttl = this.cacheTtlMs(record);
     if (ttl > 0) {
       const cached = this.cache.get(key);
-      if (cached && Date.now() - cached.at < ttl) {
-        return cached.results;
+      if (cached) {
+        const entryTtl =
+          cached.results.length > 0 ? ttl : Math.min(ttl, EMPTY_RESULT_TTL_MS);
+        if (Date.now() - cached.at < entryTtl) return cached.results;
       }
     }
 
@@ -607,7 +659,7 @@ export class PluginRuntime {
 
     const task = (async (): Promise<PluginRawResult[]> => {
       const source = this.registry.readSource(record.id);
-      const manifest = await this.evaluateSource(source, record.id);
+      const manifest = await this.manifestFor(record, source);
       const results = await this.runSandbox(record, source, manifest, query);
 
       if (ttl > 0) {
