@@ -22,7 +22,14 @@ import { Button } from "../../../components/ui/Button";
 import { SubTabs } from "../../../components/ui/SubTabs";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
-import type { VrModDetails, VrModGameGroup, VrReadme, VrRepoMeta } from "../../../types/vrMod";
+import type {
+  VrModDetails,
+  VrModEntry,
+  VrModGameGroup,
+  VrModLink,
+  VrReadme,
+  VrRepoMeta,
+} from "../../../types/vrMod";
 import "../../../styles/game-notes.css";
 import { formatCount, formatDate, platformAccent } from "../portFormat";
 import { RepoMark } from "../portIcons";
@@ -69,12 +76,49 @@ function repoLabel(url: string, repoKey: string | null): string {
   return linkHost(url);
 }
 
+/** The repository that backs an entry: its first GitHub/GitLab link. */
+function entryRepoLink(entry: VrModEntry | null | undefined): VrModLink | null {
+  if (!entry) return null;
+  return entry.links.find((link) => link.kind === "github" || link.kind === "gitlab") ?? null;
+}
+
+/**
+ * Dropdown label for one mod of the game. The mod name comes first because the
+ * options select an *item*; the tail says where it lives (its repository, or
+ * the source page when it has none).
+ */
+function itemLabel(entry: VrModEntry): string {
+  const repo = entryRepoLink(entry);
+  if (repo) return `${entry.modName} · ${repoLabel(repo.url, repo.repoKey)}`;
+  const source = entry.sources[0]?.name ?? "";
+  return source ? `${entry.modName} · ${source}` : entry.modName;
+}
+
+/**
+ * Default item for a freshly opened modal: the entry with the most to show, so
+ * a game never opens on a stub entry (many catalog entries are just a link with
+ * no description while a sibling entry documents the same mod fully).
+ */
+function defaultItemIndex(entries: VrModEntry[]): number {
+  let best = 0;
+  let bestScore = -1;
+  entries.forEach((entry, index) => {
+    const score =
+      (entry.description ? 2 : 0) + (entry.details ? 1 : 0) + (entryRepoLink(entry) ? 1 : 0);
+    if (score > bestScore) {
+      best = index;
+      bestScore = score;
+    }
+  });
+  return best;
+}
+
 /** Detail view for one VR mod game, mirroring the Ports project modal. */
 export default function VrModDetailModal({ group, onClose }: VrModDetailModalProps) {
   const { t } = useLanguage();
   const copyText = useCopyToClipboard();
   const [tab, setTab] = useState<VrTab>("overview");
-  const [linkIndex, setLinkIndex] = useState(0);
+  const [itemIndex, setItemIndex] = useState(() => defaultItemIndex(group.entries));
   const [readmeState, setReadmeState] = useState<{ url: string; data: VrReadme } | null>(null);
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [repoMetaState, setRepoMetaState] = useState<{ url: string; meta: VrRepoMeta | null } | null>(null);
@@ -83,29 +127,30 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
   const [detailsLoading, setDetailsLoading] = useState(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
-  const activeIndex = Math.min(linkIndex, Math.max(0, group.githubLinks.length - 1));
-  const repoLink = group.githubLinks[activeIndex] ?? null;
+  // The dropdown picks one mod of this game, and everything below the header
+  // follows it: description, details, facts, links and the repository/README.
+  const activeIndex = Math.min(itemIndex, Math.max(0, group.entries.length - 1));
+  const activeEntry = group.entries[activeIndex] ?? null;
+  const repoLink = entryRepoLink(activeEntry);
   const repoUrl = repoLink?.url ?? null;
-  const allLinks = useMemo(
-    () => dedupeLinks(group.entries.flatMap((entry) => entry.links)),
-    [group.entries],
-  );
-  const primaryKind = group.kinds[0] ?? "unknown";
-  const description = group.entries.find((entry) => entry.description)?.description ?? "";
+  // The header action and the copy button still need *something* to point at
+  // when the mod is only published on a non-repository host (Patreon, a site).
+  const primaryLink = repoLink ?? activeEntry?.links[0] ?? null;
+  const allLinks = useMemo(() => dedupeLinks(activeEntry?.links ?? []), [activeEntry]);
+  const primaryKind = activeEntry?.kind ?? group.kinds[0] ?? "unknown";
+  const platforms =
+    activeEntry && activeEntry.platforms.length > 0 ? activeEntry.platforms : group.platforms;
+  const description = activeEntry?.description ?? "";
+  const sources = activeEntry?.sources.length ? activeEntry.sources : group.sources;
   const { inlineDetails, detailKey } = useMemo(() => {
-    const inline: string[] = [];
-    const keys: string[] = [];
-    for (const entry of group.entries) {
-      const value = entry.details;
-      if (!value) continue;
-      if (value.startsWith("d:")) keys.push(value);
-      else inline.push(...value.split("\n").map((line) => line.trim()).filter(Boolean));
-    }
+    const value = activeEntry?.details ?? "";
+    if (!value) return { inlineDetails: [] as string[], detailKey: "" };
+    if (value.startsWith("d:")) return { inlineDetails: [] as string[], detailKey: value };
     return {
-      inlineDetails: [...new Set(inline)],
-      detailKey: [...new Set(keys)].join(","),
+      inlineDetails: value.split("\n").map((line) => line.trim()).filter(Boolean),
+      detailKey: "",
     };
-  }, [group.entries]);
+  }, [activeEntry]);
   const details = useMemo(
     () => [
       ...new Set([
@@ -120,14 +165,20 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
   const showReadmeLoading = tab === "readme" && !!repoUrl && (readmeLoading || readme === null);
 
   useEffect(() => {
-    setLinkIndex(0);
+    setItemIndex(defaultItemIndex(group.entries));
     setTab("overview");
   }, [group.key]);
 
   // Structured details live in a separate chunk: fetch it once, on first
   // Overview open, instead of shipping 1 MB in the grid bundle.
   useEffect(() => {
-    if (tab !== "overview" || !detailKey) return;
+    if (tab !== "overview") return;
+    if (!detailKey) {
+      // Switching to an item without a details key must not leave the previous
+      // item's skeleton on screen.
+      setDetailsLoading(false);
+      return;
+    }
     const cached = detailsCache.get(detailKey);
     if (cached) {
       setDetailState({ key: detailKey, lines: cached });
@@ -249,7 +300,7 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
   };
 
   const copy = async () => {
-    const url = repoLink?.url ?? allLinks[0]?.url;
+    const url = primaryLink?.url;
     if (!url) return;
     const ok = await copyText(url);
     if (ok) {
@@ -260,12 +311,14 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
 
   const facts: { label: string; value: string }[] = [
     { label: t("ports.vrMods.facts.type"), value: t(vrKindLabelKey(primaryKind)) },
-    { label: t("ports.vrMods.facts.platform"), value: group.platforms.join(", ") },
-    ...(group.author ? [{ label: t("ports.vrMods.facts.author"), value: group.author }] : []),
-    ...(group.date ? [{ label: t("ports.vrMods.facts.date"), value: formatVrDate(group.date) ?? group.date }] : []),
+    { label: t("ports.vrMods.facts.platform"), value: platforms.join(", ") },
+    ...(activeEntry?.author ? [{ label: t("ports.vrMods.facts.author"), value: activeEntry.author }] : []),
+    ...(activeEntry?.date
+      ? [{ label: t("ports.vrMods.facts.date"), value: formatVrDate(activeEntry.date) ?? activeEntry.date }]
+      : []),
     {
       label: t("ports.vrMods.facts.source"),
-      value: group.sources.map((source) => source.name).join(", "),
+      value: sources.map((source) => source.name).join(", "),
     },
   ];
 
@@ -288,13 +341,13 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
         <header className="ports-modal__head">
           <span
             className="ports-modal__art"
-            style={{ "--port-accent": platformAccent(group.platforms[0] ?? "PCVR") } as CSSProperties}
+            style={{ "--port-accent": platformAccent(platforms[0] ?? "PCVR") } as CSSProperties}
           >
             {group.image ? (
               <ArtworkImage className="ports-modal__art-img" src={group.image} alt="" keepLoaded />
             ) : (
               <span className="ports-modal__art-empty" aria-hidden>
-                <RepoMark kind={iconKind(repoLink?.kind ?? "website")} width={26} height={26} />
+                <RepoMark kind={iconKind(primaryLink?.kind ?? "website")} width={26} height={26} />
               </span>
             )}
           </span>
@@ -306,14 +359,14 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
             <h2 className="ports-modal__title" id="vrmod-modal-title">
               {group.title}
             </h2>
-            <p className="ports-modal__subtitle">
-              {group.entries.map((entry) => entry.modName).slice(0, 2).join(" · ")}
+            <p className="ports-modal__subtitle" title={activeEntry?.modName ?? undefined}>
+              {activeEntry?.modName ?? group.entries[0]?.modName ?? ""}
             </p>
             <div className="ports-modal__badges">
               <span className={`ports-chip is-${vrKindTone(primaryKind)}`}>
                 {t(vrKindLabelKey(primaryKind))}
               </span>
-              {group.platforms.slice(0, 3).map((platform) => (
+              {platforms.slice(0, 3).map((platform) => (
                 <span key={platform} className="ports-chip is-default">
                   {platform}
                 </span>
@@ -324,16 +377,16 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
                 </span>
               ) : null}
             </div>
-            {group.githubLinks.length > 1 ? (
-              <label className="ports-modal__project-select vrmod-repo-select">
-                <span>{t("ports.vrMods.repoSelect")}</span>
+            {group.entries.length > 1 ? (
+              <label className="ports-modal__project-select vrmod-item-select">
+                <span>{t("ports.vrMods.itemSelect")}</span>
                 <select
                   value={String(activeIndex)}
-                  onChange={(event) => setLinkIndex(Number(event.target.value))}
+                  onChange={(event) => setItemIndex(Number(event.target.value))}
                 >
-                  {group.githubLinks.map((link, index) => (
-                    <option key={link.url} value={index}>
-                      {link.label} · {repoLabel(link.url, link.repoKey)}
+                  {group.entries.map((entry, index) => (
+                    <option key={entry.id} value={index} title={entry.modName}>
+                      {itemLabel(entry)}
                     </option>
                   ))}
                 </select>
@@ -342,13 +395,13 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
           </div>
 
           <div className="ports-modal__head-actions">
-            {repoLink ? (
+            {primaryLink ? (
               <Button
                 variant="primary"
                 size="sm"
-                leftIcon={<RepoMark kind={iconKind(repoLink.kind)} width={14} height={14} />}
+                leftIcon={<RepoMark kind={iconKind(primaryLink.kind)} width={14} height={14} />}
                 rightIcon={<ArrowUpRight size={14} />}
-                onClick={() => open(repoLink.url)}
+                onClick={() => open(primaryLink.url)}
               >
                 {t("ports.vrMods.openProject")}
               </Button>
@@ -542,7 +595,7 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
             <section className="ports-modal__section">
               <h3>{t("ports.vrMods.sources.title")}</h3>
               <div className="ports-modal__links">
-                {group.sources.map((source) => (
+                {sources.map((source) => (
                   <button
                     key={source.id}
                     type="button"
@@ -580,9 +633,9 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
             <button
               type="button"
               className="ports-link-btn"
-              onClick={() => open(group.sources[0]?.url ?? "https://vrportnews.com")}
+              onClick={() => open(sources[0]?.url ?? "https://vrportnews.com")}
             >
-              {group.sources[0]?.name ?? "VR Port News"}
+              {sources[0]?.name ?? "VR Port News"}
             </button>
           </span>
           <Button variant="secondary" size="sm" onClick={onClose}>

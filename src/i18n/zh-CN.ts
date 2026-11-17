@@ -4427,7 +4427,7 @@ export const zhCN: TranslationDict = {
   "ports.vrMods.facts.source": "收录于",
   "ports.vrMods.links.title": "链接",
   "ports.vrMods.githubLinks": "GitHub 项目",
-  "ports.vrMods.repoSelect": "代码仓库",
+  "ports.vrMods.itemSelect": "模组",
   "ports.vrMods.openProject": "打开项目",
   "ports.vrMods.close": "关闭",
   "ports.vrMods.copyLink": "复制链接",

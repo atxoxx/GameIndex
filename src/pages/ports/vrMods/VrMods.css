@@ -7,7 +7,7 @@
 }
 
 /* Deduped GitHub link picker (mirrors the Ports project switcher). */
-.vrmod-repo-select {
+.vrmod-item-select {
   --ports-project-select-height: 36px;
   --ports-project-select-max-width: 100%;
   --ports-project-select-chevron: 6px;
@@ -20,7 +20,7 @@
   max-width: var(--ports-project-select-max-width);
 }
 
-.vrmod-repo-select > span {
+.vrmod-item-select > span {
   color: var(--color-text-muted);
   font-size: 0.68rem;
   font-weight: 600;
@@ -28,7 +28,7 @@
   text-transform: uppercase;
 }
 
-.vrmod-repo-select select {
+.vrmod-item-select select {
   appearance: none;
   width: 100%;
   height: var(--ports-project-select-height);
@@ -42,7 +42,7 @@
   cursor: pointer;
 }
 
-.vrmod-repo-select::after {
+.vrmod-item-select::after {
   content: "";
   position: absolute;
   right: 11px;

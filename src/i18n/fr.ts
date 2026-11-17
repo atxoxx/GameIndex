@@ -4422,7 +4422,7 @@ export const fr: TranslationDict = {
   "ports.vrMods.facts.source": "Référencé sur",
   "ports.vrMods.links.title": "Liens",
   "ports.vrMods.githubLinks": "Projets GitHub",
-  "ports.vrMods.repoSelect": "Dépôt",
+  "ports.vrMods.itemSelect": "Mod",
   "ports.vrMods.openProject": "Ouvrir le projet",
   "ports.vrMods.close": "Fermer",
   "ports.vrMods.copyLink": "Copier le lien",

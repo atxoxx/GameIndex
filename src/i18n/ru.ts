@@ -4427,7 +4427,7 @@ export const ru: TranslationDict = {
   "ports.vrMods.facts.source": "Размещено на",
   "ports.vrMods.links.title": "Ссылки",
   "ports.vrMods.githubLinks": "Проекты GitHub",
-  "ports.vrMods.repoSelect": "Репозиторий",
+  "ports.vrMods.itemSelect": "Мод",
   "ports.vrMods.openProject": "Открыть проект",
   "ports.vrMods.close": "Закрыть",
   "ports.vrMods.copyLink": "Копировать ссылку",
