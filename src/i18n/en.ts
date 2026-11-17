@@ -2082,6 +2082,7 @@ export const en: TranslationDict = {
   "edit.artwork.deleteFileAria": "Delete {name}",
   "edit.artwork.fileDeleted": "Deleted {name} ({size} freed)",
   "edit.artwork.filesLoadFailed": "Could not list downloaded artwork.",
+  "edit.artwork.filesRestartHint": "Restart GameIndex to load the new artwork commands, then try again.",
   "edit.audio.auto": "Auto (Wine default)",
   "edit.badge.auto": "Auto",
   "edit.badge.disabled": "Disabled",

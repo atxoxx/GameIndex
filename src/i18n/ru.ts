@@ -2081,6 +2081,7 @@ export const ru: TranslationDict = {
   "edit.artwork.deleteFileAria": "Удалить {name}",
   "edit.artwork.fileDeleted": "{name} удалён (освобождено {size})",
   "edit.artwork.filesLoadFailed": "Не удалось получить список загруженных изображений.",
+  "edit.artwork.filesRestartHint": "Перезапустите GameIndex, чтобы загрузить новые команды работы с изображениями, и повторите попытку.",
   "edit.audio.auto": "Авто (по умолчанию Wine)",
   "edit.badge.auto": "Авто",
   "edit.badge.disabled": "Отключено",

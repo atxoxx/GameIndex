@@ -2081,6 +2081,7 @@ export const es: TranslationDict = {
   "edit.artwork.deleteFileAria": "Borrar {name}",
   "edit.artwork.fileDeleted": "{name} borrado ({size} liberados)",
   "edit.artwork.filesLoadFailed": "No se pudieron listar las imágenes descargadas.",
+  "edit.artwork.filesRestartHint": "Reinicia GameIndex para cargar los nuevos comandos de ilustraciones y vuelve a intentarlo.",
   "edit.audio.auto": "Automático (predeterminado de Wine)",
   "edit.badge.auto": "Auto",
   "edit.badge.disabled": "Desactivado",

@@ -2081,6 +2081,7 @@ export const de: TranslationDict = {
   "edit.artwork.deleteFileAria": "{name} löschen",
   "edit.artwork.fileDeleted": "{name} gelöscht ({size} freigegeben)",
   "edit.artwork.filesLoadFailed": "Heruntergeladene Bilder konnten nicht geladen werden.",
+  "edit.artwork.filesRestartHint": "Starte GameIndex neu, um die neuen Artwork-Befehle zu laden, und versuche es erneut.",
   "edit.audio.auto": "Auto (Wine-Standard)",
   "edit.badge.auto": "Auto",
   "edit.badge.disabled": "Deaktiviert",

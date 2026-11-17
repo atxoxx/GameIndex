@@ -1682,6 +1682,22 @@
   white-space: nowrap;
 }
 
+.edit-downloaded-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.edit-downloaded-error-detail {
+  max-width: 100%;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
 .edit-downloaded-grid {
   display: flex;
   flex-wrap: wrap;

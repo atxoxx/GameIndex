@@ -27,6 +27,7 @@ export function DownloadedArtwork() {
   const [confirmFile, setConfirmFile] = useState<GameArtworkFile | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +49,7 @@ export function DownloadedArtwork() {
     return () => {
       cancelled = true;
     };
-  }, [game.id, artworkFilesVersion]);
+  }, [game.id, artworkFilesVersion, reloadNonce]);
 
   const totalBytes = files.reduce((sum, file) => sum + file.sizeBytes, 0);
 
@@ -107,7 +108,16 @@ export function DownloadedArtwork() {
       {loading ? (
         <p className="edit-muted-note">{t("common.loading")}</p>
       ) : error ? (
-        <p className="edit-muted-note">{t("edit.artwork.filesLoadFailed")}</p>
+        <div className="edit-downloaded-error">
+          <p className="edit-muted-note">{t("edit.artwork.filesLoadFailed")}</p>
+          {/not implemented|unknown command|no handler/i.test(error) && (
+            <p className="edit-muted-note">{t("edit.artwork.filesRestartHint")}</p>
+          )}
+          <p className="edit-downloaded-error-detail">{error}</p>
+          <Button variant="secondary" size="sm" onClick={() => setReloadNonce((value) => value + 1)}>
+            {t("common.retry")}
+          </Button>
+        </div>
       ) : files.length === 0 ? (
         <p className="edit-muted-note">{t("edit.artwork.downloadedEmpty")}</p>
       ) : (

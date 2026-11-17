@@ -2081,6 +2081,7 @@ export const zhCN: TranslationDict = {
   "edit.artwork.deleteFileAria": "删除 {name}",
   "edit.artwork.fileDeleted": "已删除 {name}（释放 {size}）",
   "edit.artwork.filesLoadFailed": "无法列出已下载的插画。",
+  "edit.artwork.filesRestartHint": "重新启动 GameIndex 以加载新的插画命令，然后重试。",
   "edit.audio.auto": "自动（Wine 默认）",
   "edit.badge.auto": "自动",
   "edit.badge.disabled": "已禁用",
