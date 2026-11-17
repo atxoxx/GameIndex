@@ -881,6 +881,25 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     });
   }
 
+  /**
+   * A result can tell us the stored Steam appid named another game (legacy
+   * fuzzy lookups matched e.g. `Star Citizen` to `Citizen Sleeper 2`). Drop it
+   * from both the live game and SQLite so the next fetch/artwork lookup uses
+   * the title instead of the wrong appid.
+   */
+  async function discardMismatchedSteamAppId(results: GameMetadataResult[]) {
+    if (!results.some((result) => result.steamAppIdMismatch)) return;
+    updateGame(game.id, { steamAppId: undefined, igdbId: undefined });
+    try {
+      await invoke("patch_game", {
+        id: game.id,
+        patch: { steamAppId: 0, igdbId: null },
+      });
+    } catch (err) {
+      console.warn(`Failed to clear the stale Steam appid for ${game.name}:`, err);
+    }
+  }
+
   async function applyRemoteImage(slot: "icon" | "cover" | "hero" | "banner" | "logo", url: string): Promise<boolean> {
     setImageSlot(slot, url);
     const relativePath = await invoke<string | null>("download_artwork", {
@@ -909,6 +928,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
     try {
       const results: GameMetadataResult[] = await searchMetadata();
       setMetadataResults(results);
+      await discardMismatchedSteamAppId(results);
       if (results.length === 0) showToast(t("edit.toast.metadataNotFound"), "info");
     } catch (err) {
       showToast(t("edit.toast.metadataSearchFailed", { error: String(err) }), "error");
@@ -934,6 +954,7 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
   async function handleApplyMetadata(result: GameMetadataResult) {
     setApplyingMetadata(true);
     try {
+      await discardMismatchedSteamAppId([result]);
       const imageKeys = ["icon", "cover", "hero", "banner", "logo"] as const;
       const imageEntries = imageKeys
         .map((key) => [key, result.images[key]] as const)
@@ -980,11 +1001,23 @@ export function useEditGameController({ game, onClose }: EditGameControllerArgs)
       if (result.recomp != null) setEditRecomp(result.recomp);
 
       if (iconUrl) setEditIcon(iconUrl);
-      if (coverUrl) setEditCover(coverUrl);
-      if (finalBannerUrl) setEditHero(finalBannerUrl);
-      if (logoUrl) setEditLogo(logoUrl);
+      if (result.steamAppIdMismatch) {
+        // The old artwork belonged to the game the stale appid named, not to
+        // this title. Apply the new result's slots and clear the ones it
+        // cannot fill instead of leaving the wrong cover/logo in place.
+        setEditCover(downloaded.cover ?? "");
+        setEditHero(finalBannerUrl ?? "");
+        setEditLogo(downloaded.logo ?? "");
+        if (!iconUrl) setEditIcon("");
+      } else {
+        if (coverUrl) setEditCover(coverUrl);
+        if (finalBannerUrl) setEditHero(finalBannerUrl);
+        if (logoUrl) setEditLogo(logoUrl);
+      }
       if (downloaded.cover) setEditCoverSource(result.images.cover ?? undefined);
       if (downloaded.logo) setEditLogoSource(result.images.logo ?? undefined);
+      if (result.steamAppIdMismatch && !downloaded.cover) setEditCoverSource(undefined);
+      if (result.steamAppIdMismatch && !downloaded.logo) setEditLogoSource(undefined);
 
       setEditScreenshots(result.screenshots || []);
       setEditVideos(result.videos || []);

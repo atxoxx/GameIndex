@@ -1374,6 +1374,9 @@ export interface GameMetadataResult {
   /** Recompilation/decompilation port flag detected by the backend
    *  source. `undefined` when the source can't tell. */
   recomp?: boolean;
+  /** Set when a persisted Steam appid pointed at a different game and was
+   *  ignored. The caller clears `steamAppId`/`igdbId` before applying. */
+  steamAppIdMismatch?: boolean;
 }
 
 /** Image URLs from a metadata source. */

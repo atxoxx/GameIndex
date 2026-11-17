@@ -76,6 +76,29 @@ export function titleSimilarity(query: string, candidate: string): number {
 
 export const MIN_TITLE_SIMILARITY = 0.6;
 
+/**
+ * Lower bar for validating an external identity (a persisted Steam appid or
+ * IGDB id). Edition suffixes and subtitle variants routinely reduce the score,
+ * while a genuinely different game that shares one word stays below this.
+ */
+export const EXTERNAL_ID_TITLE_SIMILARITY = 0.4;
+
+/**
+ * True when `candidate` plausibly names the same game as `query`.
+ *
+ * Used to validate externally supplied identities (a persisted Steam appid or
+ * IGDB id) against the title the user actually has. A container/edition title
+ * passes; an unrelated game that merely shares a word does not.
+ */
+export function titleMatchesGame(query: string, candidate: string): boolean {
+  if (!query.trim() || !candidate.trim()) return false;
+  const cleaned = cleanGameName(query);
+  return (
+    Math.max(titleSimilarity(query, candidate), titleSimilarity(cleaned, candidate)) >=
+    EXTERNAL_ID_TITLE_SIMILARITY
+  );
+}
+
 /** Extract a 4-digit year from a title ("Prototype (2009)" → "2009"). */
 export function extractYear(input: string): string | null {
   const match = input.match(/\b(19|20)\d{2}\b/);

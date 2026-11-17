@@ -14,6 +14,7 @@ import {
 } from "./igdb";
 import { fetchSteamGenresAndTags, fetchSteamGameByAppId, searchSteam } from "./steam";
 import { fetchTimeToBeat } from "./hltb";
+import { titleMatchesGame } from "./text";
 
 const warned = new Set<string>();
 
@@ -40,6 +41,8 @@ export async function searchGameMetadata(
 ): Promise<MetadataResult[]> {
   const results: MetadataResult[] = [];
   let igdbPinned = false;
+  let appIdRejected = false;
+  let rejectedPin: MetadataResult | null = null;
 
   if (steamAppId && steamAppId > 0) {
     const pinned = await fetchIgdbGameBySteamAppid(steamAppId).catch((error) => {
@@ -50,7 +53,19 @@ export async function searchGameMetadata(
       }
       return null;
     });
-    if (pinned) {
+    if (pinned && !titleMatchesGame(gameName, pinned.title)) {
+      // A persisted appid can be stale or wrong (legacy fuzzy Steam lookups
+      // matched `Star Citizen` to `Citizen Sleeper 2`, for example). The appid
+      // would otherwise pin every refresh to that wrong game. Ignore it and
+      // resolve by title instead; the caller clears the stored appid when the
+      // returned results carry `steamAppIdMismatch`.
+      appIdRejected = true;
+      rejectedPin = pinned;
+      warnOnce(
+        "IGDB appid ignored",
+        new Error(`${gameName} -> appid ${steamAppId} is ${pinned.title}`),
+      );
+    } else if (pinned) {
       const steamTags = await fetchSteamGenresAndTags(steamAppId);
       if (steamTags.length) {
         const merged = [...pinned.genres];
@@ -93,6 +108,16 @@ export async function searchGameMetadata(
         }),
   ]);
   if (steamResult) results.push(steamResult);
+  if (appIdRejected && igdbResults.length === 0 && rejectedPin) {
+    // The appid title did not resemble the query, but a title search found
+    // nothing either. Keep the pinned row rather than losing metadata for an
+    // abbreviation or a heavily localized name.
+    results.push(rejectedPin);
+    appIdRejected = false;
+  }
+  if (appIdRejected) {
+    for (const result of igdbResults) result.steamAppIdMismatch = true;
+  }
   results.push(...igdbResults);
 
   if (results.length > 0) {
@@ -110,9 +135,18 @@ export async function searchGameMetadata(
 }
 
 /** `get_igdb_game_by_id` with the HowLongToBeat attachment the UI expects. */
-export async function getIgdbGameById(id: number): Promise<MetadataResult | null> {
+export async function getIgdbGameById(
+  id: number,
+  gameName?: string | null,
+): Promise<MetadataResult | null> {
   const game = await fetchIgdbGameById(id);
   if (!game) return null;
+  // A stale stored id must not keep pinning a row to the wrong game. Without
+  // a name (programmatic callers), the id remains authoritative.
+  if (gameName && gameName.trim() && !titleMatchesGame(gameName, game.title)) {
+    warnOnce("IGDB id ignored", new Error(`${gameName} -> id ${id} is ${game.title}`));
+    return null;
+  }
   if (!game.timeToBeat) {
     const timeToBeat = await fetchTimeToBeat(game.title).catch(() => null);
     if (timeToBeat) game.timeToBeat = timeToBeat;

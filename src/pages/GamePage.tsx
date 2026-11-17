@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, useGameById, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
+import { metadataUrlDisagreesWithName } from "../context/game/useEnrich";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -300,7 +301,11 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
     const needsHltb = !game.timeToBeat?.hltb;
     const alreadyEnriched =
       !!game.metadataSource &&
-      !(game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId != null);
+      !(game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId != null) &&
+      // A stored IGDB URL for another game means the identity is corrupt
+      // (the legacy Star Citizen -> Citizen Sleeper 2 mapping). Re-enrich so
+      // the stored appid/id is validated and repaired.
+      !metadataUrlDisagreesWithName(game);
     if (alreadyEnriched) {
       if (!needsHltb) return;
       enrichmentStartedRef.current = true;
@@ -318,7 +323,13 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
     const hasAllRelationFields = hasCollection && hasDeveloper && hasPublisher && hasGenres;
     const missedCollectionId = !!game.collection && game.collectionId === undefined;
 
-    if (hasDescription && !needsHltb && hasAllRelationFields && !missedCollectionId) {
+    if (
+      !metadataUrlDisagreesWithName(game) &&
+      hasDescription &&
+      !needsHltb &&
+      hasAllRelationFields &&
+      !missedCollectionId
+    ) {
       return;
     }
 
@@ -333,6 +344,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
     game.description,
     game.timeToBeat,
     game.metadataSource,
+    game.metadataUrl,
     game.igdbId,
     game.collection,
     game.collectionId,

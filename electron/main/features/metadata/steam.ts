@@ -8,6 +8,9 @@ import { httpText } from "../../lib/http";
 import { cacheGet, cacheSet, TTL } from "./cache";
 import type { MetadataResult } from "./igdb";
 import { cleanGameName, titleSimilarity, MIN_TITLE_SIMILARITY } from "./text";
+import { lookupSteamAppId } from "../stores/steamApi";
+
+export { lookupSteamAppId };
 
 const STORE_API = "https://store.steampowered.com/api";
 const REVIEWS_API = "https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/";
@@ -100,30 +103,6 @@ export async function steamStoreSearch(term: string): Promise<SteamSearchItem[]>
     `${STORE_API}/storesearch/?term=${encodeURIComponent(term)}&l=english&cc=us`,
   )) as { items?: SteamSearchItem[] } | null;
   return Array.isArray(payload?.items) ? payload.items : [];
-}
-
-/** Find the Steam appid for a title; all query words must appear in the name. */
-export async function lookupSteamAppId(gameName: string): Promise<number | null> {
-  const cleaned = cleanGameName(gameName) || gameName;
-  const items = await steamStoreSearch(cleaned);
-  if (items.length === 0) return null;
-  const words = gameName
-    .toLowerCase()
-    .split(/\s+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]+/gu, ""))
-    .filter(Boolean);
-  const byWords = items.find((item) => {
-    const name = (item.name ?? "").toLowerCase();
-    return words.every((word) => name.includes(word));
-  });
-  if (byWords?.id) return byWords.id;
-  const best = items
-    .map((item) => ({
-      item,
-      score: titleSimilarity(gameName, item.name ?? ""),
-    }))
-    .sort((a, b) => b.score - a.score)[0];
-  return best && best.score >= MIN_TITLE_SIMILARITY ? (best.item.id ?? null) : null;
 }
 
 /** Community tags from Steam's public app-hover endpoint. */

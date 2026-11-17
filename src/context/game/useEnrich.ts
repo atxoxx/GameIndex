@@ -11,11 +11,31 @@ import {
 import type { SgdbAssets } from "../../types/steamgriddb";
 import { isUsableImageUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
 import { deduplicateAndMergeTags } from "../../utils/genreTags";
+import { normalizeTitle } from "../../utils/gameTitle";
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
 const MAX_ENRICH_ATTEMPTS = 2;
 const enrichAttemptsThisSession = new Map<string, number>();
+
+/**
+ * True when the stored IGDB URL names a different game from the row.
+ *
+ * A legacy fuzzy Steam lookup once linked Star Citizen to Citizen Sleeper 2,
+ * which then wrote that game's IGDB URL. Comparing the slug locally lets the
+ * next launch re-run enrichment and repair the identity without a network
+ * request for every healthy row.
+ */
+export function metadataUrlDisagreesWithName(game: Game): boolean {
+  const url = game.metadataUrl;
+  if (!url) return false;
+  const slug = /\/(?:games|game)\/([^/?#]+)/i.exec(url)?.[1];
+  if (!slug) return false;
+  const name = normalizeTitle(game.name);
+  const fromSlug = normalizeTitle(slug.replace(/-/g, " "));
+  if (!name || !fromSlug) return false;
+  return !name.includes(fromSlug) && !fromSlug.includes(name);
+}
 
 /** Check if a game could benefit from background metadata enrichment. */
 export function gameNeedsEnrichment(game: Game): boolean {
@@ -35,6 +55,17 @@ export function gameNeedsEnrichment(game: Game): boolean {
     // per-session attempt cap keeps this from looping forever.
     if (!game.coverArtUrl) return true;
     return false;
+  }
+  // A non-Steam row can still carry a legacy Steam appid from the old fuzzy
+  // lookup (`Star Citizen` -> `Citizen Sleeper 2`). Enrich it once so the appid
+  // is validated against the IGDB title and the row links to the right game.
+  if (
+    game.steamAppId &&
+    game.platform !== "Steam" &&
+    !game.id.startsWith("steam-") &&
+    (game.igdbId == null || metadataUrlDisagreesWithName(game))
+  ) {
+    return true;
   }
   // Missing basic metadata or relations or genres
   if (!game.description || game.description.trim().length === 0) return true;
@@ -171,6 +202,7 @@ export function useEnrich(options: {
         try {
           const byId = await invoke<GameMetadataResult | null>("get_igdb_game_by_id", {
             id: current.igdbId,
+            gameName,
           });
           if (byId) results.push({ ...byId, sourceName: "IGDB" });
         } catch (e) {
@@ -278,6 +310,16 @@ export function useEnrich(options: {
       // Prefer IGDB for its richer metadata
       const meta = results.find((r) => r.sourceName === "IGDB") ?? results[0];
 
+      if (meta.steamAppIdMismatch) {
+        // The stored appid named a different game (for example a legacy
+        // `Star Citizen` -> `Citizen Sleeper 2` match). Drop it before the
+        // artwork lookups below so the correct title is used instead.
+        console.warn(
+          `[metadata] ignoring Steam appid ${resolvedSteamAppId} for ${gameName}: it names ${meta.title}`,
+        );
+        resolvedSteamAppId = extractSteamAppIdFromWebsites(meta.websites) ?? undefined;
+      }
+
       // Update resolvedSteamAppId from meta websites if not known yet
       if (!resolvedSteamAppId) {
         const websitesForSteamId =
@@ -320,15 +362,33 @@ export function useEnrich(options: {
 
       // Snapshot used to decide which slots still need artwork downloaded.
       const latestBeforeImages = gamesRef.current.find((g) => g.id === gameId) ?? current;
+      // A rejected appid means the existing artwork may belong to the wrong
+      // game (that is exactly how a Star Citizen page ended up with Citizen
+      // Sleeper 2's logo). Re-fetch every slot from the corrected identity and
+      // clear any slot the new identity cannot fill.
+      const replaceArtwork = meta.steamAppIdMismatch === true;
 
       const images = await fetchAllImages({
-        // Never re-download a slot the user has already filled: enrichment
-        // writes to the same `artwork/<gameId>/<slot>.<ext>` path, so it
-        // would silently replace their picked file on disk.
-        cover: isFrontendUsableImage(latestBeforeImages.coverArtUrl) ? null : pickImage("cover"),
-        hero: isFrontendUsableImage(latestBeforeImages.bannerUrl) ? null : pickImage("hero"),
-        banner: isFrontendUsableImage(latestBeforeImages.bannerUrl) ? null : pickImage("banner"),
-        logo: isFrontendUsableImage(latestBeforeImages.logoUrl) ? null : pickImage("logo"),
+        // Normally never re-download a slot the user has already filled:
+        // enrichment writes to the same `artwork/<gameId>/<slot>.<ext>` path,
+        // so it would silently replace their picked file on disk. A rejected
+        // appid is the exception - the stored art points at another game.
+        cover:
+          !replaceArtwork && isFrontendUsableImage(latestBeforeImages.coverArtUrl)
+            ? null
+            : pickImage("cover"),
+        hero:
+          !replaceArtwork && isFrontendUsableImage(latestBeforeImages.bannerUrl)
+            ? null
+            : pickImage("hero"),
+        banner:
+          !replaceArtwork && isFrontendUsableImage(latestBeforeImages.bannerUrl)
+            ? null
+            : pickImage("banner"),
+        logo:
+          !replaceArtwork && isFrontendUsableImage(latestBeforeImages.logoUrl)
+            ? null
+            : pickImage("logo"),
       }, gameId);
 
       const setIfEmptyFrom = <K extends keyof Game>(
@@ -404,30 +464,44 @@ export function useEnrich(options: {
       );
 
       const enrichPatch: Partial<Game> = {
-        steamAppId: resolvedSteamAppId,
+        // `mergeGameRecords` ignores undefined, so clearing a bad appid needs
+        // an explicit falsy value rather than leaving the field out.
+        steamAppId: replaceArtwork ? (resolvedSteamAppId ?? 0) : resolvedSteamAppId,
         description: setIfEmptyFrom(latest, "description", meta.description ?? undefined),
         developer: setIfEmptyFrom(latest, "developer", meta.developer ?? undefined),
         publisher: setIfEmptyFrom(latest, "publisher", meta.publisher ?? undefined),
         releaseDate: setIfEmptyFrom(latest, "releaseDate", meta.releaseDate ?? undefined),
         genres: mergedGenres.length > 0 ? mergedGenres : latest.genres,
-        coverArtUrl: isFrontendUsableImage(latest.coverArtUrl)
-          ? latest.coverArtUrl
-          : (images.coverArtUrl ?? sgdbCoverUrl ?? latest.coverArtUrl),
-        coverSourceUrl: isFrontendUsableImage(latest.coverArtUrl)
-          ? latest.coverSourceUrl
-          : (images.coverSourceUrl ?? sgdbCoverSourceUrl ?? latest.coverSourceUrl),
-        bannerUrl: isFrontendUsableImage(latest.bannerUrl)
-          ? latest.bannerUrl
-          : (images.bannerUrl ?? sgdbHeroUrl ?? latest.bannerUrl),
-        logoUrl: isFrontendUsableImage(latest.logoUrl)
-          ? latest.logoUrl
-          : (images.logoUrl ?? sgdbLogoUrl ?? latest.logoUrl),
-        logoSourceUrl: isFrontendUsableImage(latest.logoUrl)
-          ? latest.logoSourceUrl
-          : (images.logoSourceUrl ?? sgdbLogoSourceUrl ?? latest.logoSourceUrl),
-        iconUrl: isFrontendUsableImage(latest.iconUrl)
-          ? latest.iconUrl
-          : (sgdbIconUrl ?? latest.iconUrl),
+        coverArtUrl: replaceArtwork
+          ? (images.coverArtUrl ?? sgdbCoverUrl ?? "")
+          : isFrontendUsableImage(latest.coverArtUrl)
+            ? latest.coverArtUrl
+            : (images.coverArtUrl ?? sgdbCoverUrl ?? latest.coverArtUrl),
+        coverSourceUrl: replaceArtwork
+          ? (images.coverSourceUrl ?? sgdbCoverSourceUrl ?? "")
+          : isFrontendUsableImage(latest.coverArtUrl)
+            ? latest.coverSourceUrl
+            : (images.coverSourceUrl ?? sgdbCoverSourceUrl ?? latest.coverSourceUrl),
+        bannerUrl: replaceArtwork
+          ? (images.bannerUrl ?? sgdbHeroUrl ?? "")
+          : isFrontendUsableImage(latest.bannerUrl)
+            ? latest.bannerUrl
+            : (images.bannerUrl ?? sgdbHeroUrl ?? latest.bannerUrl),
+        logoUrl: replaceArtwork
+          ? (images.logoUrl ?? sgdbLogoUrl ?? "")
+          : isFrontendUsableImage(latest.logoUrl)
+            ? latest.logoUrl
+            : (images.logoUrl ?? sgdbLogoUrl ?? latest.logoUrl),
+        logoSourceUrl: replaceArtwork
+          ? (images.logoSourceUrl ?? sgdbLogoSourceUrl ?? "")
+          : isFrontendUsableImage(latest.logoUrl)
+            ? latest.logoSourceUrl
+            : (images.logoSourceUrl ?? sgdbLogoSourceUrl ?? latest.logoSourceUrl),
+        iconUrl: replaceArtwork
+          ? (sgdbIconUrl ?? "")
+          : isFrontendUsableImage(latest.iconUrl)
+            ? latest.iconUrl
+            : (sgdbIconUrl ?? latest.iconUrl),
         igdbRating: latest.igdbRating ?? meta.igdbRating ?? undefined,
         criticRating: latest.criticRating ?? meta.criticRating ?? undefined,
         themes: latest.themes ?? meta.themes ?? undefined,
@@ -443,7 +517,9 @@ export function useEnrich(options: {
         collection: setIfEmptyFrom(latest, "collection", meta.collection ?? undefined),
         collectionId: setIfEmptyFrom(latest, "collectionId", meta.collectionId ?? undefined),
         franchise: setIfEmptyFrom(latest, "franchise", meta.franchise ?? undefined),
-        igdbId: setIfEmptyFrom(latest, "igdbId", meta.igdbId ?? undefined),
+        igdbId: meta.steamAppIdMismatch
+          ? meta.igdbId
+          : setIfEmptyFrom(latest, "igdbId", meta.igdbId ?? undefined),
         metadataSource: meta.sourceName,
         metadataUrl: meta.sourceUrl,
         // Adopt the source's VR flag only when the user hasn't set an

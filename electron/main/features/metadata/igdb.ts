@@ -68,6 +68,12 @@ export interface MetadataResult {
   releaseStatus?: string;
   languageSupports?: { language: string; supportType: string }[];
   isVr?: boolean;
+  /**
+   * Set on title-search results when a persisted Steam appid was ignored
+   * because its IGDB entry named a different game. The caller should clear
+   * that stored appid so future refreshes do not keep pinning the wrong game.
+   */
+  steamAppIdMismatch?: boolean;
 }
 
 export interface StoreGameSummary {

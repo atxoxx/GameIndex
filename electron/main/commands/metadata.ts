@@ -74,7 +74,8 @@ export const metadataCommands: Record<string, CommandHandler> = {
       str(args, "gameName") ?? "",
       num(args, "steamAppId") ?? null,
     ),
-  get_igdb_game_by_id: (args) => getIgdbGameById(num(args, "id") ?? 0),
+  get_igdb_game_by_id: (args) =>
+    getIgdbGameById(num(args, "id") ?? 0, str(args, "gameName") ?? null),
   get_igdb_platforms: () => fetchIgdbPlatforms(),
 
   // ── Steam store / community ────────────────────────────────────────
