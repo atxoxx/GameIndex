@@ -8,6 +8,12 @@ const { invokeMock, state } = vi.hoisted(() => {
       query: string;
       emit: (event: unknown) => void;
     }>,
+    /**
+     * Rows the streamed search resolves with. Frames are what the backend
+     * emits while it runs; a cached search finishes before they are dispatched,
+     * so the modal must also read the command's return value.
+     */
+    resolveWith: null as unknown[] | null,
   };
   const invokeMock = vi.fn((cmd: string) => {
     if (cmd === "check_ownership" || cmd === "check_ownership_for_ids") {
@@ -64,10 +70,16 @@ vi.mock("../../context/SourceContext", () => ({
       query: string,
       _steamAppId: number | undefined,
       onProgress?: (event: unknown) => void,
-    ) =>
-      new Promise(() => {
+    ) => {
+      if (state.resolveWith !== null) {
+        // The whole search finished before its progress frames were dispatched
+        // (plugin-cache hit): `onProgress` is never called.
+        return Promise.resolve(state.resolveWith);
+      }
+      return new Promise(() => {
         if (onProgress) state.streams.push({ query, emit: onProgress });
-      }),
+      });
+    },
   ),
 }));
 
@@ -130,6 +142,7 @@ describe("DownloadModal search stability", () => {
     invokeMock.mockClear();
     streamMock.mockClear();
     state.streams.length = 0;
+    state.resolveWith = null;
     state.games = [game()];
   });
 
@@ -203,5 +216,25 @@ describe("DownloadModal search stability", () => {
       state.streams[1].emit(progress([result("Beta", "Neon White build 1")], true));
     });
     await waitFor(() => expect(titles()).toEqual(["Neon White build 1"]));
+  });
+
+  it("shows the command's rows when no progress frame is ever dispatched", async () => {
+    // A plugin-cache hit finishes in a few milliseconds: the invoke reply lands
+    // before the `search-downloads-progress` frames, and `searchDownloadsStream`
+    // has already unsubscribed when the terminal frame (carrying every row) is
+    // dispatched. The modal used to stay on "no results" forever.
+    state.resolveWith = [
+      result("Gamma", "Cached Ultrakill Build"),
+      result("Delta", "Cached Ultrakill Build 2"),
+    ];
+
+    render(<DownloadModal gameName="Ultrakill" gameId="g1" onClose={() => {}} />);
+
+    await waitFor(() =>
+      expect([...titles()].sort()).toEqual([
+        "Cached Ultrakill Build",
+        "Cached Ultrakill Build 2",
+      ]),
+    );
   });
 });

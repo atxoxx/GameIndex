@@ -700,7 +700,27 @@ export default function DownloadModal({
 
       const accumulatedRaw: DownloadSearchResult[] = [];
 
-      await searchDownloadsStream(
+      /** Turn backend rows into display rows. Shared by the streaming frames
+       *  and the command's return value, which carry the same rows. */
+      const publish = (rows: DownloadSearchResult[]) => {
+        // Cross-provider dedupe: the same release listed by several
+        // sources/plugins collapses into its best row (mirrors kept).
+        const merged = mergeDuplicateResults(rows);
+        const sourceItems = merged.filter((r) => r.provider !== "plugin");
+        const pluginItems = merged.filter((r) => r.provider === "plugin");
+        const ordered = [
+          ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
+          ...pluginItems,
+        ];
+        const withIds: DisplayMatch[] = ordered.map((m, i) => ({
+          ...m,
+          id: `${m.sourceId}::${m.title}::${i}`,
+        }));
+        setMatches(withIds);
+        setStep((curr) => (curr === "checking" ? "results" : curr));
+      };
+
+      const streamed = await searchDownloadsStream(
         gameName,
         appId,
         (progressEvt: SearchProgressEvent) => {
@@ -715,21 +735,7 @@ export default function DownloadModal({
 
           if (progressEvt.newResults && progressEvt.newResults.length > 0) {
             accumulatedRaw.push(...progressEvt.newResults);
-            // Cross-provider dedupe: the same release listed by several
-            // sources/plugins collapses into its best row (mirrors kept).
-            const merged = mergeDuplicateResults(accumulatedRaw);
-            const sourceItems = merged.filter((r) => r.provider !== "plugin");
-            const pluginItems = merged.filter((r) => r.provider === "plugin");
-            const ordered = [
-              ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
-              ...pluginItems,
-            ];
-            const withIds: DisplayMatch[] = ordered.map((m, i) => ({
-              ...m,
-              id: `${m.sourceId}::${m.title}::${i}`,
-            }));
-            setMatches(withIds);
-            setStep((curr) => (curr === "checking" ? "results" : curr));
+            publish(accumulatedRaw);
           }
 
           if (progressEvt.isDone) {
@@ -744,6 +750,17 @@ export default function DownloadModal({
       });
 
       if (isStale()) return;
+
+      // The command's reply is not ordered against the `search-downloads-progress`
+      // frames. A search served from the in-memory plugin cache finishes in a few
+      // milliseconds, so the reply can land first and `searchDownloadsStream`
+      // unsubscribes before the terminal frame (which carries every row) is
+      // dispatched — the modal then showed "no results" although the search found
+      // matches. The reply holds the same merged list, so publish it as the
+      // authoritative final set.
+      if (streamed.length > 0) {
+        publish(streamed);
+      }
       setStep((curr) => (curr === "checking" ? "results" : curr));
     } catch (err) {
       if (isStale()) return;
