@@ -9,7 +9,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { normalizeManifest } from "./manifest";
-import { PluginRuntime } from "./runtime";
+import { PluginRuntime, toDownloadResult } from "./runtime";
 import { sha256Hex } from "./registry";
 import type { PluginDocument, PluginRecord } from "./types";
 
@@ -158,5 +158,41 @@ describe("PluginRuntime search", () => {
     vi.setSystemTime(started + 183_000);
     await harness.runtime.searchWithPlugins("doom");
     expect(count(harness.logs, "run:v1:doom")).toBe(1);
+  });
+
+  it("shows a size derived from bytes when the plugin only sends sizeBytes", () => {
+    const manifest = normalizeManifest({ id: "probe", name: "Probe", version: "1.0.0" });
+    const record: PluginRecord = {
+      id: "probe",
+      name: "Probe",
+      version: "1.0.0",
+      author: "",
+      description: "",
+      sourceUrl: "",
+      platformCategory: "pc",
+      fileHash: "x",
+      enabled: true,
+      importedAt: 1,
+      lastError: null,
+      manifest,
+    };
+    const row = toDownloadResult(
+      record,
+      { id: "1", title: "Doom", size: "", sizeBytes: 77047584118 },
+      "Doom",
+      [],
+      null,
+    );
+    expect(row?.fileSize).toBe("71.8 GB");
+
+    // An explicit display string always wins over the derived one.
+    const explicit = toDownloadResult(
+      record,
+      { id: "2", title: "Doom", size: "70 GB", sizeBytes: 77047584118 },
+      "Doom",
+      [],
+      null,
+    );
+    expect(explicit?.fileSize).toBe("70 GB");
   });
 });

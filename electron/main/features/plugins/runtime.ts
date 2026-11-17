@@ -89,6 +89,12 @@ export interface PluginRuntimeOptions {
   /** Where secret config values live (SQLite in the app, file in tests). */
   configStore?: PluginConfigStore;
   httpText?: HttpTextFn;
+  /**
+   * Underlying fetch used by the default HTTP transport. The Electron host
+   * passes `net.fetch` (Chromium's stack + session cookies) so plugin requests
+   * look like a browser's to Cloudflare-style edge rules.
+   */
+  fetchImpl?: typeof fetch;
   /** Overrides for the torrent/binary transports (tests, harnesses). */
   fetchTorrent?: FetchTorrentFn;
   fetchBytes?: FetchBytesFn;
@@ -138,11 +144,32 @@ function formatUploadDate(unixSeconds: number): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/**
+ * Human-readable size for a byte count ("71.8 GB").
+ *
+ * Several plugins know the exact byte count (from a torrent or an API) without
+ * having a display string for it; the modal only renders `fileSize`, so without
+ * this they showed "unknown size" even though the size was known.
+ */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  const rounded = index === 0 ? Math.round(value) : value >= 100 ? value.toFixed(0) : value.toFixed(1);
+  return `${rounded} ${units[index]}`;
+}
+
 export class PluginRuntime {
   private readonly registry: PluginRegistry;
   private readonly httpText: HttpTextFn;
   private readonly fetchTorrent: FetchTorrentFn;
   private readonly fetchBytes: FetchBytesFn;
+  private readonly fetchImpl?: typeof fetch;
   private readonly limits: SandboxLimits;
   private readonly logger: (...args: unknown[]) => void;
   private readonly cache = new Map<string, CachedResults>();
@@ -166,11 +193,13 @@ export class PluginRuntime {
     });
     this.httpText =
       options.httpText ??
-      ((url, requestOptions) => httpText(url, requestOptions));
+      ((url, requestOptions) =>
+        httpText(url, { ...requestOptions, fetchImpl: options.fetchImpl }));
     this.fetchTorrent =
       options.fetchTorrent ?? ((url, requestOptions) => this.parseTorrent(url, requestOptions));
     this.fetchBytes =
       options.fetchBytes ?? ((url, requestOptions) => this.readBytes(url, requestOptions));
+    this.fetchImpl = options.fetchImpl;
     this.limits = options.limits ?? {};
   }
 
@@ -601,6 +630,7 @@ export class PluginRuntime {
         timeoutMs: options.timeoutMs,
         signal: options.signal,
         maxBytes: MAX_TORRENT_BYTES,
+        fetchImpl: this.fetchImpl,
       });
       input = new Uint8Array(buffer);
     }
@@ -630,6 +660,7 @@ export class PluginRuntime {
       timeoutMs: options.timeoutMs,
       signal: options.signal,
       maxBytes: options.maxBytes,
+      fetchImpl: this.fetchImpl,
     });
     return buffer.toString("base64");
   }
@@ -929,13 +960,15 @@ export function toDownloadResult(
         : null;
 
   const platformCategory = normalizePlatformCategory(record.platformCategory);
+  const declaredSize = typeof raw.size === "string" ? raw.size.trim() : "";
+  const fileSize = declaredSize || formatBytes(raw.sizeBytes);
 
   return {
     id: `${record.id}:${raw.id ?? ""}`,
     sourceName: record.name,
     sourceId: record.id,
     title: raw.title ?? "",
-    fileSize: raw.size ?? "",
+    fileSize,
     uris,
     magnet,
     uploadDate,
@@ -989,6 +1022,8 @@ function mergeInto(kept: PluginDownloadResult, incoming: PluginDownloadResult): 
     verified: winner.verified ?? loser.verified,
     torrentUrl: winner.torrentUrl ?? loser.torrentUrl,
     uploadDate: winner.uploadDate ?? loser.uploadDate,
+    // A duplicate listing that knows its size can fill in for one that does not.
+    fileSize: winner.fileSize && winner.fileSize.trim() ? winner.fileSize : loser.fileSize,
   });
 }
 

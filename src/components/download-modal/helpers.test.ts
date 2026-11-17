@@ -112,6 +112,15 @@ describe("mergeDuplicateResults", () => {
     expect(merged).toHaveLength(2);
   });
 
+  it("takes the size from a mirror when the kept row has none", () => {
+    const merged = mergeDuplicateResults([
+      match({ id: "a", title: "Elden Ring", fileSize: "", matchScore: 0.9 }),
+      match({ id: "b", title: "Elden Ring", fileSize: "49.5 GB", matchScore: 0.5 }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].fileSize).toBe("49.5 GB");
+  });
+
   it("adopts swarm and verification data the winner lacks", () => {
     const merged = mergeDuplicateResults([
       match({ id: "a", title: "Elden Ring", matchScore: 0.9 }),

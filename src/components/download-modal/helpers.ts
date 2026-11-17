@@ -93,6 +93,8 @@ export function mergeDuplicateResults(
     merged.verified = merged.verified ?? loser.verified;
     merged.torrentUrl = merged.torrentUrl ?? loser.torrentUrl;
     merged.uploadDate = merged.uploadDate ?? loser.uploadDate;
+    // A mirror that knows its size can fill in for one that does not.
+    if (!String(merged.fileSize ?? "").trim()) merged.fileSize = loser.fileSize;
     out[at] = merged;
   }
   return out;

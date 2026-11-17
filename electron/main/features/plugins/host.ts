@@ -6,7 +6,7 @@
  * `userData` paths, the `plugins.db` documents and `safeStorage` encryption
  * for secret config values.
  */
-import { safeStorage } from "electron";
+import { net, safeStorage } from "electron";
 
 import { ensureDir, userDataPath } from "../../lib/paths";
 import {
@@ -51,6 +51,26 @@ function safeStorageCipher(): SecretCipher | null {
 
 let runtime: PluginRuntime | null = null;
 
+/**
+ * Plugin requests ride Chromium's network stack, not Node's.
+ *
+ * Several sources answer a plain undici client with a Cloudflare challenge
+ * (`cf-mitigated: challenge` / HTTP 403) purely because of its TLS fingerprint,
+ * while the same URL is served normally to Chromium. `net.fetch` also shares the
+ * app session's cookie jar, so a clearance a user earned by opening the site in
+ * the built-in browser is reused by the plugins.
+ */
+function electronFetch(): typeof fetch | undefined {
+  try {
+    if (typeof net?.fetch !== "function") return undefined;
+    return ((input: RequestInfo | URL, init?: RequestInit) =>
+      net.fetch(input as string | Request, init)) as typeof fetch;
+  } catch (error) {
+    console.warn("[plugins] Chromium fetch is unavailable, using Node's:", error);
+    return undefined;
+  }
+}
+
 export function getPluginRuntime(): PluginRuntime {
   if (runtime) return runtime;
   const store = createSqliteStore<PluginDocument>({
@@ -68,6 +88,7 @@ export function getPluginRuntime(): PluginRuntime {
     baseDir: ensureDir(userDataPath("plugins")),
     document,
     cipher: safeStorageCipher(),
+    fetchImpl: electronFetch(),
     // Secret config lives in `plugins.db` (`plugin_config`), never in a plain
     // `plugins/<id>/config.json`.
     configStore: {

@@ -129,6 +129,12 @@ export interface HttpOptions {
    * body streams: a scraped page cannot balloon memory just to be rejected later.
    */
   maxBytes?: number;
+  /**
+   * Transport override. The app passes Electron's `net.fetch` for plugin
+   * traffic: it uses Chromium's network stack (and its session cookies), so
+   * sites that challenge Node's TLS fingerprint answer it normally.
+   */
+  fetchImpl?: typeof fetch;
 }
 
 const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -147,7 +153,9 @@ async function request(url: string, options: HttpOptions = {}): Promise<Response
     cookies,
     redirect = "follow",
     signal,
+    fetchImpl,
   } = options;
+  const doFetch = fetchImpl ?? fetch;
 
   const jar = cookies ? getCookieJar(cookies) : null;
   let attempt = 0;
@@ -175,7 +183,7 @@ async function request(url: string, options: HttpOptions = {}): Promise<Response
     if (cookieHeader) requestHeaders.cookie = cookieHeader;
 
     try {
-      const response = await fetch(url, {
+      const response = await doFetch(url, {
         method,
         headers: requestHeaders,
         body: body as BodyInit | undefined,
@@ -271,7 +279,9 @@ export async function httpText(url: string, options: HttpOptions = {}): Promise<
   return {
     status: response.status,
     ok: response.ok,
-    url: response.url,
+    // Electron's `net.fetch` leaves `response.url` empty; callers only use it
+    // for diagnostics (e.g. `httpHead`'s finalUrl).
+    url: response.url || url,
     text: await readTextCapped(response, options.maxBytes),
     headers: response.headers,
   };
