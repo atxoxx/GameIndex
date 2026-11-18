@@ -6,6 +6,7 @@ import { formatSize, gameDisplayName } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatTime } from "../../utils/localeFormat";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { Button, ConfirmModal, SubTabs } from "../../components/ui";
@@ -38,7 +39,7 @@ const TABS: { id: HealthTabId; category?: HealthCategory; tone: "danger" | "warn
 ];
 
 export function LibraryHealthCenter() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { unit } = useSizeUnit();
   const { games, updateGame, removeGame, launchGame, enrichGameMetadata, enqueueEnrichBatch } = useGames();
   const { showToast } = useToast();
@@ -338,7 +339,7 @@ export function LibraryHealthCenter() {
   }, [pendingOrphans, showToast, t, unit, health]);
 
   const scannedLabel = health.scannedAt
-    ? t("storage.health.scannedAt", { time: new Date(health.scannedAt).toLocaleTimeString() })
+    ? t("storage.health.scannedAt", { time: formatTime(health.scannedAt, language) })
     : t("storage.health.neverScanned");
 
   return (

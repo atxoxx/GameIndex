@@ -304,7 +304,7 @@ export default function ActivityPage() {
         const payload = buildActivityExportPayload(list, games, getAllNotes(), range);
         const filePath = await save({
           defaultPath: `${fileBase}_${new Date().toISOString().slice(0, 10)}.json`,
-          filters: [{ name: "JSON File", extensions: ["json"] }],
+          filters: [{ name: t("activity.jsonFile"), extensions: ["json"] }],
         });
         if (!filePath) return;
         await invoke("save_text_file", {

@@ -438,12 +438,12 @@ export default function DownloadsPage() {
 
         {/* Empty States & Content Presentation */}
         {loading && downloads.length === 0 ? (
-          <div className="dl-list-empty">
+          <div className="dl-list-empty" role="status">
             <div className="spinner-small" />
             <span>{t("downloads.loading")}</span>
           </div>
         ) : filteredDownloads.length === 0 && downloads.length > 0 ? (
-          <div className="dl-list-no-match">
+          <div className="dl-list-no-match" role="status">
             <svg
               viewBox="0 0 24 24"
               fill="none"

@@ -145,12 +145,17 @@ export default function EmulatorEditorModal({
         filters: isLinuxHost
           ? [
               {
-                name: "Executable",
+                name: t("edit.dialog.filter.executables"),
                 extensions: ["AppImage", "appimage", "sh", "bin", "run"],
               },
-              { name: "All files", extensions: ["*"] },
+              { name: t("edit.dialog.filter.allFiles"), extensions: ["*"] },
             ]
-          : [{ name: "Executable", extensions: ["exe", "app", "sh", "AppImage"] }],
+          : [
+              {
+                name: t("edit.dialog.filter.executables"),
+                extensions: ["exe", "app", "sh", "AppImage"],
+              },
+            ],
       });
       if (typeof p !== "string") return;
       setExecutablePath(p);

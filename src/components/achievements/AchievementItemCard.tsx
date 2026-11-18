@@ -29,7 +29,7 @@ function AchievementItemCard({
   achievement: a,
   globalRevealSecret = false,
 }: AchievementItemCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [localReveal, setLocalReveal] = useState(false);
   const revealFocus = useFocusable(() => setLocalReveal(true));
 
@@ -79,12 +79,12 @@ function AchievementItemCard({
               className="achievement-card-points-tag"
               style={{ color: rarityColor, borderColor: rarityColor }}
             >
-              +{points} pts
+              +{points} {t("achievementsPage.pointsShort")}
             </span>
           </div>
 
           {a.achieved && a.unlockTime > 0 && (
-            <div className="achievement-card-date" title={formatUnlockDateTime(a.unlockTime)}>
+            <div className="achievement-card-date" title={formatUnlockDateTime(a.unlockTime, language)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />

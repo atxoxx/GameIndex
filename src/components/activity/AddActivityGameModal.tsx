@@ -79,7 +79,7 @@ export function AddActivityGameModal({
         multiple: false,
         directory: false,
         title: t("activityAdd.selectExe"),
-        filters: [{ name: "Executable", extensions: ["exe"] }],
+        filters: [{ name: t("edit.dialog.filter.executables"), extensions: ["exe"] }],
       });
       if (selected && typeof selected === "string") {
         setExePath(selected);

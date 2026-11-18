@@ -8,6 +8,7 @@ import {
   RARITY_COLORS,
 } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
+import { formatDate } from "../../utils/localeFormat";
 
 interface GameAchievementRowProps {
   game: Game;
@@ -41,7 +42,7 @@ function GameAchievementRowBase({
   rarity,
   onClick,
 }: GameAchievementRowProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isPerfect = pct === 100 && total > 0;
   const name = gameDisplayName(game);
 
@@ -83,7 +84,7 @@ function GameAchievementRowBase({
           <span className="achievements-game-name">{name}</span>
           {pointsTotal > 0 && (
             <span className="ach-row-points-badge">
-              {pointsEarned} / {pointsTotal} pts
+              {pointsEarned} / {pointsTotal} {t("achievementsPage.pointsShort")}
             </span>
           )}
         </div>
@@ -137,7 +138,7 @@ function GameAchievementRowBase({
         )}
         {lastSynced > 0 && (
           <span className="achievements-game-synced-at">
-            {new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            {formatDate(lastSynced, language, { month: "short", day: "numeric" })}
           </span>
         )}
       </div>

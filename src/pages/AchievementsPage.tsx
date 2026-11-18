@@ -17,6 +17,7 @@ import {
 } from "../components/achievements/AchievementSourceBadge";
 import { PageHeader } from "../components/ui";
 import PageWidget from "../components/PageWidget";
+import { formatDate } from "../utils/localeFormat";
 
 import type { MonthlyActivityItem } from "../components/achievements/achievementUtils";
 import AchievementsSummaryHero from "../components/achievements/AchievementsSummaryHero";
@@ -53,7 +54,7 @@ export default function AchievementsPage() {
     syncProgress,
   } = useAchievements();
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [completionFilter, setCompletionFilter] = useState<CompletionFilter>("all");
@@ -184,13 +185,13 @@ export default function AchievementsPage() {
       const d = new Date(Number(year), Number(month) - 1, 1);
       return {
         monthKey: m.monthKey,
-        label: d.toLocaleDateString(undefined, { month: "short", year: "numeric" }),
-        shortLabel: d.toLocaleDateString(undefined, { month: "short" }),
+        label: formatDate(d, language, { month: "short", year: "numeric" }),
+        shortLabel: formatDate(d, language, { month: "short" }),
         count: m.count,
         points: m.points,
       };
     });
-  }, [overviewMonthly]);
+  }, [overviewMonthly, language]);
 
   // Almost Done games (>= 70% and < 100%)
   const almostDoneGames = useMemo<AlmostDoneGameItem[]>(() => {
@@ -446,7 +447,7 @@ export default function AchievementsPage() {
           </div>
 
           {/* View Mode Switcher */}
-          <div className="ach-view-mode-toggle" role="group" aria-label="View mode">
+          <div className="ach-view-mode-toggle" role="group" aria-label={t("achievements.viewMode")}>
             <button
               type="button"
               className={`ach-view-btn ${viewMode === "grid" ? "active" : ""}`}
@@ -619,7 +620,7 @@ export default function AchievementsPage() {
         )}
 
         {gamesWithAchievements.length === 0 && (
-          <div className="achievements-no-results">
+          <div className="achievements-no-results" role="status">
             <div className="ach-no-results-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="40" height="40">
                 <circle cx="11" cy="11" r="8" />

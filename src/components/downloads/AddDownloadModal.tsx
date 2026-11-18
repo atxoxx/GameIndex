@@ -280,7 +280,7 @@ export default function AddDownloadModal({ open, onClose }: AddDownloadModalProp
         multiple: false,
         directory: false,
         title: t("addDownloadModal.browseTorrent") || "Select Torrent File",
-        filters: [{ name: "Torrent file", extensions: ["torrent"] }],
+        filters: [{ name: t("downloadModal.torrentFile"), extensions: ["torrent"] }],
       });
 
       if (selected && typeof selected === "string") {

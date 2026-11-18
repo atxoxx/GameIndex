@@ -177,7 +177,7 @@ export const DownloadGridCard = React.memo(
                 className="dl-card-checkbox"
                 checked={selected}
                 onChange={() => onToggleSelect(download.id)}
-                aria-label={`Select ${displayName}`}
+                aria-label={t("downloadRow.selectItem", { name: displayName })}
               />
             </div>
           )}

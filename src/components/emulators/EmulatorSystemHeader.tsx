@@ -16,6 +16,7 @@ import {
 import { useLanguage } from "../../context/LanguageContext";
 import { Button, ContextMenu, type ContextMenuItem } from "../ui";
 import { formatBytesShort } from "../../types/download";
+import { formatDate } from "../../utils/localeFormat";
 import type { Emulator, KnownEmulator } from "../../types/emulator";
 import {
   emulatorSetupSteps,
@@ -45,13 +46,17 @@ interface SystemHeaderProps {
   onFixSetup: (key: SetupStepKey) => void;
 }
 
-function relativeTime(ts: number, t: (key: string, vars?: Record<string, unknown>) => string) {
+function relativeTime(
+  ts: number,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  locale: string,
+) {
   const diff = Date.now() - ts;
   const day = 86_400_000;
   if (diff < 3_600_000) return t("emulators.relative.justNow");
   if (diff < day) return t("emulators.relative.hours", { n: Math.floor(diff / 3_600_000) });
   if (diff < 30 * day) return t("emulators.relative.days", { n: Math.floor(diff / day) });
-  return new Date(ts).toLocaleDateString(undefined, {
+  return formatDate(ts, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -78,7 +83,7 @@ export default function EmulatorSystemHeader({
   onOpenUrl,
   onFixSetup,
 }: SystemHeaderProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -177,13 +182,13 @@ export default function EmulatorSystemHeader({
             {lastPlayed != null && (
               <>
                 <span className="emu-wb-dot" aria-hidden />
-                <span>{t("emulators.lastPlayedShort", { when: relativeTime(lastPlayed, t) })}</span>
+                <span>{t("emulators.lastPlayedShort", { when: relativeTime(lastPlayed, t, language) })}</span>
               </>
             )}
             {lastScanned != null && (
               <>
                 <span className="emu-wb-dot" aria-hidden />
-                <span>{t("emulators.lastScannedShort", { when: relativeTime(lastScanned, t) })}</span>
+                <span>{t("emulators.lastScannedShort", { when: relativeTime(lastScanned, t, language) })}</span>
               </>
             )}
           </div>

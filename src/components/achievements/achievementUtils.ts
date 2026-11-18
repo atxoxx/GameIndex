@@ -4,6 +4,7 @@ import {
   type GameAchievementData,
   getAchievementRarity,
 } from "../../types/game";
+import { formatDate, formatDateTime } from "../../utils/localeFormat";
 
 /** Gamerscore / Rarity points weighting per rarity tier */
 export const RARITY_POINTS: Record<AchievementRarity, number> = {
@@ -72,7 +73,8 @@ export interface MonthlyActivityItem {
 /** Aggregate monthly unlock history over the last N months (default 6) */
 export function getMonthlyUnlockActivity(
   gamesData: Record<string, GameAchievementData>,
-  monthsCount = 6
+  monthsCount = 6,
+  locale?: string
 ): MonthlyActivityItem[] {
   const now = new Date();
   const months: MonthlyActivityItem[] = [];
@@ -83,8 +85,8 @@ export function getMonthlyUnlockActivity(
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const monthKey = `${year}-${month}`;
-    const label = d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-    const shortLabel = d.toLocaleDateString(undefined, { month: "short" });
+    const label = formatDate(d, locale, { month: "short", year: "numeric" });
+    const shortLabel = formatDate(d, locale, { month: "short" });
 
     months.push({
       monthKey,
@@ -122,9 +124,9 @@ export function getMonthlyUnlockActivity(
 }
 
 /** Format timestamp (seconds) into human-readable date */
-export function formatUnlockDate(ts: number): string {
+export function formatUnlockDate(ts: number, locale?: string): string {
   if (!ts) return "";
-  return new Date(ts * 1000).toLocaleDateString(undefined, {
+  return formatDate(ts * 1000, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -132,9 +134,9 @@ export function formatUnlockDate(ts: number): string {
 }
 
 /** Format timestamp (seconds) into detailed date + time */
-export function formatUnlockDateTime(ts: number): string {
+export function formatUnlockDateTime(ts: number, locale?: string): string {
   if (!ts) return "";
-  return new Date(ts * 1000).toLocaleString(undefined, {
+  return formatDateTime(ts * 1000, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -177,7 +179,10 @@ export interface TimelineGroup {
 }
 
 /** Group unlocked achievements chronologically for the Journey / Story view */
-export function groupAchievementsByDate(achievements: Achievement[]): TimelineGroup[] {
+export function groupAchievementsByDate(
+  achievements: Achievement[],
+  locale?: string
+): TimelineGroup[] {
   const unlocked = achievements
     .filter((a) => a.achieved && a.unlockTime > 0)
     .sort((a, b) => b.unlockTime - a.unlockTime);
@@ -188,7 +193,7 @@ export function groupAchievementsByDate(achievements: Achievement[]): TimelineGr
   for (const a of unlocked) {
     const date = new Date(a.unlockTime * 1000);
     const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-    const dateLabel = date.toLocaleDateString(undefined, {
+    const dateLabel = formatDate(date, locale, {
       year: "numeric",
       month: "short",
       day: "numeric",

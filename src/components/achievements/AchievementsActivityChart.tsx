@@ -84,7 +84,9 @@ export default function AchievementsActivityChart({
                 {/* Modern tooltip */}
                 <div className="ach-activity-col-tooltip">
                   <span className="ach-tooltip-count">{item.count}</span>
-                  <span className="ach-tooltip-pts">+{item.points} pts</span>
+                  <span className="ach-tooltip-pts">
+                    +{item.points} {t("achievementsPage.pointsShort")}
+                  </span>
                   <span className="ach-tooltip-month">{item.label}</span>
                 </div>
 

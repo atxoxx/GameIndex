@@ -1,4 +1,5 @@
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface AchievementsSummaryHeroProps {
   gamerscore: { earned: number; total: number; pct: number };
@@ -16,7 +17,7 @@ export default function AchievementsSummaryHero({
   gamerscore,
   stats,
 }: AchievementsSummaryHeroProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <div className="ach-hero-panel">
@@ -39,11 +40,11 @@ export default function AchievementsSummaryHero({
             </span>
             <div className="ach-hero-score-row">
               <span className="ach-hero-score-earned">
-                {gamerscore.earned.toLocaleString()}
+                {formatNumber(gamerscore.earned, language)}
               </span>
               <span className="ach-hero-score-divider">/</span>
               <span className="ach-hero-score-total">
-                {gamerscore.total.toLocaleString()} {t("achievementsPage.pointsShort")}
+                {formatNumber(gamerscore.total, language)} {t("achievementsPage.pointsShort")}
               </span>
             </div>
           </div>
@@ -76,7 +77,7 @@ export default function AchievementsSummaryHero({
             </svg>
           </div>
           <div className="ach-kpi-data">
-            <span className="achievements-summary-value">{stats.totalUnlocked.toLocaleString()}</span>
+            <span className="achievements-summary-value">{formatNumber(stats.totalUnlocked, language)}</span>
             <span className="achievements-summary-label">{t("achievementsPage.unlocked")}</span>
           </div>
         </div>
@@ -90,7 +91,7 @@ export default function AchievementsSummaryHero({
             </svg>
           </div>
           <div className="ach-kpi-data">
-            <span className="achievements-summary-value">{stats.totalAchievements.toLocaleString()}</span>
+            <span className="achievements-summary-value">{formatNumber(stats.totalAchievements, language)}</span>
             <span className="achievements-summary-label">{t("achievementsPage.total")}</span>
           </div>
         </div>

@@ -43,8 +43,7 @@ export default function AchievementTabHero({
   onEditManual,
   sourcePicker,
 }: AchievementTabHeroProps) {
-  const { t } = useLanguage();
-
+  const { t, language } = useLanguage();
   return (
     <div className={`ach-tab-hero${isPerfect ? " is-perfect" : ""}`}>
       <div className="ach-tab-cover">
@@ -116,12 +115,12 @@ export default function AchievementTabHero({
         <div className="ach-tab-dates">
           <span className="ach-tab-date">
             <b>{t("achievements.firstUnlock")}</b>
-            {firstUnlock ? formatUnlockDate(firstUnlock) : "—"}
+            {firstUnlock ? formatUnlockDate(firstUnlock, language) : "—"}
           </span>
           <span className="ach-tab-date">
             <b>{t("achievements.lastUnlock")}</b>
             {lastUnlock
-              ? `${formatUnlockDate(lastUnlock)} (${formatRelativeTime(lastUnlock)})`
+              ? `${formatUnlockDate(lastUnlock, language)} (${formatRelativeTime(lastUnlock)})`
               : "—"}
           </span>
         </div>

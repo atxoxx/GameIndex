@@ -898,7 +898,7 @@ function DocsPageContent() {
                       <ActiveIcon />
                     </div>
                     <div>
-                      <h1 className="docs-article__title">{getSubTitle(activeSub)}</h1>
+                      <h2 className="docs-article__title">{getSubTitle(activeSub)}</h2>
                     </div>
                   </div>
 
@@ -980,7 +980,7 @@ function DocsPageContent() {
               )}
 
               {/* Previous / Next Article Navigation */}
-              <nav className="docs-article__nav" aria-label="Article navigation">
+              <nav className="docs-article__nav" aria-label={t("docs.articleNav")}>
                 {prevSub ? (
                   <button
                     type="button"

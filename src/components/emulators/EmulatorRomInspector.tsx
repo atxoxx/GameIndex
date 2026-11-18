@@ -20,6 +20,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button, Tooltip } from "../ui";
 import type { Game } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
+import { formatDate } from "../../utils/localeFormat";
 import { thumbVariantUrl } from "../../utils/artworkUrl";
 import type { EmulatorVisual } from "./emulatorUi";
 
@@ -42,9 +43,9 @@ interface InspectorProps {
   onAddRom: () => void;
 }
 
-function fmtDate(ts?: number): string {
+function fmtDate(ts: number | undefined, locale: string): string {
   if (!ts) return "—";
-  return new Date(ts).toLocaleDateString(undefined, {
+  return formatDate(ts, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -69,7 +70,7 @@ export default function EmulatorRomInspector({
   onScan,
   onAddRom,
 }: InspectorProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!game) {
     return (
@@ -225,13 +226,13 @@ export default function EmulatorRomInspector({
         <div>
           <dt>{t("game.lastPlayed")}</dt>
           <dd>
-            <Clock3 size={11} aria-hidden /> {fmtDate(game.lastPlayed)}
+            <Clock3 size={11} aria-hidden /> {fmtDate(game.lastPlayed, language)}
           </dd>
         </div>
         <div>
           <dt>{t("emulators.games.added")}</dt>
           <dd>
-            <CalendarDays size={11} aria-hidden /> {fmtDate(game.addedAt)}
+            <CalendarDays size={11} aria-hidden /> {fmtDate(game.addedAt, language)}
           </dd>
         </div>
       </dl>

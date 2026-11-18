@@ -304,7 +304,7 @@ export function ManualSessionModal({
                     type="number"
                     min="0"
                     max="500"
-                    placeholder="e.g. 60"
+                    placeholder={t("activityManual.exampleValue", { value: 60 })}
                     className="act-form-input"
                     value={avgFps}
                     onChange={(e) => setAvgFps(e.target.value)}
@@ -316,7 +316,7 @@ export function ManualSessionModal({
                     type="number"
                     min="0"
                     max="100"
-                    placeholder="e.g. 45"
+                    placeholder={t("activityManual.exampleValue", { value: 45 })}
                     className="act-form-input"
                     value={avgCpu}
                     onChange={(e) => setAvgCpu(e.target.value)}
@@ -328,7 +328,7 @@ export function ManualSessionModal({
                     type="number"
                     min="0"
                     max="100"
-                    placeholder="e.g. 80"
+                    placeholder={t("activityManual.exampleValue", { value: 80 })}
                     className="act-form-input"
                     value={avgGpu}
                     onChange={(e) => setAvgGpu(e.target.value)}
@@ -339,7 +339,7 @@ export function ManualSessionModal({
                 <label className="act-form-label">{t("activityGantt.resolution")}</label>
                 <input
                   type="text"
-                  placeholder="e.g. 2560x1440"
+                  placeholder={t("activityManual.exampleValue", { value: "2560x1440" })}
                   className="act-form-input"
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}

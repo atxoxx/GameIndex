@@ -891,8 +891,12 @@ export default function EmulatorsPage() {
         </PageWidget>
       )}
 
-      {emulators.length === 0 ? (
-        <div className="emu-wb-welcome ui-item-emuDetail">
+      {!loaded ? (
+        <div className="emu-wb-stage-empty" role="status">
+          <p>{t("common.loading")}</p>
+        </div>
+      ) : emulators.length === 0 ? (
+        <div className="emu-wb-welcome ui-item-emuDetail" role="status">
           <div className="emu-wb-welcome-art" aria-hidden>🕹️</div>
           <h2>{t("emulators.empty.title")}</h2>
           <p>{t("emulators.empty.desc")}</p>

@@ -14,7 +14,7 @@ export function EmptyState({
   compact?: boolean;
 }) {
   return (
-    <div className={`act-empty${compact ? " act-empty--compact" : ""}`}>
+    <div className={`act-empty${compact ? " act-empty--compact" : ""}`} role="status">
       <div className="act-empty__icon">{icon}</div>
       <div className="act-empty__title">{title}</div>
       {hint && <div className="act-empty__hint">{hint}</div>}

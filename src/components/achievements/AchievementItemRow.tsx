@@ -29,7 +29,7 @@ function AchievementItemRow({
   achievement: a,
   globalRevealSecret = false,
 }: AchievementItemRowProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [localReveal, setLocalReveal] = useState(false);
   const revealFocus = useFocusable(() => setLocalReveal(true));
 
@@ -61,7 +61,7 @@ function AchievementItemRow({
         <div className="ach-compact-title-row">
           <span className="ach-compact-name">{a.displayName}</span>
           <span className="ach-compact-points" style={{ color: rarityColor }}>
-            +{points} pts
+            +{points} {t("achievementsPage.pointsShort")}
           </span>
         </div>
 
@@ -93,7 +93,7 @@ function AchievementItemRow({
         {a.achieved && a.unlockTime > 0 ? (
           <span
             className="ach-compact-date-text"
-            title={formatUnlockDateTime(a.unlockTime)}
+            title={formatUnlockDateTime(a.unlockTime, language)}
           >
             {formatRelativeTime(a.unlockTime)}
           </span>

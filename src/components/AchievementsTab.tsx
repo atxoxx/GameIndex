@@ -23,6 +23,7 @@ import {
   calculateGameGamerscore,
   groupAchievementsByDate,
 } from "./achievements/achievementUtils";
+import { formatDateTime } from "../utils/localeFormat";
 import AchievementItemCard from "./achievements/AchievementItemCard";
 // Owned by this lazy tab (the library-wide AchievementsPage imports it itself).
 import "../styles/achievements.css";
@@ -68,7 +69,7 @@ function useFocusProps(onActivate: () => void) {
 }
 
 export default function AchievementsTab({ game }: { game: Game }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const {
     getGameAchievements,
@@ -194,8 +195,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
 
   // Chronological timeline groups for Journey view
   const timelineGroups = useMemo(() => {
-    return groupAchievementsByDate(displayAchievements);
-  }, [displayAchievements]);
+    return groupAchievementsByDate(displayAchievements, language);
+  }, [displayAchievements, language]);
 
   // First / last unlock across payload
   const { firstUnlock, lastUnlock } = useMemo(() => {
@@ -747,7 +748,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
       {achievementData.lastSynced && (
         <div className="achievements-last-synced">
           {t("achievements.lastSynced", {
-            date: new Date(achievementData.lastSynced).toLocaleString(),
+            date: formatDateTime(achievementData.lastSynced, language),
           })}
         </div>
       )}

@@ -13,6 +13,7 @@ import {
   type TorrentDownload,
 } from "../../types/download";
 import { Button } from "../ui";
+import { formatDateTime } from "../../utils/localeFormat";
 
 interface TorrentDetailModalProps {
   download: TorrentDownload;
@@ -197,6 +198,7 @@ function displaySpeed(bytesPerSec: number, unit: TabProps["speedUnit"]): string 
 }
 
 function Field({ label, value, onCopy }: { label: string; value: string; onCopy?: () => void }) {
+  const { t } = useLanguage();
   return (
     <div className="dl-torrent-field">
       <span className="dl-torrent-field-label">{label}</span>
@@ -208,7 +210,7 @@ function Field({ label, value, onCopy }: { label: string; value: string; onCopy?
           type="button"
           className="dl-torrent-copy"
           onClick={onCopy}
-          aria-label={`Copy ${label}`}
+          aria-label={`${t("common.copy")} ${label}`}
         >
           <Copy size={13} />
         </button>
@@ -218,7 +220,7 @@ function Field({ label, value, onCopy }: { label: string; value: string; onCopy?
 }
 
 function OverviewTab({ detail, sizeUnit, speedUnit, etaText, copy }: TabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   return (
     <div className="dl-torrent-overview">
       <div className="dl-torrent-stats-grid">
@@ -249,12 +251,12 @@ function OverviewTab({ detail, sizeUnit, speedUnit, etaText, copy }: TabProps) {
         <Field label={t("torrentDetail.source")} value={detail.sourceName} />
         <Field
           label={t("torrentDetail.addedAt")}
-          value={new Date(detail.addedAt * 1000).toLocaleString()}
+          value={formatDateTime(detail.addedAt * 1000, language)}
         />
         {detail.completedAt != null && (
           <Field
             label={t("torrentDetail.completedAt")}
-            value={new Date(detail.completedAt * 1000).toLocaleString()}
+            value={formatDateTime(detail.completedAt * 1000, language)}
           />
         )}
       </div>
@@ -375,7 +377,7 @@ function TrackersTab({ detail, copy }: TabProps) {
               type="button"
               className="dl-torrent-copy"
               onClick={() => void copy(url)}
-              aria-label={`Copy ${url}`}
+              aria-label={`${t("common.copy")} ${url}`}
             >
               <Copy size={13} />
             </button>

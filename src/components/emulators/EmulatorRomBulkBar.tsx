@@ -34,7 +34,7 @@ export default function EmulatorRomBulkBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="emu-games-bulkbar" role="toolbar" aria-label="Bulk actions">
+    <div className="emu-games-bulkbar" role="toolbar" aria-label={t("emulators.games.bulkActions")}>
       <div className="emu-games-bulk-info">
         <span className="emu-games-bulkcount">
           {t("emulators.games.selected", { count: selectedCount })}

@@ -92,18 +92,30 @@ export function PerformanceOverview({
         <div className="performance-tiers-bar__left">
           <span className="performance-tiers-bar__title">{t("activityPerf.tierDistribution")}:</span>
           <div className="performance-tiers-bar__chips">
-            <span className="performance-tier-chip performance-tier-chip--ultra" title="120+ FPS">
-              <Icons.Zap size={11} /> Ultra 120+: <strong>{fpsTiers.ultra}</strong>
+            <span
+              className="performance-tier-chip performance-tier-chip--ultra"
+              title={t("activityPerf.fpsTierUltra")}
+            >
+              <Icons.Zap size={11} /> {t("activityPerf.fpsTierUltra")}: <strong>{fpsTiers.ultra}</strong>
             </span>
-            <span className="performance-tier-chip performance-tier-chip--smooth" title="60-120 FPS">
-              <Icons.Check size={11} /> Smooth 60+: <strong>{fpsTiers.smooth}</strong>
+            <span
+              className="performance-tier-chip performance-tier-chip--smooth"
+              title={t("activityPerf.fpsTierSmooth")}
+            >
+              <Icons.Check size={11} /> {t("activityPerf.fpsTierSmooth")}: <strong>{fpsTiers.smooth}</strong>
             </span>
-            <span className="performance-tier-chip performance-tier-chip--playable" title="30-60 FPS">
-              <Icons.Gauge size={11} /> Playable 30+: <strong>{fpsTiers.playable}</strong>
+            <span
+              className="performance-tier-chip performance-tier-chip--playable"
+              title={t("activityPerf.fpsTierPlayable")}
+            >
+              <Icons.Gauge size={11} /> {t("activityPerf.fpsTierPlayable")}: <strong>{fpsTiers.playable}</strong>
             </span>
             {fpsTiers.low > 0 && (
-              <span className="performance-tier-chip performance-tier-chip--low" title="<30 FPS">
-                <Icons.Info size={11} /> &lt;30 FPS: <strong>{fpsTiers.low}</strong>
+              <span
+                className="performance-tier-chip performance-tier-chip--low"
+                title={t("activityPerf.fpsTierLow")}
+              >
+                <Icons.Info size={11} /> {t("activityPerf.fpsTierLow")}: <strong>{fpsTiers.low}</strong>
               </span>
             )}
           </div>

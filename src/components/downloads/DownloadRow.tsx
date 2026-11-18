@@ -253,7 +253,7 @@ export const DownloadRow = React.memo(
                 type="checkbox"
                 checked={selected}
                 onChange={() => onToggleSelect(download.id)}
-                aria-label={`Select ${displayName}`}
+                aria-label={t("downloadRow.selectItem", { name: displayName })}
               />
             </div>
           )}
@@ -396,6 +396,7 @@ export const DownloadRow = React.memo(
                 className={`dlrow-icon dlrow-disclosure${expanded ? " is-open" : ""}`}
                 onClick={() => setExpanded(!expanded)}
                 title={expanded ? t("downloadRow.hideFiles") : t("downloadRow.showFiles")}
+                aria-label={expanded ? t("downloadRow.hideFiles") : t("downloadRow.showFiles")}
                 aria-expanded={expanded}
               >
                 <ChevronIcon style={{ width: 13, height: 13 }} />
@@ -444,7 +445,7 @@ export const DownloadRow = React.memo(
                       checked={file.selected}
                       disabled={fileSelectionLocked}
                       onChange={() => handleToggleFile(idx)}
-                      aria-label={`Select ${file.name}`}
+                      aria-label={t("downloadRow.selectItem", { name: file.name })}
                     />
                     <span
                       className={`dl-file-name${isSkipped ? " dl-file-name--skipped" : ""}`}

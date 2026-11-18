@@ -13,6 +13,7 @@ import type {
   RomMetadataCandidate,
 } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
+import { formatDate, formatDateTime } from "../../utils/localeFormat";
 import { useGamepads, guessLayout, type ButtonLayout } from "../../hooks/useGamepads";
 import { Button } from "../ui";
 
@@ -41,16 +42,14 @@ const ICON = {
 
 type TabId = "overview" | "metadata" | "profile" | "saves";
 
-function formatDate(ts?: number): string {
+function formatRomDate(ts: number | undefined, locale: string): string {
   if (!ts) return "";
-  const d = new Date(ts);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatDate(ts, locale, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function formatDateTime(ts?: number): string {
+function formatRomDateTime(ts: number | undefined, locale: string): string {
   if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleString(undefined, {
+  return formatDateTime(ts, locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -233,7 +232,7 @@ function OverviewTab({
   onToggleFavorite: () => void;
   onGameUpdated: (game: Game) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [compatNotes, setCompatNotes] = useState(game.compatNotes ?? "");
@@ -332,7 +331,7 @@ function OverviewTab({
               </svg>
               {t("game.lastPlayed")}
             </span>
-            <span className="emu-rom-inspect-val">{formatDate(game.lastPlayed)}</span>
+            <span className="emu-rom-inspect-val">{formatRomDate(game.lastPlayed, language)}</span>
           </div>
         )}
 
@@ -719,7 +718,7 @@ function ProfileTab({ game, emulator, onGameUpdated }: { game: Game; emulator?: 
 // ─── Saves tab ──────────────────────────────────────────────────────────────
 
 function SavesTab({ game, emulator }: { game: Game; emulator?: Emulator }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [status, setStatus] = useState<RomSavesStatus | null>(null);
@@ -805,8 +804,8 @@ function SavesTab({ game, emulator }: { game: Game; emulator?: Emulator }) {
             {status.hasSaves
               ? t("emulators.saves.count", { count: status.saveCount })
               : t("emulators.saves.none")}
-            {status.lastSaveMtime ? ` · ${t("emulators.saves.lastSave")}: ${formatDateTime(status.lastSaveMtime)}` : ""}
-            {status.lastBackupMtime ? ` · ${t("emulators.saves.lastBackup")}: ${formatDateTime(status.lastBackupMtime)}` : ""}
+            {status.lastSaveMtime ? ` · ${t("emulators.saves.lastSave")}: ${formatRomDateTime(status.lastSaveMtime, language)}` : ""}
+            {status.lastBackupMtime ? ` · ${t("emulators.saves.lastBackup")}: ${formatRomDateTime(status.lastBackupMtime, language)}` : ""}
           </span>
         </div>
       )}
@@ -820,7 +819,7 @@ function SavesTab({ game, emulator }: { game: Game; emulator?: Emulator }) {
                   {e.relativePath}
                 </span>
                 <span className="emu-save-entry-sub">
-                  {formatBytesShort(e.sizeBytes)} · {formatDateTime(e.modifiedAtMs)}
+                  {formatBytesShort(e.sizeBytes)} · {formatRomDateTime(e.modifiedAtMs, language)}
                 </span>
               </div>
               {e.backedUp && <span className="emu-rom-badge">✓</span>}
@@ -849,7 +848,7 @@ function SavesTab({ game, emulator }: { game: Game; emulator?: Emulator }) {
               <div className="emu-save-entry-info">
                 <span className="emu-save-entry-name">{s.name}</span>
                 <span className="emu-save-entry-sub">
-                  {s.fileCount} · {formatBytesShort(s.sizeBytes)} · {formatDateTime(s.createdAtMs)}
+                  {s.fileCount} · {formatBytesShort(s.sizeBytes)} · {formatRomDateTime(s.createdAtMs, language)}
                 </span>
               </div>
               <div className="emu-snapshot-actions">

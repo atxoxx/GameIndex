@@ -13,7 +13,7 @@ interface Props {
  *  read as one pattern. */
 export function StorageEmpty({ icon, title, description, action, compact = false }: Props) {
   return (
-    <div className={`storage-empty${compact ? " storage-empty--compact" : ""}`}>
+    <div className={`storage-empty${compact ? " storage-empty--compact" : ""}`} role="status">
       <span className="storage-empty__icon" aria-hidden="true">
         {icon}
       </span>

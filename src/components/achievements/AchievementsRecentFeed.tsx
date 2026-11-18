@@ -26,7 +26,7 @@ interface AchievementsRecentFeedProps {
 export default function AchievementsRecentFeed({
   recentAchievements,
 }: AchievementsRecentFeedProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const activateOnKey = (gameId: string) => (event: KeyboardEvent<HTMLDivElement>) => {
@@ -123,7 +123,7 @@ export default function AchievementsRecentFeed({
                 )}
 
                 <div className="ach-recent-feed-footer">
-                  <span className="ach-recent-feed-date" title={formatUnlockDate(item.achievement.unlockTime)}>
+                  <span className="ach-recent-feed-date" title={formatUnlockDate(item.achievement.unlockTime, language)}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
                       <circle cx="12" cy="12" r="10" />
                       <polyline points="12 6 12 12 16 14" />

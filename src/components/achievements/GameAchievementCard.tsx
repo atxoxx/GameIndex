@@ -8,6 +8,7 @@ import {
   RARITY_COLORS,
 } from "../../types/game";
 import AchievementSourceBadge from "./AchievementSourceBadge";
+import { formatDate } from "../../utils/localeFormat";
 
 interface GameAchievementCardProps {
   game: Game;
@@ -41,7 +42,7 @@ function GameAchievementCardBase({
   rarity,
   onClick,
 }: GameAchievementCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isPerfect = pct === 100 && total > 0;
   const name = gameDisplayName(game);
 
@@ -126,7 +127,10 @@ function GameAchievementCardBase({
               </span>
               {pointsTotal > 0 && (
                 <span className="ach-game-card-points">
-                  {pointsEarned} <span className="ach-game-card-points-total">/ {pointsTotal} pts</span>
+                  {pointsEarned}{" "}
+                  <span className="ach-game-card-points-total">
+                    / {pointsTotal} {t("achievementsPage.pointsShort")}
+                  </span>
                 </span>
               )}
             </div>
@@ -163,7 +167,7 @@ function GameAchievementCardBase({
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              {new Date(lastSynced).toLocaleDateString(undefined, {
+              {formatDate(lastSynced, language, {
                 month: "short",
                 day: "numeric",
               })}
