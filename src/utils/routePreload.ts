@@ -29,6 +29,8 @@ const ROUTE_CHUNK_MAP: Record<string, Importer> = {
   "/emulators": () => import("../pages/EmulatorsPage"),
   "/ports": () => import("../pages/ports/PortsPage"),
   "/mods": () => import("../pages/mods/ModsPage"),
+  "/saves": () => import("../pages/saves/SavesPage"),
+  "/reels": () => import("../pages/ReelsPage"),
   "/settings": () => import("../pages/SettingsPage"),
   "/docs": () => import("../pages/DocsPage"),
   "/game-detail": () => import("../pages/GamePage"),
@@ -91,6 +93,17 @@ const SECONDARY_KEYS = [
   "/activity",
 ];
 
+// The next tier is small enough that warming it costs almost nothing (the
+// chunks are already split) but saves a skeleton flash on the first visit to
+// these common surfaces. Larger/rarer pages (downloads, storage, emulators,
+// ports, mods, docs, saves, reels, community) keep to hover/focus warming so
+// an idle session never grows its module graph for pages that may never open.
+const TERTIARY_KEYS = [
+  "/settings",
+  "/news",
+  "/achievements",
+];
+
 /**
  * Schedule sequential background preloading well after the app is
  * interactive.
@@ -127,6 +140,8 @@ export function scheduleIdleRoutePreloading(): () => void {
   later(() => warm(HIGH_PRIORITY_KEYS), 2500);
   // Phase 2: the next most visited surfaces, once the shell has settled.
   later(() => warm(SECONDARY_KEYS), 7000);
+  // Phase 3: small but common pages, long after the session has started.
+  later(() => warm(TERTIARY_KEYS), 12000);
 
   return () => {
     cancelled = true;

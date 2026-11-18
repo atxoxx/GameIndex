@@ -11,6 +11,7 @@ import { ArtworkImage } from "../ui/ArtworkImage";
 import { playLaunchSound } from "../../utils/soundEffects";
 import { isLibraryScrolling } from "./libraryScroll";
 import { useStoreInstallFor } from "../../hooks/useStoreInstalls";
+import { preloadGameDetail } from "../../utils/routePreload";
 import StoreInstallBar from "../store/StoreInstallBar";
 
 interface LibraryGameCardProps {
@@ -69,6 +70,11 @@ function LibraryGameCardBase({
   // Skip the hover state (and the animated poster it enables) while the grid
   // is still moving under the pointer.
   const handlePointerEnter = () => {
+    // Warm the game-detail chunk while the pointer is over the card, so the
+    // click that follows navigates without a skeleton flash. The preloader
+    // dedupes itself; this costs nothing once warmed (sidebar items already
+    // do the same on hover — the grid cards are the primary click target).
+    preloadGameDetail();
     if (isLibraryScrolling()) return;
     setHovered(true);
   };
@@ -146,6 +152,8 @@ function LibraryGameCardBase({
         onContextMenu={onContextMenu}
         onMouseEnter={handlePointerEnter}
         onMouseLeave={() => setHovered(false)}
+        onPointerDown={() => preloadGameDetail()}
+        onFocus={preloadGameDetail}
         onKeyDown={activateKey}
         aria-label={displayName}
       >
@@ -269,6 +277,8 @@ function LibraryGameCardBase({
       onContextMenu={onContextMenu}
       onMouseEnter={handlePointerEnter}
       onMouseLeave={() => setHovered(false)}
+      onPointerDown={() => preloadGameDetail()}
+      onFocus={preloadGameDetail}
       onKeyDown={activateKey}
       aria-label={displayName}
       aria-current={isRunning ? "true" : undefined}

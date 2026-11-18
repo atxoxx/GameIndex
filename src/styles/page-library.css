@@ -1036,6 +1036,15 @@
   text-align: left;
   cursor: pointer;
   contain: layout style paint;
+  /* Press feedback: the micro "push in" the instant the pointer goes down.
+     Quicker than --duration-fast so the pose reads as a press, not a hover. */
+  transition: transform var(--duration-instant) var(--ease-standard);
+}
+
+/* Grid cards only — a scaling list row reads as a layout shift, so list rows
+   press with a background tint instead (see the list rules below). */
+.library-page .lib-card:active:not(.lib-card--list) {
+  transform: scale(0.985);
 }
 
 .library-page .lib-card:focus-visible {
@@ -1452,6 +1461,13 @@
 
 .library-page .lib-card--list:hover {
   background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  border-color: var(--color-border);
+}
+
+/* Press: one tint step deeper than hover — same rhythm as the grid card's
+   push-in, but as a fill change so the row never scales or shifts columns. */
+.library-page .lib-card--list:active {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   border-color: var(--color-border);
 }
 

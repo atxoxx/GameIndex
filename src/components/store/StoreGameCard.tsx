@@ -17,6 +17,7 @@ import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { ArtworkImage } from "../ui/ArtworkImage";
 import StoreHighlightText from "./StoreHighlightText";
 import { isStoreScrolling } from "./storeCardHover";
+import { preloadStoreDetail } from "../../utils/routePreload";
 
 interface StoreGameCardProps {
   game: StoreGameSummary;
@@ -199,6 +200,9 @@ function StoreGameCardBase({
 
   const handleMouseEnter = () => {
     onHoverChange?.(true);
+    // Warm the store-detail chunk while the pointer is over the card so the
+    // click that follows navigates instantly (deduped by the preloader).
+    preloadStoreDetail();
     if (previewTimerRef.current !== null) clearTimeout(previewTimerRef.current);
     // Never start decoding an animated poster while the page is still moving.
     if (isStoreScrolling()) return;
@@ -263,6 +267,8 @@ function StoreGameCardBase({
         }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onPointerDown={() => preloadStoreDetail()}
+        onFocus={preloadStoreDetail}
         onContextMenu={(e) => storeMenu.open(e)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -473,6 +479,8 @@ function StoreGameCardBase({
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onPointerDown={() => preloadStoreDetail()}
+      onFocus={preloadStoreDetail}
       onContextMenu={(e) => storeMenu.open(e)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

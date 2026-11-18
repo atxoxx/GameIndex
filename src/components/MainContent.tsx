@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import ErrorBoundary from "./ErrorBoundary";
 import { recordBreadcrumb } from "../utils/crashReporter";
@@ -35,11 +35,20 @@ export default function MainContent() {
   // at whatever scroll offset the previous route left behind — opening a
   // game from a scrolled-down library lands mid-page.
   //
+  // Two details make the reset invisible rather than a visible move:
+  // - `useLayoutEffect` runs before the new page paints, so the reader never
+  //   sees a frame at the old offset.
+  // - `behavior: "instant"` overrides the `scroll-behavior: smooth` that
+  //   `.app-main` sets for in-page anchor moves. Without it the browser
+  //   animates the reset: the old page visibly flies up out of the viewport
+  //   before the new one can take its place, which reads as a laggy
+  //   transition instead of a cut.
+  //
   // Only the pathname and the detail tab reset the scroll. Filtering,
   // paging or selecting an item writes query-string state without moving
   // the reader, which is what those in-place updates expect.
-  useEffect(() => {
-    document.querySelector(".app-main")?.scrollTo({ top: 0 });
+  useLayoutEffect(() => {
+    document.querySelector(".app-main")?.scrollTo({ top: 0, behavior: "instant" });
     window.scrollTo(0, 0);
   }, [location.pathname, detailTab]);
 

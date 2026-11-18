@@ -63,14 +63,16 @@ describe("MainContent scroll reset", () => {
 
     fireEvent.click(screen.getByText("switch tab"));
 
-    expect(appMainScroll).toHaveBeenCalledWith({ top: 0 });
+    // The reset must be instant: `.app-main` sets `scroll-behavior: smooth`
+    // for in-page moves, which would animate a fly-to-top on every route change.
+    expect(appMainScroll).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
     expect(windowScroll).toHaveBeenCalledWith(0, 0);
 
     appMainScroll.mockClear();
     windowScroll.mockClear();
     fireEvent.click(screen.getByText("leave game"));
 
-    expect(appMainScroll).toHaveBeenCalledWith({ top: 0 });
+    expect(appMainScroll).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
     expect(windowScroll).toHaveBeenCalledWith(0, 0);
   });
 });
