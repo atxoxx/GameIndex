@@ -1137,7 +1137,12 @@ export function useCommandPaletteItems(params: UseCommandPaletteItemsParams) {
       parsedFilters,
       { isGameUntracked, runningGameIds, wishlistNames }
     );
-    const gameMatches = rankGames(filteredGames, q, isBlank, parsedFilters.sort).length;
+    // Sorting does not change the count: when the query is blank the count is
+    // just the filtered length, and otherwise only score>0 matters. Skipping
+    // rankGames here avoids sorting the whole library on every palette open.
+    const gameMatches = isBlank
+      ? filteredGames.length
+      : rankGames(filteredGames, q, false, parsedFilters.sort).length;
 
     const counts: Record<PaletteCategory, number> = {
       all: 0,
