@@ -31,6 +31,7 @@ import GameStatusDropdown from "./GameStatusDropdown";
 import { useSteamGameStats, formatSteamPrice } from "../../hooks/useSteamGameStats";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatDate } from "../../utils/localeFormat";
 import { useGames } from "../../context/GameContext";
 
 /**
@@ -82,7 +83,7 @@ export default function InfoKpiCard({
   hideStatus,
 }: InfoKpiCardProps) {
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { updateGame } = useGames();
 
   // Installed-version detection + download-source update check. The hero
@@ -234,10 +235,11 @@ export default function InfoKpiCard({
     hideStatus,
     handleStatusChange,
     t,
+    language,
   ]);
 
   const rows = useMemo<DetailRow[]>(() => {
-    const addedDate = new Date(game.addedAt).toLocaleDateString(undefined, {
+    const addedDate = formatDate(new Date(game.addedAt), language, {
       year: "numeric",
       month: "short",
       day: "numeric",

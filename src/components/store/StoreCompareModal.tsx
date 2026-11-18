@@ -9,6 +9,7 @@ import {
   type CompareRow,
   type CompareValue,
 } from "./storeCompare";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { Button } from "../ui";
 
 interface StoreCompareModalProps {
@@ -31,20 +32,20 @@ interface ChipRow {
 
 const PICKER_LIMIT = 6;
 
-function formatDate(value: CompareValue, locale: string): string {
+function formatCompareDate(value: CompareValue, locale: string): string {
   if (typeof value !== "string" || !value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return (
+    formatDate(value, locale, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }) || "—"
+  );
 }
 
-function formatNumber(value: CompareValue, locale: string): string {
+function formatCompareNumber(value: CompareValue, locale: string): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat(locale).format(value);
+  return formatNumber(value, locale);
 }
 
 /**
@@ -197,9 +198,9 @@ export default function StoreCompareModal({
 
   const renderCellValue = (row: CompareRow, game: StoreGameSummary): string => {
     const value = row.value(game);
-    if (row.key === "released") return formatDate(value, language);
+    if (row.key === "released") return formatCompareDate(value, language);
     if (row.key === "ratingsCount" || row.key === "followers") {
-      return formatNumber(value, language);
+      return formatCompareNumber(value, language);
     }
     if (row.key === "rating" || row.key === "critics") {
       return typeof value === "number" && Number.isFinite(value)

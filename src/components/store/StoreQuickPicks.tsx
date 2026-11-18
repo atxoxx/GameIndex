@@ -84,6 +84,7 @@ export default function StoreQuickPicks({
             className="store-quick-picks-nav"
             onClick={() => scrollBy(-1)}
             aria-label={t("store.quickPicks.prev")}
+            title={t("store.quickPicks.prev")}
           >
             <ChevronLeft size={15} aria-hidden="true" />
           </button>
@@ -92,6 +93,7 @@ export default function StoreQuickPicks({
             className="store-quick-picks-nav"
             onClick={() => scrollBy(1)}
             aria-label={t("store.quickPicks.next")}
+            title={t("store.quickPicks.next")}
           >
             <ChevronRight size={15} aria-hidden="true" />
           </button>

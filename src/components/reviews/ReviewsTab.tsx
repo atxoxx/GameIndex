@@ -21,6 +21,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { useSettings } from "../../context/SettingsContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { Button } from "../ui";
 import {
   GameTabChips,
@@ -112,7 +113,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   const { isBigScreen } = useBigScreen();
   const { showToast } = useToast();
   const { updateGame } = useGames();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showDeckVerified } = useSettings();
 
   const [state, setState] = useGameTabState<ReviewsTabState>({
@@ -729,7 +730,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
             <h2 className="game-tab__title">{t("review.reviewsTitle")}</h2>
             <p className="game-tab__desc">
               {totalAll > 0
-                ? t("review.subtitleCount", { count: totalAll.toLocaleString() })
+                ? t("review.subtitleCount", { count: formatNumber(totalAll, language) })
                 : t("review.subtitleNone")}
             </p>
           </div>

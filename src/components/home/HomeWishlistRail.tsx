@@ -5,6 +5,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { WishlistEntry } from "../../types/game";
 import HomeSection from "./HomeSection";
+import { formatNumber } from "../../utils/localeFormat";
 
 const MAX_ITEMS = 10;
 
@@ -15,7 +16,7 @@ const MAX_ITEMS = 10;
  */
 export default function HomeWishlistRail() {
   const { wishlist } = useWishlistContext();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   if (wishlist.length === 0) return null;
@@ -31,7 +32,7 @@ export default function HomeWishlistRail() {
         </svg>
       }
       title={t("home.wishlist.title")}
-      subtitle={t("home.wishlist.subtitle", { count: wishlist.length })}
+      subtitle={t("home.wishlist.subtitle", { count: formatNumber(wishlist.length, language) })}
       viewAllPath="/wishlist"
     >
       <div className="home-rail-track">

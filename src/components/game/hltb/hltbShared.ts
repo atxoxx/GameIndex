@@ -1,4 +1,6 @@
 import type { HltbStats, HltbTimeStat } from "../../../types/game";
+import { getActiveLocale } from "../../../i18n";
+import { formatNumber } from "../../../utils/localeFormat";
 
 /** Translator shape shared by the HLTB sections. */
 export type Translate = (key: string, vars?: Record<string, unknown>) => string;
@@ -26,9 +28,9 @@ export function formatDuration(seconds?: number | null): string {
   return `${Math.round(hours)}h`;
 }
 
-export function formatCount(value?: number | null): string {
+export function formatCount(value?: number | null, locale: string = getActiveLocale()): string {
   if (value == null) return "—";
-  return value.toLocaleString();
+  return formatNumber(value, locale);
 }
 
 export function buildStyleRows(stats: HltbStats, t: Translate): StyleRowData[] {

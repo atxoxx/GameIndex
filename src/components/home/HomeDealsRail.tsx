@@ -9,6 +9,7 @@ import {
   storeTint,
 } from "../../pages/deals/dealsConstants";
 import HomeSection from "./HomeSection";
+import { formatNumber } from "../../utils/localeFormat";
 
 const MAX_ITEMS = 8;
 const DEALS_TTL_MS = 10 * 60 * 1000;
@@ -117,6 +118,7 @@ function HomeDealTile({
   index: number;
   onInspect: () => void;
 }) {
+  const { language } = useLanguage();
   const tint = storeTint(deal.storeName);
   return (
     <button
@@ -142,14 +144,14 @@ function HomeDealTile({
             </svg>
           </div>
         )}
-        <span className="home-deal-tile__discount">-{deal.discountPercent}%</span>
+        <span className="home-deal-tile__discount">-{formatNumber(deal.discountPercent, language)}%</span>
       </div>
       <div className="home-deal-tile__body">
         <span className="home-deal-tile__name" title={deal.gameTitle}>
           {deal.gameTitle}
         </span>
         <span className="home-deal-tile__store">{deal.storeName}</span>
-        <span className="home-deal-tile__price">{formatPrice(deal.dealPrice)}</span>
+        <span className="home-deal-tile__price">{formatPrice(deal.dealPrice, undefined, undefined, language)}</span>
       </div>
       <span className="home-deal-tile__rank" aria-hidden>
         {String(index + 1).padStart(2, "0")}

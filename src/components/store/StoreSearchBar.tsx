@@ -133,10 +133,10 @@ export default function StoreSearchBar({
       const grp = classifySuggestion(g, tokens, qLower);
       map[grp].push(g);
     }
-    const def: { key: string; label: string; items: StoreGameSummary[] }[] = [
-      { key: "title", label: "Title matches", items: map.title },
-      { key: "genre", label: "Genre", items: map.genre },
-      { key: "platform", label: "Platform", items: map.platform },
+    const def: { key: string; labelKey: string; items: StoreGameSummary[] }[] = [
+      { key: "title", labelKey: "store.search.groupTitle", items: map.title },
+      { key: "genre", labelKey: "store.search.groupGenre", items: map.genre },
+      { key: "platform", labelKey: "store.search.groupPlatform", items: map.platform },
     ];
     return def.filter((g) => g.items.length > 0);
   }, [showSuggestions, suggestions, tokens, qLower]);
@@ -255,7 +255,7 @@ export default function StoreSearchBar({
 
         {/* Inline filter chips */}
         {hasActiveFilters && activeFilters && (
-          <div className="store-search-inline-chips" aria-label="Active filters">
+          <div className="store-search-inline-chips" role="group" aria-label={t("store.chips.label")}>
             {activeFilters.genres.map((g) => (
               <span key={`genre-${g}`} className="store-search-filter-chip">
                 <span className="store-search-filter-chip-label">{g}</span>
@@ -263,8 +263,8 @@ export default function StoreSearchBar({
                   type="button"
                   className="store-search-filter-chip-remove"
                   onClick={() => onRemoveFilter?.("genre", g)}
-                  aria-label={`Remove genre filter ${g}`}
-                  title={`Remove ${g}`}
+                  aria-label={t("store.search.removeGenreFilter", { name: g })}
+                  title={t("store.filter.removeItem", { name: g })}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -280,8 +280,8 @@ export default function StoreSearchBar({
                   type="button"
                   className="store-search-filter-chip-remove"
                   onClick={() => onRemoveFilter?.("platform", p)}
-                  aria-label={`Remove platform filter ${p}`}
-                  title={`Remove ${p}`}
+                  aria-label={t("store.search.removePlatformFilter", { name: p })}
+                  title={t("store.filter.removeItem", { name: p })}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -303,7 +303,7 @@ export default function StoreSearchBar({
                   type="button"
                   className="store-search-filter-chip-remove"
                   onClick={() => onRemoveFilter?.("year")}
-                  aria-label="Remove year filter"
+                  aria-label={t("store.filter.removeYear")}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -319,7 +319,7 @@ export default function StoreSearchBar({
                   type="button"
                   className="store-search-filter-chip-remove"
                   onClick={() => onRemoveFilter?.("rating")}
-                  aria-label="Remove rating filter"
+                  aria-label={t("store.filter.removeRating")}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -332,9 +332,9 @@ export default function StoreSearchBar({
               type="button"
               className="store-search-filter-chip store-search-filter-chip-clear"
               onClick={() => onRemoveFilter?.("all")}
-              aria-label="Clear all filters"
+              aria-label={t("sidebar.clearAllFilters")}
             >
-              Clear
+              {t("common.clear")}
             </button>
           </div>
         )}
@@ -365,7 +365,7 @@ export default function StoreSearchBar({
             </svg>
           </button>
         ) : (
-          <span className="store-search-kbd" aria-hidden="true" title="Press Ctrl+K to focus search">
+          <span className="store-search-kbd" aria-hidden="true" title={t("store.search.focusHint")}>
             Ctrl K
           </span>
         )}
@@ -385,7 +385,7 @@ export default function StoreSearchBar({
           ) : groups.length > 0 ? (
             groups.map((group) => (
               <div key={group.key} className="store-search-group">
-                <div className="store-search-group-header">{group.label}</div>
+                <div className="store-search-group-header">{t(group.labelKey)}</div>
                 {group.items.map((g) => {
                   const flatIdx = flatGrouped.indexOf(g);
                   const isActive = flatIdx === selectedIndex;

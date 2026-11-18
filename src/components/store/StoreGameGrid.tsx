@@ -428,7 +428,7 @@ export default function StoreGameGrid({
   // Error state
   if (error && games.length === 0) {
     return (
-      <div className="store-empty">
+      <div className="store-empty" role="status" aria-live="polite">
         <div className="store-empty-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
@@ -451,7 +451,7 @@ export default function StoreGameGrid({
     const activeQuery = searchQuery.trim();
     if (activeQuery) {
       return (
-        <div className="store-empty">
+        <div className="store-empty" role="status" aria-live="polite">
           <div className="store-empty-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="11" cy="11" r="8" />
@@ -475,7 +475,7 @@ export default function StoreGameGrid({
     if (isSourceFilterActive || isPluginFilterActive) {
       const availabilityPending = isSourceCheckPending || isPluginCheckPending;
       return (
-        <div className="store-empty">
+        <div className="store-empty" role="status" aria-live="polite">
           <div className="store-empty-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -507,7 +507,7 @@ export default function StoreGameGrid({
       );
     }
     return (
-      <div className="store-empty">
+      <div className="store-empty" role="status" aria-live="polite">
         <div className="store-empty-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
@@ -674,8 +674,8 @@ export default function StoreGameGrid({
 
       {/* Loading more indicator */}
       {loading && games.length > 0 && (
-        <div className="store-loading-more">
-          <div className="store-spinner" />
+        <div className="store-loading-more" role="status" aria-live="polite">
+          <div className="store-spinner" aria-hidden="true" />
           <span>{t("store.loadingMore")}</span>
         </div>
       )}

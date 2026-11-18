@@ -15,6 +15,7 @@ import {
 import type { SgdbAllAssets, SgdbGameSuggestion } from "../../types/steamgriddb";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import "./edit/EditGameModal.css";
 
 export type MediaSlot = "icon" | "cover" | "hero" | "logo";
@@ -495,7 +496,7 @@ export function MediaCandidateGallery({
   query,
   onQueryChange,
 }: MediaCandidateGalleryProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const slotLabel = t(SLOT_LABEL_KEY[slot]);
   const startQuery = initialQuery?.trim() || gameName;
   const [loading, setLoading] = useState(true);
@@ -792,10 +793,14 @@ export function MediaCandidateGallery({
                   type="button"
                   className={`media-fetch-filter-chip${isActive ? " active" : ""}${count === 0 && f.key !== "all" ? " is-empty" : ""}`}
                   onClick={() => setFormatFilter((curr) => toggleFormatFilter(curr, f.key))}
-                  title={isActive && f.key !== "all" ? `Click to unselect ${f.label}` : undefined}
+                  title={
+                    isActive && f.key !== "all"
+                      ? t("editImage.unselectFilter", { label: f.label })
+                      : undefined
+                  }
                 >
                   <span>{f.label}</span>
-                  <span className="media-fetch-filter-chip-count">{count}</span>
+                  <span className="media-fetch-filter-chip-count">{formatNumber(count, language)}</span>
                 </button>
               );
             })}
@@ -804,13 +809,22 @@ export function MediaCandidateGallery({
                 type="button"
                 className={`media-fetch-filter-chip media-fetch-anim-chip${animationMode === "always" ? " active" : ""}`}
                 onClick={() => setAnimationMode((m) => (m === "hover" ? "always" : "hover"))}
-                title={animationMode === "hover" ? "Hover card to play animation (fast & smooth). Click to play all continuously." : "Playing all animations. Click to play on hover only."}
+                title={
+                  animationMode === "hover"
+                    ? t("editImage.animHoverHint")
+                    : t("editImage.animAllHint")
+                }
               >
-                <span>{animationMode === "hover" ? "▶ Play: On Hover" : "▶ Play: All"}</span>
+                <span>
+                  {animationMode === "hover" ? t("editImage.playOnHover") : t("editImage.playAll")}
+                </span>
               </button>
             </div>
             <span className="media-fetch-filter-count">
-              {filteredCandidates.length} of {allCandidates.length}
+              {t("bigscreen.library.countOf", {
+                count: formatNumber(filteredCandidates.length, language),
+                total: formatNumber(allCandidates.length, language),
+              })}
             </span>
           </div>
         )}

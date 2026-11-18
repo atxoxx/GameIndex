@@ -8,6 +8,7 @@ import DensityToggle from "../DensityToggle";
 import PageWidget from "../PageWidget";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface StoreToolbarProps {
   catalogue: StoreCatalogue;
@@ -20,7 +21,7 @@ interface StoreToolbarProps {
  * to the page header, where they are not part of the browsing loop.
  */
 export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
 
   return (
@@ -45,10 +46,12 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
         <div className="store-toolbar-right">
           <span className="store-toolbar-count">
             {t("storage.gamesCount", {
-              count:
+              count: formatNumber(
                 c.sourceFilterChipCount !== undefined
                   ? c.sourceFilterChipCount
                   : c.displayedGames.length,
+                language
+              ),
               plural: c.displayedGames.length !== 1 ? "s" : "",
             })}
             {/* No-flash refetch cue: during a live search the old results stay
@@ -77,7 +80,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
               <SlidersHorizontal size={14} aria-hidden="true" />
               <span>{t("store.filters")}</span>
               {c.activeFilterCount > 0 && (
-                <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
+                <span className="store-filter-trigger-badge">{formatNumber(c.activeFilterCount, language)}</span>
               )}
             </button>
           </PageWidget>

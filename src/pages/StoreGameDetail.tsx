@@ -82,7 +82,7 @@ function StoreGameError({ message, onRetry }: { message: string; onRetry: () => 
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
-      <h2 className="main-empty-title">{t("store.failedToLoad")}</h2>
+      <h1 className="main-empty-title">{t("store.failedToLoad")}</h1>
       <p className="main-empty-subtitle">{message}</p>
       <div className="main-empty__actions">
         <Button variant="ghost" size="sm" onClick={onRetry}>
@@ -106,7 +106,7 @@ function StoreGameNotFound() {
         <line x1="8" y1="21" x2="16" y2="21" />
         <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
-      <h2 className="main-empty-title">{t("game.notFoundTitle")}</h2>
+      <h1 className="main-empty-title">{t("game.notFoundTitle")}</h1>
       <p className="main-empty-subtitle">{t("store.gameNotFoundIgdb")}</p>
       <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>
         {t("store.backToStore")}

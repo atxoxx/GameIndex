@@ -60,6 +60,7 @@ export default function StoreFilterChips({
         className="store-chip-remove"
         onClick={() => onRemove(type, value)}
         aria-label={t("store.chips.remove", { label })}
+        title={t("store.chips.remove", { label })}
       >
         <X size={11} aria-hidden="true" />
       </button>

@@ -5,13 +5,14 @@ import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime } from "../../types/game";
 import { WeeklyHeatmap } from "../activity/WeeklyHeatmap";
+import { formatNumber } from "../../utils/localeFormat";
 import HomeSection from "./HomeSection";
 
 export default function HomeActivityRecap() {
   const navigate = useNavigate();
   const { sessions } = useActivity();
   const { games, launchGame, runningGameIds } = useGames();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const week = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -50,9 +51,9 @@ export default function HomeActivityRecap() {
 
   const cells = useMemo(() => [
     { label: t("activityDash.totalPlaytime"), value: formatPlayTime(week.totalMin) },
-    { label: t("activityDash.sessions"), value: String(week.sessionsCount) },
-    { label: t("home.activity.gamesPlayed"), value: String(week.gamesPlayed) },
-  ], [t, week.totalMin, week.sessionsCount, week.gamesPlayed]);
+    { label: t("activityDash.sessions"), value: formatNumber(week.sessionsCount, language) },
+    { label: t("home.activity.gamesPlayed"), value: formatNumber(week.gamesPlayed, language) },
+  ], [t, language, week.totalMin, week.sessionsCount, week.gamesPlayed]);
 
   return (
     <HomeSection

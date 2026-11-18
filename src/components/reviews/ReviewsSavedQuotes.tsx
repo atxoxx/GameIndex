@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Bookmark, Copy, Quote, Trash2 } from "lucide-react";
 import { Badge, Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { ReviewQuote } from "../../types/reviewQuote";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { GameTabEmpty, GameTabSkeleton } from "../game/tabs";
 
 export interface ReviewsSavedQuotesProps {
@@ -21,16 +22,6 @@ export default function ReviewsSavedQuotes({
   const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const formatDate = useMemo(
-    () =>
-      new Intl.DateTimeFormat(language, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-    [language],
-  );
 
   const copy = async (quote: ReviewQuote) => {
     try {
@@ -62,7 +53,11 @@ export default function ReviewsSavedQuotes({
         <article className="rv-quote" key={quote.id}>
           <header className="rv-quote__head">
             <span className="rv-quote__kind">
-              {quote.kind === "review" ? <Bookmark size={13} /> : <Quote size={13} />}
+              {quote.kind === "review" ? (
+                <Bookmark size={13} aria-hidden="true" />
+              ) : (
+                <Quote size={13} aria-hidden="true" />
+              )}
               {quote.kind === "review"
                 ? t("review.savedKindReview")
                 : t("review.savedKindQuote")}
@@ -70,11 +65,15 @@ export default function ReviewsSavedQuotes({
             <span className="rv-quote__source">{quote.sourceLabel || quote.source}</span>
             {quote.rating != null && (
               <Badge variant="default" size="sm">
-                {Math.round(quote.rating)}/100
+                {formatNumber(Math.round(quote.rating), language)}/100
               </Badge>
             )}
             <span className="rv-quote__date">
-              {formatDate.format(new Date(quote.createdAt))}
+              {formatDate(new Date(quote.createdAt), language, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
             </span>
           </header>
 

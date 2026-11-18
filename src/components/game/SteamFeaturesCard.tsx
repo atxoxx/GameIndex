@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { SteamStoreFeaturesPayload, SteamFeatureItem } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { IconSteam, IconGamepad, IconShield, IconFileText } from "./icons";
 
 interface SteamFeaturesCardProps {
@@ -96,7 +97,9 @@ export default function SteamFeaturesCard({
         </span>
         {t("game.steamFeaturesTitle")}
         {hasFeatures && (
-          <span className="game-section-title__count">{payload.features.length}</span>
+          <span className="game-section-title__count">
+            {formatNumber(payload.features.length, language)}
+          </span>
         )}
       </h2>
 
@@ -170,12 +173,12 @@ export default function SteamFeaturesCard({
           </div>
           <div className="steam-controller-badges">
             {payload.controllerSupport.xbox && (
-              <span className="steam-ctrl-badge" title="Xbox Controller Support">
+              <span className="steam-ctrl-badge" title={t("game.steamXboxController")}>
                 Xbox
               </span>
             )}
             {(payload.controllerSupport.ps4 || payload.controllerSupport.ps5) && (
-              <span className="steam-ctrl-badge" title="PlayStation Controller Support">
+              <span className="steam-ctrl-badge" title={t("game.steamPlaystationController")}>
                 PlayStation
               </span>
             )}

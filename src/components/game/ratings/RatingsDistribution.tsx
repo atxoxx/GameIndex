@@ -1,6 +1,9 @@
 import type { DistributionRow } from "./ratingsShared";
 import { rowsTotal } from "./ratingsShared";
 
+import { useLanguage } from "../../../context/LanguageContext";
+import { formatNumber } from "../../../utils/localeFormat";
+
 interface RatingsDistributionProps {
   rows: DistributionRow[];
   /** Accessible name for the bar, e.g. "Critic reviews". */
@@ -13,6 +16,7 @@ interface RatingsDistributionProps {
  * player, Steam and overview blocks so every source reads the same way.
  */
 export function RatingsDistribution({ rows, ariaLabel }: RatingsDistributionProps) {
+  const { language } = useLanguage();
   const total = rowsTotal(rows);
   if (total <= 0) return null;
 
@@ -37,7 +41,7 @@ export function RatingsDistribution({ rows, ariaLabel }: RatingsDistributionProp
             <span className="rt-dist__legend-value">
               {Math.round((row.count / total) * 100)}%
             </span>
-            <span className="rt-dist__legend-count">{row.count.toLocaleString()}</span>
+            <span className="rt-dist__legend-count">{formatNumber(row.count, language)}</span>
           </li>
         ))}
       </ul>

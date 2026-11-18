@@ -5,6 +5,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { stripExecutableExtension } from "../../utils/executableTypes";
+import { formatNumber } from "../../utils/localeFormat";
 import { commonParentDir } from "../../utils/exeDrop";
 import type { ExeInfo } from "../ImportModal";
 
@@ -40,7 +41,7 @@ export default function FolderScanProgressModal({
   onComplete,
   onCancel,
 }: FolderScanProgressModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const scanIdRef = useRef<string>(`scan-${Date.now()}`);
   const existingPathsRef = useRef(existingPaths);
   existingPathsRef.current = existingPaths;
@@ -277,18 +278,21 @@ export default function FolderScanProgressModal({
           {/* KPI metrics strip */}
           <div className="folder-scan-kpi-row">
             <div className="folder-scan-kpi-tile">
-              <span className="folder-scan-kpi-val">{foldersScanned.toLocaleString()}</span>
+              <span className="folder-scan-kpi-val">{formatNumber(foldersScanned, language)}</span>
               <span className="folder-scan-kpi-label">{t("folderScan.foldersScanned")}</span>
             </div>
             <div className="folder-scan-kpi-tile">
-              <span className="folder-scan-kpi-val">{filesExamined.toLocaleString()}</span>
+              <span className="folder-scan-kpi-val">{formatNumber(filesExamined, language)}</span>
               <span className="folder-scan-kpi-label">{t("folderScan.filesExamined")}</span>
             </div>
             <div className="folder-scan-kpi-tile folder-scan-kpi-tile--accent">
               <span className="folder-scan-kpi-val">
-                {status === "complete" || status === "cancelled"
-                  ? foundExes.length.toLocaleString()
-                  : recentFoundNames.length.toLocaleString()}
+                {formatNumber(
+                  status === "complete" || status === "cancelled"
+                    ? foundExes.length
+                    : recentFoundNames.length,
+                  language
+                )}
               </span>
               <span className="folder-scan-kpi-label">{t("folderScan.exesFound")}</span>
             </div>

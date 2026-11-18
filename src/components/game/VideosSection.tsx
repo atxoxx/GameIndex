@@ -6,6 +6,7 @@ import { gameDisplayName } from "../../types/game";
 import { steamCodeForUi } from "../../i18n/languages";
 import { IconVideo } from "./icons";
 import { getVideoEmbedUrl, getVideoThumbnail } from "./video";
+import { formatNumber } from "../../utils/localeFormat";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 
@@ -283,7 +284,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
           <IconVideo size={16} />
         </span>
         {t("videos.title")}
-        <span className="game-section-title__count">{items.length}</span>
+        <span className="game-section-title__count">{formatNumber(items.length, language)}</span>
       </h2>
 
       <div className="videos-container">

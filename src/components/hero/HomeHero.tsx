@@ -13,6 +13,7 @@ import { useSteamGridArt, usePrefetchImage } from "../../context/SteamGridDbCont
 import { useAnimatedMediaEnabled } from "../../context/SettingsContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 import { thumbVariantUrl } from "../../utils/artworkUrl";
+import { formatNumber } from "../../utils/localeFormat";
 import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface HomeHeroProps {
@@ -33,7 +34,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const runningGameIds = useRunningIds();
   const liveElapsed = useLiveElapsed();
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -330,7 +331,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
               </div>
               <div className="home-empty-card__text">
                 <span className="home-empty-card__title">{t("home.empty.importSteam")}</span>
-                <span className="home-empty-card__desc">Integrations / Cloud</span>
+                <span className="home-empty-card__desc">{t("home.empty.importSteamDesc")}</span>
               </div>
             </button>
 
@@ -348,7 +349,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
               </div>
               <div className="home-empty-card__text">
                 <span className="home-empty-card__title">{t("home.empty.addLocal")}</span>
-                <span className="home-empty-card__desc">Executable / ROMs</span>
+                <span className="home-empty-card__desc">{t("home.empty.addLocalDesc")}</span>
               </div>
             </button>
 
@@ -365,7 +366,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
               </div>
               <div className="home-empty-card__text">
                 <span className="home-empty-card__title">{t("home.empty.exploreStore")}</span>
-                <span className="home-empty-card__desc">IGDB Catalog & Deals</span>
+                <span className="home-empty-card__desc">{t("home.empty.exploreStoreDesc")}</span>
               </div>
             </button>
           </div>
@@ -569,7 +570,9 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                     {isRunning && elapsedSec > 0 ? (
                       <span className="home-spotlight__meta-item home-spotlight__meta-item--live">
                         <span className="home-spotlight__live-pulse" aria-hidden />
-                        {Math.floor(elapsedSec / 60)}m active
+                        {t("home.spotlight.activeMinutes", {
+                          count: formatNumber(Math.floor(elapsedSec / 60), language),
+                        })}
                       </span>
                     ) : activeGame.playTime ? (
                       <span className="home-spotlight__meta-item">
@@ -586,7 +589,10 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                         </svg>
-                        {Math.round(activeGame.igdbRating ?? activeGame.criticRating ?? 0)}%
+                        {`${formatNumber(
+                          Math.round(activeGame.igdbRating ?? activeGame.criticRating ?? 0),
+                          language,
+                        )}%`}
                       </span>
                     )}
 
@@ -603,7 +609,7 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
 
             {/* Carousel navigation controls */}
             {spotlightDeck.length > 1 && (
-              <div className="home-spotlight__controls" aria-label="Spotlight carousel controls">
+              <div className="home-spotlight__controls" role="group" aria-label={t("home.spotlight.controlsAria")}>
                 <button
                   type="button"
                   className="home-spotlight__arrow"
@@ -623,7 +629,9 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                       type="button"
                       className={`home-spotlight__dot${i === activeIndex ? " is-active" : ""}`}
                       onClick={() => setActiveIndex(i)}
-                      aria-label={`Slide ${i + 1}`}
+                      aria-label={t("home.spotlight.slide", {
+                        number: formatNumber(i + 1, language),
+                      })}
                     />
                   ))}
                 </div>

@@ -93,6 +93,11 @@ export default function StoreActionBar({
               ? t("store.gameCard.removeWishlistAria", { name: title })
               : t("store.gameCard.addWishlistAria", { name: title })
           }
+          title={
+            wishlisted
+              ? t("store.gameCard.removeWishlistAria", { name: title })
+              : t("store.gameCard.addWishlistAria", { name: title })
+          }
         >
           <svg
             viewBox="0 0 24 24"

@@ -24,6 +24,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
 import { Button, ConfirmModal, PageHeader, Panel } from "../components/ui";
 import type { Clip, Reel, ReelsSnapshot } from "../types/reels";
+import { formatNumber } from "../utils/localeFormat";
 import "../styles/page-reels.css";
 
 function newId(): string {
@@ -61,7 +62,7 @@ function fileNameOf(path: string): string {
 }
 
 export default function ReelsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [snapshot, setSnapshot] = useState<ReelsSnapshot | null>(null);
@@ -303,7 +304,7 @@ export default function ReelsPage() {
                   >
                     <Clapperboard size={14} aria-hidden="true" />
                     <span className="reels-list__name">{reel.name}</span>
-                    <span className="reels-list__count">{reel.clipIds.length}</span>
+                    <span className="reels-list__count">{formatNumber(reel.clipIds.length, language)}</span>
                   </button>
                 </li>
               ))}
@@ -366,7 +367,7 @@ export default function ReelsPage() {
                 <div>
                   <h2 className="reels-detail__title">{selectedReel.name}</h2>
                   <p className="reels-detail__meta">
-                    {t("reels.clipCount", { count: selectedReel.clipIds.length })}
+                    {t("reels.clipCount", { count: formatNumber(selectedReel.clipIds.length, language) })}
                   </p>
                 </div>
                 <div className="reels-detail__actions">
@@ -398,7 +399,7 @@ export default function ReelsPage() {
                 <ol className="reels-clips">
                   {selectedClips.map((clip, idx) => (
                     <li key={clip.id} className="reels-clips__row">
-                      <span className="reels-clips__rank">{idx + 1}</span>
+                      <span className="reels-clips__rank">{formatNumber(idx + 1, language)}</span>
                       <div className="reels-clips__info">
                         <span className="reels-clips__title">{clip.title}</span>
                         <span className="reels-clips__meta">

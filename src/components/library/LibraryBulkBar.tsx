@@ -4,6 +4,7 @@ import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useLanguage } from "../../context/LanguageContext";
 import { PLAY_STATUS_DETAILS, type PlayStatus } from "../../types/game";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface LibraryBulkBarProps {
   selectedCount: number;
@@ -32,7 +33,7 @@ export default function LibraryBulkBar({
   onRemoveSelected,
   onExit,
 }: LibraryBulkBarProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const statusMenu = useContextMenu();
   const allSelected = selectedCount > 0 && selectedCount === totalCount;
   const disabled = selectedCount === 0;
@@ -48,10 +49,10 @@ export default function LibraryBulkBar({
   }));
 
   return createPortal(
-    <div className="library-bulk" role="toolbar" aria-label={t("library.bulk.selectedCount", { count: selectedCount })}>
+    <div className="library-bulk" role="toolbar" aria-label={t("library.bulk.selectedCount", { count: formatNumber(selectedCount, language) })}>
       <div className="library-bulk-left">
         <span className="library-bulk-badge">
-          {t("library.bulk.selectedCount", { count: selectedCount })}
+          {t("library.bulk.selectedCount", { count: formatNumber(selectedCount, language) })}
         </span>
         <button type="button" className="library-bulk-ghost" onClick={allSelected ? onClear : onSelectAll}>
           {allSelected ? t("library.bulk.clearSelection") : t("library.bulk.selectAll")}

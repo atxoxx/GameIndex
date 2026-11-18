@@ -8,6 +8,7 @@ import { useCollapsedState } from "../../hooks/useCollapsedState";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { formatDateTime, formatNumber } from "../../utils/localeFormat";
 
 interface ContinuePlayingRailProps {
   games: Game[];
@@ -127,7 +128,7 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
   game: Game;
   onClick: (game: Game) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { launchGame } = useGameCardActions();
   const [hovered, setHovered] = useState(false);
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
@@ -207,8 +208,8 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
       </div>
       <div className="lib-rail-card-body">
         <div className="lib-rail-name" title={gameDisplayName(game)}>{gameDisplayName(game)}</div>
-        <div className="lib-rail-meta lib-rail-meta--continue" title={t("lib.rail.continue.lastPlayed", { date: new Date(game.lastPlayed ?? 0).toLocaleString() })}>
-          {formatAgo(game.lastPlayed ?? 0, t)}
+        <div className="lib-rail-meta lib-rail-meta--continue" title={t("lib.rail.continue.lastPlayed", { date: formatDateTime(new Date(game.lastPlayed ?? 0), language) })}>
+          {formatAgo(game.lastPlayed ?? 0, t, language)}
         </div>
       </div>
     </Card>
@@ -217,7 +218,8 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
 
 function formatAgo(
   timestamp: number,
-  t: (key: string, vars?: Record<string, unknown>) => string
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  language: string
 ): string {
   if (!timestamp) return t("lib.rail.continue.never");
   const diffMs = Date.now() - timestamp;
@@ -225,9 +227,9 @@ function formatAgo(
   const minutes = Math.floor(diffMs / 60_000);
   if (minutes < 60) return t("lib.rail.continue.underHourAgo");
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t("lib.rail.continue.hoursAgo", { n: hours });
+  if (hours < 24) return t("lib.rail.continue.hoursAgo", { n: formatNumber(hours, language) });
   const days = Math.floor(hours / 24);
-  if (days < 7) return t("lib.rail.continue.daysAgo", { n: days });
+  if (days < 7) return t("lib.rail.continue.daysAgo", { n: formatNumber(days, language) });
   const weeks = Math.floor(days / 7);
-  return t("lib.rail.continue.weeksAgo", { n: weeks });
+  return t("lib.rail.continue.weeksAgo", { n: formatNumber(weeks, language) });
 }

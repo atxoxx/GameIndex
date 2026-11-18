@@ -4,6 +4,7 @@ import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useRef } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { ArtworkImage } from "../ui/ArtworkImage";
 
 interface ScreenshotsSectionProps {
@@ -45,7 +46,7 @@ export default function ScreenshotsSection({
   game,
   onOpen,
 }: ScreenshotsSectionProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const carouselRef = useRef<HTMLDivElement | null>(null);
 
@@ -65,7 +66,7 @@ export default function ScreenshotsSection({
         </span>
         {t("community.tab.screenshots")}
         <span className="game-section-title__count">
-          {game.screenshots.length}
+          {formatNumber(game.screenshots.length, language)}
         </span>
       </h2>
       {/* The arrows are mouse paging for the strip: the screenshots

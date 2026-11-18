@@ -4,6 +4,7 @@ import type { LibraryFilters, LibraryStatus } from "../../hooks/useLibraryFilter
 import { PLAY_STATUS_DETAILS, type LibrarySource } from "../../types/game";
 import { shelfDisplayName, type Shelf } from "../../types/shelf";
 import { sourceLabel } from "./librarySources";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface LibraryFilterChipsProps {
   filters: LibraryFilters;
@@ -57,7 +58,7 @@ export default function LibraryFilterChips({
   onSaveAsShelf,
   onResetAll,
 }: LibraryFilterChipsProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const hasAny =
     activeShelf !== null ||
@@ -85,6 +86,7 @@ export default function LibraryFilterChips({
         className="library-chip-remove"
         onClick={onRemove}
         aria-label={`${t("library.removeFilter")}: ${label}`}
+        title={`${t("library.removeFilter")}: ${label}`}
       >
         <X size={12} aria-hidden="true" />
       </button>
@@ -97,7 +99,7 @@ export default function LibraryFilterChips({
     <div className="library-chips" role="group" aria-label={t("library.filtersAria")}>
       <span className="library-chips-count">
         {t("storage.gamesCount", {
-          count: resultCount,
+          count: formatNumber(resultCount, language),
           plural: resultCount !== 1 ? "s" : "",
         })}
       </span>

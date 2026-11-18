@@ -8,6 +8,7 @@ import {
   safeCurrentlyPlaying,
 } from "../../pages/friendsStorage";
 import HomeSection from "./HomeSection";
+import { formatNumber } from "../../utils/localeFormat";
 
 function initials(name: string): string {
   return name
@@ -19,7 +20,7 @@ function initials(name: string): string {
 
 export default function HomeFriendsFeed() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [friends] = useState<Friend[]>(() => loadFriends());
 
   const playingFriends = useMemo(() => {
@@ -48,7 +49,7 @@ export default function HomeFriendsFeed() {
       title={t("home.friends.title")}
       subtitle={
         playingFriends.length > 0
-          ? t("home.friends.subtitle", { count: playingFriends.length })
+          ? t("home.friends.subtitle", { count: formatNumber(playingFriends.length, language) })
           : undefined
       }
       viewAllPath="/friends"

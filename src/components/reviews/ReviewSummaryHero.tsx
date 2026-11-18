@@ -3,6 +3,7 @@ import { type ReviewItem } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useFocusProps } from "./focusable";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface ReviewSummaryHeroProps {
   reviews: ReviewItem[];
@@ -25,6 +26,7 @@ export function StarRow({
   overrideStars?: number;
 }) {
   const reactId = useId();
+  const { t, language } = useLanguage();
   const stars =
     overrideStars !== undefined
       ? overrideStars
@@ -36,7 +38,7 @@ export function StarRow({
   const empty = Math.max(0, 5 - full - (half ? 1 : 0));
 
   return (
-    <div className="rv-stars" aria-label={`${stars} out of 5`}>
+    <div className="rv-stars" aria-label={t("steamPlayer.outOfStars", { score: formatNumber(stars, language) })}>
       {Array.from({ length: full }).map((_, i) => (
         <svg key={`${reactId}-f${i}`} width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -72,7 +74,7 @@ export function ReviewSummaryHero({
   onFilterSentiment,
   activeSentimentFilter = "all",
 }: ReviewSummaryHeroProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showDeckVerified } = useSettings();
 
   const ratings = reviews.filter((r) => r.rating !== null);
@@ -186,7 +188,7 @@ export function ReviewSummaryHero({
             </div>
           )}
           <div className="rv-summary-count">
-            {t("review.reviewCount", { count: totalReviews.toLocaleString() })}
+            {t("review.reviewCount", { count: formatNumber(totalReviews, language) })}
           </div>
           {hasRatings && (
             <div className="rv-summary-sentiment">
@@ -218,7 +220,7 @@ export function ReviewSummaryHero({
                 />
               </div>
               <span className="rv-distribution-count" style={{ minWidth: "45px" }}>
-                {positiveCount.toLocaleString()} ({positivePct}%)
+                {formatNumber(positiveCount, language)} ({positivePct}%)
               </span>
             </button>
 
@@ -240,7 +242,7 @@ export function ReviewSummaryHero({
                 />
               </div>
               <span className="rv-distribution-count" style={{ minWidth: "45px" }}>
-                {negativeCount.toLocaleString()} ({negativePct}%)
+                {formatNumber(negativeCount, language)} ({negativePct}%)
               </span>
             </button>
           </div>
@@ -249,26 +251,26 @@ export function ReviewSummaryHero({
         {/* KPI Mini Badges */}
         <div className="rv-summary-kpis">
           {avgPlaytimeHours !== null && avgPlaytimeHours > 0 && (
-            <span className="rv-kpi-pill" title="Average reviewer playtime on record at review time">
+            <span className="rv-kpi-pill" title={t("reviewsTab.kpiPlaytimeTitle")}>
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              {t("reviewsTab.playtimeAvg", { hours: avgPlaytimeHours })}
+              {t("reviewsTab.playtimeAvg", { hours: formatNumber(avgPlaytimeHours, language) })}
             </span>
           )}
           {showDeckVerified && deckReviewsCount > 0 && (
-            <span className="rv-kpi-pill" title="Reviewers who primarily played on Steam Deck">
+            <span className="rv-kpi-pill" title={t("reviewsTab.kpiDeckTitle")}>
               🎮 {t("reviewsTab.deckVerifiedRatio", { pct: Math.round((deckReviewsCount / reviews.length) * 100) })}
             </span>
           )}
           {earlyAccessCount > 0 && (
-            <span className="rv-kpi-pill warning" title="Reviews written during Early Access">
+            <span className="rv-kpi-pill warning" title={t("reviewsTab.kpiEarlyAccessTitle")}>
               ⚡ {t("reviewsTab.earlyAccessRatio", { pct: Math.round((earlyAccessCount / reviews.length) * 100) })}
             </span>
           )}
           {verifiedPurchaseCount > 0 && (
-            <span className="rv-kpi-pill success" title="Reviews from verified Steam purchases">
+            <span className="rv-kpi-pill success" title={t("reviewsTab.kpiVerifiedPurchaseTitle")}>
               ✓ {t("reviewsTab.verifiedPurchaseRatio", { pct: Math.round((verifiedPurchaseCount / reviews.length) * 100) })}
             </span>
           )}

@@ -12,6 +12,7 @@ import {
   type DownloadStatus,
   type TorrentDownload,
 } from "../../types/download";
+import { formatNumber } from "../../utils/localeFormat";
 import HomeSection from "./HomeSection";
 
 const ACTIVE_KINDS: DownloadStatus["kind"][] = [
@@ -31,7 +32,7 @@ const ACTIVE_KINDS: DownloadStatus["kind"][] = [
  */
 export default function HomeDownloads() {
   const { activeDownloads, pauseDownload, resumeDownload } = useDownloads();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const inFlight = useMemo(
     () => activeDownloads.filter((d) => ACTIVE_KINDS.includes(d.status.kind)),
@@ -51,7 +52,7 @@ export default function HomeDownloads() {
         </svg>
       }
       title={t("home.downloads.title")}
-      subtitle={t("home.downloads.subtitle", { count: inFlight.length })}
+      subtitle={t("home.downloads.subtitle", { count: formatNumber(inFlight.length, language) })}
       viewAllPath="/downloads"
     >
       <div className="home-downloads__list">

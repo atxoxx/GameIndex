@@ -5,6 +5,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { BbCodeRenderer } from "./BbCodeRenderer";
 import { useFocusProps } from "./focusable";
+import { formatDate } from "../../utils/localeFormat";
 
 interface CriticReviewRowProps {
   review: ReviewItem;
@@ -24,17 +25,13 @@ function SourceMonogram({ source }: { source: ReviewItem["source"] }) {
   return <span className="rv-mono" aria-hidden="true">CR</span>;
 }
 
-function formatShortDate(ts?: number): string {
+function formatShortDate(ts: number | undefined, language: string): string {
   if (!ts) return "";
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(new Date(ts));
-  } catch {
-    return new Date(ts).toLocaleDateString();
-  }
+  return formatDate(new Date(ts), language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function CriticReviewRow({
@@ -44,7 +41,7 @@ export function CriticReviewRow({
   onBookmark,
   onSaveQuote,
 }: CriticReviewRowProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -184,7 +181,7 @@ export function CriticReviewRow({
 
       <footer className="rv-critic-footer">
         {review.dateAdded ? (
-          <span className="rv-critic-date">{formatShortDate(review.dateAdded)}</span>
+          <span className="rv-critic-date">{formatShortDate(review.dateAdded, language)}</span>
         ) : (
           <span />
         )}

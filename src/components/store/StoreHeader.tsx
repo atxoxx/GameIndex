@@ -3,6 +3,7 @@ import { BarChart3, CheckSquare, Eye, EyeOff, Shuffle } from "lucide-react";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
+import { formatNumber } from "../../utils/localeFormat";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
 interface StoreHeaderProps {
@@ -18,7 +19,7 @@ interface StoreHeaderProps {
  * compare tray, surprise-me, and the dismissed-games toggle.
  */
 export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [surpriseOpen, setSurpriseOpen] = useState(false);
 
   const compareCount = c.compareGames.length;
@@ -29,10 +30,10 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
       <div className="store-header-top">
         <div className="store-header-brand">
           <span className="brand-eyebrow">{t("nav.store")}</span>
-          <h2 className="brand-text">{c.resultsTitle}</h2>
+          <h1 className="brand-text">{c.resultsTitle}</h1>
           <span className="store-header-count">
             {t("storage.gamesCount", {
-              count: resultCount,
+              count: formatNumber(resultCount, language),
               plural: resultCount !== 1 ? "s" : "",
             })}
           </span>
@@ -61,7 +62,7 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
             disabled={compareCount === 0}
             aria-label={
               compareCount > 0
-                ? t("store.header.compareCount", { count: compareCount })
+                ? t("store.header.compareCount", { count: formatNumber(compareCount, language) })
                 : t("store.header.compare")
             }
             title={t("store.header.compare")}
@@ -69,7 +70,7 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
             <BarChart3 size={14} aria-hidden="true" />
             <span>
               {compareCount > 0
-                ? t("store.header.compareCount", { count: compareCount })
+                ? t("store.header.compareCount", { count: formatNumber(compareCount, language) })
                 : t("store.header.compare")}
             </span>
           </button>
@@ -110,7 +111,7 @@ export default function StoreHeader({ catalogue: c, onPickGame }: StoreHeaderPro
               <span>
                 {c.showHidden
                   ? t("store.hideDismissed")
-                  : t("store.showHidden", { count: c.hiddenCount })}
+                  : t("store.showHidden", { count: formatNumber(c.hiddenCount, language) })}
               </span>
             </button>
           )}

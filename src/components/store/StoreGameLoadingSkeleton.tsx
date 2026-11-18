@@ -15,6 +15,7 @@ export default function StoreGameLoadingSkeleton() {
   return (
     <div
       className="game-page game-page--immersive store-loading-skeleton"
+      role="status"
       aria-busy="true"
       aria-label={t("store.loadingGameDetails")}
     >

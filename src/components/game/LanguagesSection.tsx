@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Game } from "../../types/game";
 import { IconCheck, IconGlobe, IconX } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 
 /**
  * LanguagesSection
@@ -22,7 +23,7 @@ interface LangFlags {
 }
 
 export default function LanguagesSection({ game }: LanguagesSectionProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(false);
 
@@ -59,7 +60,7 @@ export default function LanguagesSection({ game }: LanguagesSectionProps) {
           <IconGlobe size={16} />
         </span>
         {t("lang.title")}
-        <span className="game-section-title__count">{languages.list.length}</span>
+        <span className="game-section-title__count">{formatNumber(languages.list.length, language)}</span>
       </h2>
 
       {languages.list.length > 8 && (

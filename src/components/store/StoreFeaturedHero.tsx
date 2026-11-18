@@ -18,6 +18,7 @@ import {
   usePrefetchImage,
 } from "../../context/SteamGridDbContext";
 import { resolveSteamAppId } from "../../hooks/useGameCardArt";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { useStoreCardHover, isStoreScrolling } from "./storeCardHover";
 import { Button } from "../ui/Button";
 import { SubTabs } from "../ui/SubTabs";
@@ -56,28 +57,28 @@ function renderPlatformIcon(platform: string): ReactElement | null {
   const p = platform.toLowerCase();
   if (p.includes("pc") || p.includes("windows")) {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="PC">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true">
         <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801" />
       </svg>
     );
   }
   if (p.includes("playstation") || p.includes("ps5") || p.includes("ps4")) {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="PlayStation">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true">
         <path d="M8.9 14.5c.3.5.7.9 1.1 1.2.4.3.9.5 1.4.5.6 0 1.1-.2 1.6-.6.5-.4.8-.9.9-1.5.1-.6 0-1.2-.3-1.7l-4.7-7.9h2.9l3.3 5.7c.3.5.4 1 .4 1.5 0 .5-.2 1-.5 1.4-.3.4-.7.7-1.2.8-.5.1-1 .1-1.5-.1-.5-.2-.9-.5-1.2-.9l-2.2-3.8v5.3zm-5.7 3.9c-1.3-.4-2.2-1.3-2.7-2.7-.5-1.4-.3-2.9.5-4.3l7.9-13.4h2.9L3.9 11.4c-.6 1-.7 2.1-.4 3.1.4 1 1 1.7 2 2 .9.3 1.9.2 2.8-.3.9-.5 1.5-1.2 1.9-2.2l1.4 2.4c-.6 1.4-1.5 2.4-2.8 3.1-1.3.7-2.8.8-4.3.4z" />
       </svg>
     );
   }
   if (p.includes("xbox")) {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="Xbox">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true">
         <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-2.07 4.19c1.076.62 1.838 1.503 2.07 2.65.232-1.147.994-2.03 2.07-2.65 1.577.818 2.87 2.062 3.708 3.593-.654.516-1.547.88-2.63 1.055-.494.08-1.026.124-1.58.132-.38-.005-.756-.03-1.127-.076-.14-.017-.28-.038-.418-.063-1.083-.175-1.976-.54-2.63-1.055.838-1.53 2.13-2.775 3.707-3.593zM4.19 12c0-1.89.65-3.633 1.74-5.018.57.733 1.488 1.34 2.66 1.737-.587 1.507-.94 3.228-1.01 5.064-.99-.54-1.85-1.36-2.49-2.383-.58.188-.9.37-.9.6z" />
       </svg>
     );
   }
   if (p.includes("switch") || p.includes("nintendo")) {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="Nintendo">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-hidden="true">
         <path d="M7.74 0C3.47 0 0 3.47 0 7.74v8.52C0 20.53 3.47 24 7.74 24h1.72V0H7.74zm-2.1 9.4c1.16 0 2.1.94 2.1 2.1 0 1.16-.94 2.1-2.1 2.1-1.16 0-2.1-.94-2.1-2.1 0-1.16.94-2.1 2.1-2.1zM16.26 0h-1.72v24h1.72c4.27 0 7.74-3.47 7.74-7.74V7.74C24 3.47 20.53 0 16.26 0zm2.1 13.6c-1.16 0-2.1-.94-2.1-2.1 0-1.16.94-2.1 2.1-2.1 1.16 0 2.1.94 2.1 2.1 0 1.16-.94 2.1-2.1 2.1z" />
       </svg>
     );
@@ -495,23 +496,12 @@ export default function StoreFeaturedHero({
       const now = Date.now();
       const isUpcoming = d.getTime() > now;
       const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0;
-      const locale = language === "zh-CN" ? "zh-CN" : language;
-      let dateString: string;
-      try {
-        dateString = d.toLocaleDateString(locale, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-        });
-      } catch {
-        dateString = d.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
-        });
-      }
+      const dateString = formatDate(d, language, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        ...(hasTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+      });
       return { display: dateString, isUpcoming };
     }
 
@@ -553,6 +543,7 @@ export default function StoreFeaturedHero({
                   className="store-spotlight-arrow-btn"
                   onClick={handlePrev}
                   aria-label={t("store.spotlight.prev")}
+                  title={t("store.spotlight.prev")}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6" />
@@ -563,6 +554,7 @@ export default function StoreFeaturedHero({
                   className="store-spotlight-arrow-btn"
                   onClick={handleNext}
                   aria-label={t("store.spotlight.next")}
+                  title={t("store.spotlight.next")}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
                     <polyline points="9 18 15 12 9 6" />
@@ -649,7 +641,7 @@ export default function StoreFeaturedHero({
                     e.stopPropagation();
                     setManualVideoPaused((p) => !p);
                   }}
-                  title={manualVideoPaused ? "Play trailer video" : "Pause trailer video"}
+                  title={manualVideoPaused ? t("store.spotlight.playTrailerVideo") : t("store.spotlight.pauseTrailerVideo")}
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true">
                     {manualVideoPaused ? (
@@ -661,16 +653,16 @@ export default function StoreFeaturedHero({
                       </>
                     )}
                   </svg>
-                  <span>{manualVideoPaused ? "Play Trailer" : "Trailer"}</span>
+                  <span>{manualVideoPaused ? t("store.spotlight.playTrailer") : t("store.spotlight.trailer")}</span>
                 </button>
               )}
 
               {activeGame.rating != null && (
-                <span className="store-spotlight-rating" title={t("store.spotlight.rating", { score: Math.round(activeGame.rating) })}>
+                <span className="store-spotlight-rating" title={t("store.spotlight.rating", { score: formatNumber(Math.round(activeGame.rating), language) })}>
                   <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11" aria-hidden="true">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                   </svg>
-                  {Math.round(activeGame.rating)}%
+                  {formatNumber(Math.round(activeGame.rating), language)}%
                 </span>
               )}
 

@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface StoreHeroBannerProps {
   game: StoreGameSummary | null;
@@ -30,7 +31,7 @@ export default function StoreHeroBanner({
   onExpand,
   onPickGame,
 }: StoreHeroBannerProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [backdrop] = useProgressiveImage(
     visible ? game?.coverUrl ?? null : null
   );
@@ -74,7 +75,7 @@ export default function StoreHeroBanner({
             {game.rating != null && (
               <span className="store-hero-banner-stat">
                 <Star size={11} fill="currentColor" aria-hidden="true" />
-                {Math.round(game.rating)}%
+                {formatNumber(Math.round(game.rating), language)}%
               </span>
             )}
             {game.firstReleaseDate && (
@@ -95,6 +96,7 @@ export default function StoreHeroBanner({
                   className="store-hero-banner-nav-btn"
                   onClick={onPrev}
                   aria-label={t("store.spotlight.prev")}
+                  title={t("store.spotlight.prev")}
                 >
                   <ChevronLeft size={15} aria-hidden="true" />
                 </button>
@@ -103,6 +105,7 @@ export default function StoreHeroBanner({
                   className="store-hero-banner-nav-btn"
                   onClick={onNext}
                   aria-label={t("store.spotlight.next")}
+                  title={t("store.spotlight.next")}
                 >
                   <ChevronRight size={15} aria-hidden="true" />
                 </button>

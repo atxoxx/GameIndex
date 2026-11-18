@@ -7,6 +7,7 @@ import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
+import { formatNumber } from "../../utils/localeFormat";
 import { StatBand, type StatBandItem } from "../ui/StatBand";
 
 function HomeQuickStatsBase() {
@@ -14,7 +15,7 @@ function HomeQuickStatsBase() {
   const { games } = useGames();
   const { sessions } = useActivity();
   const { stats: achStats } = useAchievements();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const stats = useMemo(() => {
     // 1. Library installed & total
@@ -67,8 +68,8 @@ function HomeQuickStatsBase() {
       {
         id: "library",
         label: t("home.stats.library"),
-        value: stats.totalGames,
-        detail: t("home.stats.installed", { count: stats.installedGames }),
+        value: formatNumber(stats.totalGames, language),
+        detail: t("home.stats.installed", { count: formatNumber(stats.installedGames, language) }),
         icon: <Library size={14} />,
         onClick: () => navigate("/library"),
       },
@@ -76,7 +77,7 @@ function HomeQuickStatsBase() {
         id: "playtime",
         label: t("home.stats.weekPlaytime"),
         value: formatPlayTime(stats.weekMinutes),
-        detail: t("home.stats.sessions", { count: stats.weekSessionCount }),
+        detail: t("home.stats.sessions", { count: formatNumber(stats.weekSessionCount, language) }),
         icon: <Clock size={14} />,
         tone: "info",
         onClick: () => navigate("/activity"),
@@ -84,8 +85,11 @@ function HomeQuickStatsBase() {
       {
         id: "achievements",
         label: t("home.stats.achievements"),
-        value: stats.totalAch > 0 ? `${stats.achRate}%` : `${stats.unlockedAch}`,
-        detail: t("home.stats.unlocked", { count: stats.unlockedAch }),
+        value:
+          stats.totalAch > 0
+            ? `${formatNumber(stats.achRate, language)}%`
+            : formatNumber(stats.unlockedAch, language),
+        detail: t("home.stats.unlocked", { count: formatNumber(stats.unlockedAch, language) }),
         icon: <Trophy size={14} />,
         tone: "accent",
         onClick: () => navigate("/achievements"),
@@ -94,12 +98,12 @@ function HomeQuickStatsBase() {
         id: "storage",
         label: t("home.stats.storage"),
         value: stats.totalBytes > 0 ? formatBytesShort(stats.totalBytes) : "0 B",
-        detail: t("home.stats.sized", { count: stats.sizedGamesCount }),
+        detail: t("home.stats.sized", { count: formatNumber(stats.sizedGamesCount, language) }),
         icon: <HardDrive size={14} />,
         onClick: () => navigate("/storage"),
       },
     ];
-  }, [stats, navigate, t]);
+  }, [stats, navigate, t, language]);
 
   if (items.length === 0) return null;
 

@@ -2,6 +2,7 @@ import type { SteamGameReviews } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { IconStar, IconSteam } from "./icons";
 import { scoreTone, steamPositivePercent } from "./ratings/ratingsShared";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface QuickReceptionCardProps {
   /** IGDB or critic score, 0–100. */
@@ -24,7 +25,7 @@ export function QuickReceptionCard({
   ratingMeta,
   steam,
 }: QuickReceptionCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const steamPercent = steamPositivePercent(steam);
   const tone = scoreTone(rating) ?? scoreTone(steamPercent) ?? "success";
 
@@ -32,7 +33,7 @@ export function QuickReceptionCard({
 
   const meta = steam
     ? t("ratings.steamBasedOn", {
-        count: steam.totalReviews.toLocaleString(),
+        count: formatNumber(steam.totalReviews, language),
       })
     : ratingMeta;
 

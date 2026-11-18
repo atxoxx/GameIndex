@@ -1,6 +1,7 @@
 import type { Game } from "../../types/game";
 import { IconCalendar } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 
 /**
  * ReleasesCard
@@ -20,7 +21,7 @@ interface ReleasesCardProps {
 }
 
 export default function ReleasesCard({ game }: ReleasesCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   if (!game.releases || game.releases.length === 0) return null;
 
   return (
@@ -31,7 +32,7 @@ export default function ReleasesCard({ game }: ReleasesCardProps) {
         </span>
         {t("editExtras.releases")}
         <span className="game-section-title__count">
-          {game.releases.length}
+          {formatNumber(game.releases.length, language)}
         </span>
       </h2>
 

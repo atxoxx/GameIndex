@@ -167,7 +167,7 @@ function GameNotFound() {
         <line x1="8" y1="21" x2="16" y2="21" />
         <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
-      <h2 className="main-empty-title">{t("game.notFoundTitle")}</h2>
+      <h1 className="main-empty-title">{t("game.notFoundTitle")}</h1>
       <p className="main-empty-subtitle">{t("game.notFoundSubtitle")}</p>
       <Button variant="ghost" size="sm" onClick={() => navigate("/library")}>
         {t("page.game.backToLibrary")}

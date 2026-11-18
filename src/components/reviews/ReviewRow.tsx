@@ -14,6 +14,7 @@ import {
   STEAM_REACTIONS,
 } from "../../types/game";
 import { resolvePublicAssetUrl } from "../../utils/publicAsset";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 
 const STEAM_PROFILE_URL = "https://steamcommunity.com/profiles";
 
@@ -50,13 +51,14 @@ function ThumbBadge({ sentiment }: { sentiment: ReviewItem["sentiment"] }) {
 }
 
 function ReactionBadge({ reactionType, count }: { reactionType: number; count: number }) {
+  const { language } = useLanguage();
   const [imgErr, setImgErr] = useState(false);
   const meta = STEAM_REACTIONS[reactionType] ?? { emoji: "❓", label: `Reaction ${reactionType}`, description: "" };
   const imgPath = reactionImagePath(reactionType);
   const imgSrc = resolvePublicAssetUrl(imgPath);
 
   return (
-    <span className="rv-reaction-badge" title={`${meta.label}: ${count.toLocaleString()}`}>
+    <span className="rv-reaction-badge" title={`${meta.label}: ${formatNumber(count, language)}`}>
       {imgPath && !imgErr ? (
         <img
           className="rv-reaction-img"
@@ -67,7 +69,14 @@ function ReactionBadge({ reactionType, count }: { reactionType: number; count: n
       ) : (
         <span className="rv-reaction-emoji">{meta.emoji}</span>
       )}
-      <span className="rv-reaction-count">{count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}</span>
+      <span className="rv-reaction-count">
+        {count >= 1000
+          ? `${formatNumber(count / 1000, language, {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}k`
+          : formatNumber(count, language)}
+      </span>
     </span>
   );
 }
@@ -158,17 +167,13 @@ function HardwareSpecs({ hw }: { hw: ReviewItem["hw"] }) {
   );
 }
 
-function formatShortDate(ts?: number): string {
+function formatShortDate(ts: number | undefined, language: string): string {
   if (!ts) return "";
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(new Date(ts));
-  } catch {
-    return new Date(ts).toLocaleDateString();
-  }
+  return formatDate(new Date(ts), language, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function ReviewRow({
@@ -179,7 +184,7 @@ export function ReviewRow({
   onBookmark,
   onSaveQuote,
 }: ReviewRowProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { showDeckVerified } = useSettings();
   const [expanded, setExpanded] = useState(false);
@@ -269,7 +274,7 @@ export function ReviewRow({
               </span>
             )}
             {review.dateAdded && (
-              <span className="rv-row-date">{formatShortDate(review.dateAdded)}</span>
+              <span className="rv-row-date">{formatShortDate(review.dateAdded, language)}</span>
             )}
           </div>
 
@@ -386,12 +391,12 @@ export function ReviewRow({
         <div className="rv-row-helpful">
           {(review.votesUp ?? 0) > 0 && (
             <span className="rv-helpful-text">
-              👍 {t("review.foundHelpful", { count: (review.votesUp ?? 0).toLocaleString() })}
+              👍 {t("review.foundHelpful", { count: formatNumber(review.votesUp ?? 0, language) })}
             </span>
           )}
           {(review.votesFunny ?? 0) > 0 && (
             <span className="rv-helpful-text">
-              😄 {t("review.foundFunny", { count: (review.votesFunny ?? 0).toLocaleString() })}
+              😄 {t("review.foundFunny", { count: formatNumber(review.votesFunny ?? 0, language) })}
             </span>
           )}
         </div>
@@ -405,13 +410,13 @@ export function ReviewRow({
             target="_blank"
             rel="noopener noreferrer"
             title={t("reviewsTab.commentsOnSteam", {
-              count: review.commentCount?.toLocaleString() ?? "0",
+              count: formatNumber(review.commentCount ?? 0, language),
             })}
           >
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            {t("reviewsTab.commentsCount", { count: review.commentCount?.toLocaleString() ?? "0" })}
+            {t("reviewsTab.commentsCount", { count: formatNumber(review.commentCount ?? 0, language) })}
           </a>
         )}
       </div>

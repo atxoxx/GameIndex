@@ -10,6 +10,7 @@ import { useGameCardArt } from "../../hooks/useGameCardArt";
 import { sortGames } from "../../hooks/libraryFilters";
 import { ShelfIcon } from "./ShelfIcon";
 import { shelfDisplayName, type Shelf } from "../../types/shelf";
+import { formatNumber } from "../../utils/localeFormat";
 
 export interface ShelfRailsProps {
   /** Overrides the default navigation to a game's detail page. */
@@ -61,7 +62,7 @@ function ShelfRail({
   onCardClick?: (game: Game) => void;
 }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { setSelectedGameId } = useGames();
   const { shelfGames, completedAtOf } = useShelves();
 
@@ -103,7 +104,7 @@ function ShelfRail({
           <div style={{ minWidth: 0 }}>
             <h3 className="lib-rail-title">{displayName}</h3>
             <p className="lib-rail-subtitle">
-              {t("shelves.rail.subtitle", { count: games.length })}
+              {t("shelves.rail.subtitle", { count: formatNumber(games.length, language) })}
             </p>
           </div>
         </div>

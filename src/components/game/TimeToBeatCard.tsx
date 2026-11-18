@@ -9,6 +9,7 @@ import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenModal from "../bigscreen/BigScreenModal";
 import HltbDetailsModal from "./hltb/HltbDetailsModal";
 import { HltbDetailsContent } from "./hltb/HltbDetailsContent";
+import { formatNumber } from "../../utils/localeFormat";
 
 /**
  * TimeToBeatCard
@@ -84,7 +85,7 @@ function buildTiers(
 }
 
 export default function TimeToBeatCard({ game, onRefresh }: TimeToBeatCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsFocus = useFocusable(() => setDetailsOpen(true));
@@ -144,7 +145,7 @@ export default function TimeToBeatCard({ game, onRefresh }: TimeToBeatCardProps)
               value={formatHours(tier.seconds)}
               subtext={
                 tier.count != null && tier.count > 0
-                  ? t("hltb.submissions", { count: tier.count.toLocaleString() })
+                  ? t("hltb.submissions", { count: formatNumber(tier.count, language) })
                   : undefined
               }
               intent={tier.intent}

@@ -8,6 +8,7 @@ import { DensityContext } from "../../context/DensityContext";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { useToast } from "../../context/ToastContext";
 import { useCardDisplaySettings } from "../../context/SettingsContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
@@ -93,11 +94,20 @@ function StoreGameCardBase({
   const crackStatus = useCrackWatch(game.name);
   const price = usePrice(game.name);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const storeMenu = useContextMenu();
   const [previewActive, setPreviewActive] = useState(false);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Prices arrive as plain numbers; format the digits for the active UI
+  // language while keeping the existing "$" prefix.
+  const money = (value: number) =>
+    `$${formatNumber(value, language, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  const percent = (value: number) => formatNumber(Math.round(value), language);
 
   const menuEvent = () =>
     ({ preventDefault: () => {}, stopPropagation: () => {} }) as unknown as MouseEvent;
@@ -393,11 +403,11 @@ function StoreGameCardBase({
             <>
               {price.isOnSale && price.discountPercent > 0 && (
                 <span className="store-card-price-discount">
-                  -{price.discountPercent}%
+                  -{percent(price.discountPercent)}%
                 </span>
               )}
               <span className="store-card-price-now">
-                ${price.salePrice.toFixed(2)}
+                {money(price.salePrice)}
               </span>
             </>
           ) : (
@@ -730,15 +740,15 @@ function StoreGameCardBase({
                 <>
                   {price!.isOnSale && price!.discountPercent > 0 && (
                     <span className="store-card-price-discount">
-                      -{price!.discountPercent}%
+                      -{percent(price!.discountPercent)}%
                     </span>
                   )}
                   <span className="store-card-price-now">
-                    ${price!.salePrice!.toFixed(2)}
+                    {money(price!.salePrice!)}
                   </span>
                   {price!.isOnSale && price!.normalPrice != null && (
                     <span className="store-card-price-was">
-                      ${price!.normalPrice.toFixed(2)}
+                      {money(price!.normalPrice)}
                     </span>
                   )}
                 </>

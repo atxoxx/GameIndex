@@ -41,10 +41,10 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
       const grp = classifySuggestion(g, tokens, qLower);
       map[grp].push(g);
     }
-    const def: { key: string; label: string; items: StoreGameSummary[] }[] = [
-      { key: "title", label: "Title matches", items: map.title },
-      { key: "genre", label: "Genre", items: map.genre },
-      { key: "platform", label: "Platform", items: map.platform },
+    const def: { key: string; labelKey: string; items: StoreGameSummary[] }[] = [
+      { key: "title", labelKey: "store.search.groupTitle", items: map.title },
+      { key: "genre", labelKey: "store.search.groupGenre", items: map.genre },
+      { key: "platform", labelKey: "store.search.groupPlatform", items: map.platform },
     ];
     return def.filter((g) => g.items.length > 0);
   }, [suggestions, trimmed, tokens, qLower]);
@@ -166,7 +166,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
       className="store-search-palette-scrim"
       role="dialog"
       aria-modal="true"
-      aria-label="Search command palette"
+      aria-label={t("store.search.paletteAria")}
       onClick={() => setOpen(false)}
     >
       <div
@@ -222,7 +222,7 @@ export default function StoreSearchPalette({ catalogue }: StoreSearchPaletteProp
             groups.length > 0 ? (
               groups.map((group) => (
                 <div key={group.key} className="store-search-group">
-                  <div className="store-search-group-header">{group.label}</div>
+                  <div className="store-search-group-header">{t(group.labelKey)}</div>
                   {group.items.map((g) => {
                     const flatIdx = flatGrouped.indexOf(g);
                     const isActive = flatIdx === selectedIndex;

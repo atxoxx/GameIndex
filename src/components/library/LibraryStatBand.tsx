@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { StatBand, type StatBandItem } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, parsePlayTime, type Game } from "../../types/game";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface LibraryStatBandProps {
   games: Game[];
@@ -24,7 +25,7 @@ export default function LibraryStatBand({
   installedCount,
   onToggleInstalled,
 }: LibraryStatBandProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const totalPlaytime = useMemo(
     () => formatPlayTime(games.reduce((sum, game) => sum + parsePlayTime(game.playTime), 0)),
@@ -42,19 +43,19 @@ export default function LibraryStatBand({
     {
       id: "total",
       label: t("lib.hero.stat.total"),
-      value: games.length,
+      value: formatNumber(games.length, language),
       icon: <Gamepad2 size={14} />,
       tone: "accent",
     },
     {
       id: "installed",
       label: t("lib.hero.stat.installed"),
-      value: installedCount,
+      value: formatNumber(installedCount, language),
       icon: <HardDrive size={14} />,
       tone: "success",
       detail:
         games.length > 0
-          ? t("lib.hero.stat.pctOfLibrary", { count: installedPct })
+          ? t("lib.hero.stat.pctOfLibrary", { count: formatNumber(installedPct, language) })
           : t("lib.hero.stat.installedPct"),
       onClick: onToggleInstalled,
       hint: t("filter.installed"),
@@ -69,12 +70,12 @@ export default function LibraryStatBand({
     {
       id: "added",
       label: t("lib.hero.stat.addedWeek"),
-      value: addedThisWeek,
+      value: formatNumber(addedThisWeek, language),
       icon: <CalendarPlus size={14} />,
       tone: "warning",
       detail: addedThisWeek === 1 ? t("lib.hero.stat.addedWeekSub") : undefined,
     },
-  ], [games.length, installedCount, installedPct, totalPlaytime, addedThisWeek, t, onToggleInstalled]);
+  ], [games.length, installedCount, installedPct, totalPlaytime, addedThisWeek, t, language, onToggleInstalled]);
  
   return (
     <StatBand

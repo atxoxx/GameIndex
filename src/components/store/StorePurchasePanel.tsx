@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { usePrice } from "../../context/PriceContext";
 import { useSteamGameStats, formatSteamPrice } from "../../hooks/useSteamGameStats";
 import DownloadButton from "../DownloadButton";
@@ -30,8 +31,11 @@ const STORE_NAMES: Record<string, string> = {
 };
 
 /** CheapShark quotes USD; the store cards format it the same way. */
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`;
+function formatUsd(value: number, locale: string): string {
+  return `$${formatNumber(value, locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 interface StorePurchasePanelProps {
@@ -71,7 +75,7 @@ export default function StorePurchasePanel({
   onOpenLibrary,
   coverUrl,
 }: StorePurchasePanelProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const price = usePrice(title);
   const { data: steamStats } = useSteamGameStats(steamAppId);
   const steamDetails = steamStats?.details ?? null;
@@ -99,12 +103,14 @@ export default function StorePurchasePanel({
   const discount = price?.isOnSale ? price.discountPercent : 0;
   const currentPrice =
     price?.salePrice != null
-      ? formatUsd(price.salePrice)
+      ? formatUsd(price.salePrice, language)
       : price?.normalPrice != null
-        ? formatUsd(price.normalPrice)
+        ? formatUsd(price.normalPrice, language)
         : null;
   const normalPrice =
-    discount > 0 && price?.normalPrice != null ? formatUsd(price.normalPrice) : null;
+    discount > 0 && price?.normalPrice != null
+      ? formatUsd(price.normalPrice, language)
+      : null;
   const storeName = price?.storeId ? STORE_NAMES[price.storeId] ?? null : null;
 
   const offerUrl = useMemo(() => {
@@ -123,7 +129,7 @@ export default function StorePurchasePanel({
   const parsedRelease = releaseDate ? new Date(releaseDate) : null;
   const releaseLabel =
     parsedRelease && !Number.isNaN(parsedRelease.getTime())
-      ? parsedRelease.toLocaleDateString(undefined, {
+      ? formatDate(parsedRelease, language, {
           year: "numeric",
           month: "short",
           day: "numeric",
@@ -150,7 +156,7 @@ export default function StorePurchasePanel({
           <>
             <span className="store-purchase-panel__amount">{currentPrice}</span>
             {discount > 0 && (
-              <span className="store-purchase-panel__discount">-{discount}%</span>
+              <span className="store-purchase-panel__discount">-{formatNumber(discount, language)}%</span>
             )}
           </>
         ) : hasSteamPrice ? (

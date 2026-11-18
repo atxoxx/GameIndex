@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
 import { useCollapsedState } from "../../hooks/useCollapsedState";
 import { useGameCardArt } from "../../hooks/useGameCardArt";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface RecentlyAddedRailProps {
   games: Game[];
@@ -28,7 +29,7 @@ export default function RecentlyAddedRail({
 }: RecentlyAddedRailProps) {
   const navigate = useNavigate();
   const { setSelectedGameId } = useGames();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const railRef = useRef<HTMLDivElement | null>(null);
 
   const recent = useMemo(
@@ -63,7 +64,7 @@ export default function RecentlyAddedRail({
           <div style={{ minWidth: 0 }}>
             <h3 className="lib-rail-title">{t("lib.rail.recentlyAdded.title")}</h3>
             <p className="lib-rail-subtitle">
-              {t("lib.rail.recentlyAdded.subtitle", { count: recent.length })}
+              {t("lib.rail.recentlyAdded.subtitle", { count: formatNumber(recent.length, language) })}
             </p>
           </div>
         </div>

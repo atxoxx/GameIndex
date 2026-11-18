@@ -2,6 +2,7 @@ import { ArrowDownToLine, CheckSquare, Plus, Store } from "lucide-react";
 import { Button } from "../ui";
 import { PageHeader } from "../ui/PageHeader";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface LibraryHeaderProps {
   /** Total games in the library, rendered next to the title. */
@@ -29,7 +30,7 @@ export default function LibraryHeader({
   onBrowseStore,
   onExport,
 }: LibraryHeaderProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <PageHeader
@@ -39,7 +40,7 @@ export default function LibraryHeader({
         <>
           <span className="library-header-title">{t("nav.library")}</span>
           <span className="library-header-count" aria-hidden="true">
-            {total}
+            {formatNumber(total, language)}
           </span>
         </>
       }

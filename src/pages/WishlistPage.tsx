@@ -22,6 +22,7 @@ import type { StoreGameSummary, WishlistEntry } from "../types/game";
 import { Button, ConfirmModal, PageHeader, Panel, StatBand, SubTabs } from "../components/ui";
 import PageWidget from "../components/PageWidget";
 import { useLanguage } from "../context/LanguageContext";
+import { formatDate, formatNumber } from "../utils/localeFormat";
 import "../styles/page-wishlist.css";
 import "../styles/wishlist.css";
 
@@ -101,7 +102,7 @@ function isReleased(entry: WishlistEntry): boolean {
 export default function WishlistPage() {
   const navigate = useNavigate();
   const { wishlist, hydrated, toggle, setNote, clear } = useWishlistContext();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   // Cards follow the Store density from context; the grid has to follow too,
   // or a list row is squeezed into a cover-sized column.
   const density = useContext(DensityContext)?.density ?? "cozy";
@@ -329,27 +330,27 @@ export default function WishlistPage() {
                 {
                   id: "saved",
                   label: t("wishlist.stats.saved"),
-                  value: wishlist.length,
+                  value: formatNumber(wishlist.length, language),
                   icon: <Heart size={14} />,
                 },
                 {
                   id: "out",
                   label: t("wishlist.stats.outNow"),
-                  value: releasedCount,
+                  value: formatNumber(releasedCount, language),
                   tone: "success",
                   icon: <Check size={14} />,
                 },
                 {
                   id: "upcoming",
                   label: t("wishlist.stats.comingSoon"),
-                  value: wishlist.length - releasedCount,
+                  value: formatNumber(wishlist.length - releasedCount, language),
                   tone: "accent",
                   icon: <CalendarDays size={14} />,
                 },
                 {
                   id: "notes",
                   label: t("wishlist.stats.withNotes"),
-                  value: noteCount,
+                  value: formatNumber(noteCount, language),
                   icon: <Pencil size={14} />,
                 },
               ]}
@@ -532,8 +533,8 @@ export default function WishlistPage() {
               trailing={
                 <span className="wl-result-count">
                   {t("wishlist.showing", {
-                    visible: visible.length,
-                    total: wishlist.length,
+                    visible: formatNumber(visible.length, language),
+                    total: formatNumber(wishlist.length, language),
                   })}
                 </span>
               }
@@ -601,7 +602,7 @@ function WishlistCard({
   onNoteChange: (note: string) => void;
 }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const shareToFriends = () => {
     requestShareToFriends({
@@ -629,12 +630,12 @@ function WishlistCard({
   const addedLabel = useMemo(() => {
     const d = new Date(entry.addedAt);
     if (!Number.isFinite(d.getTime())) return "";
-    return d.toLocaleDateString(undefined, {
+    return formatDate(d, language, {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
-  }, [entry.addedAt]);
+  }, [entry.addedAt, language]);
 
   // ── Release date + live "time until release" countdown ────────────────
   const release = useMemo(() => {
@@ -645,13 +646,13 @@ function WishlistCard({
     return {
       date,
       released,
-      label: date.toLocaleDateString(undefined, {
+      label: formatDate(date, language, {
         year: "numeric",
         month: "short",
         day: "numeric",
       }),
     };
-  }, [entry.firstReleaseDate]);
+  }, [entry.firstReleaseDate, language]);
 
   // Tick every minute so the countdown stays fresh without thrashing.
   const [now, setNow] = useState(() => Date.now());
@@ -673,10 +674,18 @@ function WishlistCard({
     const hours = Math.floor(diff / 3_600_000);
     diff -= hours * 3_600_000;
     const minutes = Math.floor(diff / 60_000);
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  }, [release, now]);
+    if (days > 0)
+      return t("wishlist.countdownDaysHours", {
+        days: formatNumber(days, language),
+        hours: formatNumber(hours, language),
+      });
+    if (hours > 0)
+      return t("wishlist.countdownHoursMinutes", {
+        hours: formatNumber(hours, language),
+        minutes: formatNumber(minutes, language),
+      });
+    return t("wishlist.countdownMinutes", { minutes: formatNumber(minutes, language) });
+  }, [release, now, language, t]);
 
   const showFullNote = expanded || draft.length <= 120;
 

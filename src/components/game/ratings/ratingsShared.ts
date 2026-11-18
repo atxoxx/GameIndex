@@ -3,6 +3,8 @@ import type {
   MetacriticScore,
   SteamGameReviews,
 } from "../../../types/game";
+import { getActiveLocale } from "../../../i18n";
+import { formatNumber } from "../../../utils/localeFormat";
 
 /** Tabs the sheet can show. Empty tabs are filtered out before rendering. */
 export type RatingsTabId = "overview" | "critics" | "community";
@@ -66,9 +68,12 @@ export function scorePercent(
   return Math.max(0, Math.min(100, Math.round(scale === 10 ? value * 10 : value)));
 }
 
-export function formatCount(value: number | null | undefined): string {
+export function formatCount(
+  value: number | null | undefined,
+  locale: string = getActiveLocale()
+): string {
   if (value == null) return "—";
-  return value.toLocaleString();
+  return formatNumber(value, locale);
 }
 
 export function criticRows(

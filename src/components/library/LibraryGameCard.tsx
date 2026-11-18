@@ -13,6 +13,7 @@ import { isLibraryScrolling } from "./libraryScroll";
 import { useStoreInstallFor } from "../../hooks/useStoreInstalls";
 import { preloadGameDetail } from "../../utils/routePreload";
 import StoreInstallBar from "../store/StoreInstallBar";
+import { formatNumber } from "../../utils/localeFormat";
 
 interface LibraryGameCardProps {
   game: Game;
@@ -30,17 +31,19 @@ interface LibraryGameCardProps {
 
 function formatRelativeTime(
   timestamp: number | undefined,
-  t: (key: string, vars?: Record<string, unknown>) => string
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  language: string
 ): string {
   if (!timestamp) return t("lib.rail.continue.never");
   const diffMs = Date.now() - timestamp;
   if (diffMs < 0) return t("lib.rail.continue.justNow");
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  if (hours < 24) return t("lib.rail.continue.hoursAgo", { n: Math.max(1, hours) });
+  if (hours < 24)
+    return t("lib.rail.continue.hoursAgo", { n: formatNumber(Math.max(1, hours), language) });
   const days = Math.floor(hours / 24);
-  if (days < 7) return t("lib.rail.continue.daysAgo", { n: days });
+  if (days < 7) return t("lib.rail.continue.daysAgo", { n: formatNumber(days, language) });
   const weeks = Math.floor(days / 7);
-  return t("lib.rail.continue.weeksAgo", { n: weeks });
+  return t("lib.rail.continue.weeksAgo", { n: formatNumber(weeks, language) });
 }
 
 function LibraryGameCardBase({
@@ -56,7 +59,7 @@ function LibraryGameCardBase({
   onToggleSelect,
 }: LibraryGameCardProps) {
   const { enqueueEnrich, launchGame } = useGameCardActions();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showCardBadges, isSimpleUi, badgePlatform, badgeInstall, badgePlaytime, badgeRating } =
     useCardDisplaySettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
@@ -226,14 +229,14 @@ function LibraryGameCardBase({
 
         <div className="lib-card-list-rating">
           {showCardBadges && badgeRating && !isSimpleUi && rating != null && rating > 0 ? (
-            <span className="lib-card-list-mono">{Math.round(rating)}%</span>
+            <span className="lib-card-list-mono">{formatNumber(Math.round(rating), language)}%</span>
           ) : (
             <span className="lib-card-list-muted">–</span>
           )}
         </div>
 
         <div className="lib-card-list-last-played">
-          <span>{formatRelativeTime(game.lastPlayed, t)}</span>
+          <span>{formatRelativeTime(game.lastPlayed, t, language)}</span>
         </div>
 
         <div className="lib-card-list-actions" onClick={(event) => event.stopPropagation()}>
@@ -380,9 +383,9 @@ function LibraryGameCardBase({
             {showCardBadges && badgeRating && !isSimpleUi && rating != null && rating > 0 && (
               <span
                 className="lib-card-chip lib-card-chip--rating"
-                title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
+                title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${formatNumber(Math.round(rating), language)}%`}
               >
-                {Math.round(rating)}%
+                {formatNumber(Math.round(rating), language)}%
               </span>
             )}
             {showCardBadges && badgeInstall && !isSimpleUi && (
