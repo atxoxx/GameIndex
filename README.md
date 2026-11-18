@@ -40,6 +40,7 @@
   - [Managing your install](#managing-your-install)
   - [Make it yours](#make-it-yours)
 - [Download and install](#download-and-install)
+  - [Electron v2.5.0](#electron-v250)
   - [Legacy Tauri build (v2.4.0)](#legacy-tauri-build-v240)
   - [Electron builds](#electron-builds)
   - [Requirements](#requirements)
@@ -183,6 +184,19 @@ Everything below is implemented in the app unless a bullet is marked **beta** or
 
 ## Download and install
 
+### Electron v2.5.0
+
+The first Electron release is [v2.5.0](https://github.com/atxoxx/GameIndex/releases/tag/v2.5.0), built from `main` for Windows and Linux:
+
+| Platform | File | Notes |
+|---|---|---|
+| **Windows** | [`GameIndex_electron_2.5.0_x64-setup.exe`](https://github.com/atxoxx/GameIndex/releases/download/v2.5.0/GameIndex_electron_2.5.0_x64-setup.exe) | Installer with Start Menu shortcuts and in-app updates. |
+| **Windows** | [`GameIndex_electron_2.5.0_x64_portable.exe`](https://github.com/atxoxx/GameIndex/releases/download/v2.5.0/GameIndex_electron_2.5.0_x64_portable.exe) | Single executable; nothing to install. |
+| **Linux** | [`GameIndex_electron_2.5.0_amd64.AppImage`](https://github.com/atxoxx/GameIndex/releases/download/v2.5.0/GameIndex_electron_2.5.0_amd64.AppImage) | Make it executable (`chmod +x`) and run it. |
+| **Linux** | [`GameIndex_electron_2.5.0_amd64.deb`](https://github.com/atxoxx/GameIndex/releases/download/v2.5.0/GameIndex_electron_2.5.0_amd64.deb) | `sudo apt install ./GameIndex_electron_2.5.0_amd64.deb` on Debian/Ubuntu derivatives. |
+
+The packaged app shows its version in the header and updates through the `electron-latest` release feed.
+
 ### Legacy Tauri build (v2.4.0)
 
 The installers in the [v2.4.0 release](https://github.com/atxoxx/GameIndex/releases/tag/v2.4.0) were built before the Electron migration. They are working builds of the same app and use the plain `GameIndex_<version>` names. A newer `v2.4.0-tauri` re-release carries the same version under `GameIndex_tauri_<version>` names.
@@ -196,7 +210,7 @@ The installers in the [v2.4.0 release](https://github.com/atxoxx/GameIndex/relea
 
 ### Electron builds
 
-The Electron app lives on `main`. Pushing a plain `v<version>` tag that matches `package.json` builds Windows and Linux installers and attaches them to a draft GitHub release:
+Future Electron releases are produced from `main`. Pushing a plain `v<version>` tag that matches `package.json` builds Windows and Linux installers and attaches them to a draft GitHub release:
 
 | Platform | Artifact |
 |---|---|
@@ -205,7 +219,7 @@ The Electron app lives on `main`. Pushing a plain `v<version>` tag that matches 
 | **Linux** | `GameIndex_electron_<version>_amd64.AppImage` |
 | **Linux** | `GameIndex_electron_<version>_amd64.deb` |
 
-The release is not created for tags on other branches, for `v*-electron`/`v*-tauri` legacy tags, or when the tag and `package.json` version disagree. Until the next Electron release is published, [build it from source](#build-from-source). The packaged app shows its version in the header and updates through the `electron-latest` release feed.
+The workflow publishes the release automatically once both platforms succeed. It is not created for tags on other branches, for `v*-electron`/`v*-tauri` legacy tags, or when the tag and `package.json` version disagree. Until the next Electron release is published, [build it from source](#build-from-source).
 
 ### Requirements
 
@@ -362,7 +376,7 @@ Inside that directory, `db/` holds the SQLite domains (for example `games.db`, `
 
 ### Is there an Electron installer?
 
-Not yet. The Electron app is on `main`, and installers appear on the next plain `v<version>` release whose tag matches `package.json`. The [legacy v2.4.0 Tauri build](#legacy-tauri-build-v240) is still available. You can build `main` with `npm run dist:win` or `npm run dist:linux`.
+Yes. [v2.5.0](https://github.com/atxoxx/GameIndex/releases/tag/v2.5.0) is the first Electron release, with Windows installer/portable and Linux AppImage/deb builds. The [legacy v2.4.0 Tauri build](#legacy-tauri-build-v240) remains available for comparison. You can also build `main` with `npm run dist:win` or `npm run dist:linux`.
 
 ### Windows says the publisher is unknown
 
