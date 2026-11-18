@@ -17,6 +17,13 @@ import {
   type PlayStatus,
 } from "../types/game";
 import type { ShelfRules } from "../types/shelf";
+import { useIdlePrefetch, usePrefetchOnIntent } from "../utils/preload";
+import {
+  preloadEditGameModal,
+  preloadLibraryExportModal,
+  preloadLibraryFilterPopover,
+  preloadShelfBuilderModal,
+} from "../utils/preloads";
 import { EXECUTABLE_DIALOG_FILTERS } from "../utils/executableTypes";
 import PageWidget from "../components/PageWidget";
 import LibraryHeader from "../components/library/LibraryHeader";
@@ -170,6 +177,16 @@ export default function LibraryPage() {
   const [shelfBuilderOpen, setShelfBuilderOpen] = useState(false);
   const [shelfRules, setShelfRules] = useState<ShelfRules | undefined>(undefined);
 
+  // Export and Save-as-shelf are child-component buttons, so intent is read on
+  // the wrappers that hold exactly those action clusters. The editor's triggers
+  // are in the grid/context menu; the context-menu opener below warms it.
+  const exportIntent = usePrefetchOnIntent(preloadLibraryExportModal);
+  const shelfIntent = usePrefetchOnIntent(preloadShelfBuilderModal);
+  const filterIntent = usePrefetchOnIntent(preloadLibraryFilterPopover);
+  // Edit Game is the most-used heavy dialog on this page: warm it once the grid
+  // has had its idle beat, without waiting for a right-click.
+  useIdlePrefetch(preloadEditGameModal, 3000);
+
   const isLibraryEmpty = games.length === 0;
 
   const activeFilterCount =
@@ -194,6 +211,9 @@ export default function LibraryPage() {
   const handleGameContextMenu = useCallback((event: React.MouseEvent, game: Game) => {
     event.preventDefault();
     event.stopPropagation();
+    // Opening the card menu is the first half of "Edit game" (its primary
+    // item), so parse the editor while the pointer travels to the entry.
+    preloadEditGameModal();
     setContextMenu({ game, x: event.clientX, y: event.clientY });
   }, []);
 
@@ -410,7 +430,7 @@ export default function LibraryPage() {
   return (
     <div className={`lib-page library-page${bulkMode ? " is-bulk-mode" : ""}`}>
       <PageWidget page="library" widget="libHeader">
-        <div className="ui-item-libHeader">
+        <div className="ui-item-libHeader" {...exportIntent}>
           <LibraryHeader
             total={games.length}
             bulkMode={bulkMode}
@@ -455,7 +475,7 @@ export default function LibraryPage() {
       ) : (
         <>
           <PageWidget page="library" widget="libToolbar">
-            <div className="ui-item-libToolbar">
+            <div className="ui-item-libToolbar" {...filterIntent}>
               <LibraryCommandBar
                 scopeBar={
                   <LibraryScopeBar
@@ -492,7 +512,7 @@ export default function LibraryPage() {
           </PageWidget>
 
           <PageWidget page="library" widget="libFilterChips">
-            <div className="ui-item-libFilterChips">
+            <div className="ui-item-libFilterChips" {...shelfIntent}>
               <LibraryFilterChips
                 filters={filters}
                 resultCount={filteredGames.length}

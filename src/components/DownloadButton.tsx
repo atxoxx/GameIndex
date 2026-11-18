@@ -14,6 +14,8 @@
 
 import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { useLanguage } from "../context/LanguageContext";
+import { useIdlePrefetch, usePrefetchOnIntent } from "../utils/preload";
+import { preloadDownloadModal } from "../utils/preloads";
 
 // The download flow (search, source picker, file selection, options) is
 // ~100 KB of JS plus 76 KB of CSS and only exists after the button is
@@ -62,6 +64,12 @@ export default function DownloadButton({
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  // The button sits on game/store detail pages, so a click is a strong signal
+  // but not the first one: warm the flow on hover/focus and, failing that,
+  // shortly after the page settles.
+  const prefetch = usePrefetchOnIntent(preloadDownloadModal);
+  useIdlePrefetch(preloadDownloadModal, 2500);
+
   const buttonLabel = updateAvailable ? t("downloads.updateAvailable") : label;
   const buttonTitle = updateAvailable
     ? t("downloads.updateAvailable")
@@ -74,6 +82,7 @@ export default function DownloadButton({
       <button
         type="button"
         className={`game-download-btn game-download-btn--${variant}${updateAvailable ? " game-download-btn--update" : ""}${className ? ` ${className}` : ""}`}
+        {...prefetch}
         onClick={() => setOpen(true)}
         style={style}
         title={buttonTitle}

@@ -18,6 +18,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { SidebarCollapseContext } from "../context/SidebarCollapseContext";
 import { gameDisplayName, type StoreGameSummary } from "../types/game";
 import { playTabSound } from "../utils/soundEffects";
+import { preloadDownloadModal } from "../utils/preloads";
 import type { PaletteCategory, PaletteGroup } from "./command-palette/commandPaletteTypes";
 import {
   calculateLibraryStats,
@@ -177,6 +178,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
+  }, [isOpen]);
+
+  // Warm the download modal's chunk as soon as the palette is open: a download
+  // action picked from here should not pay a second chunk wait. The helper
+  // dedupes, so repeated opens cost nothing.
+  useEffect(() => {
+    if (isOpen) preloadDownloadModal();
   }, [isOpen]);
 
   // Escape backs out one layer: sub-modals, then a peeked preview, then the

@@ -29,6 +29,7 @@ const ROUTE_CHUNK_MAP: Record<string, Importer> = {
   "/emulators": () => import("../pages/EmulatorsPage"),
   "/ports": () => import("../pages/ports/PortsPage"),
   "/mods": () => import("../pages/mods/ModsPage"),
+  "/itch": () => import("../pages/itch/ItchGamePage"),
   "/saves": () => import("../pages/saves/SavesPage"),
   "/reels": () => import("../pages/ReelsPage"),
   "/settings": () => import("../pages/SettingsPage"),
@@ -41,7 +42,11 @@ const preloadedSet = new Set<string>();
 
 /** Preload a specific route chunk immediately (e.g. on link hover/focus). */
 export function preloadRoute(path: string): void {
-  const normPath = path.startsWith("/") ? path : `/${path}`;
+  // Links may carry a query or hash (`/settings?tab=x`, `/itch/a/g#top`); the
+  // chunk is chosen by pathname only, and the key must match so a later plain
+  // navigation does not warm the same chunk twice.
+  const pathname = path.split(/[?#]/)[0];
+  const normPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const baseSegment = `/${normPath.split("/")[1] || ""}`;
 
   const importer = ROUTE_CHUNK_MAP[normPath] || ROUTE_CHUNK_MAP[baseSegment];

@@ -26,6 +26,11 @@ import {
 } from "../context/interfaceLayout";
 import { useActivity } from "../context/ActivityContext";
 import { EDIT_GAME_TABS, type EditGameTab } from "../components/game/editGameTabs";import PageWidget from "../components/PageWidget";
+import { useIdlePrefetch, usePrefetchOnIntent } from "../utils/preload";
+import {
+  preloadEditGameModal,
+  preloadGameTab,
+} from "../utils/preloads";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game, gameDisplayName } from "../types/game";
@@ -226,6 +231,12 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
   const [editTab, setEditTab] = useState<EditGameTab | null>(null);
   const [editFocus, setEditFocus] = useState<"purchaseCost" | null>(null);
   const editing = editTab !== null;
+
+  // The editor is by far the heaviest dialog this page opens. Hover/focus on
+  // an edit action or one idle beat after the page settles should leave it
+  // parsed, so the click swaps the section instead of waiting on the chunk.
+  const editIntent = usePrefetchOnIntent(preloadEditGameModal);
+  useIdlePrefetch(preloadEditGameModal, 3500);
   const [wineLogsOpen, setWineLogsOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -515,6 +526,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
             key={key}
             type="button"
             className="game-edit-btn"
+            {...editIntent}
             onClick={() => setEditTab(editTab)}
             title={t(def.labelKey)}
           >
@@ -591,6 +603,7 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
             tabs={tabs}
             activeTab={effectiveTab}
             onChange={handleTabChange}
+            onTabIntent={preloadGameTab}
           />
         </div>
       </PageWidget>

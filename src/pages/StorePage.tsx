@@ -7,6 +7,7 @@ import {
   setStoreSearchQueryInSearchParams,
 } from "../components/store/storeSearchQuery";
 import { setStoreCardHover } from "../components/store/storeCardHover";
+import { preloadStoreCompareModal } from "../utils/preloads";
 import StoreHeader from "../components/store/StoreHeader";
 import StoreToolbar from "../components/store/StoreToolbar";
 import StoreFilterChips, {
@@ -209,6 +210,17 @@ export default function StorePage() {
     };
   }, [c.searchQuery, searchParams, setSearchParams]);
 
+  // Stable so the memoized store cards are not re-rendered by a new lambda;
+  // pinning a game is the intent that precedes opening the compare tray/modal,
+  // so warm that chunk while the user is still picking games.
+  const handleCompare = useCallback(
+    (game: StoreGameSummary) => {
+      preloadStoreCompareModal();
+      c.toggleCompare(game);
+    },
+    [c.toggleCompare]
+  );
+
   const removeFilter = useCallback(
     (type: StoreFilterChipType, value?: string) => {
       if (type === "genre" && value) {
@@ -308,7 +320,7 @@ export default function StorePage() {
               pluginAvailableSlugs={c.pluginAvailableSlugs}
               isInLibrary={c.isInLibrary}
               onHide={c.onHide}
-              onCompare={c.toggleCompare}
+              onCompare={handleCompare}
               compareSlugs={c.compareSlugs}
               bulkMode={c.bulkMode}
               selectedSlugs={c.selectedSlugs}
@@ -344,7 +356,10 @@ export default function StorePage() {
             games={c.compareGames}
             onRemove={c.removeCompare}
             onClear={c.clearCompare}
-            onOpen={() => c.setCompareOpen(true)}
+            onOpen={() => {
+              preloadStoreCompareModal();
+              c.setCompareOpen(true);
+            }}
           />
         )}
 

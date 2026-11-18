@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { gameDisplayName, type Game } from "../../types/game";
+import { preloadGameDetail } from "../../utils/routePreload";
 import { useGameCardActions, useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
@@ -155,7 +156,12 @@ const ContinuePlayingCard = memo(function ContinuePlayingCard({
       data-game-detail-route={`/library/${game.id}`}
       data-game-detail-title={gameDisplayName(game)}
       onClick={() => onClick(game)}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => {
+        setHovered(true);
+        preloadGameDetail();
+      }}
+      onPointerEnter={preloadGameDetail}
+      onFocus={preloadGameDetail}
       onMouseLeave={() => setHovered(false)}
     >
       <div className="lib-rail-cover">

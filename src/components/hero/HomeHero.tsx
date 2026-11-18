@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, memo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime, gameDisplayName } from "../../types/game";
+import { preloadGameDetail } from "../../utils/routePreload";
 import { useGameCardActions, useLiveElapsed, useRunningIds } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -456,6 +457,8 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
                 type="button"
                 className="home-hero__btn home-hero__btn--ghost"
                 onClick={handleOpenActiveGame}
+                onPointerEnter={preloadGameDetail}
+                onFocus={preloadGameDetail}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <circle cx="12" cy="12" r="10" />
@@ -496,6 +499,8 @@ function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
               data-game-detail-route={`/library/${activeGame.id}`}
               data-game-detail-title={gameDisplayName(activeGame)}
               onClick={handleOpenActiveGame}
+              onPointerEnter={preloadGameDetail}
+              onFocus={preloadGameDetail}
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
                 if (e.key === "Enter" || e.key === " ") {

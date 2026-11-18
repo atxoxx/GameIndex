@@ -26,6 +26,12 @@ import StoreInstallsSection from "../components/downloads/StoreInstallsSection";
 import PageWidget from "../components/PageWidget";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
+import { useIdlePrefetch, usePrefetchOnIntent } from "../utils/preload";
+import {
+  preloadAddDownloadModal,
+  preloadDownloadStatsModal,
+  preloadDownloadsScheduledTab,
+} from "../utils/preloads";
 // Stats (61 KB), the add-download flow (37 KB) and the scheduler tab are
 // all opened on demand; keeping them out of the initial downloads chunk
 // means the queue paints from a third of the code.
@@ -81,6 +87,15 @@ export default function DownloadsPage() {
   // ── Statistics modal state ───────────────────────────────────────
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+
+  // Both dialogs render on demand from their own state above, so warming the
+  // chunk on intent never conflicts with it: the lazy element still mounts
+  // only when its flag flips. The Add trigger is a Button in this file; the
+  // Stats trigger lives inside BandwidthHero, so its intent is read on the
+  // hero wrapper that holds it (focus bubbles from the button too).
+  const addIntent = usePrefetchOnIntent(preloadAddDownloadModal);
+  const statsIntent = usePrefetchOnIntent(preloadDownloadStatsModal);
+  useIdlePrefetch(preloadAddDownloadModal, 3000);
 
   // Per-bucket counts for the filter pill badges
   const STATUS_FILTER_LABEL_KEY: Record<DownloadStatusFilter, string> = {
@@ -330,6 +345,7 @@ export default function DownloadsPage() {
           actions={
             <Button
               variant="primary"
+              {...addIntent}
               onClick={() => setAddModalOpen(true)}
               leftIcon={
                 <svg
@@ -356,7 +372,7 @@ export default function DownloadsPage() {
 
       {/* Hero Control Center (persistent across tabs) */}
       <PageWidget page="downloads" widget="downloadsHero">
-      <div className="ui-item-downloadsHero">
+      <div className="ui-item-downloadsHero" {...statsIntent}>
         <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
       </div>
       </PageWidget>
@@ -367,6 +383,9 @@ export default function DownloadsPage() {
         <DownloadsTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          onTabIntent={(tab) => {
+            if (tab === "scheduled") preloadDownloadsScheduledTab();
+          }}
           counts={{
             active: activeDownloads.length,
             scheduled: scheduledCount,
@@ -481,6 +500,7 @@ export default function DownloadsPage() {
               variant="primary"
               size="sm"
               style={{ marginTop: "var(--space-sm)" }}
+              {...addIntent}
               onClick={() => setAddModalOpen(true)}
             >
               {t("downloads.addDownload")}

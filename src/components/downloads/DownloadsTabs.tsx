@@ -11,6 +11,8 @@ interface DownloadsTabsProps {
   counts: { active: number; scheduled: number; history: number };
   /** True when the scheduler's start window is currently open. */
   windowOpen?: boolean;
+  /** Optional: warm a tab's lazy chunk on hover/focus. */
+  onTabIntent?: (tab: DownloadsTabKey) => void;
 }
 
 const TABS: { key: DownloadsTabKey; labelKey: string; icon: LucideIcon }[] = [
@@ -30,6 +32,7 @@ export default function DownloadsTabs({
   onTabChange,
   counts,
   windowOpen = false,
+  onTabIntent,
 }: DownloadsTabsProps) {
   const { t } = useLanguage();
 
@@ -55,6 +58,7 @@ export default function DownloadsTabs({
       items={items}
       value={activeTab}
       onChange={onTabChange}
+      onTabIntent={onTabIntent}
       ariaLabel={t("downloads.title")}
       className="dl-tabs"
     />

@@ -8,6 +8,11 @@ import { useLibraryFilters } from "../../hooks/useLibraryFilters";
 import { useOsFileDrop } from "../../hooks/useOsFileDrop";
 import { commonParentDir, isImportableExecutablePath } from "../../utils/exeDrop";
 import { EXECUTABLE_DIALOG_FILTERS } from "../../utils/executableTypes";
+import {
+  preloadFolderScanModal,
+  preloadImportModal,
+  preloadSidebarFilterPopover,
+} from "../../utils/preloads";
 import { useSidebarCollapse } from "../../context/SidebarCollapseContext";
 import { useSidebarSectionVisible } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -220,6 +225,25 @@ export default function Sidebar() {
   const [randomPickedGameId, setRandomPickedGameId] = useState<string | null>(null);
 
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+
+  // The import, filter and scan dialogs are lazy chunks. Their triggers live in
+  // memoized children (and the import menus portal into <body>), so this rail
+  // root delegates intent to the chunks instead of threading props through
+  // every child: hover/focus/touch warms the chunk before the click lands.
+  const warmSidebarChunk = useCallback((e: React.SyntheticEvent) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest(".sidebar-filter-btn")) {
+      preloadSidebarFilterPopover();
+      return;
+    }
+    if (
+      target.closest(".sbn-overflow-btn") ||
+      target.closest(".sidebar-empty-cta:not(.sidebar-empty-cta--ghost)")
+    ) {
+      preloadImportModal();
+    }
+  }, []);
 
   // ── Multi-select state ───────────────────────────────────────────
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
@@ -515,6 +539,7 @@ export default function Sidebar() {
 
   // ── Import handlers ──────────────────────────────────────────────
   async function handleImportExe() {
+    preloadImportModal();
     setShowImportMenu(false);
     try {
       const filePath = await open({
@@ -544,6 +569,7 @@ export default function Sidebar() {
   }
 
   async function handleImportFolder() {
+    preloadFolderScanModal();
     setShowImportMenu(false);
     try {
       const selected = await open({
@@ -568,6 +594,7 @@ export default function Sidebar() {
   // ── Drop-to-import (OS file explorer) ────────────────────────────
   const handleFileDrop = useCallback(
     (paths: string[]) => {
+      preloadImportModal();
       const executables = paths.filter(isImportableExecutablePath);
       if (executables.length === 0) {
         showToast(t("sidebar.dropInvalidFile"), "error");
@@ -865,7 +892,13 @@ export default function Sidebar() {
   }, [bulkSelectedIds.size, combinedVisibleGames]);
 
   return (
-    <aside className="sidebar sbn">
+    <aside
+      className="sidebar sbn"
+      onPointerOver={warmSidebarChunk}
+      onPointerDown={warmSidebarChunk}
+      onFocus={warmSidebarChunk}
+      onTouchStart={warmSidebarChunk}
+    >
       {searchVisible && <SidebarHeader
         isIconRail={isIconRail}
         onToggleIconRail={toggleIconRail}

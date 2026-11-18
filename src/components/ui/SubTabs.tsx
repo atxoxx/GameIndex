@@ -21,6 +21,12 @@ export interface SubTabsProps<T extends string = string> {
   items: SubTabItem<T>[];
   value: T;
   onChange: (id: T) => void;
+  /**
+   * Optional intent hook: fires with a tab id on pointer enter / focus, so a
+   * caller can warm that tab's lazy chunk before the click. Callers that do
+   * not pass it render exactly as before.
+   */
+  onTabIntent?: (id: T) => void;
   /** Accessible name for the tab list. */
   ariaLabel: string;
   /** Pins the strip under the top nav with a feathered scrim. */
@@ -46,6 +52,7 @@ export function SubTabs<T extends string = string>({
   items,
   value,
   onChange,
+  onTabIntent,
   ariaLabel,
   sticky = false,
   trailing,
@@ -300,6 +307,10 @@ export function SubTabs<T extends string = string>({
               ]
                 .filter(Boolean)
                 .join(" ")}
+              onPointerEnter={
+                onTabIntent ? () => onTabIntent(item.id) : undefined
+              }
+              onFocus={onTabIntent ? () => onTabIntent(item.id) : undefined}
               onClick={() => onChange(item.id)}
             >
               {Icon && <Icon size={15} className="ui-subtabs__icon" />}

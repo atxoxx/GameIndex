@@ -50,6 +50,8 @@ import { useLayoutSettings, useSettings, type InterfaceItemKey } from "../contex
 import { useSaves } from "../context/SavesContext";
 import { playTabSound } from "../utils/soundEffects";
 import { preloadRoute } from "../utils/routePreload";
+import { useIdlePrefetch, usePrefetchOnIntent } from "../utils/preload";
+import { preloadCommandPalette, preloadDownloadPopover } from "../utils/preloads";
 
 /**
  * Mouse-event guard: an interactive element is anything the user
@@ -183,6 +185,9 @@ export default function TopNav() {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        // Start the chunk load now so it overlaps the state update; opening
+        // is not delayed and the helper dedupes with earlier warm-ups.
+        preloadCommandPalette();
         setPaletteOpen((prev) => !prev);
       }
     };
@@ -192,46 +197,44 @@ export default function TopNav() {
 
   // Let other surfaces (e.g. the app context menu) open the palette.
   useEffect(() => {
-    const openPalette = () => setPaletteOpen(true);
+    const openPalette = () => {
+      preloadCommandPalette();
+      setPaletteOpen(true);
+    };
     window.addEventListener("gamelib:open-command-palette", openPalette);
     return () => window.removeEventListener("gamelib:open-command-palette", openPalette);
   }, []);
 
-  // Warm the command-palette chunk once the user starts interacting with
-  // the app so the first Ctrl/Cmd+K opens instantly. The component itself is
-  // only mounted while the palette is open (see the render below): keeping it
-  // resident meant its item list was rebuilt on every library/download/
-  // wishlist/route change even though it rendered nothing.
-  //
-  // The palette's command catalogue statically pulls the docs content pack and
-  // the settings catalog (~350 KB of chunks). Warming that during the boot
-  // idle window competed with library hydration, so the warm-up now waits for
-  // the first pointer/key input (or 15 s of use, whichever comes first) —
-  // still ahead of any deliberate Ctrl+K.
+  // Warm the command-palette chunk on the first real intent so the first
+  // Ctrl/Cmd+K opens instantly. The component itself is only mounted while the
+  // palette is open (see the render below): keeping it resident meant its item
+  // list was rebuilt on every library/download/wishlist/route change even
+  // though it rendered nothing.
   useEffect(() => {
-    let warmed = false;
-    let timer = 0;
     const preload = () => {
-      if (warmed) return;
-      warmed = true;
-      window.clearTimeout(timer);
       window.removeEventListener("pointerdown", preload);
       window.removeEventListener("pointermove", preload);
       window.removeEventListener("keydown", preload);
-      void import("./CommandPalette");
+      preloadCommandPalette();
     };
     window.addEventListener("pointerdown", preload, { passive: true });
     window.addEventListener("pointermove", preload, { passive: true });
     window.addEventListener("keydown", preload);
-    timer = window.setTimeout(preload, 15000);
     return () => {
-      warmed = true;
-      window.clearTimeout(timer);
       window.removeEventListener("pointerdown", preload);
       window.removeEventListener("pointermove", preload);
       window.removeEventListener("keydown", preload);
     };
   }, []);
+
+  // The palette's command catalogue statically pulls the docs content pack and
+  // the settings catalog (~350 KB of chunks), so warm it just after the shell
+  // settles instead of during boot. `preloadOnce` dedupes this with the
+  // first-input warm-up above and with App's prefetch schedule.
+  useIdlePrefetch(preloadCommandPalette, 2000);
+
+  // Opening the palette from the trigger should not wait on the chunk either.
+  const paletteIntent = usePrefetchOnIntent(preloadCommandPalette);
 
   // Translate vertical mouse-wheel input into horizontal tab scrolling.
   const handleTabsWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
@@ -289,6 +292,9 @@ export default function TopNav() {
   const isOverflowActive = overflowTabs.some((tab) =>
     location.pathname.startsWith(tab.path),
   );
+  const preloadOverflowTabs = () => {
+    overflowTabs.forEach((tab) => preloadRoute(tab.path));
+  };
 
   return (
     <>
@@ -306,6 +312,8 @@ export default function TopNav() {
             title={t("nav.home")}
             onMouseEnter={() => preloadRoute("/home")}
             onFocus={() => preloadRoute("/home")}
+            onPointerDown={() => preloadRoute("/home")}
+            onTouchStart={() => preloadRoute("/home")}
           >
             <svg
               className="topnav-logo__mark"
@@ -344,6 +352,7 @@ export default function TopNav() {
           <button
             type="button"
             className="topnav-search-trigger"
+            {...paletteIntent}
             onClick={() => {
               playTabSound();
               setPaletteOpen(true);
@@ -377,6 +386,8 @@ export default function TopNav() {
                   aria-current={isActive ? "page" : undefined}
                   onMouseEnter={() => preloadRoute(tab.path)}
                   onFocus={() => preloadRoute(tab.path)}
+                  onPointerDown={() => preloadRoute(tab.path)}
+                  onTouchStart={() => preloadRoute(tab.path)}
                   onClick={() => {
                     playTabSound();
                     if (isFriends) clearUnseenCommunityItems();
@@ -408,9 +419,10 @@ export default function TopNav() {
                   playTabSound();
                   setMoreOpen((prev) => !prev);
                 }}
-                onMouseEnter={() => {
-                  overflowTabs.forEach((tab) => preloadRoute(tab.path));
-                }}
+                onMouseEnter={preloadOverflowTabs}
+                onFocus={preloadOverflowTabs}
+                onPointerDown={preloadOverflowTabs}
+                onTouchStart={preloadOverflowTabs}
                 aria-expanded={moreOpen}
                 aria-haspopup="menu"
                 title={t("nav.more")}
@@ -442,6 +454,8 @@ export default function TopNav() {
                         role="menuitem"
                         onMouseEnter={() => preloadRoute(tab.path)}
                         onFocus={() => preloadRoute(tab.path)}
+                        onPointerDown={() => preloadRoute(tab.path)}
+                        onTouchStart={() => preloadRoute(tab.path)}
                         onClick={() => {
                           playTabSound();
                           setMoreOpen(false);
@@ -503,8 +517,17 @@ export default function TopNav() {
                       type="button"
                       className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
                       onClick={() => setDownloadsOpen((o) => !o)}
-                      onMouseEnter={() => preloadRoute("/downloads")}
-                      onFocus={() => preloadRoute("/downloads")}
+                      onMouseEnter={() => {
+                        preloadRoute("/downloads");
+                        preloadDownloadPopover();
+                      }}
+                      onFocus={() => {
+                        preloadRoute("/downloads");
+                        preloadDownloadPopover();
+                      }}
+                      onPointerEnter={preloadDownloadPopover}
+                      onPointerDown={() => preloadRoute("/downloads")}
+                      onTouchStart={() => preloadRoute("/downloads")}
                       aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
                       aria-expanded={downloadsOpen}
                       aria-haspopup="dialog"
@@ -533,6 +556,8 @@ export default function TopNav() {
                       }
                       onMouseEnter={() => preloadRoute("/settings")}
                       onFocus={() => preloadRoute("/settings")}
+                      onPointerDown={() => preloadRoute("/settings")}
+                      onTouchStart={() => preloadRoute("/settings")}
                       aria-label={t("nav.settings")}
                       title={t("nav.settings")}
                     >
@@ -549,6 +574,8 @@ export default function TopNav() {
                       }
                       onMouseEnter={() => preloadRoute("/docs")}
                       onFocus={() => preloadRoute("/docs")}
+                      onPointerDown={() => preloadRoute("/docs")}
+                      onTouchStart={() => preloadRoute("/docs")}
                       aria-label={t("nav.docs")}
                       title={t("nav.docs")}
                     >

@@ -41,6 +41,7 @@ import {
 import { Button, ConfirmModal, PageHeader, StatBand, SubTabs } from "../components/ui";
 import PageWidget from "../components/PageWidget";
 import { formatBytesShort } from "../types/download";
+import { preloadEmulatorEditorModal } from "../utils/preloads";
 import "../styles/page-emulators.css";
 import "../styles/page-emulators-workbench.css";
 
@@ -634,6 +635,7 @@ export default function EmulatorsPage() {
   }, []);
 
   const openAddKnown = useCallback((known: KnownEmulator) => {
+    preloadEmulatorEditorModal();
     setShowAdd(false);
     setEditing(null);
     setPresetKnown(known);
@@ -641,6 +643,7 @@ export default function EmulatorsPage() {
   }, []);
 
   const openCustom = useCallback(() => {
+    preloadEmulatorEditorModal();
     setShowAdd(false);
     setEditing(null);
     setPresetKnown(null);
@@ -648,6 +651,7 @@ export default function EmulatorsPage() {
   }, []);
 
   const openEdit = useCallback((emu: Emulator) => {
+    preloadEmulatorEditorModal();
     setEditing(emu);
     setPresetKnown(null);
     setShowEditor(true);

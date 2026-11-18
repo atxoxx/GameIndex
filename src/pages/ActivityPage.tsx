@@ -57,6 +57,10 @@ import {
 import "../styles/activity.css";
 import "./activity/ActivityPage.css";
 import "../styles/activity-workspace.css";
+import {
+  preloadActivityPerformance,
+  preloadWrappedView,
+} from "../utils/preloads";
 
 const ActivityPerformance = lazy(() =>
   import("../components/activity/ActivityPerformance").then((module) => ({
@@ -447,6 +451,10 @@ export default function ActivityPage() {
             items={tabItems}
             value={effectiveTab}
             onChange={(tab) => workspace.update({ tab }, { push: true })}
+            onTabIntent={(tab) => {
+              if (tab === "performance") preloadActivityPerformance();
+              else if (tab === "wrapped") preloadWrappedView();
+            }}
             sticky
             className="activity-page__tabs"
           />

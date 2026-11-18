@@ -2,6 +2,7 @@ import { useEffect, useDeferredValue, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Search, X } from "lucide-react";
 import { useUpdate } from "../../context/UpdateContext";
+import { preloadSettingsTab } from "../../utils/preloads";
 import { getCategoryForTab } from "./settingsCatalog";
 import { useSettingsUi } from "./SettingsUiContext";
 import { IntegrationsIcon, SettingsGearIcon } from "./settingsIcons";
@@ -191,6 +192,10 @@ export default function SettingsSidebar({
             className="settings-rail-status"
             title={t("settings.connectedCount", { count: connectedIntegrations })}
             aria-label={t("settings.connectedCount", { count: connectedIntegrations })}
+            onPointerEnter={() => preloadSettingsTab("integrations")}
+            onPointerDown={() => preloadSettingsTab("integrations")}
+            onFocus={() => preloadSettingsTab("integrations")}
+            onTouchStart={() => preloadSettingsTab("integrations")}
           >
             <IntegrationsIcon />
             <span>{connectedIntegrations}</span>
@@ -260,6 +265,10 @@ export default function SettingsSidebar({
                   className={`settings-rail-result${idx === activeIdx ? " active" : ""}`}
                   onMouseEnter={() => setActiveIdx(idx)}
                   onClick={() => jumpTo(entry)}
+                  onPointerEnter={() => preloadSettingsTab(entry.tab)}
+                  onPointerDown={() => preloadSettingsTab(entry.tab)}
+                  onFocus={() => preloadSettingsTab(entry.tab)}
+                  onTouchStart={() => preloadSettingsTab(entry.tab)}
                 >
                   <span className="settings-rail-result-icon" aria-hidden>
                     {entry.icon ?? <ChevronRight size={14} />}
@@ -297,6 +306,10 @@ export default function SettingsSidebar({
                     className={`settings-rail-item${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     title={item.hint}
+                    onPointerEnter={() => preloadSettingsTab(item.tab)}
+                    onPointerDown={() => preloadSettingsTab(item.tab)}
+                    onFocus={() => preloadSettingsTab(item.tab)}
+                    onTouchStart={() => preloadSettingsTab(item.tab)}
                   >
                     <span className="settings-rail-item-icon" aria-hidden>
                       {item.icon}
@@ -353,7 +366,13 @@ export default function SettingsSidebar({
             <span />
           )}
           {updateStatus === "available" && (
-            <NavLink to="/settings/general?section=general-updates">
+            <NavLink
+              to="/settings/general?section=general-updates"
+              onPointerEnter={() => preloadSettingsTab("general")}
+              onPointerDown={() => preloadSettingsTab("general")}
+              onFocus={() => preloadSettingsTab("general")}
+              onTouchStart={() => preloadSettingsTab("general")}
+            >
               {t("settings.updateAvailableShort")}
             </NavLink>
           )}

@@ -14,6 +14,8 @@ export interface GameTabsProps<T extends string = string> {
   tabs: GameTabItem<T>[];
   activeTab: T;
   onChange: (tabId: T) => void;
+  /** Optional: warm a tab's lazy chunk on hover/focus (see `SubTabs`). */
+  onTabIntent?: (tabId: T) => void;
   className?: string;
   ariaLabel?: string;
 }
@@ -30,6 +32,7 @@ export default function GameTabs<T extends string = string>({
   tabs,
   activeTab,
   onChange,
+  onTabIntent,
   className,
   ariaLabel = "Game navigation tabs",
 }: GameTabsProps<T>) {
@@ -38,6 +41,7 @@ export default function GameTabs<T extends string = string>({
       items={tabs}
       value={activeTab}
       onChange={onChange}
+      onTabIntent={onTabIntent}
       ariaLabel={ariaLabel}
       sticky
       className={["game-tabs", className ?? ""].filter(Boolean).join(" ")}

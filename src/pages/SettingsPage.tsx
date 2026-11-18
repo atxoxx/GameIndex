@@ -8,6 +8,8 @@ import "../styles/settings-tabs-b.css";
 
 import { useSettings } from "../context/SettingsContext";
 import { useAppVersion } from "../hooks/useAppVersion";
+import { useIdlePrefetch } from "../utils/preload";
+import { preloadSettingsTab } from "../utils/preloads";
 import { useIntegrations } from "./settings/useIntegrations";
 import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
 import { useSectionScroll } from "./settings/useSectionScroll";
@@ -82,6 +84,34 @@ function SettingsShell() {
   const validTab = isSettingsTab(tab, { showFullLinuxUi });
   const activeTab: SettingsTab = validTab ? tab : "overview";
   const meta = catalog.meta[activeTab];
+
+  // The rail warms a tab on intent, but a deep link / arrow key can reach this
+  // shell without that hover: warm the resolved tab explicitly. Unknown ids
+  // (the redirect path) never get here as a valid tab, so nothing is fetched
+  // for them.
+  useEffect(() => {
+    if (validTab) preloadSettingsTab(activeTab);
+  }, [activeTab, validTab]);
+
+  // After the page is interactive, warm only the catalog neighbours so moving
+  // to the next/previous tab is instant without parsing the big expert chunks
+  // (Interface, Compatibility) during the first paint.
+  const activeTabIndex = catalog.tabOrder.indexOf(activeTab);
+  const prevTab =
+    activeTabIndex > 0 ? catalog.tabOrder[activeTabIndex - 1] : undefined;
+  const nextTab =
+    activeTabIndex >= 0 && activeTabIndex < catalog.tabOrder.length - 1
+      ? catalog.tabOrder[activeTabIndex + 1]
+      : undefined;
+
+  useIdlePrefetch(
+    () => {
+      preloadSettingsTab(prevTab);
+      preloadSettingsTab(nextTab);
+    },
+    4_000,
+    validTab,
+  );
 
   // Deep links / search: scroll the targeted section into view with a
   // brief flash on whatever tab is active.

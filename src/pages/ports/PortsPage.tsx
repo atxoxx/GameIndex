@@ -30,6 +30,7 @@ import { formatDate, platformAccent, statusRank } from "./portFormat";
 import { groupPorts, orderTargets, type PortGameGroup } from "./portGroups";
 import { prefetchPortCovers } from "./usePortCover";
 import "./PortsPage.css";
+import { preloadVrModsTab } from "../../utils/preloads";
 
 /** The bundled VR catalog is large; only load it when that subtab is opened. */
 const VrModsTab = lazy(() => import("./vrMods/VrModsTab"));
@@ -461,6 +462,9 @@ export default function PortsPage() {
         ariaLabel={`${t("ports.tab.ports")} / ${t("ports.tab.vrMods")}`}
         value={pageTab}
         onChange={(next) => setPageTab(next as PortsPageTab)}
+        onTabIntent={(tab) => {
+          if (tab === "vrMods") preloadVrModsTab();
+        }}
         items={[
           { id: "ports", label: t("ports.tab.ports"), icon: CircuitBoard },
           { id: "vrMods", label: t("ports.tab.vrMods"), icon: Sparkles },
