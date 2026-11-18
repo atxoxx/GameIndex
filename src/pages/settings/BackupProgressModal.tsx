@@ -238,7 +238,7 @@ export default function BackupProgressModal({
           {/* Progress Bar & Status */}
           <div className="backup-progress-meter-card">
             <div className="backup-progress-meter-header">
-              <span className="backup-progress-headline">
+              <span className="backup-progress-headline" role="status" aria-live="polite">
                 {phase === "preparing" && t("settings.backup.preparing")}
                 {phase === "snapshotting" &&
                   t("settings.backup.snapshotting", {
@@ -253,7 +253,14 @@ export default function BackupProgressModal({
               <span className="backup-progress-percent">{percent}%</span>
             </div>
 
-            <div className="backup-progress-track">
+            <div
+              className="backup-progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percent)}
+              aria-label={t("settings.backup.modalTitle")}
+            >
               <div
                 className="backup-progress-fill"
                 style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}

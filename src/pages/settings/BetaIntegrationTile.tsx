@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatDateTime } from "../../utils/localeFormat";
 import IntegrationTile from "./IntegrationTile";
 import { BetaToggle } from "./IntegrationToggles";
 import type { useBetaIntegration } from "./useBetaIntegration";
@@ -43,7 +44,7 @@ export default function BetaIntegrationTile({
   onRemoveGames,
   onConfirmDisconnect,
 }: BetaIntegrationTileProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const {
     auth,
     settings,
@@ -123,7 +124,7 @@ export default function BetaIntegrationTile({
         auth.lastSync ? (
           <p className="sync-result-time">
             {t("settingsPage.lastSync", {
-              time: new Date(auth.lastSync * 1000).toLocaleString(),
+              time: formatDateTime(auth.lastSync * 1000, language),
             })}
           </p>
         ) : undefined

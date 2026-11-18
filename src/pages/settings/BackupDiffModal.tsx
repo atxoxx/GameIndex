@@ -2,6 +2,7 @@ import { ArrowRight, GitCompare, Minus, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Button } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { formatBackupDate } from "./backupUtils";
 import type { BackupDiffReport } from "../../types/backup";
 
@@ -12,7 +13,7 @@ interface BackupDiffModalProps {
 }
 
 export default function BackupDiffModal({ diff, onClose, onRestore }: BackupDiffModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   if (!diff) return null;
 
   const fileName = diff.filePath.split(/[\\/]/).pop() ?? "backup.gibak";
@@ -30,7 +31,7 @@ export default function BackupDiffModal({ diff, onClose, onRestore }: BackupDiff
                 {t("settings.backup.diffTitle")}
               </h3>
               <span className="backup-modal-subtitle">
-                {fileName} · {formatBackupDate(diff.archiveCreatedAt)}
+                {fileName} · {formatBackupDate(diff.archiveCreatedAt, language)}
               </span>
             </div>
           </div>
@@ -49,7 +50,7 @@ export default function BackupDiffModal({ diff, onClose, onRestore }: BackupDiff
               {t("settings.backup.archiveState")}
             </span>
             <span className="backup-diff-summary-val">
-              {diff.archiveTotalRecords.toLocaleString()} {t("settings.backup.records")}
+              {formatNumber(diff.archiveTotalRecords, language)} {t("settings.backup.records")}
             </span>
           </div>
 
@@ -73,7 +74,7 @@ export default function BackupDiffModal({ diff, onClose, onRestore }: BackupDiff
               {t("settings.backup.liveState")}
             </span>
             <span className="backup-diff-summary-val">
-              {diff.liveTotalRecords.toLocaleString()} {t("settings.backup.records")}
+              {formatNumber(diff.liveTotalRecords, language)} {t("settings.backup.records")}
             </span>
           </div>
         </div>
@@ -95,8 +96,8 @@ export default function BackupDiffModal({ diff, onClose, onRestore }: BackupDiff
                   <td className="backup-diff-domain-cell">
                     <span className="backup-diff-domain-name">{row.domain}</span>
                   </td>
-                  <td>{row.archiveCount.toLocaleString()}</td>
-                  <td>{row.liveCount.toLocaleString()}</td>
+                  <td>{formatNumber(row.archiveCount, language)}</td>
+                  <td>{formatNumber(row.liveCount, language)}</td>
                   <td>
                     {row.delta > 0 ? (
                       <span className="backup-delta-pill backup-delta-pill--added">

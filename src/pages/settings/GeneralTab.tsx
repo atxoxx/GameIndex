@@ -9,6 +9,7 @@ import {
 } from "../../context/UpdateContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
+import { formatTime } from "../../utils/localeFormat";
 import { FlagIcon, Button, ChangelogModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsRow from "./SettingsRow";
@@ -66,7 +67,13 @@ export default function GeneralTab() {
     if (!lastCheckedAt) return null;
     const date = new Date(lastCheckedAt);
     if (Number.isNaN(date.getTime())) return null;
-    return t("updater.lastChecked", { time: date.toLocaleTimeString() });
+    return t("updater.lastChecked", {
+      time: formatTime(date, language, {
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+      }),
+    });
   })();
 
   const statusTitle = (() => {

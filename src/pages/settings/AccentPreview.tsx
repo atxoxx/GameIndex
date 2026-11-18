@@ -110,27 +110,27 @@ export default function AccentPreview({
           <div className="accent-preview__ramp" title={t("settings.accent.rampStep")}>
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--base"
-              title="100% Base Accent"
+              title={t("settings.accent.stepBase")}
             />
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--hover"
-              title="85% Elevated Hover"
+              title={t("settings.accent.stepHover")}
             />
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--active"
-              title="70% Pressed Active"
+              title={t("settings.accent.stepActive")}
             />
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--soft"
-              title="12% Translucent Soft"
+              title={t("settings.accent.stepSoft")}
             />
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--surface"
-              title="6% Ambient Surface"
+              title={t("settings.accent.stepSurface")}
             />
             <div
               className="accent-preview__ramp-step accent-preview__ramp-step--glow"
-              title="28% Luminescent Halo"
+              title={t("settings.accent.stepGlow")}
             />
           </div>
         </div>

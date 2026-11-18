@@ -5,6 +5,7 @@ import { useSettings, type SyncIntervalMinutes } from "../../context/SettingsCon
 import { useAchievements } from "../../context/AchievementContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { formatDateTime } from "../../utils/localeFormat";
 import { Button, ConfirmModal } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsCategory from "./SettingsCategory";
@@ -79,7 +80,7 @@ export default function IntegrationsTab({
    *  RetroAchievements and data-sync sections remain Settings-only. */
   accountsOnly?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, steamAutoDetect, setSteamAutoDetect } = useSettings();
   const { settings: achievementSettings, updateSettings: updateAchievementSettings, getRetroSettings, saveRetroSettings, getRetroConsoles } = useAchievements();
@@ -548,7 +549,10 @@ export default function IntegrationsTab({
                         )}
                         <div className="steam-family-member-card__info">
                           <span className="steam-family-member-card__name">
-                            {member.personaName || `Steam ID: ${member.accountId}`}
+                            {member.personaName ||
+                              t("settings.steamIdValue", {
+                                id: member.accountId,
+                              })}
                           </span>
                           <span className="steam-family-member-card__badge">
                             {member.isCurrentUser
@@ -620,7 +624,7 @@ export default function IntegrationsTab({
           lastSync={
             epic.epicAuth.lastSync ? (
               <p className="sync-result-time">
-                {t("settingsPage.lastSync", { time: new Date(epic.epicAuth.lastSync * 1000).toLocaleString() })}
+                {t("settingsPage.lastSync", { time: formatDateTime(epic.epicAuth.lastSync * 1000, language) })}
               </p>
             ) : undefined
           }
@@ -711,7 +715,7 @@ export default function IntegrationsTab({
           lastSync={
             gog.gogAuth.lastSync ? (
               <p className="sync-result-time">
-                {t("settingsPage.lastSync", { time: new Date(gog.gogAuth.lastSync * 1000).toLocaleString() })}
+                {t("settingsPage.lastSync", { time: formatDateTime(gog.gogAuth.lastSync * 1000, language) })}
               </p>
             ) : undefined
           }
@@ -792,7 +796,7 @@ export default function IntegrationsTab({
           lastSync={
             humble.humbleAuth.lastSync ? (
               <p className="sync-result-time">
-                {t("settingsPage.lastSync", { time: new Date(humble.humbleAuth.lastSync * 1000).toLocaleString() })}
+                {t("settingsPage.lastSync", { time: formatDateTime(humble.humbleAuth.lastSync * 1000, language) })}
               </p>
             ) : undefined
           }
@@ -924,7 +928,7 @@ export default function IntegrationsTab({
           lastSync={
             rockstar.rockstarSyncResult?.lastSync ? (
               <p className="sync-result-time">
-                {t("settingsPage.lastScan", { time: new Date(rockstar.rockstarSyncResult.lastSync * 1000).toLocaleString() })}
+                {t("settingsPage.lastScan", { time: formatDateTime(rockstar.rockstarSyncResult.lastSync * 1000, language) })}
               </p>
             ) : undefined
           }
@@ -983,7 +987,7 @@ export default function IntegrationsTab({
           lastSync={
             uplay.uplaySyncResult?.lastSync ? (
               <p className="sync-result-time">
-                {t("settingsPage.lastSync", { time: new Date(uplay.uplaySyncResult.lastSync * 1000).toLocaleString() })}
+                {t("settingsPage.lastSync", { time: formatDateTime(uplay.uplaySyncResult.lastSync * 1000, language) })}
               </p>
             ) : undefined
           }

@@ -188,6 +188,7 @@ export default function SettingsSidebar({
             to="/settings/integrations"
             className="settings-rail-status"
             title={t("settings.connectedCount", { count: connectedIntegrations })}
+            aria-label={t("settings.connectedCount", { count: connectedIntegrations })}
           >
             <IntegrationsIcon />
             <span>{connectedIntegrations}</span>

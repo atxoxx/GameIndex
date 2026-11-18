@@ -7,6 +7,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { Button } from "../../components/ui";
 import type { GpuInfo, SizeUnit, SpeedUnit } from "../../types/game";
 import { CpuIcon, GaugeIcon, GpuIcon, HardwareIcon, MemoryIcon, RefreshIcon, ThermometerIcon } from "./settingsIcons";
@@ -38,7 +39,7 @@ export default function HardwareTab() {
   } = useSettings();
   const { unit: sizeUnit, setUnit: setSizeUnit } = useSizeUnit();
   const { unit: speedUnit, setUnit: setSpeedUnit } = useSpeedUnit();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   // System summary (CPU / RAM / all GPUs). Fetched once on mount; the
@@ -192,7 +193,7 @@ export default function HardwareTab() {
             <span className="hw-spec-icon hw-spec-icon--memory" aria-hidden><MemoryIcon /></span>
             <div className="hw-spec-body">
               <span className="hw-spec-label">{t("settingsPage.memory")}</span>
-              <span className="hw-spec-value">{systemInfo ? `${systemInfo.ramGb} GB` : "—"}</span>
+              <span className="hw-spec-value">{systemInfo ? `${formatNumber(systemInfo.ramGb, language)} GB` : "—"}</span>
               <span className="hw-spec-sub">{t("settings.hardware.ramSub")}</span>
             </div>
           </div>
@@ -218,9 +219,11 @@ export default function HardwareTab() {
                     const isActive = selectedGpu?.id === g.id;
                     const vram =
                       g.vramMb >= 1024
-                        ? `${(g.vramMb / 1024).toFixed(g.vramMb % 1024 === 0 ? 0 : 1)} GB`
+                        ? `${formatNumber(g.vramMb / 1024, language, {
+                            maximumFractionDigits: g.vramMb % 1024 === 0 ? 0 : 1,
+                          })} GB`
                         : g.vramMb > 0
-                          ? `${g.vramMb} MB`
+                          ? `${formatNumber(g.vramMb, language)} MB`
                           : "—";
                     return (
                       <button
@@ -334,7 +337,7 @@ export default function HardwareTab() {
                 <option key={gpu.id} value={gpu.id}>
                   {gpu.name}
                   {gpu.vramMb > 0
-                    ? ` (${gpu.vramMb} MB${gpu.pciId ? ` · ${gpu.pciId}` : ""})`
+                    ? ` (${formatNumber(gpu.vramMb, language)} MB${gpu.pciId ? ` · ${gpu.pciId}` : ""})`
                     : gpu.pciId
                       ? ` (${gpu.pciId})`
                       : ""}

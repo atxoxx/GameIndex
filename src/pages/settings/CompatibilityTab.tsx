@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { formatDate } from "../../utils/localeFormat";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -59,18 +60,18 @@ interface WinePrefixInfo {
 }
 
 const QUICK_WINETRICKS_PACKAGES = [
-  { verb: "dxvk", name: "DXVK", desc: "Vulkan-based D3D9/D3D10/D3D11 translation" },
-  { verb: "vkd3d", name: "VKD3D-Proton", desc: "Direct3D 12 to Vulkan translation" },
-  { verb: "vcrun2022", name: "Visual C++ 2015-2022", desc: "MSVC runtime redistributables" },
-  { verb: "vcrun2019", name: "Visual C++ 2019", desc: "MSVC 2019 runtime" },
-  { verb: "vcrun2010", name: "Visual C++ 2010", desc: "MSVC 2010 runtime for older games" },
-  { verb: "dotnet48", name: ".NET Framework 4.8", desc: "Microsoft .NET 4.8 Runtime" },
-  { verb: "dotnet472", name: ".NET Framework 4.7.2", desc: "Microsoft .NET 4.7.2 Runtime" },
-  { verb: "corefonts", name: "MS Core Fonts", desc: "Arial, Times New Roman, Courier, etc." },
-  { verb: "allfonts", name: "All Wine Fonts", desc: "Complete font compatibility collection" },
-  { verb: "faudio", name: "FAudio", desc: "XAudio2 reimplementation library" },
-  { verb: "d3dcompiler_47", name: "D3DCompiler 47", desc: "Direct3D shader compiler DLL" },
-  { verb: "physx", name: "NVIDIA PhysX", desc: "Legacy physics runtime engine" },
+  { verb: "dxvk", name: "DXVK", descKey: "compatibility.verbDesc.dxvk" },
+  { verb: "vkd3d", name: "VKD3D-Proton", descKey: "compatibility.verbDesc.vkd3d" },
+  { verb: "vcrun2022", name: "Visual C++ 2015-2022", descKey: "compatibility.verbDesc.vcrun2022" },
+  { verb: "vcrun2019", name: "Visual C++ 2019", descKey: "compatibility.verbDesc.vcrun2019" },
+  { verb: "vcrun2010", name: "Visual C++ 2010", descKey: "compatibility.verbDesc.vcrun2010" },
+  { verb: "dotnet48", name: ".NET Framework 4.8", descKey: "compatibility.verbDesc.dotnet48" },
+  { verb: "dotnet472", name: ".NET Framework 4.7.2", descKey: "compatibility.verbDesc.dotnet472" },
+  { verb: "corefonts", name: "MS Core Fonts", descKey: "compatibility.verbDesc.corefonts" },
+  { verb: "allfonts", name: "All Wine Fonts", descKey: "compatibility.verbDesc.allfonts" },
+  { verb: "faudio", name: "FAudio", descKey: "compatibility.verbDesc.faudio" },
+  { verb: "d3dcompiler_47", name: "D3DCompiler 47", descKey: "compatibility.verbDesc.d3dcompiler47" },
+  { verb: "physx", name: "NVIDIA PhysX", descKey: "compatibility.verbDesc.physx" },
 ];
 
 const PROTON_SOURCES = ["ge-proton", "cachyos", "proton-em"];
@@ -252,7 +253,7 @@ type CompatSettingsSubtab =
   | "maintenance";
 
 export default function CompatibilityTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [searchParams] = useSearchParams();
@@ -578,7 +579,7 @@ export default function CompatibilityTab() {
         title: t("compatibility.selectArchiveFile"),
         filters: [
           {
-            name: "Runner Archives (*.tar.gz, *.tar.xz, *.tar.zst, *.zip)",
+            name: t("compatibility.runnerArchiveFilter"),
             extensions: ["gz", "xz", "zst", "zip", "tar"],
           },
         ],
@@ -1161,7 +1162,8 @@ export default function CompatibilityTab() {
                         type="button"
                         className="runner-search-clear"
                         onClick={() => setRunnerSearch("")}
-                        aria-label="Clear"
+                        aria-label={t("common.clearSearch")}
+                        title={t("common.clearSearch")}
                       >
                         <X size={13} />
                       </button>
@@ -1391,7 +1393,7 @@ export default function CompatibilityTab() {
                           id="custom-runner-name"
                           type="text"
                           className="settings-input"
-                          placeholder="e.g. Proton-Experimental-Custom"
+                          placeholder={t("compatibility.runnerNamePlaceholder")}
                           value={customRunnerName}
                           onChange={(e) => setCustomRunnerName(e.target.value)}
                         />
@@ -1452,7 +1454,7 @@ export default function CompatibilityTab() {
                         const formattedDate = dateStr
                           ? (() => {
                               const d = new Date(dateStr);
-                              return isNaN(d.getTime()) ? null : d.toLocaleDateString();
+                              return isNaN(d.getTime()) ? null : formatDate(d, language);
                             })()
                           : null;
                         const isInstalled =
@@ -1799,11 +1801,11 @@ export default function CompatibilityTab() {
                           <span className="prefix-card-name">{p.name}</span>
                           <Badge variant={p.arch === "win64" ? "info" : "warning"} size="sm">{p.arch}</Badge>
                           {p.isProton && <Badge variant="accent" size="sm">Proton</Badge>}
-                          {p.isDefaultBase && <Badge variant="default" size="sm">Default</Badge>}
+                          {p.isDefaultBase && <Badge variant="default" size="sm">{t("compatibility.badgeDefault")}</Badge>}
                           {settings.defaultPrefix === p.path && (
                             <Badge variant="success" size="sm" dot>{t("compatibility.activeDefault")}</Badge>
                           )}
-                          {p.isCustom && <Badge variant="default" size="sm">Custom</Badge>}
+                          {p.isCustom && <Badge variant="default" size="sm">{t("compatibility.badgeCustom")}</Badge>}
                           {p.winVersion && <Badge variant="default" size="sm">{p.winVersion}</Badge>}
                         </div>
                         <div className="prefix-card-meta">
@@ -1815,7 +1817,7 @@ export default function CompatibilityTab() {
                           </span>
                           {p.lastModified && (
                             <span className="prefix-card-stat">
-                              {new Date(p.lastModified * 1000).toLocaleDateString()}
+                              {formatDate(p.lastModified * 1000, language)}
                             </span>
                           )}
                         </div>
@@ -1953,7 +1955,15 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.createPrefixTitle")}</h3>
-                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setCreatePrefixOpen(false)}></Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    leftIcon={<X size={18} />}
+                    onClick={() => setCreatePrefixOpen(false)}
+                    aria-label={t("common.close")}
+                    title={t("common.close")}
+                  ></Button>
                 </div>
                 <div className="prefix-modal-body">
                   <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
@@ -2031,7 +2041,15 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.duplicatePrefixTitle")}</h3>
-                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setDuplicateTarget(null)}></Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    leftIcon={<X size={18} />}
+                    onClick={() => setDuplicateTarget(null)}
+                    aria-label={t("common.close")}
+                    title={t("common.close")}
+                  ></Button>
                 </div>
                 <div className="prefix-modal-body">
                   <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
@@ -2106,7 +2124,15 @@ export default function CompatibilityTab() {
               <div className="prefix-modal-dialog" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
                 <div className="prefix-modal-header">
                   <h3 className="prefix-modal-title">{t("compatibility.quickVerbsTitle")}</h3>
-                  <Button variant="ghost" size="sm" iconOnly leftIcon={<X size={18} />}  onClick={() => setQuickVerbsTarget(null)}></Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    leftIcon={<X size={18} />}
+                    onClick={() => setQuickVerbsTarget(null)}
+                    aria-label={t("common.close")}
+                    title={t("common.close")}
+                  ></Button>
                 </div>
                 <div className="prefix-modal-body">
                   <p style={{ color: "var(--color-text-muted)", fontSize: "var(--text-sm)", margin: 0 }}>
@@ -2117,7 +2143,7 @@ export default function CompatibilityTab() {
                       <div key={pkg.verb} className="quick-verb-item">
                         <div className="quick-verb-info">
                           <span className="quick-verb-code">{pkg.verb}</span>
-                          <span className="quick-verb-name">{pkg.name} — {pkg.desc}</span>
+                          <span className="quick-verb-name">{pkg.name} — {t(pkg.descKey)}</span>
                         </div>
                         <Button
                           size="sm"
@@ -2401,7 +2427,7 @@ export default function CompatibilityTab() {
                       <input
                         type="number"
                         className="settings-input"
-                        placeholder="Width (1920)"
+                        placeholder={t("compatibility.renderWidthPlaceholder")}
                         value={settings.gamescopeGameWidth || ""}
                         onChange={(e) => {
                           const val = e.target.value ? parseInt(e.target.value, 10) : null;
@@ -2411,7 +2437,7 @@ export default function CompatibilityTab() {
                       <input
                         type="number"
                         className="settings-input"
-                        placeholder="Height (1080)"
+                        placeholder={t("compatibility.renderHeightPlaceholder")}
                         value={settings.gamescopeGameHeight || ""}
                         onChange={(e) => {
                           const val = e.target.value ? parseInt(e.target.value, 10) : null;
@@ -2449,7 +2475,7 @@ export default function CompatibilityTab() {
                       <input
                         type="number"
                         className="settings-input"
-                        placeholder="Display W"
+                        placeholder={t("compatibility.displayWidthPlaceholder")}
                         value={settings.gamescopeWindowWidth || ""}
                         onChange={(e) => {
                           const val = e.target.value ? parseInt(e.target.value, 10) : null;
@@ -2459,7 +2485,7 @@ export default function CompatibilityTab() {
                       <input
                         type="number"
                         className="settings-input"
-                        placeholder="Display H"
+                        placeholder={t("compatibility.displayHeightPlaceholder")}
                         value={settings.gamescopeWindowHeight || ""}
                         onChange={(e) => {
                           const val = e.target.value ? parseInt(e.target.value, 10) : null;
@@ -2495,11 +2521,11 @@ export default function CompatibilityTab() {
                   <label className="settings-label">{t("compatibility.upscalingFilter")}</label>
                   <div className="gamescope-pill-group">
                     {[
-                      { key: "fsr", label: "AMD FSR" },
-                      { key: "nis", label: "NVIDIA NIS" },
-                      { key: "linear", label: "Linear" },
-                      { key: "nearest", label: "Nearest" },
-                      { key: "integer", label: "Integer Scaling" },
+                      { key: "fsr" },
+                      { key: "nis" },
+                      { key: "linear" },
+                      { key: "nearest" },
+                      { key: "integer" },
                     ].map((f) => (
                       <button
                         key={f.key}
@@ -2507,7 +2533,7 @@ export default function CompatibilityTab() {
                         className={`gamescope-pill-btn ${(settings.gamescopeFilter || "fsr") === f.key ? "active" : ""}`}
                         onClick={() => updateSettings((prev) => ({ ...prev, gamescopeFilter: f.key }))}
                       >
-                        {f.label}
+                        {t(`compatibility.filter_${f.key}`)}
                       </button>
                     ))}
                   </div>
@@ -2760,7 +2786,7 @@ export default function CompatibilityTab() {
                     type="text"
                     className="settings-input"
                     style={{ flex: 1 }}
-                    placeholder="VARIABLE_NAME"
+                    placeholder={t("edit.placeholder.envKey")}
                     value={newEnvKey}
                     onChange={(e) => setNewEnvKey(e.target.value)}
                   />
@@ -2768,7 +2794,7 @@ export default function CompatibilityTab() {
                     type="text"
                     className="settings-input"
                     style={{ flex: 1 }}
-                    placeholder="value"
+                    placeholder={t("edit.placeholder.envValue")}
                     value={newEnvVal}
                     onChange={(e) => setNewEnvVal(e.target.value)}
                   />
@@ -2803,7 +2829,7 @@ export default function CompatibilityTab() {
                     type="text"
                     className="settings-input"
                     style={{ flex: 1 }}
-                    placeholder="e.g. dinput8"
+                    placeholder={t("edit.placeholder.dll")}
                     value={newDllName}
                     onChange={(e) => setNewDllName(e.target.value)}
                   />
@@ -2813,11 +2839,11 @@ export default function CompatibilityTab() {
                     value={newDllMode}
                     onChange={(e) => setNewDllMode(e.target.value)}
                   >
-                    <option value="n,b">Native, Builtin (n,b)</option>
-                    <option value="b,n">Builtin, Native (b,n)</option>
-                    <option value="n">Native only (n)</option>
-                    <option value="b">Builtin only (b)</option>
-                    <option value="d">Disabled (d)</option>
+                    <option value="n,b">{t("edit.dllMode.nativeBuiltin")}</option>
+                    <option value="b,n">{t("edit.dllMode.builtinNative")}</option>
+                    <option value="n">{t("edit.dllMode.native")}</option>
+                    <option value="b">{t("edit.dllMode.builtin")}</option>
+                    <option value="d">{t("edit.dllMode.disabled")}</option>
                   </select>
                   <Button variant="secondary" size="sm" onClick={handleAddDllOverride}>
                     {t("common.add")}

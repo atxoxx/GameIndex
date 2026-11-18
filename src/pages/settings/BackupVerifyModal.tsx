@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, ShieldCheck, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Button } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import type { BackupVerifyReport } from "../../types/backup";
 
 interface BackupVerifyModalProps {
@@ -10,7 +11,7 @@ interface BackupVerifyModalProps {
 }
 
 export default function BackupVerifyModal({ report, onClose }: BackupVerifyModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   if (!report) return null;
 
   return createPortal(
@@ -86,7 +87,7 @@ export default function BackupVerifyModal({ report, onClose }: BackupVerifyModal
               {t("settings.backup.verifyRecords")}
             </span>
             <span className="backup-verify-stat-value">
-              {report.totalRecords.toLocaleString()}
+              {formatNumber(report.totalRecords, language)}
             </span>
           </div>
           <div className="backup-verify-stat-item">
@@ -119,8 +120,9 @@ export default function BackupVerifyModal({ report, onClose }: BackupVerifyModal
                 <div className="backup-verify-row-meta">
                   {detail.valid ? (
                     <span className="backup-verify-row-count">
-                      {detail.recordsFound.toLocaleString()}{" "}
-                      {t("settings.backup.recordsFound", { count: detail.recordsFound })}
+                      {t("settings.backup.recordsFound", {
+                        count: formatNumber(detail.recordsFound, language),
+                      })}
                     </span>
                   ) : (
                     <span className="backup-verify-row-error">

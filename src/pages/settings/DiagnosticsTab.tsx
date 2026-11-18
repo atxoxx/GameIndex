@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button, ConfirmModal } from "../../components/ui";
+import { formatDateTime } from "../../utils/localeFormat";
 import type { GpuInfo } from "../../types/game";
 import {
   DiagnosticsIcon,
@@ -54,15 +55,15 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-function formatWhen(seconds: number): string {
+function formatWhen(seconds: number, locale?: string): string {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString();
+  return formatDateTime(seconds * 1000, locale);
 }
 
 /** Compact row timestamp: "02 Nov 2026, 06:26" (locale-aware). */
-function formatReportWhen(seconds: number): string {
+function formatReportWhen(seconds: number, locale?: string): string {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString(undefined, {
+  return formatDateTime(seconds * 1000, locale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -81,7 +82,7 @@ function formatReportWhen(seconds: number): string {
  * The system report below is copyable even when nothing has crashed.
  */
 export default function DiagnosticsTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [status, setStatus] = useState<CrashLogStatus | null>(null);
@@ -314,7 +315,7 @@ export default function DiagnosticsTab() {
               {t("settings.diagnostics.lastCrash")}
             </span>
             <span className="diag-meta-value">
-              {formatWhen(status?.logModifiedAt ?? 0)}
+              {formatWhen(status?.logModifiedAt ?? 0, language)}
             </span>
           </div>
         </div>
@@ -359,7 +360,7 @@ export default function DiagnosticsTab() {
             </div>
             <div
               className="diag-report-list"
-              role="listbox"
+              role="group"
               aria-label={t("settings.diagnostics.reports", {
                 count: reports.length,
               })}
@@ -367,8 +368,7 @@ export default function DiagnosticsTab() {
               <div className="diag-report-row diag-report-row--rolling">
                 <button
                   type="button"
-                  role="option"
-                  aria-selected={selected === null}
+                  aria-pressed={selected === null}
                   className="diag-report-open"
                   onClick={() => select(null)}
                 >
@@ -377,7 +377,7 @@ export default function DiagnosticsTab() {
                   </span>
                   <span className="diag-report-name">crash.log</span>
                   <span className="diag-report-size">
-                    {formatReportWhen(status?.logModifiedAt ?? 0)}
+                    {formatReportWhen(status?.logModifiedAt ?? 0, language)}
                   </span>
                 </button>
               </div>
@@ -386,14 +386,13 @@ export default function DiagnosticsTab() {
                 <div key={report.name} className="diag-report-row">
                   <button
                     type="button"
-                    role="option"
-                    aria-selected={selected === report.name}
+                    aria-pressed={selected === report.name}
                     className="diag-report-open"
                     title={report.name}
                     onClick={() => select(report.name)}
                   >
                     <span className="diag-report-when">
-                      {formatReportWhen(report.modifiedAt)}
+                      {formatReportWhen(report.modifiedAt, language)}
                     </span>
                     <span className="diag-report-name">{report.name}</span>
                     <span className="diag-report-size">
@@ -416,7 +415,9 @@ export default function DiagnosticsTab() {
         )}
 
         {!hasAnything && !loading && (
-          <p className="diag-empty">{t("settings.diagnostics.empty")}</p>
+          <p className="diag-empty" role="status">
+            {t("settings.diagnostics.empty")}
+          </p>
         )}
 
         {hasAnything && (

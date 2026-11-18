@@ -29,6 +29,7 @@ import { Badge, Button, ConfirmModal, KpiTile } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
+import { formatNumber } from "../../utils/localeFormat";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import BackupProgressModal from "./BackupProgressModal";
@@ -88,7 +89,7 @@ function fileName(path: string): string {
 }
 
 export default function BackupTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showFullLinuxUi } = useSettings();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -592,6 +593,7 @@ export default function BackupTab() {
         <button
           type="button"
           className={`backup-subtab-pill ${subtab === "overview" ? "active" : ""}`}
+          aria-pressed={subtab === "overview"}
           onClick={() => handleSelectSubtab("overview")}
         >
           <Database className="backup-subtab-icon" size={16} />
@@ -602,6 +604,7 @@ export default function BackupTab() {
         <button
           type="button"
           className={`backup-subtab-pill ${subtab === "create" ? "active" : ""}`}
+          aria-pressed={subtab === "create"}
           onClick={() => handleSelectSubtab("create")}
         >
           <Download className="backup-subtab-icon" size={16} />
@@ -611,6 +614,7 @@ export default function BackupTab() {
         <button
           type="button"
           className={`backup-subtab-pill ${subtab === "restore" ? "active" : ""}`}
+          aria-pressed={subtab === "restore"}
           onClick={() => handleSelectSubtab("restore")}
         >
           <Upload className="backup-subtab-icon" size={16} />
@@ -621,6 +625,7 @@ export default function BackupTab() {
         <button
           type="button"
           className={`backup-subtab-pill ${subtab === "settings" ? "active" : ""}`}
+          aria-pressed={subtab === "settings"}
           onClick={() => handleSelectSubtab("settings")}
         >
           <SlidersHorizontal className="backup-subtab-icon" size={16} />
@@ -655,7 +660,7 @@ export default function BackupTab() {
                   <p className="backup-hero-desc">
                     {status?.lastBackupAt
                       ? t("settings.backup.lastProtectedTime", {
-                          time: formatBackupRelative(status.lastBackupAt, t),
+                          time: formatBackupRelative(status.lastBackupAt, t, language),
                         })
                       : t("settings.backup.neverBackedUpDesc")}
                   </p>
@@ -688,6 +693,7 @@ export default function BackupTab() {
                   onClick={() => void handleOpenFolder()}
                   disabled={!config?.backupDir}
                   title={t("settings.backup.openFolder")}
+                  aria-label={t("settings.backup.openFolder")}
                 >
                   <FolderOpen size={14} />
                 </Button>
@@ -697,6 +703,7 @@ export default function BackupTab() {
                   onClick={() => void refreshAll()}
                   disabled={loading}
                   title={t("common.refresh")}
+                  aria-label={t("common.refresh")}
                 >
                   <RefreshCw size={14} />
                 </Button>
@@ -732,7 +739,7 @@ export default function BackupTab() {
             />
             <KpiTile
               label={t("settings.backup.kpi.totalRecords")}
-              value={totalRecords.toLocaleString()}
+              value={formatNumber(totalRecords, language)}
               icon={<Layers size={16} />}
               size="sm"
               intent="info"
@@ -775,7 +782,9 @@ export default function BackupTab() {
                       style={{ width: `${pct}%`, backgroundColor: color }}
                       title={`${t(BACKUP_DOMAIN_LABEL_KEYS[d.name] ?? d.name)}: ${formatBackupBytes(
                         d.sizeBytes
-                      )} (${((d.sizeBytes / totalBytes) * 100).toFixed(1)}%)`}
+                      )} (${formatNumber((d.sizeBytes / totalBytes) * 100, language, {
+                        maximumFractionDigits: 1,
+                      })}%)`}
                     />
                   );
                 })}
@@ -785,7 +794,9 @@ export default function BackupTab() {
               <div className="backup-meter-legend">
                 {domainsWithData.map((d) => {
                   const color = getDomainColor(d.name);
-                  const pct = ((d.sizeBytes / totalBytes) * 100).toFixed(1);
+                  const pct = formatNumber((d.sizeBytes / totalBytes) * 100, language, {
+                    maximumFractionDigits: 1,
+                  });
                   return (
                     <div key={d.name} className="backup-legend-chip">
                       <span className="backup-legend-dot" style={{ backgroundColor: color }} />
@@ -866,7 +877,7 @@ export default function BackupTab() {
             </div>
 
             {archives.length === 0 ? (
-              <div className="backup-empty-card">
+              <div className="backup-empty-card" role="status">
                 <FileArchive size={32} className="backup-empty-icon" />
                 <p className="backup-empty-title">{t("settings.backup.noArchives")}</p>
                 <p className="backup-empty-desc">{t("settings.backup.noArchivesHint")}</p>
@@ -909,10 +920,10 @@ export default function BackupTab() {
                       <div className="backup-archive-meta">
                         <span
                           className="backup-archive-time"
-                          title={formatBackupDate(arc.createdAt)}
+                          title={formatBackupDate(arc.createdAt, language)}
                         >
                           <Clock size={12} />
-                          {formatBackupRelative(arc.createdAt, t)}
+                          {formatBackupRelative(arc.createdAt, t, language)}
                         </span>
                         <span>·</span>
                         <span>{formatBackupBytes(arc.sizeBytes)}</span>
@@ -921,7 +932,7 @@ export default function BackupTab() {
                         <span>·</span>
                         <span>
                           {t("settings.backup.recordsCount", {
-                            count: arc.totalRecords.toLocaleString(),
+                            count: formatNumber(arc.totalRecords, language),
                           })}
                         </span>
                         {arc.appVersion && (
@@ -1235,9 +1246,10 @@ export default function BackupTab() {
               </span>
               <span className="backup-create-summary-sub">
                 {t("settings.backup.totalRecordsLabel", {
-                  count: createChoices
-                    .reduce((acc, d) => acc + (d.itemCount ?? 0), 0)
-                    .toLocaleString(),
+                  count: formatNumber(
+                    createChoices.reduce((acc, d) => acc + (d.itemCount ?? 0), 0),
+                    language,
+                  ),
                 })}
               </span>
             </div>
@@ -1337,7 +1349,7 @@ export default function BackupTab() {
                     <div className="backup-quick-pick-info">
                       <span className="backup-quick-pick-name">{arc.fileName}</span>
                       <span className="backup-quick-pick-meta">
-                        {formatBackupRelative(arc.createdAt, t)} · {formatBackupBytes(arc.sizeBytes)}
+                        {formatBackupRelative(arc.createdAt, t, language)} · {formatBackupBytes(arc.sizeBytes)}
                       </span>
                     </div>
                   </button>
@@ -1364,7 +1376,7 @@ export default function BackupTab() {
                       {t("settings.backup.archiveCreated")}
                     </span>
                     <span className="backup-meta-value">
-                      {formatBackupDate(archive.createdAt)}
+                      {formatBackupDate(archive.createdAt, language)}
                     </span>
                   </div>
                   <div className="backup-meta-cell">

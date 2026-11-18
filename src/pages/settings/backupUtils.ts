@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../utils/localeFormat";
 import type { BackupArchiveSummary, BackupConfig, BackupStatus } from "../../types/backup";
 
 /** Format a byte count for the Backup tab (B / KB / MB / GB). */
@@ -13,10 +14,13 @@ export function formatBackupBytes(bytes: number): string {
   return `${val.toFixed(1)} ${units[i]}`;
 }
 
-/** Format a unix epoch second timestamp to localized date/time string. */
-export function formatBackupDate(epochSec: number | null | undefined): string {
+/** Format a unix epoch second timestamp to a date/time string in `locale`. */
+export function formatBackupDate(
+  epochSec: number | null | undefined,
+  locale?: string,
+): string {
   if (!epochSec) return "";
-  return new Date(epochSec * 1000).toLocaleString(undefined, {
+  return formatDateTime(epochSec * 1000, locale, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -33,6 +37,7 @@ type Translate = (key: string, vars?: Record<string, unknown>) => string;
 export function formatBackupRelative(
   epochSec: number | null | undefined,
   t: Translate,
+  locale?: string,
 ): string {
   if (!epochSec) return "";
   const diffSec = Math.floor(Date.now() / 1000) - epochSec;
@@ -46,7 +51,7 @@ export function formatBackupRelative(
   if (diffSec < 86400 * 30) {
     return t("settings.backup.relative.days", { count: Math.floor(diffSec / 86400) });
   }
-  return formatBackupDate(epochSec);
+  return formatBackupDate(epochSec, locale);
 }
 
 export interface DomainColorInfo {
