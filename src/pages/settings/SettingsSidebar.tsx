@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useDeferredValue, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Search, X } from "lucide-react";
 import { useUpdate } from "../../context/UpdateContext";
@@ -85,9 +85,11 @@ export default function SettingsSidebar({
 
   const activeCategoryId = getCategoryForTab(activeTab);
 
+  // Keep the cursor responsive while the (catalog-sized) result list re-ranks.
+  const deferredQuery = useDeferredValue(query);
   const tokens = useMemo(
-    () => query.trim().toLowerCase().split(/\s+/).filter(Boolean),
-    [query],
+    () => deferredQuery.trim().toLowerCase().split(/\s+/).filter(Boolean),
+    [deferredQuery],
   );
 
   const results = useMemo(() => {

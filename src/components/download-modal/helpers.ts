@@ -40,6 +40,44 @@ export function normalizeTitleKey(title: string): string {
     .toLowerCase();
 }
 
+/** Small, stable FNV-1a hash used for DOM keys. */
+function hashKey(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * Stable display id for a search row.
+ *
+ * The previous id embedded the row's array index, so every streaming frame
+ * rebuilt every id: React remounted all rows, selection moved, and the debrid
+ * cache probes restarted their whole queue. Identity here is the provider +
+ * source + release identity (infohash, title, first mirror, size, date), none
+ * of which depends on list order.
+ */
+export function stableMatchId(
+  match: Pick<
+    DownloadSearchResult,
+    "provider" | "sourceId" | "sourceName" | "title" | "infohash" | "uris" | "fileSize" | "uploadDate"
+  >,
+): string {
+  const identity = [
+    match.provider ?? "source",
+    match.sourceId ?? "",
+    match.sourceName ?? "",
+    match.infohash?.trim().toLowerCase() ?? "",
+    normalizeTitleKey(match.title ?? ""),
+    (match.uris ?? [])[0] ?? "",
+    match.fileSize ?? "",
+    match.uploadDate ?? "",
+  ].join("\u0000");
+  return `m-${hashKey(identity)}`;
+}
+
 /**
  * Collapse duplicate search results into the best row.
  *

@@ -5,6 +5,7 @@ import {
   hosterNeedsBrowser,
   mergeDuplicateResults,
   sortMatches,
+  stableMatchId,
 } from "./helpers";
 import type { DisplayMatch } from "./types";
 
@@ -24,6 +25,22 @@ function match(overrides: Partial<DisplayMatch>): DisplayMatch {
     ...overrides,
   };
 }
+
+describe("stableMatchId", () => {
+  it("survives score/order changes but separates distinct releases", () => {
+    const base = match({ title: "Elden Ring", infohash: "a".repeat(40) });
+    const rescored = { ...base, matchScore: 0.42 };
+    const mirror = {
+      ...base,
+      uris: ["https://example.com/other.torrent"],
+    };
+    const otherSource = { ...base, sourceId: "s2" };
+
+    expect(stableMatchId(rescored)).toBe(stableMatchId(base));
+    expect(stableMatchId(mirror)).not.toBe(stableMatchId(base));
+    expect(stableMatchId(otherSource)).not.toBe(stableMatchId(base));
+  });
+});
 
 describe("filterMatches token search", () => {
   const list = [

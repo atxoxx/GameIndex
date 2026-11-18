@@ -54,11 +54,15 @@ export function useRowCacheChecks({
   provider,
   apikey,
   enabled,
+  limit = 80,
 }: {
   matches: DisplayMatch[];
   provider: string;
   apikey: string;
   enabled: boolean;
+  /** Probe only the best-scored rows; each probe is a rate-limited API call
+   *  and each result re-renders the list. */
+  limit?: number;
 }): Map<string, CacheCheckStatus> {
   const active = enabled && cacheCapableProvider(provider) && Boolean(apikey);
 
@@ -66,7 +70,10 @@ export function useRowCacheChecks({
     if (!active) return [];
     const list: CacheJob[] = [];
     const seenIds = new Set<string>();
-    for (const m of matches) {
+    const ranked = [...matches]
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, Math.max(1, limit));
+    for (const m of ranked) {
       if (seenIds.has(m.id)) continue;
       const magnet = cacheMagnetFor(m);
       if (!magnet) continue;
@@ -76,7 +83,7 @@ export function useRowCacheChecks({
       list.push({ id: m.id, key, magnet });
     }
     return list;
-  }, [matches, provider, active]);
+  }, [matches, provider, active, limit]);
 
   // A signature keeps the probe effect from restarting on match objects
   // that changed identity without changing the work to be done.

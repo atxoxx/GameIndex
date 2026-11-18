@@ -21,7 +21,7 @@
 // queue preview, step states) so this file stays focused on the
 // orchestration: state, backend calls, and keyboard handling.
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue, startTransition } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -46,6 +46,7 @@ import {
   mergeDuplicateResults,
   resolveSourceUri,
   sortMatches,
+  stableMatchId,
   webUrlFor,
 } from "./helpers";
 import type {
@@ -333,6 +334,7 @@ export default function DownloadModal({
     provider: debridProvider,
     apikey: debridApiKey,
     enabled: cacheProbesAvailable,
+    limit: 60,
   });
   const cacheFilterAvailable = cacheProbesAvailable;
 
@@ -372,12 +374,16 @@ export default function DownloadModal({
 
   const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
 
+  // Typing in the filter must never wait for a few hundred rows to re-match;
+  // the input updates immediately and the list catches up in a transition.
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   // Filter raw matches by every active filter.
   const filteredMatches = useMemo(() => {
     const base = filterMatches(
       matches,
       sourceFilter,
-      searchQuery,
+      deferredSearchQuery,
       platformFilter,
       typeFilter,
       groupFilter,
@@ -391,7 +397,7 @@ export default function DownloadModal({
   }, [
     matches,
     sourceFilter,
-    searchQuery,
+    deferredSearchQuery,
     platformFilter,
     typeFilter,
     groupFilter,
@@ -712,11 +718,13 @@ export default function DownloadModal({
           ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
           ...pluginItems,
         ];
-        const withIds: DisplayMatch[] = ordered.map((m, i) => ({
+        const withIds: DisplayMatch[] = ordered.map((m) => ({
           ...m,
-          id: `${m.sourceId}::${m.title}::${i}`,
+          id: stableMatchId(m),
         }));
-        setMatches(withIds);
+        // Streaming frames are not urgent: keep typing, scrolling and row
+        // selection responsive while a large result set is published.
+        startTransition(() => setMatches(withIds));
         setStep((curr) => (curr === "checking" ? "results" : curr));
       };
 

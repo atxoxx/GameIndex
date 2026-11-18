@@ -32,6 +32,11 @@
   overflow: hidden;
   flex-shrink: 0;
   container-type: inline-size;
+  /* Offscreen rows skip layout/paint. The modal can show hundreds of releases
+     and most of them are never visible; this keeps scrolling smooth without a
+     virtualizer that would fight the variable row height. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
     border-color var(--duration-fast) var(--ease-standard),

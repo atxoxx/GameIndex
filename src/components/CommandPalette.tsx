@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useContext, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -330,9 +330,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const docsEntries = useDocsPaletteEntries(t, language, docsEnabled);
   const libraryStats = useMemo(() => calculateLibraryStats(games), [games]);
 
+  // Scoring every game/setting/doc on each keystroke made the palette feel
+  // sticky on large libraries. The input stays urgent; the ranked list catches
+  // up in a deferred render.
+  const deferredCleanQuery = useDeferredValue(cleanQuery);
+
   const { items, scopeCounts } = useCommandPaletteItems({
     rawQuery,
-    cleanQuery,
+    cleanQuery: deferredCleanQuery,
     scope,
     parsedFilters,
     calcResult,

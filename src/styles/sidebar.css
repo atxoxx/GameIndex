@@ -353,6 +353,10 @@ html[data-game-accent] .sidebar {
    * ensures the row paints edge-to-edge of its container. */
   width: 100%;
   box-sizing: border-box;
+  /* Large libraries render every row. Offscreen rows skip layout/paint; the
+     intrinsic size keeps the scrollbar stable until they are measured. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
 }
 
 .sidebar-game-item:hover {
