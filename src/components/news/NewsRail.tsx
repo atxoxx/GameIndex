@@ -96,8 +96,9 @@ export default function NewsRail({
             onClick={() => scrollBy(-1)}
             disabled={!canScroll.back}
             aria-label={t("news.scrollBack")}
+            title={t("news.scrollBack")}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={16} aria-hidden />
           </button>
           <button
             type="button"
@@ -105,8 +106,9 @@ export default function NewsRail({
             onClick={() => scrollBy(1)}
             disabled={!canScroll.forward}
             aria-label={t("news.scrollForward")}
+            title={t("news.scrollForward")}
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={16} aria-hidden />
           </button>
         </div>
       </header>

@@ -1,4 +1,5 @@
 import type { PortProject } from "../../types/port";
+import { formatDate as formatLocaleDate } from "../../utils/localeFormat";
 
 export type PortTone = "success" | "warning" | "info" | "accent" | "default";
 
@@ -96,15 +97,13 @@ export function formatCount(value: number): string {
   return String(value);
 }
 
-export function formatDate(value: string | null | undefined): string | null {
+/** Catalog/repository date, formatted in the app's display language. */
+export function formatDate(
+  value: string | null | undefined,
+  locale?: string,
+): string | null {
   if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatLocaleDate(value, locale) || null;
 }
 
 export function firstRepoProject(project: PortProject) {

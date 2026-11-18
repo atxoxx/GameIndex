@@ -14,6 +14,7 @@ import {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useNavigate } from "react-router-dom";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
+import { formatDate } from "../../utils/localeFormat";
 import {
   calculateSavings,
   formatCountdown,
@@ -72,7 +73,7 @@ export default function DealDetailModal({
   onClose,
   onOpenUrl,
 }: DealDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isWishlisted, toggle } = useWishlistContext();
   const isOwned = useOwnedTitles();
   const findLibraryGame = useLibraryGameLookup();
@@ -143,6 +144,13 @@ export default function DealDetailModal({
       : dealGroup?.expiresAt
         ? formatCountdown(dealGroup.expiresAt, t, now)
         : null;
+  const expiryDate =
+    target.type === "giveaway" ? formatExpiry(target.data.expiry, language) : null;
+  // Xbox returns an ISO release date; show it like every other date on the page.
+  const releaseDate =
+    target.type === "gamepass" && target.data.releaseDate
+      ? formatDate(target.data.releaseDate, language) || target.data.releaseDate
+      : null;
 
   const handleCopy = async () => {
     if (!directUrl) return;
@@ -268,7 +276,7 @@ export default function DealDetailModal({
     ) : target.type === "gamepass" ? (
       <>
         {target.data.developer ?? t("deals.gamepass")}
-        {target.data.releaseDate ? ` · ${target.data.releaseDate}` : ""}
+        {releaseDate ? ` · ${releaseDate}` : ""}
       </>
     ) : (
       <>
@@ -294,7 +302,7 @@ export default function DealDetailModal({
           <>
             <DealModalStat
               label={t("deals.bestPrice")}
-              value={formatPrice(dealGroup.bestPrice, "EUR", t("deals.freePrice"))}
+              value={formatPrice(dealGroup.bestPrice, "EUR", t("deals.freePrice"), language)}
               tone="accent"
             />
             <DealModalStat
@@ -310,7 +318,7 @@ export default function DealDetailModal({
               label={t("deals.savings")}
               value={
                 dealGroup.savings > 0
-                  ? formatPrice(dealGroup.savings)
+                  ? formatPrice(dealGroup.savings, undefined, undefined, language)
                   : t("deals.cheapest")
               }
             />
@@ -332,7 +340,7 @@ export default function DealDetailModal({
             />
             <DealModalStat
               label={t("deals.releaseDate")}
-              value={target.data.releaseDate ?? "—"}
+              value={releaseDate ?? "—"}
             />
           </>
         ) : (
@@ -383,11 +391,11 @@ export default function DealDetailModal({
                     )}
                   </span>
                   <span className="deals-store-table__price" role="cell">
-                    {formatPrice(offer.dealPrice, "EUR", t("deals.freePrice"))}
+                    {formatPrice(offer.dealPrice, "EUR", t("deals.freePrice"), language)}
                   </span>
                   <span role="cell">-{offer.discountPercent}%</span>
                   <span role="cell" className="deals-store-table__save">
-                    {premium > 0.004 ? `+${formatPrice(premium)}` : "—"}
+                    {premium > 0.004 ? `+${formatPrice(premium, undefined, undefined, language)}` : "-"}
                   </span>
                   <span role="cell" className="deals-store-table__action">
                     <button
@@ -413,8 +421,8 @@ export default function DealDetailModal({
             return (
               <p className="deals-modal__note">
                 {t("deals.wasPrice", {
-                  price: formatPrice(originalPrice),
-                  amount: formatPrice(savings),
+                  price: formatPrice(originalPrice, undefined, undefined, language),
+                  amount: formatPrice(savings, undefined, undefined, language),
                 })}
               </p>
             );
@@ -461,8 +469,8 @@ export default function DealDetailModal({
               <p className={`deals-modal__countdown${countdown.isUrgent ? " is-urgent" : ""}`}>
                 <Clock3 size={14} aria-hidden="true" />
                 {countdown.label}
-                {formatExpiry(target.data.expiry)
-                  ? ` · ${t("deals.ends", { date: formatExpiry(target.data.expiry) as string })}`
+                {expiryDate
+                  ? ` · ${t("deals.ends", { date: expiryDate })}`
                   : ""}
               </p>
             )}

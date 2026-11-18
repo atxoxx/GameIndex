@@ -177,7 +177,7 @@ export default function NewsSourcesDrawer({ open, onClose }: NewsSourcesDrawerPr
       showToast(t("news.noSavedArticles"), "warning");
       return;
     }
-    const blob = new Blob([exportSavedArticlesMarkdown(news.saved)], { type: "text/markdown" });
+    const blob = new Blob([exportSavedArticlesMarkdown(news.saved, language)], { type: "text/markdown" });
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = href;
@@ -260,8 +260,14 @@ export default function NewsSourcesDrawer({ open, onClose }: NewsSourcesDrawerPr
             <h2>{t("news.sourcesDrawerTitle")}</h2>
             <p>{t("news.sourcesDrawerSubtitle")}</p>
           </div>
-          <button type="button" className="news-drawer__close" onClick={onClose} aria-label={t("common.close")}>
-            <X size={18} />
+          <button
+            type="button"
+            className="news-drawer__close"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+          >
+            <X size={18} aria-hidden />
           </button>
         </header>
 

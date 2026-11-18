@@ -21,6 +21,7 @@ import { StatBand } from "../../components/ui/StatBand";
 import { SubTabs } from "../../components/ui/SubTabs";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { formatNumber } from "../../utils/localeFormat";
 import { PORT_SOURCES, PORT_SOURCE_PRIORITY, type PortSourceId, type PortsCatalog, type PortsSyncEvent, type PortsSyncProgress } from "../../types/port";
 import PortCard from "./PortCard";
 import PortDetailModal from "./PortDetailModal";
@@ -108,7 +109,7 @@ interface PortSection {
  * grouped grid and lazy cover art.
  */
 export default function PortsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const [catalog, setCatalog] = useState<PortsCatalog | null>(null);
@@ -520,7 +521,7 @@ export default function PortsPage() {
       {catalog && catalog.stale ? (
         <div className="ports-stale" role="status">
           <span>
-            {t("ports.stale", { date: formatDate(new Date(catalog.fetchedAt).toISOString()) ?? "" })}
+            {t("ports.stale", { date: formatDate(new Date(catalog.fetchedAt).toISOString(), language) ?? "" })}
             {failedSources.length > 0
               ? ` · ${failedSources.map((source) => source.name).join(", ")}`
               : ""}
@@ -588,8 +589,9 @@ export default function PortsPage() {
                 className="ports-search__clear"
                 onClick={() => patchFilters({ search: "" })}
                 aria-label={t("ports.clearSearch")}
+                title={t("ports.clearSearch")}
               >
-                <X size={13} />
+                <X size={13} aria-hidden="true" />
               </button>
             ) : null}
           </label>
@@ -696,7 +698,11 @@ export default function PortsPage() {
               title={filters.direction === "asc" ? t("ports.sort.asc") : t("ports.sort.desc")}
               aria-label={filters.direction === "asc" ? t("ports.sort.asc") : t("ports.sort.desc")}
             >
-              {filters.direction === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+              {filters.direction === "asc" ? (
+                <ArrowUp size={16} aria-hidden="true" />
+              ) : (
+                <ArrowDown size={16} aria-hidden="true" />
+              )}
             </button>
           </div>
 
@@ -710,7 +716,7 @@ export default function PortsPage() {
             {catalog ? (
               <span>
                 {t("ports.updated", {
-                  date: formatDate(new Date(catalog.fetchedAt).toISOString()) ?? "-",
+                  date: formatDate(new Date(catalog.fetchedAt).toISOString(), language) ?? "-",
                 })}
               </span>
             ) : null}
@@ -765,7 +771,7 @@ export default function PortsPage() {
                           : source.finished
                             ? t("ports.syncDone")
                             : source.total > 0
-                              ? `${source.done.toLocaleString()} / ${source.total.toLocaleString()}`
+                              ? `${formatNumber(source.done, language)} / ${formatNumber(source.total, language)}`
                               : t("ports.syncWaiting")}
                       </span>
                     </div>
@@ -775,7 +781,7 @@ export default function PortsPage() {
             </div>
           ) : error ? (
             <div className="ports-empty ports-empty--error">
-              <CircuitBoard size={38} strokeWidth={1.4} />
+              <CircuitBoard size={38} strokeWidth={1.4} aria-hidden="true" />
               <h2>{t("ports.error.title")}</h2>
               <p>{error}</p>
               <Button variant="primary" onClick={() => void refresh(true)}>
@@ -784,7 +790,7 @@ export default function PortsPage() {
             </div>
           ) : sortedGroups.length === 0 ? (
             <div className="ports-empty">
-              <Search size={34} strokeWidth={1.4} />
+              <Search size={34} strokeWidth={1.4} aria-hidden="true" />
               <h2>{t("ports.empty.title")}</h2>
               <p>{t("ports.empty.body")}</p>
               {hasFilters ? (

@@ -29,7 +29,7 @@ export default function PlaytesterCard({
   onOpenUrl,
   onInspect,
 }: PlaytesterCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isWishlisted, toggle } = useWishlistContext();
   const isOwned = useOwnedTitles();
   const { showToast } = useToast();
@@ -39,7 +39,7 @@ export default function PlaytesterCard({
   const wishlisted = isWishlisted(titleToSlug(game.title));
   const owned = isOwned(game.title);
   const active = game.status.toLowerCase() === "active";
-  const added = formatExpiry(game.dateAdded);
+  const added = formatExpiry(game.dateAdded, language);
   const toggleWishlist = () => toggle(playtesterSummary(game));
 
   const copyLink = async () => {

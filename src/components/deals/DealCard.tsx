@@ -34,7 +34,7 @@ export default function DealCard({
   onOpenUrl,
   onInspect,
 }: DealCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isWishlisted, toggle } = useWishlistContext();
   const isOwned = useOwnedTitles();
   const { showToast } = useToast();
@@ -126,13 +126,15 @@ export default function DealCard({
       appId={steamAppId}
       tint={storeTint(group.best.storeName)}
       discount={group.maxDiscount}
-      price={formatPrice(group.best.dealPrice, "EUR", t("deals.freePrice"))}
+      price={formatPrice(group.best.dealPrice, "EUR", t("deals.freePrice"), language)}
       originalPrice={
-        savings > 0 ? formatPrice(originalPrice) : null
+        savings > 0 ? formatPrice(originalPrice, undefined, undefined, language) : null
       }
       priceNote={
         group.storeCount > 1 && group.savings > 0
-          ? t("deals.savingsLabel", { amount: formatPrice(group.savings) })
+          ? t("deals.savingsLabel", {
+              amount: formatPrice(group.savings, undefined, undefined, language),
+            })
           : group.storeCount > 1
             ? t("deals.storeCount", { count: group.storeCount })
             : null

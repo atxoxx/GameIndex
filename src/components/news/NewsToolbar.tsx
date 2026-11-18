@@ -153,8 +153,9 @@ export default function NewsToolbar({
                 className="news-search__clear"
                 onClick={() => onFiltersChange({ query: "" })}
                 aria-label={t("common.clearSearch")}
+                title={t("common.clearSearch")}
               >
-                <X size={13} />
+                <X size={13} aria-hidden />
               </button>
             )}
           </label>

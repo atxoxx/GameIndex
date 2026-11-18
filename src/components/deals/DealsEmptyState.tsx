@@ -13,7 +13,7 @@ export default function DealsEmptyState({ icon, message, onRetry }: DealsEmptySt
   const { t } = useLanguage();
 
   return (
-    <div className="deals-state">
+    <div className="deals-state" role="status">
       <span className="deals-state__icon" aria-hidden="true">
         {icon}
       </span>

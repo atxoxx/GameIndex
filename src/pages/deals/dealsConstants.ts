@@ -1,5 +1,6 @@
 import type { DealItem, DealsFilters, GamePassFilters } from "../../types/deals";
 import { normalizeTitle, titleToSlug } from "../../utils/gameTitle";
+import { formatDate } from "../../utils/localeFormat";
 
 /** Re-exported so callers keep importing the slug helper from one place. */
 export { titleToSlug };
@@ -158,11 +159,18 @@ export function formatPrice(
   price: number,
   currency = "EUR",
   freeLabel = "Free",
+  locale?: string,
 ): string {
   if (!Number.isFinite(price)) return "—";
   if (price === 0) return freeLabel;
   const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
-  return `${symbol}${price.toFixed(2)}`;
+  const amount = locale
+    ? new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(price)
+    : price.toFixed(2);
+  return `${symbol}${amount}`;
 }
 
 /**
@@ -241,17 +249,13 @@ export function discountTier(pct: number): "mega" | "large" | "" {
   return "";
 }
 
+/** Calendar date in the app's display language; `null` when unparseable. */
 export function formatExpiry(
   isoDate: string | null | undefined,
+  locale?: string,
 ): string | null {
   if (!isoDate) return null;
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDate(isoDate, locale) || null;
 }
 
 export interface CountdownInfo {

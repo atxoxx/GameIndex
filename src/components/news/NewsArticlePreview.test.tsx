@@ -26,9 +26,22 @@ vi.mock("@tauri-apps/api/dpi", () => ({
   LogicalSize: class LogicalSize {},
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
-vi.mock("../../context/LanguageContext", () => ({
-  useLanguage: () => ({ t: (key: string) => key, language: "en" }),
-}));
+// Minimal translator: only the keys the reader renders as real text need a
+// template, everything else falls back to its key.
+vi.mock("../../context/LanguageContext", () => {
+  const strings: Record<string, string> = {
+    "news.readStats": "{minutes} min read ({words} words)",
+  };
+  return {
+    useLanguage: () => ({
+      t: (key: string, vars?: Record<string, string | number>) =>
+        (strings[key] ?? key).replace(/\{(\w+)\}/g, (match, name: string) =>
+          vars && name in vars ? String(vars[name]) : match,
+        ),
+      language: "en",
+    }),
+  };
+});
 vi.mock("../../context/SettingsContext", () => ({
   useWebviewContentFilterEnabled: () => true,
 }));

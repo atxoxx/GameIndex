@@ -82,7 +82,7 @@ function primaryRepo(project: PortProject): PortLink | null {
  * renderer, so no remote HTML is ever injected.
  */
 export default function PortDetailModal({ group, onClose }: PortDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const copyText = useCopyToClipboard();
   const [tab, setTab] = useState<PortTab>("overview");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -440,7 +440,7 @@ export default function PortDetailModal({ group, onClose }: PortDetailModalProps
                         ) : null}
                         {repo.updatedAt ? (
                           <span>
-                            <Clock size={13} aria-hidden /> {formatDate(repo.updatedAt)}
+                            <Clock size={13} aria-hidden /> {formatDate(repo.updatedAt, language)}
                           </span>
                         ) : null}
                         {repo.language ? (

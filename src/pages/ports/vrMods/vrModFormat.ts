@@ -1,4 +1,5 @@
 import type { VrModKind } from "../../../types/vrMod";
+import { formatDate } from "../../../utils/localeFormat";
 import type { PortTone } from "../portFormat";
 
 /** Colour bucket for a VR mod kind, reusing the Ports chip tones. */
@@ -28,13 +29,8 @@ export function vrKindLabelKey(kind: VrModKind): string {
   }
 }
 
-export function formatVrDate(value: string | null): string | null {
+/** Catalog date for one VR mod entry, in the app's display language. */
+export function formatVrDate(value: string | null, locale?: string): string | null {
   if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatDate(value, locale) || null;
 }

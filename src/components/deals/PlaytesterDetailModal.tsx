@@ -51,7 +51,7 @@ export default function PlaytesterDetailModal({
   onClose,
   onOpenUrl,
 }: PlaytesterDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isWishlisted, toggle } = useWishlistContext();
   const isOwned = useOwnedTitles();
   const findLibraryGame = useLibraryGameLookup();
@@ -147,7 +147,7 @@ export default function PlaytesterDetailModal({
       title={title}
       subtitle={
         <>
-          {game.kind || "Playtester"}
+          {game.kind || t("deals.playtester")}
           {detail?.studio ? ` · ${detail.studio}` : ""}
           {game.platform ? ` · ${game.platform}` : ""}
         </>
@@ -158,7 +158,7 @@ export default function PlaytesterDetailModal({
         <>
           <span className="deals-modal__store">
             <MonitorPlay size={11} aria-hidden="true" />
-            Playtester
+            {t("deals.playtester")}
           </span>
           {game.status && (
             <span
@@ -414,10 +414,10 @@ export default function PlaytesterDetailModal({
                     <ExternalLink size={12} aria-hidden="true" />
                   </button>
                 )}
-                {detail.added && formatExpiry(detail.added) && (
+                {detail.added && formatExpiry(detail.added, language) && (
                   <span className="deals-modal__note">
                     {t("deals.addedOn", {
-                      date: formatExpiry(detail.added) as string,
+                      date: formatExpiry(detail.added, language) as string,
                     })}
                   </span>
                 )}

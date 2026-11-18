@@ -68,10 +68,12 @@ export default function NewsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  iconOnly
                   onClick={() => void news.refresh(true)}
                   leftIcon={
                     <RefreshCw
                       size={15}
+                      aria-hidden="true"
                       className={news.refreshing ? "news-spin" : undefined}
                     />
                   }

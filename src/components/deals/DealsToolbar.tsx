@@ -265,6 +265,7 @@ export default function DealsToolbar({
               className="deals-filter-panel__close"
               onClick={() => setFiltersOpen(false)}
               aria-label={t("common.close")}
+              title={t("common.close")}
             >
               <X size={14} aria-hidden="true" />
             </button>

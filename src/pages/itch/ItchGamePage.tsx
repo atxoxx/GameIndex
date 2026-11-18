@@ -16,6 +16,7 @@ import { useToast } from "../../context/ToastContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { Button } from "../../components/ui";
 import { sanitizeNewsHtml } from "../../components/news/newsContent";
+import { formatNumber } from "../../utils/localeFormat";
 import { formatItchPrice } from "../deals/itchConstants";
 import "../../styles/page-itch.css";
 
@@ -31,7 +32,7 @@ import "../../styles/page-itch.css";
 export default function ItchGamePage() {
   const { author = "", game = "" } = useParams<{ author: string; game: string }>();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { defaultDownloadPath, addDirectDownload } = useDownloads();
 
@@ -137,7 +138,7 @@ export default function ItchGamePage() {
   if (loading) {
     return (
       <div className="itch-page page">
-        <div className="itch-state">
+        <div className="itch-state" role="status" aria-live="polite">
           <Loader2 size={22} className="itch-state__spinner" aria-hidden="true" />
           <p>{t("itch.loading")}</p>
         </div>
@@ -233,7 +234,7 @@ export default function ItchGamePage() {
                   <Star size={13} fill="currentColor" aria-hidden="true" />
                   {detail.rating.toFixed(1)}
                   {detail.ratingCount !== null && (
-                    <em>{t("itch.ratings", { count: detail.ratingCount })}</em>
+                    <em>{t("itch.ratings", { count: formatNumber(detail.ratingCount, language) })}</em>
                   )}
                 </span>
               )}
@@ -305,6 +306,7 @@ export default function ItchGamePage() {
                     className="itch-shot"
                     onClick={() => openExternal(shot)}
                     aria-label={t("itch.openScreenshot")}
+                    title={t("itch.openScreenshot")}
                   >
                     <img src={shot} alt="" loading="lazy" decoding="async" />
                   </button>

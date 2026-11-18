@@ -124,7 +124,7 @@ function matchesFilters(
 
 /** The VR Mods subtab. Derived data is precomputed, so this paints fast. */
 export default function VrModsTab() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selected, setSelected] = useState<VrModGameGroup | null>(null);
   const [filters, setFilters] = useState<VrFilters>(() => {
     try {
@@ -215,8 +215,9 @@ export default function VrModsTab() {
               className="ports-search__clear"
               onClick={() => patchFilters({ search: "" })}
               aria-label={t("ports.clearSearch")}
+              title={t("ports.clearSearch")}
             >
-              <X size={13} />
+              <X size={13} aria-hidden="true" />
             </button>
           ) : null}
         </label>
@@ -296,7 +297,11 @@ export default function VrModsTab() {
             title={filters.direction === "asc" ? t("ports.vrMods.sort.asc") : t("ports.vrMods.sort.desc")}
             aria-label={filters.direction === "asc" ? t("ports.vrMods.sort.asc") : t("ports.vrMods.sort.desc")}
           >
-            {filters.direction === "asc" ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+            {filters.direction === "asc" ? (
+              <ArrowUp size={16} aria-hidden="true" />
+            ) : (
+              <ArrowDown size={16} aria-hidden="true" />
+            )}
           </button>
         </div>
 
@@ -306,7 +311,7 @@ export default function VrModsTab() {
           </span>
           <span>
             {t("ports.vrMods.updated", {
-              date: formatDate(new Date(catalog.generatedAt).toISOString()) ?? "-",
+              date: formatDate(new Date(catalog.generatedAt).toISOString(), language) ?? "-",
             })}
           </span>
           {hasFilters ? (
@@ -319,7 +324,7 @@ export default function VrModsTab() {
 
       {sortedGroups.length === 0 ? (
         <div className="ports-empty">
-          <Search size={34} strokeWidth={1.4} />
+          <Search size={34} strokeWidth={1.4} aria-hidden="true" />
           <h2>{t("ports.vrMods.empty.title")}</h2>
           <p>{t("ports.vrMods.empty.body")}</p>
           {hasFilters ? (

@@ -98,6 +98,9 @@ describe("price helpers", () => {
   it("localises the zero-price label and reconstructs savings", () => {
     expect(formatPrice(0, "EUR", "Kostenlos")).toBe("Kostenlos");
     expect(formatPrice(19.99)).toBe("€19.99");
+    // A supplied locale switches the decimal separator, never the symbol.
+    expect(formatPrice(19.99, "EUR", "Free", "de-DE")).toBe("€19,99");
+    expect(formatPrice(1234.5, "EUR", "Free", "de-DE")).toBe("€1.234,50");
 
     const full = calculateSavings(10, 50);
     expect(full.originalPrice).toBeCloseTo(20);

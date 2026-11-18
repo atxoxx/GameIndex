@@ -115,7 +115,7 @@ function defaultItemIndex(entries: VrModEntry[]): number {
 
 /** Detail view for one VR mod game, mirroring the Ports project modal. */
 export default function VrModDetailModal({ group, onClose }: VrModDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const copyText = useCopyToClipboard();
   const [tab, setTab] = useState<VrTab>("overview");
   const [itemIndex, setItemIndex] = useState(() => defaultItemIndex(group.entries));
@@ -314,7 +314,7 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
     { label: t("ports.vrMods.facts.platform"), value: platforms.join(", ") },
     ...(activeEntry?.author ? [{ label: t("ports.vrMods.facts.author"), value: activeEntry.author }] : []),
     ...(activeEntry?.date
-      ? [{ label: t("ports.vrMods.facts.date"), value: formatVrDate(activeEntry.date) ?? activeEntry.date }]
+      ? [{ label: t("ports.vrMods.facts.date"), value: formatVrDate(activeEntry.date, language) ?? activeEntry.date }]
       : []),
     {
       label: t("ports.vrMods.facts.source"),
@@ -486,7 +486,7 @@ export default function VrModDetailModal({ group, onClose }: VrModDetailModalPro
                           <span><Star size={13} aria-hidden /> {formatCount(repo.stars)}</span>
                         ) : null}
                         {repo.updatedAt ? (
-                          <span><Clock size={13} aria-hidden /> {formatDate(repo.updatedAt)}</span>
+                          <span><Clock size={13} aria-hidden /> {formatDate(repo.updatedAt, language)}</span>
                         ) : null}
                         {repo.language ? (
                           <span><Languages size={13} aria-hidden /> {repo.language}</span>

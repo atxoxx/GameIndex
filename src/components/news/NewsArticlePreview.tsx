@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { NewsArticle } from "../../types/news";
 import { countWords, estimateReadingTime, formatArticleDate } from "../../utils/news/feed";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
@@ -214,7 +215,13 @@ export default function NewsArticlePreview({
 
   const handleCopyMarkdown = useCallback(async () => {
     if (!article) return;
-    const dateStr = article.pubDate ? new Date(article.pubDate).toLocaleDateString() : "";
+    const dateStr = article.pubDate
+      ? formatDate(article.pubDate, language, {
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+        })
+      : "";
     const md = `### [${article.title}](${article.link})\n**Source:** ${article.sourceName}${dateStr ? ` (${dateStr})` : ""}\n\n> ${plainDescription}\n`;
     try {
       if (navigator.clipboard) {
@@ -225,7 +232,7 @@ export default function NewsArticlePreview({
     } catch {
       /* ignore */
     }
-  }, [article, plainDescription]);
+  }, [article, plainDescription, language]);
 
   // Track scroll progress for reader mode
   const handleScroll = () => {
@@ -447,7 +454,13 @@ export default function NewsArticlePreview({
                   </>
                 )}
                 <span className="news-preview-meta-dot" aria-hidden="true" />
-                <span>⏱ {readTimeMinutes} min read ({wordCount} words)</span>
+                <span>
+                  ⏱{" "}
+                  {t("news.readStats", {
+                    minutes: readTimeMinutes,
+                    words: formatNumber(wordCount, language),
+                  })}
+                </span>
               </div>
             </div>
           </div>
@@ -575,7 +588,8 @@ export default function NewsArticlePreview({
                       type="button"
                       className="news-preview-speed-btn stop"
                       onClick={stopTts}
-                      title="Stop audio"
+                      title={t("news.stopAudio")}
+                      aria-label={t("news.stopAudio")}
                     >
                       ⏹
                     </button>
@@ -589,40 +603,44 @@ export default function NewsArticlePreview({
           {previewMode === "reader" && (
             <div className="news-preview-controls-right">
               {/* Reader Theme Picker */}
-              <div className="news-preview-theme-picker" aria-label="Reader theme">
+              <div className="news-preview-theme-picker" role="group" aria-label={t("news.readerTheme")}>
                 <button
                   type="button"
                   className={`news-preview-theme-btn dark ${readerTheme === "dark" ? "active" : ""}`}
                   onClick={() => setReaderTheme("dark")}
-                  title="Dark theme"
+                  title={t("news.themeDark")}
+                  aria-label={t("news.themeDark")}
                 />
                 <button
                   type="button"
                   className={`news-preview-theme-btn oled ${readerTheme === "oled" ? "active" : ""}`}
                   onClick={() => setReaderTheme("oled")}
-                  title="Midnight OLED theme"
+                  title={t("news.themeOled")}
+                  aria-label={t("news.themeOled")}
                 />
                 <button
                   type="button"
                   className={`news-preview-theme-btn sepia ${readerTheme === "sepia" ? "active" : ""}`}
                   onClick={() => setReaderTheme("sepia")}
-                  title="Warm Sepia theme"
+                  title={t("news.themeSepia")}
+                  aria-label={t("news.themeSepia")}
                 />
                 <button
                   type="button"
                   className={`news-preview-theme-btn slate ${readerTheme === "slate" ? "active" : ""}`}
                   onClick={() => setReaderTheme("slate")}
-                  title="Slate Blue theme"
+                  title={t("news.themeSlate")}
+                  aria-label={t("news.themeSlate")}
                 />
               </div>
 
               {/* Font Family Switcher */}
-              <div className="news-preview-font-family-picker" aria-label="Font family">
+              <div className="news-preview-font-family-picker" role="group" aria-label={t("news.fontFamily")}>
                 <button
                   type="button"
                   className={`news-preview-ff-btn ${fontFamily === "sans" ? "active" : ""}`}
                   onClick={() => setFontFamily("sans")}
-                  title="Sans-serif"
+                  title={t("news.fontSans")}
                 >
                   Sans
                 </button>
@@ -630,7 +648,7 @@ export default function NewsArticlePreview({
                   type="button"
                   className={`news-preview-ff-btn serif ${fontFamily === "serif" ? "active" : ""}`}
                   onClick={() => setFontFamily("serif")}
-                  title="Serif Editorial"
+                  title={t("news.fontSerif")}
                 >
                   Serif
                 </button>
@@ -638,19 +656,19 @@ export default function NewsArticlePreview({
                   type="button"
                   className={`news-preview-ff-btn mono ${fontFamily === "mono" ? "active" : ""}`}
                   onClick={() => setFontFamily("mono")}
-                  title="Monospace"
+                  title={t("news.fontMono")}
                 >
                   Mono
                 </button>
               </div>
 
               {/* Font Size Adjuster */}
-              <div className="news-preview-font-controls" aria-label="Font size">
+              <div className="news-preview-font-controls" role="group" aria-label={t("news.fontSize")}>
                 <button
                   type="button"
                   className={`news-preview-font-btn ${fontSize === "sm" ? "active" : ""}`}
                   onClick={() => setFontSize("sm")}
-                  title="Small text"
+                  title={t("news.fontSmall")}
                 >
                   A-
                 </button>
@@ -658,7 +676,7 @@ export default function NewsArticlePreview({
                   type="button"
                   className={`news-preview-font-btn ${fontSize === "md" ? "active" : ""}`}
                   onClick={() => setFontSize("md")}
-                  title="Standard text"
+                  title={t("news.fontStandard")}
                 >
                   A
                 </button>
@@ -666,7 +684,7 @@ export default function NewsArticlePreview({
                   type="button"
                   className={`news-preview-font-btn ${fontSize === "lg" ? "active" : ""}`}
                   onClick={() => setFontSize("lg")}
-                  title="Large text"
+                  title={t("news.fontLarge")}
                 >
                   A+
                 </button>
@@ -674,7 +692,7 @@ export default function NewsArticlePreview({
                   type="button"
                   className={`news-preview-font-btn ${fontSize === "xl" ? "active" : ""}`}
                   onClick={() => setFontSize("xl")}
-                  title="Extra large text"
+                  title={t("news.fontExtraLarge")}
                 >
                   A++
                 </button>
@@ -764,14 +782,17 @@ export default function NewsArticlePreview({
 
         {/* Footer */}
         <div className="news-preview-footer">
-          <Button variant="ghost" size="md"
+          <Button
+            variant="ghost"
+            size="md"
             type="button"
-            
             onClick={() => {
               stopTts();
               onClose();
             }}
-          > {t("newsArticle.close")} </Button>
+          >
+            {t("newsArticle.close")}
+          </Button>
 
           <div className="news-preview-footer-actions">
             {onToggleRead && (
