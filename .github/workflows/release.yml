@@ -203,7 +203,7 @@ jobs:
             # when one build job in the matrix failed.
             cutoff="$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)"
             gh release view "$channel" --json assets \
-              --jq --arg cutoff "$cutoff" '.assets[] | select(.createdAt < $cutoff) | .name' |
+              --jq ".assets[] | select(.createdAt < \"$cutoff\") | .name" |
               while read -r name; do
                 if [ -n "$name" ]; then
                   gh release delete-asset "$channel" "$name" --yes >/dev/null 2>&1 || true
