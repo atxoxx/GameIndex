@@ -1,10 +1,14 @@
 name: CI
 
 on:
+  # `main` is the released mirror of `electron`; the same commit only needs one
+  # push run, so it is tested on electron. PRs into either branch and manual
+  # dispatches are still validated.
   push:
-    branches: [main, master, electron]
+    branches: [electron]
   pull_request:
-    branches: [main, master, electron]
+    branches: [main, electron]
+  workflow_dispatch:
 
 jobs:
   ci:
