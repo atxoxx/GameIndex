@@ -3,6 +3,7 @@ import type { Game } from "../types/game";
 import type { TorrentDownload } from "../types/download";
 import {
   browsingHint,
+  buildActivityHintPresence,
   buildDownloadPresence,
   primaryDownload,
   type BrowsingContext,
@@ -149,15 +150,48 @@ describe("browsingHint", () => {
     );
   });
 
-  it("names Big Screen mode when active", () => {
+  it("names the Big Screen section the user is on", () => {
     expect(
       browsingHint(makeCtx({ pathname: "/library", bigScreen: true }), t).details,
+    ).toBe("discordPresence.bigScreenSection(section=nav.library)");
+    expect(
+      browsingHint(makeCtx({ pathname: "/library/hk", bigScreen: true }), t).details,
+    ).toBe("discordPresence.bigScreenSection(section=nav.library)");
+  });
+
+  it("falls back to the Big Screen label on an unknown section", () => {
+    expect(
+      browsingHint(makeCtx({ pathname: "/totally-unknown", bigScreen: true }), t).details,
     ).toBe("discordPresence.bigScreen");
   });
 
-  it("matches settings sub-tabs", () => {
+  it("names the settings tab being configured", () => {
     expect(browsingHint(makeCtx({ pathname: "/settings/discord" }), t).details).toBe(
+      "discordPresence.configuringSettings(section=settings.nav.discord)",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/settings/not-a-tab" }), t).details).toBe(
       "discordPresence.browsingSettings",
+    );
+  });
+
+  it("covers the remaining routes and ignores a trailing slash", () => {
+    expect(browsingHint(makeCtx({ pathname: "/ports" }), t).details).toBe(
+      "discordPresence.browsingPorts",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/saves/" }), t).details).toBe(
+      "discordPresence.browsingSaves",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/reels" }), t).details).toBe(
+      "discordPresence.browsingReels",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/mods/discover" }), t).details).toBe(
+      "discordPresence.discoveringMods",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/emulators/snes9x" }), t).details).toBe(
+      "discordPresence.browsingEmulators",
+    );
+    expect(browsingHint(makeCtx({ pathname: "/itch/leafo/itch" }), t).details).toBe(
+      "discordPresence.browsingItch",
     );
   });
 
@@ -165,6 +199,78 @@ describe("browsingHint", () => {
     expect(browsingHint(makeCtx({ pathname: "/totally-unknown" }), t).details).toBe(
       "discordPresence.browsingApp",
     );
+  });
+});
+
+describe("buildActivityHintPresence", () => {
+  const STARTED = 1_700_000_000_000;
+
+  it("builds an article card with source, art, timer and a read button", () => {
+    const payload = buildActivityHintPresence(
+      {
+        kind: "article",
+        title: "Patch 2.0 is live",
+        subtitle: "PC Gamer",
+        url: "https://example.com/patch-2",
+        image: "https://cdn.example/patch.jpg",
+      },
+      t,
+      "details",
+      STARTED,
+    );
+
+    expect(payload.details).toBe("discordPresence.readingArticle(title=Patch 2.0 is live)");
+    expect(payload.stateText).toBe("PC Gamer");
+    expect(payload.startedAt).toBe(STARTED);
+    expect(payload.detailsUrl).toBe("https://example.com/patch-2");
+    expect(payload.largeImage).toBe("https://cdn.example/patch.jpg");
+    expect(payload.largeText).toBe("PC Gamer");
+    expect(payload.buttonLabel).toBe("discordPresence.readArticle");
+    expect(payload.buttonUrl).toBe("https://example.com/patch-2");
+    expect(payload.statusDisplay).toBe("details");
+  });
+
+  it("builds an itch.io card with the cover and an open button", () => {
+    const payload = buildActivityHintPresence(
+      {
+        kind: "itch",
+        title: "A Short Hike",
+        subtitle: "adamgryu",
+        url: "https://adamgryu.itch.io/a-short-hike",
+        image: "https://cdn.example/ash.jpg",
+      },
+      t,
+      "state",
+      0,
+    );
+
+    expect(payload.details).toBe(
+      "discordPresence.browsingItchGame(game=A Short Hike)",
+    );
+    expect(payload.stateText).toBe("itch.tab");
+    expect(payload.largeImage).toBe("https://cdn.example/ash.jpg");
+    expect(payload.buttonLabel).toBe("itch.openOnItch");
+    expect(payload.buttonUrl).toBe("https://adamgryu.itch.io/a-short-hike");
+    expect(payload.startedAt).toBe(0);
+    expect(payload.statusDisplay).toBe("state");
+  });
+
+  it("drops a non-https link and art instead of sending them", () => {
+    const payload = buildActivityHintPresence(
+      {
+        kind: "article",
+        title: "Local only",
+        url: "http://example.com/not-secure",
+        image: "data:image/png;base64,AAAA",
+      },
+      t,
+      "name",
+    );
+
+    expect(payload.detailsUrl).toBeUndefined();
+    expect(payload.largeImage).toBeUndefined();
+    expect(payload.buttonUrl).toBeUndefined();
+    expect(payload.buttonLabel).toBeUndefined();
   });
 });
 

@@ -14,6 +14,7 @@ import type { ItchGameDetail, ItchUpload } from "../../types/itch";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useDownloads } from "../../context/DownloadContext";
+import { usePresenceActivity } from "../../context/PresenceContext";
 import { Button } from "../../components/ui";
 import { sanitizeNewsHtml } from "../../components/news/newsContent";
 import { formatNumber } from "../../utils/localeFormat";
@@ -42,6 +43,21 @@ export default function ItchGamePage() {
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+
+  // Discord presence: show the itch.io game (cover, author, page link) while
+  // this route is open instead of the generic "browsing" line.
+  usePresenceActivity(
+    "itch-game",
+    detail
+      ? {
+          kind: "itch",
+          title: detail.title,
+          subtitle: detail.author || undefined,
+          url: detail.url,
+          image: detail.coverUrl ?? undefined,
+        }
+      : null,
+  );
 
   useEffect(() => {
     if (!author || !game) {

@@ -8,6 +8,7 @@ import type { NewsArticle } from "../../types/news";
 import { countWords, estimateReadingTime, formatArticleDate } from "../../utils/news/feed";
 import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePresenceActivity } from "../../context/PresenceContext";
 import { useWebviewContentFilterEnabled } from "../../context/SettingsContext";
 import { usePersistedState } from "../../hooks/usePersistedState";
 import { dismissWebviewConsent, useEmbeddedWebviewNav } from "../../hooks/useEmbeddedWebviewNav";
@@ -50,6 +51,21 @@ export default function NewsArticlePreview({
 }: NewsArticlePreviewProps) {
   const { t, language } = useLanguage();
   const contentFilterEnabled = useWebviewContentFilterEnabled();
+  // Discord presence: an open article is a more specific state than "browsing
+  // the news page". The owner string keeps this preview from clearing a hint
+  // another surface published.
+  usePresenceActivity(
+    "news-article",
+    article
+      ? {
+          kind: "article",
+          title: article.title,
+          subtitle: article.sourceName || undefined,
+          url: article.link,
+          image: article.imageUrl ?? undefined,
+        }
+      : null,
+  );
   const articleLink = article?.link ?? "";
   const placeholderRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);

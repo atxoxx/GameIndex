@@ -12,6 +12,7 @@ import { useBigScreen } from "../context/BigScreenContext";
 import { buildPlayingPresence } from "../context/game/discordPlayingPresence";
 import {
   browsingHint,
+  buildActivityHintPresence,
   buildDownloadPresence,
   primaryDownload,
   PRESENCE_DOWNLOAD_KINDS,
@@ -54,7 +55,7 @@ const UNLOCK_FLASH_MS = 25_000;
 export function useDiscordPresence() {
   const { pathname } = useLocation();
   const { games, runningGameIds } = useGames();
-  const { storePlatforms, modsGameName, storeGameName, storeGameArt } = usePresence();
+  const { storePlatforms, modsGameName, storeGameName, storeGameArt, activity } = usePresence();
   const { isBigScreen } = useBigScreen();
   const { getAchievementSummary } = useAchievements();
   const { t } = useLanguage();
@@ -211,7 +212,22 @@ export function useDiscordPresence() {
       browsingStart.current = 0;
     }
 
-    // 2) Active downloads outrank browsing, when the user opted in.
+    // 2) A transient page activity (open article / itch.io page) outranks
+    // downloads and route browsing, but never a running game.
+    if (discordShowBrowsing && activity) {
+      if (browsingStart.current === 0) browsingStart.current = now;
+      send(
+        buildActivityHintPresence(
+          activity,
+          t,
+          discordStatusDisplay,
+          discordShowPlaytime ? browsingStart.current : 0,
+        ),
+      );
+      return;
+    }
+
+    // 3) Active downloads outrank browsing, when the user opted in.
     if (discordShowDownloads) {
       const download = primaryDownload(activeDownloads);
       if (download) {
@@ -241,14 +257,14 @@ export function useDiscordPresence() {
       }
     }
 
-    // 3) Browsing broadcast is off: clear any lingering activity instead of
+    // 4) Browsing broadcast is off: clear any lingering activity instead of
     // advertising where the user is.
     if (!discordShowBrowsing) {
       send({ state: "stopped" });
       return;
     }
 
-    // 4) Browsing presence for the current route.
+    // 5) Browsing presence for the current route.
     const hint = browsingHint(
       {
         pathname,
@@ -297,6 +313,7 @@ export function useDiscordPresence() {
     discordStatusDisplay,
     activeDownloads,
     wishlistCount,
+    activity,
     unlockFlash,
     getAchievementSummary,
     t,

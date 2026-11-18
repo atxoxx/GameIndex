@@ -1,14 +1,27 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { PresenceActivityHint } from "../types/presence";
 
 /**
  * PresenceContext
  * ──────────────────────
  * Page-local hints for the Discord Rich Presence "browsing" state.
- * Pages (Store, Mods) publish their current context here via the
- * setters; the `useDiscordPresence` hook (mounted in AppShell) reads
- * them to build the browsing activity payload. A dedicated context
- * keeps deep page state observable from the route root without
- * drilling props through every intermediate component.
+ * Pages (Store, Mods, news preview, itch.io detail) publish their current
+ * context here via the setters; the `useDiscordPresence` hook (mounted in
+ * AppShell) reads them to build the activity payload. A dedicated context
+ * keeps deep page state observable from the route root without drilling
+ * props through every intermediate component.
+ *
+ * `activity` is a transient hint (open article, itch.io page) that outranks
+ * downloads and plain route browsing. It is owner-scoped so a component that
+ * mounts with nothing to publish cannot clear a hint set elsewhere.
  *
  * Defaults represent "no page hint": the Store page with no platform
  * filter selected and no mods page open.
@@ -28,6 +41,33 @@ export interface PresenceContextValue {
    *  Discord fetches the image server-side, so only https sources are usable. */
   storeGameArt: string | null;
   setStoreGameArt: (art: string | null) => void;
+  /** Transient activity published by an open article or itch.io page. */
+  activity: PresenceActivityHint | null;
+  /**
+   * Publish or clear a transient activity. `owner` scopes the clear so a
+   * component that mounts with no activity (a closed news preview on Home)
+   * cannot wipe a hint another component just published.
+   */
+  setActivity: (owner: string, hint: PresenceActivityHint | null) => void;
+}
+
+/** Owned activity state; exported for tests of the owner-scoping rule. */
+export interface PresenceActivityState {
+  owner: string;
+  hint: PresenceActivityHint;
+}
+
+/**
+ * Apply a publish/clear request. A non-null hint always takes over; a null
+ * hint only clears the activity when the same owner published it.
+ */
+export function resolveActivityState(
+  current: PresenceActivityState | null,
+  owner: string,
+  hint: PresenceActivityHint | null,
+): PresenceActivityState | null {
+  if (hint) return { owner, hint };
+  return current?.owner === owner ? null : current;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -44,6 +84,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [modsGameName, setModsGameName] = useState<string | null>(null);
   const [storeGameName, setStoreGameName] = useState<string | null>(null);
   const [storeGameArt, setStoreGameArt] = useState<string | null>(null);
+  const [activityState, setActivityState] = useState<PresenceActivityState | null>(null);
 
   const handleSetStorePlatforms = useCallback((platforms: string[]) => {
     setStorePlatforms(platforms);
@@ -61,6 +102,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setStoreGameArt(art);
   }, []);
 
+  const setActivity = useCallback(
+    (owner: string, hint: PresenceActivityHint | null) => {
+      setActivityState((current) => resolveActivityState(current, owner, hint));
+    },
+    [],
+  );
+
   const contextValue = useMemo(() => ({
     storePlatforms,
     setStorePlatforms: handleSetStorePlatforms,
@@ -70,7 +118,9 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     setStoreGameName: handleSetStoreGameName,
     storeGameArt,
     setStoreGameArt: handleSetStoreGameArt,
-  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName, storeGameName, handleSetStoreGameName, storeGameArt, handleSetStoreGameArt]);
+    activity: activityState?.hint ?? null,
+    setActivity,
+  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName, storeGameName, handleSetStoreGameName, storeGameArt, handleSetStoreGameArt, activityState, setActivity]);
 
   return (
     <PresenceContext.Provider value={contextValue}>
@@ -85,4 +135,32 @@ export function usePresence(): PresenceContextValue {
     throw new Error("usePresence must be used within a PresenceProvider");
   }
   return ctx;
+}
+
+/**
+ * Publish a transient activity for as long as `hint` is non-null.
+ *
+ * Safe outside a PresenceProvider (component tests): the effect is skipped,
+ * so no test has to wrap every news/itch surface in the provider.
+ */
+export function usePresenceActivity(
+  owner: string,
+  hint: PresenceActivityHint | null,
+): void {
+  const ctx = useContext(PresenceContext);
+  const setActivity = ctx?.setActivity;
+  const kind = hint?.kind;
+  const title = hint?.title;
+  const subtitle = hint?.subtitle;
+  const url = hint?.url;
+  const image = hint?.image;
+
+  useEffect(() => {
+    if (!setActivity) return;
+    setActivity(
+      owner,
+      kind && title ? { kind, title, subtitle, url, image } : null,
+    );
+    return () => setActivity(owner, null);
+  }, [setActivity, owner, kind, title, subtitle, url, image]);
 }
