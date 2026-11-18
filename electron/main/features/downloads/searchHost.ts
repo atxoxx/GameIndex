@@ -69,8 +69,8 @@ function realDeps(): DownloadSearchDeps {
     pluginError(pluginId: string): string | null {
       return runtime.get(pluginId)?.lastError ?? null;
     },
-    searchSources(query: string) {
-      return searchSources(query);
+    searchSources(query: string, aliases?: readonly string[]) {
+      return searchSources(query, aliases);
     },
   };
 }

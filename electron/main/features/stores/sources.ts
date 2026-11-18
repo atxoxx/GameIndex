@@ -25,6 +25,7 @@ import type {
   SourceDownload,
   SourceLink,
 } from "../../../../src/types/source";
+import { bestTitleSimilarity } from "../plugins/scoring";
 import { unixNow } from "./types";
 
 const NEW_SOURCE_WINDOW_SECS = 7 * 24 * 60 * 60;
@@ -287,68 +288,19 @@ export async function refreshAllSources(): Promise<void> {
 
 // ── Local search over cached catalogues ────────────────────────────────
 
-function normalizeTitle(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[\u00ae\u2122\u00a9]/g, "")
-    .replace(/[:–—]/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function tokenize(value: string): string[] {
-  return normalizeTitle(value).split(/\s+/).filter(Boolean);
-}
-
-/** Bounded edit distance for a single token (used only for fuzzy credit). */
-function withinOneEdit(a: string, b: string): boolean {
-  if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0;
-  let j = 0;
-  let edits = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      i += 1;
-      j += 1;
-      continue;
-    }
-    edits += 1;
-    if (edits > 1) return false;
-    if (a.length > b.length) i += 1;
-    else if (b.length > a.length) j += 1;
-    else {
-      i += 1;
-      j += 1;
-    }
+/** Keep aliases short, unique and distinct from the primary query. */
+function searchAliases(query: string, aliases: readonly string[] | undefined): string[] {
+  const seen = new Set<string>([query.trim().toLowerCase()]);
+  const out: string[] = [];
+  for (const raw of aliases ?? []) {
+    const alias = typeof raw === "string" ? raw.trim() : "";
+    const key = alias.toLowerCase();
+    if (!alias || seen.has(key)) continue;
+    seen.add(key);
+    out.push(alias);
+    if (out.length >= 8) break;
   }
-  return edits + (a.length - i) + (b.length - j) <= 1;
-}
-
-function titleSimilarity(query: string, title: string): number {
-  const queryTokens = tokenize(query);
-  const titleTokens = tokenize(title);
-  if (queryTokens.length === 0 || titleTokens.length === 0) return 0;
-  if (queryTokens.join(" ") === titleTokens.join(" ")) return 1;
-
-  const titleSet = new Set(titleTokens);
-  let matched = 0;
-  for (const token of queryTokens) {
-    if (titleSet.has(token)) {
-      matched += 1;
-    } else if (
-      token.length >= 4 &&
-      titleTokens.some(
-        (candidate) =>
-          candidate.length >= 4 &&
-          (candidate.startsWith(token) ||
-            token.startsWith(candidate) ||
-            withinOneEdit(candidate, token)),
-      )
-    ) {
-      matched += 0.6;
-    }
-  }
-  return matched / queryTokens.length;
+  return out;
 }
 
 function countTrackerParams(uri: string): number {
@@ -391,9 +343,10 @@ export function mergeAndPickBest(uris: string[], magnet: string | undefined): st
 }
 
 /** `sources_search_game`: rank cached downloads against a game name. */
-export function searchSources(query: string): MatchedDownload[] {
+export function searchSources(query: string, aliases?: readonly string[]): MatchedDownload[] {
   const trimmed = query.trim();
   if (!trimmed) return [];
+  const alternativeNames = searchAliases(trimmed, aliases);
 
   const document = sourcesStore.read();
   const enabled = document.sources.filter((source) => source.enabled);
@@ -415,7 +368,9 @@ export function searchSources(query: string): MatchedDownload[] {
     const isNew =
       entry.fetchedAt > 0 && now - entry.fetchedAt <= NEW_SOURCE_WINDOW_SECS;
     for (const download of entry.data.downloads) {
-      const score = titleSimilarity(trimmed, download.title);
+      // Aliases improve recall for localized / renamed titles without
+      // weakening the score: the best name wins per listing.
+      const score = bestTitleSimilarity(trimmed, alternativeNames, download.title);
       if (score < SEARCH_SCORE_FLOOR) continue;
       const uris = mergeAndPickBest(download.uris, download.magnet);
       const resolvedMagnet = uris.find((uri) => uri.startsWith("magnet:")) ?? null;

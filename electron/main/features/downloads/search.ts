@@ -101,7 +101,7 @@ export interface DownloadSearchDeps {
   /** The runtime's `lastError` for a plugin, or null when the last run worked. */
   pluginError(pluginId: string): string | null;
   /** Cached custom-source matches (`searchSources`). */
-  searchSources(query: string): MatchedDownload[];
+  searchSources(query: string, aliases?: readonly string[]): MatchedDownload[];
   /** Progress sink; the host forwards it to `search-downloads-progress`. */
   emitProgress?(event: DownloadSearchProgress): void;
 }
@@ -731,7 +731,7 @@ export async function runDownloadSearch(
   const sourcesTask = (async (): Promise<SourceOutcome> => {
     try {
       const rows = deps
-        .searchSources(query)
+        .searchSources(query, aliases)
         .map(fromSourceMatch)
         .filter((row) => rowMatchesFilters(row, filters));
       return announce({ rows, sourceName: "Sources" });
@@ -772,6 +772,23 @@ export async function runDownloadSearch(
               `${plugin.name} search`,
             );
             if (retry.length > 0) rows = retry;
+          }
+          // Still empty: a localized or renamed title may only be indexed under
+          // an alternative name. Try one alias (the first, which the metadata
+          // layer ranks highest) before declaring the plugin empty.
+          if (rows.length === 0 && !recorded && aliases.length > 0) {
+            const alias = aliases[0];
+            const cleanedAlias = cleanSearchQuery(alias) ?? alias;
+            try {
+              const aliasRows = await withTimeout(
+                deps.searchPlugin(plugin, cleanedAlias, pluginOptions),
+                timeoutMs,
+                `${plugin.name} search`,
+              );
+              if (aliasRows.length > 0) rows = aliasRows;
+            } catch {
+              /* keep the empty result; the plugin already has a recorded error */
+            }
           }
         }
         results.push(...rows);
