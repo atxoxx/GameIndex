@@ -8,6 +8,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { formatDate } from "../../../utils/localeFormat";
 import type {
   Friend,
   GameRecommendation,
@@ -62,7 +63,7 @@ export default function FriendsActivityTab({
   onNavigateTab,
   onSelectCompareFriend,
 }: FriendsActivityTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [filter, setFilter] = useState<ActivityFilter>("all");
 
   const timelineItems = useMemo<ActivityItem[]>(() => {
@@ -100,7 +101,7 @@ export default function FriendsActivityTab({
           name: mine ? t("friendsPage.you") : session.creatorName,
           game: session.gameName,
         }),
-        subtitle: formatDateTime(session.scheduledAt, session.creatorTimezone),
+        subtitle: formatDateTime(session.scheduledAt, session.creatorTimezone, language),
         action: "sessions",
         actionLabel: t("friendsPage.viewSession"),
       });
@@ -147,7 +148,7 @@ export default function FriendsActivityTab({
     });
 
     return items.sort((a, b) => b.timestamp - a.timestamp);
-  }, [friends, sessions, recommendations, suggestions, profile.name, t]);
+  }, [friends, sessions, recommendations, suggestions, profile.name, t, language]);
 
   const filtered = useMemo(
     () => (filter === "all" ? timelineItems : timelineItems.filter((item) => item.type === filter)),
@@ -186,7 +187,7 @@ export default function FriendsActivityTab({
     yesterday.setDate(today.getDate() - 1);
     if (date.toDateString() === today.toDateString()) return t("friendsPage.today");
     if (date.toDateString() === yesterday.toDateString()) return t("friendsPage.yesterday");
-    return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    return formatDate(date, language, { weekday: "long", day: "numeric", month: "long" });
   };
 
   const iconFor = (kind: ActivityKind) => {
@@ -235,7 +236,7 @@ export default function FriendsActivityTab({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="friends-empty">
+        <div className="friends-empty" role="status">
           <span className="friends-empty__icon" aria-hidden="true">
             <Activity size={22} />
           </span>

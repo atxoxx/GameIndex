@@ -112,6 +112,7 @@ export default function SuggestionCard({
               className="friend-delete-btn friend-delete-btn--inline"
               onClick={() => onDelete(suggestion.id)}
               title={t("friendsPage.deleteSuggestionTitle")}
+              aria-label={t("friendsPage.deleteSuggestionTitle")}
             >
               <TrashIcon />
             </button>
@@ -132,6 +133,8 @@ export default function SuggestionCard({
             className={`sug-react-btn${myReaction === "like" ? " active" : ""}`}
             onClick={() => onReact(suggestion.id, "like")}
             title={t("friendsPage.like")}
+            aria-label={t("friendsPage.like")}
+            aria-pressed={myReaction === "like"}
           >
             <ThumbsUpIcon />
             {likesCount > 0 && <span className="sug-react-count">{likesCount}</span>}
@@ -142,6 +145,8 @@ export default function SuggestionCard({
             className={`sug-react-btn${myReaction === "love" ? " active" : ""}`}
             onClick={() => onReact(suggestion.id, "love")}
             title={t("friendsPage.love")}
+            aria-label={t("friendsPage.love")}
+            aria-pressed={myReaction === "love"}
           >
             <HeartIcon />
             {lovesCount > 0 && <span className="sug-react-count">{lovesCount}</span>}
@@ -152,6 +157,8 @@ export default function SuggestionCard({
             className={`sug-react-btn${myReaction === "interest" ? " active" : ""}`}
             onClick={() => onReact(suggestion.id, "interest")}
             title={t("friendsPage.wantToTry")}
+            aria-label={t("friendsPage.wantToTry")}
+            aria-pressed={myReaction === "interest"}
           >
             <FireIcon />
             {firesCount > 0 && <span className="sug-react-count">{firesCount}</span>}
@@ -162,6 +169,8 @@ export default function SuggestionCard({
             className={`sug-react-btn${myReaction === "played" ? " active" : ""}`}
             onClick={() => onReact(suggestion.id, "played")}
             title={t("friendsPage.played")}
+            aria-label={t("friendsPage.played")}
+            aria-pressed={myReaction === "played"}
           >
             <CheckIcon />
             {playedCount > 0 && <span className="sug-react-count">{playedCount}</span>}
@@ -211,6 +220,8 @@ export default function SuggestionCard({
             />
             <Button variant="primary" size="sm" iconOnly leftIcon={<SendIcon />}
               type="button"
+              aria-label={t("friendsPage.writeComment")}
+              title={t("friendsPage.writeComment")}
               onClick={handleSendComment}
               disabled={!commentDraft.trim()}
             ></Button>

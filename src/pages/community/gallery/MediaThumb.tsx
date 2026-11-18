@@ -72,7 +72,7 @@ export function MediaThumb({
         </span>
       )}
 
-      {isVideo && <span className="gallery-thumb__clip">▶ CLIP</span>}
+      {isVideo && <span className="gallery-thumb__clip">▶ {t("community.thumbTypeClip")}</span>}
 
       {gameName && (
         <span className="gallery-thumb__game" aria-hidden="true">

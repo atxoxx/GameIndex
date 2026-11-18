@@ -173,7 +173,7 @@ export default function FriendsSyncModal({
           <h2 className="friends-modal-title" id="friends-sync-modal-title">
             <ShieldCheck size={16} aria-hidden="true" /> {t("friendsPage.syncModalTitle")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<X />} type="button" onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<X />} type="button" aria-label={t("common.close")} onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">

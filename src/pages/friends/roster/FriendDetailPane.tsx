@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { formatDate, formatTime } from "../../../utils/localeFormat";
 import type { Friend, FriendCircle, GameSession } from "../friendsTypes";
 import {
   displayName,
@@ -63,7 +64,7 @@ export function FriendDetailPane({
   onOpenCircles,
   onOpenSession,
 }: FriendDetailPaneProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement>(null);
 
@@ -289,9 +290,9 @@ export function FriendDetailPane({
             {nextSession ? (
               <button type="button" className="friend-detail__next-session" onClick={onOpenSession}>
                 <span className="friend-detail__next-date">
-                  {new Date(nextSession.scheduledAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+                  {formatDate(nextSession.scheduledAt, language, { weekday: "short", day: "numeric", month: "short" })}
                   {" · "}
-                  {new Date(nextSession.scheduledAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                  {formatTime(nextSession.scheduledAt, language, { hour: "2-digit", minute: "2-digit" })}
                 </span>
                 <strong>{nextSession.gameName}</strong>
                 <span>{nextSession.creatorName}</span>

@@ -33,7 +33,7 @@ interface GalleryTabProps {
  * shared lightbox; the toolbar filters both levels at once.
  */
 export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const gallery = useGallery(games, range, onCountChange);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<MediaFile | null>(null);
@@ -160,7 +160,7 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
       </div>
 
       {(gallery.isDetecting || gallery.isScanning) && (
-        <div className="profile-gallery__skeleton" aria-hidden="true">
+        <div className="profile-gallery__skeleton" role="status" aria-label={t("community.detecting")}>
           {Array.from({ length: 8 }).map((_, index) => (
             <span key={index} className="profile-gallery__skeleton-tile" />
           ))}
@@ -168,7 +168,7 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
       )}
 
       {!gallery.isDetecting && !gallery.isScanning && gallery.albums.length === 0 && (
-        <div className="profile-empty profile-empty--page">
+        <div className="profile-empty profile-empty--page" role="status">
           {gallery.totalCaptures === 0 ? <Camera size={24} aria-hidden="true" /> : <AlertTriangle size={24} aria-hidden="true" />}
           <h3>{t("community.browseScreenshots")}</h3>
           <p>
@@ -215,7 +215,7 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
                     count: selected.media.length,
                     plural: selected.media.length !== 1 ? "s" : "",
                   })}
-                  {selected.latest > 0 && <> · {formatCaptureDate(selected.latest)}</>}
+                  {selected.latest > 0 && <> · {formatCaptureDate(selected.latest, language)}</>}
                   {selected.group.source && <span className="profile-source">{sourceLabel(selected.group.source)}</span>}
                 </span>
               </div>
@@ -284,7 +284,7 @@ export function GalleryTab({ games, range, onCountChange }: GalleryTabProps) {
                     {album.group.gameName}
                   </span>
                   <span className="profile-album-card__meta">
-                    {album.latest > 0 ? formatCaptureDate(album.latest) : t("profile.noDate")}
+                    {album.latest > 0 ? formatCaptureDate(album.latest, language) : t("profile.noDate")}
                     {album.group.source && <span className="profile-source">{sourceLabel(album.group.source)}</span>}
                   </span>
                 </span>

@@ -23,6 +23,7 @@ import {
   XIcon,
 } from "../friendsUtils";
 import { Button } from "../../../components/ui";
+import { formatDate, formatTime } from "../../../utils/localeFormat";
 
 interface FriendsSessionsTabProps {
   sessions: GameSession[];
@@ -73,7 +74,7 @@ export default function FriendsSessionsTab({
   onTogglePinMessage,
   openCreateSignal,
 }: FriendsSessionsTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [viewMode, setViewMode] = usePersistedState<"upcoming" | "past" | "agenda">(
     "gamelib.friends.sessions.view_mode_v1",
     "upcoming",
@@ -520,10 +521,10 @@ export default function FriendsSessionsTab({
                     >
                       <div className="agenda-day-date">
                         <span className="agenda-day-name">
-                          {dayDate.toLocaleDateString(undefined, { weekday: "short" })}
+                          {formatDate(dayDate, language, { weekday: "short" })}
                         </span>
                         <span className="agenda-day-number">
-                          {dayDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          {formatDate(dayDate, language, { month: "short", day: "numeric" })}
                         </span>
                       </div>
                       <span className="agenda-day-count">
@@ -536,7 +537,7 @@ export default function FriendsSessionsTab({
                         <div key={s.id} className="agenda-session-snippet">
                           <div className="agenda-snippet-time">
                             <ClockIcon />
-                            {new Date(s.scheduledAt).toLocaleTimeString(undefined, {
+                            {formatTime(new Date(s.scheduledAt), language, {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
@@ -603,7 +604,7 @@ export default function FriendsSessionsTab({
               </h2>
               <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
                 type="button"
-                
+                aria-label={t("common.close")}
                 onClick={() => setShowCreateModal(false)}
                 title={t("common.close")}
               ></Button>
@@ -665,6 +666,7 @@ export default function FriendsSessionsTab({
                               />
                               <Button variant="secondary" size="sm" iconOnly leftIcon={<XIcon />}
                                 type="button"
+                                aria-label={t("friendsPage.removeOption")}
                                 onClick={() => removePollOption(i)}
                                 title={t("friendsPage.removeOption")}
                               ></Button>
@@ -711,7 +713,7 @@ export default function FriendsSessionsTab({
                   <div className="session-conflict-banner">
                     {t("friendsPage.overlapsWarning", {
                       game: potentialConflict.gameName,
-                      time: formatDateTime(potentialConflict.scheduledAt, potentialConflict.creatorTimezone),
+                      time: formatDateTime(potentialConflict.scheduledAt, potentialConflict.creatorTimezone, language),
                     })}
                   </div>
                 )}

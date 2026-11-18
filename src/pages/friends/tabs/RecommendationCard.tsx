@@ -121,6 +121,7 @@ export default function RecommendationCard({
               className="friend-delete-btn friend-delete-btn--inline"
               onClick={() => onDelete(rec.id)}
               title={t("friendsPage.deleteRecTitle")}
+              aria-label={t("friendsPage.deleteRecTitle")}
             >
               <TrashIcon />
             </button>
@@ -141,6 +142,8 @@ export default function RecommendationCard({
             className={`rec-react-btn${myReaction === "like" ? " active" : ""}`}
             onClick={() => onReact(rec.id, "like")}
             title={t("friendsPage.like")}
+            aria-label={t("friendsPage.like")}
+            aria-pressed={myReaction === "like"}
           >
             <ThumbsUpIcon />
             {likesCount > 0 && <span className="rec-react-count">{likesCount}</span>}
@@ -151,6 +154,8 @@ export default function RecommendationCard({
             className={`rec-react-btn${myReaction === "love" ? " active" : ""}`}
             onClick={() => onReact(rec.id, "love")}
             title={t("friendsPage.love")}
+            aria-label={t("friendsPage.love")}
+            aria-pressed={myReaction === "love"}
           >
             <HeartIcon />
             {lovesCount > 0 && <span className="rec-react-count">{lovesCount}</span>}
@@ -161,6 +166,8 @@ export default function RecommendationCard({
             className={`rec-react-btn${myReaction === "play" ? " active" : ""}`}
             onClick={() => onReact(rec.id, "play")}
             title={t("friendsPage.played")}
+            aria-label={t("friendsPage.played")}
+            aria-pressed={myReaction === "play"}
           >
             <GamepadIcon />
             {playsCount > 0 && <span className="rec-react-count">{playsCount}</span>}
@@ -210,6 +217,8 @@ export default function RecommendationCard({
             />
             <Button variant="primary" size="sm" iconOnly leftIcon={<SendIcon />}
               type="button"
+              aria-label={t("friendsPage.writeComment")}
+              title={t("friendsPage.writeComment")}
               onClick={handleSendComment}
               disabled={!commentDraft.trim()}
             ></Button>

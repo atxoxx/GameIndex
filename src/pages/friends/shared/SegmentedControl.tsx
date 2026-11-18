@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, KeyboardEvent, ReactNode } from "react";
 
 export interface SegmentedItem<T extends string> {
   id: T;
@@ -29,9 +29,35 @@ export function SegmentedControl<T extends string>({
   className,
   trailing,
 }: SegmentedControlProps<T>) {
+  // Same roving-tabindex keys as the shared SubTabs, so the nested Play / Stats
+  // trays can be driven from the keyboard too.
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (items.length === 0) return;
+    const index = items.findIndex((item) => item.id === value);
+    if (index === -1) return;
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % items.length;
+    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + items.length) % items.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = items.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const next = items[nextIndex];
+    onChange(next.id);
+    const tabs = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs[nextIndex]?.focus();
+  };
+
   return (
     <div className={["friends-segmented", className ?? ""].filter(Boolean).join(" ")}>
-      <div className="friends-segmented__group" role="tablist" aria-label={ariaLabel}>
+      <div
+        className="friends-segmented__group"
+        role="tablist"
+        aria-label={ariaLabel}
+        onKeyDown={handleKeyDown}
+      >
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.id === value;
@@ -41,6 +67,7 @@ export function SegmentedControl<T extends string>({
               type="button"
               role="tab"
               aria-selected={active}
+              tabIndex={active ? 0 : -1}
               className={["friends-segmented__item", active ? "is-active" : ""].filter(Boolean).join(" ")}
               onClick={() => onChange(item.id)}
             >

@@ -12,6 +12,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { formatDate, formatNumber } from "../../../utils/localeFormat";
 import {
   computeGoalPace,
   computeMilestones,
@@ -90,12 +91,12 @@ export function OverviewTab({
   showSecondaryTabs,
   onOpenTab,
 }: OverviewTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const monthToDate = useMemo(() => computeMonthToDate(allSessions), [allSessions]);
   const periodCompare = useMemo(() => computePeriodCompare(allSessions), [allSessions]);
-  const monthlyTrend = useMemo(() => computeMonthlyTrend(allSessions, 6), [allSessions]);
+  const monthlyTrend = useMemo(() => computeMonthlyTrend(allSessions, 6, language), [allSessions, language]);
 
   const lifetimePlaytime = useMemo(
     () => allSessions.reduce((sum, session) => sum + session.durationMin, 0),
@@ -359,7 +360,7 @@ export function OverviewTab({
                   />
                 </div>
                 <span className="profile-card__sub">
-                  {nextMilestone.currentValue.toLocaleString()} / {nextMilestone.targetValue.toLocaleString()}
+                  {formatNumber(nextMilestone.currentValue, language)} / {formatNumber(nextMilestone.targetValue, language)}
                 </span>
                 <button
                   type="button"
@@ -459,7 +460,7 @@ export function OverviewTab({
                         <span className="profile-feed__meta">
                           {achievement.gameName}
                           {achievement.unlockTime > 0 && (
-                            <> · {new Date(achievement.unlockTime).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>
+                            <> · {formatDate(achievement.unlockTime, language, { month: "short", day: "numeric" })}</>
                           )}
                         </span>
                       </span>

@@ -309,6 +309,7 @@ export function FriendsRoster({
             className={density === "comfortable" ? "is-active" : ""}
             onClick={() => setDensity("comfortable")}
             title={t("friendsPage.densityComfortable")}
+            aria-label={t("friendsPage.densityComfortable")}
             aria-pressed={density === "comfortable"}
           >
             <Rows3 size={14} aria-hidden="true" />
@@ -318,6 +319,7 @@ export function FriendsRoster({
             className={density === "compact" ? "is-active" : ""}
             onClick={() => setDensity("compact")}
             title={t("friendsPage.densityCompact")}
+            aria-label={t("friendsPage.densityCompact")}
             aria-pressed={density === "compact"}
           >
             <LayoutList size={14} aria-hidden="true" />
@@ -332,6 +334,7 @@ export function FriendsRoster({
             clearSelection();
           }}
           title={selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")}
+          aria-label={selectMode ? t("friendsPage.exitSelectMode") : t("friendsPage.selectMultiple")}
           aria-pressed={selectMode}
         >
           {selectMode ? <X size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
@@ -455,7 +458,7 @@ export function FriendsRoster({
         ))}
 
         {visible.length === 0 && pendingRows.length === 0 ? (
-          <div className="friends-empty">
+          <div className="friends-empty" role="status">
             <span className="friends-empty__icon" aria-hidden="true">
               <Users size={22} />
             </span>

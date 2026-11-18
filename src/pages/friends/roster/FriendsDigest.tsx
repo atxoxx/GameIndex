@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { formatDate, formatDateTime, formatTime } from "../../../utils/localeFormat";
 import { displayName, visibleMessages } from "../../friendsStorage";
 import type {
   DmThread,
@@ -106,7 +107,7 @@ export function FriendsDigest({
   onDenyInvitation,
   onNavigate,
 }: FriendsDigestProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const unreadMessages = useMemo(() => {
     return dms
@@ -169,7 +170,7 @@ export function FriendsDigest({
         kind: "session",
         author: session.creatorName,
         title: t("friendsPage.digest.newSession", { name: session.creatorName, game: session.gameName }),
-        detail: new Date(session.scheduledAt).toLocaleString(undefined, {
+        detail: formatDateTime(session.scheduledAt, language, {
           weekday: "short",
           hour: "2-digit",
           minute: "2-digit",
@@ -233,7 +234,7 @@ export function FriendsDigest({
     });
 
     return list.sort((a, b) => b.timestamp - a.timestamp).slice(0, MAX_DIGEST_ROWS);
-  }, [dms, sessions, recommendations, suggestions, profile.name, t]);
+  }, [dms, sessions, recommendations, suggestions, profile.name, t, language]);
 
   const iconFor = (kind: DigestKind) => {
     if (kind === "message") return <MessageCircle size={14} aria-hidden="true" />;
@@ -303,13 +304,13 @@ export function FriendsDigest({
             <span className="friends-digest__next-label">{t("friendsPage.digest.nextUp")}</span>
             <strong>{nextSession.gameName}</strong>
             <span>
-              {new Date(nextSession.scheduledAt).toLocaleDateString(undefined, {
+              {formatDate(nextSession.scheduledAt, language, {
                 weekday: "long",
                 day: "numeric",
                 month: "short",
               })}
               {" · "}
-              {new Date(nextSession.scheduledAt).toLocaleTimeString(undefined, {
+              {formatTime(nextSession.scheduledAt, language, {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -322,7 +323,7 @@ export function FriendsDigest({
       )}
 
       {items.length === 0 ? (
-        <div className="friends-empty friends-empty--digest">
+        <div className="friends-empty friends-empty--digest" role="status">
           <span className="friends-empty__icon is-success" aria-hidden="true">
             <CheckCircle2 size={22} />
           </span>

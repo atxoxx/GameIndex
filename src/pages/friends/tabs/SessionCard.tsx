@@ -65,7 +65,7 @@ export default function SessionCard({
   onSendMessage,
   onTogglePinMessage,
 }: SessionCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [now, setNow] = useState(Date.now());
   const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
@@ -152,6 +152,13 @@ export default function SessionCard({
   const showTimeForViewer =
     viewerTimezone && session.creatorTimezone && viewerTimezone !== session.creatorTimezone;
 
+  const rsvpLabel = (status: RsvpStatus | "invited") => {
+    if (status === "going") return t("friends.going");
+    if (status === "maybe") return t("friends.maybe");
+    if (status === "declined") return t("friends.cant");
+    return t("friendsPage.invitedStatus");
+  };
+
   const submitNote = () => {
     onSetRsvpNote(session.id, noteDraft.trim());
   };
@@ -210,14 +217,14 @@ export default function SessionCard({
           {session.scheduledAt && (
             <div className="session-date-row">
               <ClockIcon />
-              <span>{formatDateTime(session.scheduledAt, session.creatorTimezone)} {tzAbbrev(session.scheduledAt, session.creatorTimezone)}</span>
+              <span>{formatDateTime(session.scheduledAt, session.creatorTimezone, language)} {tzAbbrev(session.scheduledAt, session.creatorTimezone)}</span>
             </div>
           )}
 
           {session.scheduledAt && showTimeForViewer && (
             <div className="session-date-local">
               {t("friendsPage.yourTime", {
-                time: `${formatDateTime(session.scheduledAt, viewerTimezone)} ${tzAbbrev(session.scheduledAt, viewerTimezone)}`.trim(),
+                time: `${formatDateTime(session.scheduledAt, viewerTimezone, language)} ${tzAbbrev(session.scheduledAt, viewerTimezone)}`.trim(),
               })}
             </div>
           )}
@@ -249,6 +256,7 @@ export default function SessionCard({
               type="button"
               className="session-launch-btn"
               onClick={() => onLaunch(session)}
+              aria-label={t("friendsPage.launchGame")}
               title={t("friendsPage.launchGame")}
             >
               <PlayIcon />
@@ -259,6 +267,7 @@ export default function SessionCard({
               type="button"
               className="session-edit-btn"
               onClick={() => onEdit(session)}
+              aria-label={t("friendsPage.editSession")}
               title={t("friendsPage.editSession")}
             >
               <EditIcon />
@@ -269,6 +278,7 @@ export default function SessionCard({
               type="button"
               className="session-delete-btn"
               onClick={() => onDelete(session.id)}
+              aria-label={t("friends.removeSession")}
               title={t("friends.removeSession")}
             >
               <TrashIcon />
@@ -295,7 +305,7 @@ export default function SessionCard({
               return (
                 <div key={opt.id} className={`session-poll-option${voted ? " voted" : ""}`}>
                   <div className="session-poll-option-main">
-                    <span className="session-poll-time">{formatDateTime(opt.label)}</span>
+                    <span className="session-poll-time">{formatDateTime(opt.label, undefined, language)}</span>
                     <span className="session-poll-votes">
                       {voters.length > 0 ? `${voters.length} ✓` : ""}
                     </span>
@@ -328,7 +338,7 @@ export default function SessionCard({
             <div className="session-conflict-banner">
               {t("friendsPage.overlapsWarning", {
                 game: conflicting.gameName,
-                time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone),
+                time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone, language),
               })}
             </div>
           )}
@@ -389,7 +399,7 @@ export default function SessionCard({
               ) : (
                 <span className={`roster-role role-${p.role}`}>{t(`friends.${p.role}`)}</span>
               )}
-              <span className={`roster-rsvp-badge rsvp-${p.rsvp}`} title={p.rsvp}>
+              <span className={`roster-rsvp-badge rsvp-${p.rsvp}`} title={rsvpLabel(p.rsvp)}>
                 {p.rsvp === "going" ? (
                   <span>{t("friends.going")}</span>
                 ) : p.rsvp === "maybe" ? (
@@ -413,6 +423,7 @@ export default function SessionCard({
                   type="button"
                   className="roster-remove"
                   onClick={() => onRemoveGuest(session.id, p.name)}
+                  aria-label={t("friends.removeGuest")}
                   title={t("friends.removeGuest")}
                 >
                   <XIcon />
@@ -470,6 +481,7 @@ export default function SessionCard({
           type="button"
           className={`session-chat-toggle${chatOpen ? " active" : ""}`}
           onClick={() => setChatOpen((v) => !v)}
+          aria-label={t("friends.sessionChat")}
           title={t("friends.sessionChat")}
         >
           <MessageIcon />
@@ -491,6 +503,7 @@ export default function SessionCard({
                       type="button"
                       className="chat-pin-btn"
                       onClick={() => onTogglePinMessage(session.id, m.id)}
+                      aria-label={t("friends.unpin")}
                       title={t("friends.unpin")}
                     >
                       <PinIcon />
@@ -513,6 +526,7 @@ export default function SessionCard({
                     type="button"
                     className="chat-pin-btn"
                     onClick={() => onTogglePinMessage(session.id, m.id)}
+                    aria-label={t("friends.pin")}
                     title={t("friends.pin")}
                   >
                     <PinIcon />

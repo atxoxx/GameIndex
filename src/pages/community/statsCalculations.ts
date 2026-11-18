@@ -6,6 +6,7 @@ import type {
   AchievementSummary,
   AchievementUnlockRecord,
 } from "../../types/game";
+import { formatDate } from "../../utils/localeFormat";
 import type {
   DayCell,
   StreakInfo,
@@ -229,7 +230,8 @@ export function computeWeekdaySplit(sessions: GameSession[]): WeekdaySplit {
 // ── Monthly Trend Progression ─────────────────────────────────────
 export function computeMonthlyTrend(
   sessions: GameSession[],
-  months = 6
+  months = 6,
+  locale?: string
 ): MonthlyTrendItem[] {
   const now = new Date();
   const out: MonthlyTrendItem[] = [];
@@ -249,7 +251,7 @@ export function computeMonthlyTrend(
     }
 
     out.push({
-      label: monthStart.toLocaleDateString(undefined, { month: "short" }),
+      label: formatDate(monthStart, locale, { month: "short" }),
       minutes: mins,
       sessions: count,
     });
@@ -642,7 +644,8 @@ export function computePersonalRecords(
   sessions: GameSession[],
   heatmapCells: DayCell[],
   streakInfo: StreakInfo,
-  genreBreakdown: { genre: string; minutes: number }[]
+  genreBreakdown: { genre: string; minutes: number }[],
+  locale?: string
 ): PersonalRecords {
   let longestSession: { minutes: number; gameName: string; date: string } | null = null;
   for (const s of sessions) {
@@ -660,7 +663,7 @@ export function computePersonalRecords(
     }
   }
 
-  const monthly = computeMonthlyTrend(sessions, 12);
+  const monthly = computeMonthlyTrend(sessions, 12, locale);
   let mostActiveMonth: { label: string; minutes: number } | null = null;
   for (const m of monthly) {
     if (!mostActiveMonth || m.minutes > mostActiveMonth.minutes) {

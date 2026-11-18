@@ -410,7 +410,7 @@ export default function FriendsRecsTab({
               </h2>
               <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />}
                 type="button"
-                
+                aria-label={t("common.close")}
                 onClick={() => setShowCreateModal(false)}
                 title={t("common.close")}
               ></Button>

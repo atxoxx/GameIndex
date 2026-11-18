@@ -3,6 +3,7 @@ import { Camera, Clock, Download, Flame, Gamepad2, Library, Share2, Snowflake, T
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button, PageHeader, StatBand } from "../../components/ui";
+import { formatDate, formatNumber } from "../../utils/localeFormat";
 import { captureAndSaveScreenshot } from "../../utils/screenshot";
 import { formatHours } from "./statsCalculations";
 import { PersonaIcon } from "./statsIcons";
@@ -51,20 +52,20 @@ export function ProfileHeader({
   onRangeChange,
   hideAchievementProgress,
 }: ProfileHeaderProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
 
   const handleShareProfile = useCallback(async () => {
     const markdown = [
       `# 🎮 ${t("profile.title")} — ${t(persona.titleKey)}`,
-      `**${t("stats.level")} ${levelInfo.level}** (${levelInfo.title}) · **${levelInfo.totalXp.toLocaleString()} XP**`,
+      `**${t("stats.level")} ${levelInfo.level}** (${levelInfo.title}) · **${formatNumber(levelInfo.totalXp, language)} XP**`,
       "",
       `⏱️ **${t("community.totalPlaytime")}**: ${formatHours(totals.playtimeMin)}`,
       `🕹️ **${t("community.sessions")}**: ${totals.sessionCount}`,
       `📚 **${t("community.gamesInLibrary")}**: ${totals.libraryCount}`,
       `🔥 **${t("communityExtras.dayStreak")}**: ${streak.current} (${t("communityExtras.longest", { days: streak.longest })})`,
       "",
-      `*GameIndex · ${new Date().toLocaleDateString()}*`,
+      `*GameIndex · ${formatDate(new Date(), language)}*`,
     ].join("\n");
 
     try {
@@ -73,7 +74,7 @@ export function ProfileHeader({
     } catch {
       showToast(t("community.copyFailed"), "error");
     }
-  }, [levelInfo, persona, streak, totals, t, showToast]);
+  }, [levelInfo, language, persona, streak, totals, t, showToast]);
 
   const handleCapture = useCallback(async () => {
     const container = document.querySelector<HTMLElement>(".profile-page");
@@ -211,13 +212,16 @@ export function ProfileHeader({
         }
       />
 
-      <div className="profile-xp" title={`${levelInfo.currentXp} / ${levelInfo.xpForNextLevel} XP`}>
+      <div
+        className="profile-xp"
+        title={`${formatNumber(levelInfo.currentXp, language)} / ${formatNumber(levelInfo.xpForNextLevel, language)} XP`}
+      >
         <div className="profile-xp__top">
           <span>
             {t("stats.level")} {levelInfo.level} <span className="profile-xp__title">{levelInfo.title}</span>
           </span>
           <span className="profile-xp__figures">
-            {levelInfo.currentXp.toLocaleString()} / {levelInfo.xpForNextLevel.toLocaleString()} XP
+            {formatNumber(levelInfo.currentXp, language)} / {formatNumber(levelInfo.xpForNextLevel, language)} XP
           </span>
         </div>
         <div

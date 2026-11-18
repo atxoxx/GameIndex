@@ -273,6 +273,7 @@
   font-size: calc(var(--text-2xs) * 0.78);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .gallery-thumb__game {

@@ -418,6 +418,7 @@ export default function FriendsCompareTab({
                             type="button"
                             onClick={() => onLaunchGame(g.myGame!.id)}
                             title={t("game.play")}
+                            aria-label={t("game.play")}
                           ></Button>
                         )}
                       </td>

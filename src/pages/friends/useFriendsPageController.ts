@@ -52,6 +52,7 @@ import {
   clearUnseenTabItems,
 } from "../friendsStorage";
 import { nextOccurrence, detectTimezone } from "./friendsUtils";
+import { formatTime } from "../../utils/localeFormat";
 import {
   asPeerPubkey,
   classifyFriendsByConsent,
@@ -59,8 +60,8 @@ import {
 } from "./friendsSyncHelpers";
 import type { FriendInvitation, UnseenCounts } from "./friendsTypes";
 
-function formatClockTime(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, {
+function formatClockTime(ms: number, locale?: string): string {
+  return formatTime(ms, locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -75,7 +76,7 @@ function formatClockTime(ms: number): string {
  * the engine merges something in — it never talks to a relay itself.
  */
 export function useFriendsPageController() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { games, runningGameIds } = useGames();
   const { summaries } = useAchievements();
   const { showToast } = useToast();
@@ -417,8 +418,8 @@ export function useFriendsPageController() {
   }, []);
 
   const lastSyncedTime = useMemo(
-    () => (status.lastSyncedAt ? formatClockTime(status.lastSyncedAt) : ""),
-    [status.lastSyncedAt]
+    () => (status.lastSyncedAt ? formatClockTime(status.lastSyncedAt, language) : ""),
+    [status.lastSyncedAt, language]
   );
 
   const lastSyncMessage = useMemo(() => {
@@ -1169,7 +1170,7 @@ export function useFriendsPageController() {
         fireNotification(
           t("friendsPage.notifSessionSoon", {
             game: s.gameName,
-            time: new Date(start).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+            time: formatTime(start, language, { hour: "2-digit", minute: "2-digit" }),
           }),
           s.gameName
         );
@@ -1182,7 +1183,7 @@ export function useFriendsPageController() {
     const iv = setInterval(check, 30_000);
     check();
     return () => clearInterval(iv);
-  }, [sessions, friendsNotifications, profile.name, t]);
+  }, [sessions, friendsNotifications, profile.name, t, language]);
 
   return {
     // data

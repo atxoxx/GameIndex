@@ -63,7 +63,7 @@ export default function EditNicknameModal({
           <h2 className="friends-modal-title" id="friends-nickname-modal-title">
             <PencilIcon /> {t("friendsPage.setNickname")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button" aria-label={t("common.close")} onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">

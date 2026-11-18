@@ -29,7 +29,7 @@ export function formatHours(totalMinutes: number, t: (key: string, vars?: Record
   return t("friendsPage.hoursH", { h });
 }
 
-export function formatDateTime(dateTimeStr: string, tz?: string): string {
+export function formatDateTime(dateTimeStr: string, tz?: string, locale?: string): string {
   try {
     const d = new Date(dateTimeStr);
     // Poll sessions have no fixed time (empty string) and malformed remote
@@ -48,7 +48,7 @@ export function formatDateTime(dateTimeStr: string, tz?: string): string {
         /* invalid tz — fall back to local */
       }
     }
-    return d.toLocaleString(undefined, opts);
+    return new Intl.DateTimeFormat(locale || undefined, opts).format(d);
   } catch {
     return dateTimeStr;
   }

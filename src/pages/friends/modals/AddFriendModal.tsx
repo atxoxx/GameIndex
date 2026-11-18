@@ -138,13 +138,14 @@ export default function AddFriendModal({
           <h2 className="friends-modal-title" id="friends-add-modal-title">
             <UsersIcon /> {t("friendsPage.addFriendModalTitle")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button" onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button" aria-label={t("common.close")} onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-subtabs">
           <button
             type="button"
             className={`friends-modal-subtab${activeSubTab === "add" ? " active" : ""}`}
+            aria-pressed={activeSubTab === "add"}
             onClick={() => setActiveSubTab("add")}
           >
             {t("friendsPage.enterFriendCodeTab")}
@@ -152,6 +153,7 @@ export default function AddFriendModal({
           <button
             type="button"
             className={`friends-modal-subtab${activeSubTab === "mycode" ? " active" : ""}`}
+            aria-pressed={activeSubTab === "mycode"}
             onClick={() => setActiveSubTab("mycode")}
           >
             {t("friendsPage.myFriendCodeTab")}
@@ -293,6 +295,8 @@ export default function AddFriendModal({
                       iconOnly
                       leftIcon={<CopyIcon />}
                       type="button"
+                      title={t("common.copy")}
+                      aria-label={t("common.copy")}
                       onClick={() => copyToClipboard(nostrPublicKey, t("friendsPage.nostrPublicKey"))}
                     ></Button>
                   </div>

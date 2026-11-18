@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Crown, Flag, Gamepad2, Gem, Medal, Target, Trophy } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { Card } from "../../../components/ui";
+import { formatDate, formatNumber } from "../../../utils/localeFormat";
 import {
   collectUnlockedAchievements,
   computeMilestones,
@@ -47,7 +48,7 @@ export function AchievementsTab({
   totalAchievementsUnlocked,
   hideAchievementProgress,
 }: AchievementsTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const { totalAchievements, unlockedAchievements } = useMemo(() => {
@@ -124,7 +125,7 @@ export function AchievementsTab({
 
   if (hideAchievementProgress) {
     return (
-      <div className="profile-empty profile-empty--page">
+      <div className="profile-empty profile-empty--page" role="status">
         <Trophy size={24} aria-hidden="true" />
         <p>{t("settingsPage.hideAchievementProgress")}</p>
       </div>
@@ -140,7 +141,7 @@ export function AchievementsTab({
             <div className="profile-ach-hero__stat">
               <span className="profile-ach-hero__icon"><Trophy size={18} aria-hidden="true" /></span>
               <span className="profile-ach-hero__value">
-                {unlockedAchievements.toLocaleString()} <small>/ {totalAchievements.toLocaleString()}</small>
+                {formatNumber(unlockedAchievements, language)} <small>/ {formatNumber(totalAchievements, language)}</small>
               </span>
               <span className="profile-ach-hero__label">
                 {t("community.achievements")} ({completionPct}%)
@@ -218,7 +219,7 @@ export function AchievementsTab({
                   <span className="profile-game-card__meta">
                     {game.totalAchievements} {t("community.achievements")}
                     {game.lastUnlockedTime > 0 && (
-                      <> · {new Date(game.lastUnlockedTime).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</>
+                      <> · {formatDate(game.lastUnlockedTime, language, { month: "short", year: "numeric" })}</>
                     )}
                   </span>
                 </span>
@@ -332,7 +333,7 @@ export function AchievementsTab({
                   <span className="profile-recent-card__game">{achievement.gameName}</span>
                   <span className="profile-recent-card__title" title={achievement.name}>{achievement.name}</span>
                   <span className="profile-recent-card__date">
-                    {new Date(achievement.unlockTime).toLocaleDateString(undefined, {
+                    {formatDate(achievement.unlockTime, language, {
                       month: "short",
                       day: "numeric",
                     })}
@@ -378,7 +379,7 @@ export function AchievementsTab({
                   <span style={{ width: `${pct}%` }} />
                 </div>
                 <div className="profile-milestone__footer">
-                  <span>{milestone.currentValue.toLocaleString()} / {milestone.targetValue.toLocaleString()}</span>
+                  <span>{formatNumber(milestone.currentValue, language)} / {formatNumber(milestone.targetValue, language)}</span>
                   <span>{pct}%</span>
                 </div>
               </div>

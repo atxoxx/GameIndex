@@ -26,6 +26,11 @@ const CIRCLE_COLORS = [
   "var(--circle-color-rose)",
 ];
 
+/** "var(--circle-color-blue)" → "blue", so the swatch has a readable name. */
+function circleColorName(token: string): string {
+  return token.replace(/^var\(--circle-color-/, "").replace(/\)$/, "");
+}
+
 export default function FriendsCirclesModal({
   isOpen,
   onClose,
@@ -88,7 +93,7 @@ export default function FriendsCirclesModal({
           <h2 className="friends-modal-title" id="friends-circles-modal-title">
             {t("friendsPage.manageCircles")}
           </h2>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button"  onClick={onClose} title={t("common.close")}></Button>
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<XIcon />} type="button" aria-label={t("common.close")} onClick={onClose} title={t("common.close")}></Button>
         </div>
 
         <div className="friends-modal-body">
@@ -109,7 +114,8 @@ export default function FriendsCirclesModal({
                   className={`color-dot${newCircleColor === c ? " active" : ""}`}
                   style={{ backgroundColor: c }}
                   onClick={() => setNewCircleColor(c)}
-                  aria-label={c}
+                  aria-label={t("friendsPage.circleColor", { color: circleColorName(c) })}
+                  aria-pressed={newCircleColor === c}
                 />
               ))}
             </div>
@@ -153,6 +159,7 @@ export default function FriendsCirclesModal({
                           setEditName(c.name);
                         }}
                         title={t("common.edit")}
+                        aria-label={t("common.edit")}
                       >
                         <PencilIcon />
                       </button>
@@ -164,6 +171,7 @@ export default function FriendsCirclesModal({
                           onDeleteCircle(c.id);
                         }}
                         title={t("common.delete")}
+                        aria-label={t("common.delete")}
                       >
                         <TrashIcon />
                       </button>

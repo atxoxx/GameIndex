@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { formatDate } from "../../../utils/localeFormat";
 import { Card } from "../../../components/ui";
 import { usePersistedState } from "../../../hooks/usePersistedState";
 import BarChart from "../../../components/charts/BarChart";
@@ -60,15 +61,15 @@ interface InsightsTabProps {
  * shape, library health, telemetry, records and playstyle.
  */
 export function InsightsTab({ sessions, allSessions, games, range, onResetRange }: InsightsTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [horizon, setHorizon] = usePersistedState<TrendHorizon>(
     "gamelib.community.trends.horizon_v1",
     "6m",
     ["6m", "12m", "8w"]
   );
 
-  const monthlyTrend6 = useMemo(() => computeMonthlyTrend(sessions, 6), [sessions]);
-  const monthlyTrend12 = useMemo(() => computeMonthlyTrend(sessions, 12), [sessions]);
+  const monthlyTrend6 = useMemo(() => computeMonthlyTrend(sessions, 6, language), [sessions, language]);
+  const monthlyTrend12 = useMemo(() => computeMonthlyTrend(sessions, 12, language), [sessions, language]);
   const weeklyTrend = useMemo(() => computeWeeklyTrend(sessions, 8), [sessions]);
 
   const activeTrend = useMemo(() => {
@@ -112,8 +113,8 @@ export function InsightsTab({ sessions, allSessions, games, range, onResetRange 
   }, [sessions, games]);
 
   const records = useMemo(
-    () => computePersonalRecords(sessions, heatmap.cells, streak, genreBreakdown),
-    [sessions, heatmap.cells, streak, genreBreakdown]
+    () => computePersonalRecords(sessions, heatmap.cells, streak, genreBreakdown, language),
+    [sessions, heatmap.cells, streak, genreBreakdown, language]
   );
   const persona = useMemo(
     () => classifyGamerPersona(sessions, games, genreBreakdown, timeOfDay),
@@ -139,7 +140,7 @@ export function InsightsTab({ sessions, allSessions, games, range, onResetRange 
   if (sessions.length === 0) {
     return (
       <div className="profile-insights">
-        <div className="profile-empty profile-empty--page">
+        <div className="profile-empty profile-empty--page" role="status">
           <ChartColumn size={24} aria-hidden="true" />
           <h3>{t("profile.tab.insights")}</h3>
           <p>{range === "all" ? t("community.emptyMostPlayed") : t("profile.noSessionsInRange")}</p>
@@ -213,7 +214,7 @@ export function InsightsTab({ sessions, allSessions, games, range, onResetRange 
             </span>
             <span className="profile-record__sub">
               {records.bestDay
-                ? records.bestDay.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                ? formatDate(records.bestDay.date, language, { month: "short", day: "numeric", year: "numeric" })
                 : ""}
             </span>
           </div>
@@ -240,7 +241,11 @@ export function InsightsTab({ sessions, allSessions, games, range, onResetRange 
             <span className="profile-record__icon"><Tag size={18} aria-hidden="true" /></span>
             <span className="profile-record__label">{t("communityExtras.topGenreLabel")}</span>
             <span className="profile-record__value">
-              {records.mostPlayedGenre?.genre ?? "—"}
+              {records.mostPlayedGenre
+                ? records.mostPlayedGenre.genre === "Uncategorized"
+                  ? t("library.groupBy.uncategorized")
+                  : records.mostPlayedGenre.genre
+                : "—"}
             </span>
             <span className="profile-record__sub">
               {records.mostPlayedGenre ? formatHours(records.mostPlayedGenre.minutes) : ""}

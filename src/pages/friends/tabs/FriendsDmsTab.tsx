@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useToast } from "../../../context/ToastContext";
+import { formatTime } from "../../../utils/localeFormat";
 import type { DmThread, Friend, UserProfile, DmAttachment } from "../friendsTypes";
 import { visibleMessages, startDmThreadId, dmThreadId } from "../../friendsStorage";
 import { asPeerPubkey, peerPubkeyForThread } from "../friendsSyncHelpers";
@@ -57,7 +58,7 @@ export default function FriendsDmsTab({
   onDeleteThread,
   onCompareFriend,
 }: FriendsDmsTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [threadSearch, setThreadSearch] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -296,6 +297,7 @@ export default function FriendsDmsTab({
                       e.stopPropagation();
                       onDeleteThread(thread.id);
                     }}
+                    aria-label={t("friendsPage.deleteThread")}
                     title={t("friendsPage.deleteThread")}
                   >
                     <TrashIcon />
@@ -359,6 +361,7 @@ export default function FriendsDmsTab({
                       type="button"
                       className="dm-unpin-btn"
                       onClick={() => onTogglePinMessage(selectedDmId, m.id)}
+                      aria-label={t("friends.unpin")}
                       title={t("friends.unpin")}
                     >
                       ×
@@ -387,7 +390,7 @@ export default function FriendsDmsTab({
                         <div className="dm-message-header">
                           <span className="dm-message-author">{isMine ? t("friendsPage.you") : msg.author}</span>
                           <span className="dm-message-time">
-                            {new Date(msg.timestamp).toLocaleTimeString(undefined, {
+                            {formatTime(msg.timestamp, language, {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
@@ -429,6 +432,7 @@ export default function FriendsDmsTab({
                             type="button"
                             className="dm-msg-action-btn"
                             onClick={() => setReactingToMsg(reactingToMsg === msg.id ? null : msg.id)}
+                            aria-label={t("friendsPage.reactToMessage")}
                             title={t("friendsPage.reactToMessage")}
                           >
                             <SmileIcon />
@@ -437,6 +441,7 @@ export default function FriendsDmsTab({
                             type="button"
                             className="dm-msg-action-btn"
                             onClick={() => onTogglePinMessage(selectedDmId, msg.id)}
+                            aria-label={t("friends.pin")}
                             title={t("friends.pin")}
                           >
                             <PinIcon />
@@ -446,6 +451,7 @@ export default function FriendsDmsTab({
                               type="button"
                               className="dm-msg-action-btn danger"
                               onClick={() => onDeleteMessage(selectedDmId, msg.id)}
+                              aria-label={t("common.delete")}
                               title={t("common.delete")}
                             >
                               <TrashIcon />
@@ -487,6 +493,7 @@ export default function FriendsDmsTab({
                     className="dm-attachment-preview-remove"
                     onClick={() => setPendingAttachment(null)}
                     title={t("common.clear")}
+                    aria-label={t("common.clear")}
                   >
                     <XIcon />
                   </button>
@@ -523,6 +530,7 @@ export default function FriendsDmsTab({
                 onClick={handleSend}
                 disabled={!messageDraft.trim() && !pendingAttachment}
                 title={t("common.send")}
+                aria-label={t("common.send")}
                className="dm-send-btn"></Button>
             </div>
           </>
