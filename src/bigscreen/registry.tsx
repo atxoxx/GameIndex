@@ -51,6 +51,7 @@ const StoragePage = lazy(() => import("../pages/StoragePage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const NewsPage = lazy(() => import("../pages/news/NewsPage"));
 const DealsPage = lazy(() => import("../pages/deals/DealsPage"));
+const ItchGamePage = lazy(() => import("../pages/itch/ItchGamePage"));
 const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
 const SavesPage = lazy(() => import("../pages/saves/SavesPage"));
 const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
@@ -391,6 +392,7 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "discover", desktop: () => <Navigate to="/deals" replace />, bigscreen: () => <BigScreenDiscover /> },
   { path: "news", desktop: () => <NewsPage />, bigscreen: () => <BigScreenNews /> },
   { path: "deals", desktop: () => <DealsPage />, bigscreen: () => <BigScreenDeals /> },
+  { path: "itch/:author/:game", desktop: () => <ItchGamePage /> },
   { path: "activity", desktop: () => <ActivityPage />, bigscreen: () => <BigScreenHome /> },
   { path: "achievements", desktop: () => <AchievementsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "downloads", desktop: () => <DownloadsPage />, bigscreen: () => <BigScreenSystem /> },

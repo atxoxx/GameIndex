@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { Heart, Timer } from "lucide-react";
+import { Gamepad2, Heart, Library, Timer } from "lucide-react";
 import type {
   DealsToolbarFilter,
   DealsToolbarToggle,
@@ -20,6 +20,14 @@ import {
   type GiveawaysFiltersState,
   type PlaytesterFiltersState,
 } from "./dealsConstants";
+import {
+  DEFAULT_ITCH_FILTERS,
+  ITCH_CATEGORIES,
+  ITCH_PLATFORMS,
+  ITCH_PRICES,
+  ITCH_SORTS,
+  type ItchFiltersState,
+} from "./itchConstants";
 
 type Translate = (key: string, vars?: Record<string, unknown>) => string;
 type Setter<T> = Dispatch<SetStateAction<T>>;
@@ -298,6 +306,93 @@ export function playtesterToolbar(
       ),
     ],
     onReset: () => setFilters(DEFAULT_PLAYTESTER_FILTERS),
+  };
+}
+
+/**
+ * itch.io toolbar.
+ *
+ * Price, category and platform are the three facets itch can express; the
+ * backend spends at most two URL segments on them and filters the rest
+ * client-side (see `features/itch/browse.ts`). The two toggles are shortcuts
+ * over that same state: "playable in app" *is* the HTML5 platform facet, and
+ * "my library" swaps the catalogue for the signed-in purchases.
+ */
+export function itchToolbar(
+  filters: ItchFiltersState,
+  setFilters: Setter<ItchFiltersState>,
+  t: Translate,
+): DealsTabToolbar {
+  return {
+    searchPlaceholder: t("itch.searchPlaceholder"),
+    sort: {
+      value: filters.sort,
+      onChange: (value) =>
+        setFilters((prev) => ({ ...prev, sort: value as ItchFiltersState["sort"] })),
+      options: ITCH_SORTS.map((sort) => ({ value: sort.value, label: t(sort.label) })),
+    },
+    filters: [
+      {
+        id: "price",
+        label: t("itch.price"),
+        value: filters.price,
+        neutral: "all",
+        options: ITCH_PRICES.map((price) => ({
+          value: price.value,
+          label: t(price.label),
+        })),
+        onChange: (value) =>
+          setFilters((prev) => ({ ...prev, price: value as ItchFiltersState["price"] })),
+      },
+      {
+        id: "category",
+        label: t("itch.category"),
+        value: filters.category,
+        neutral: "all",
+        options: ITCH_CATEGORIES.map((category) => ({
+          value: category.value,
+          label: category.value === "all" ? t(category.label) : category.label,
+        })),
+        onChange: (value) => setFilters((prev) => ({ ...prev, category: value })),
+      },
+      {
+        id: "platform",
+        label: t("deals.platform"),
+        value: filters.platform,
+        neutral: "all",
+        options: ITCH_PLATFORMS.map((platform) => ({
+          value: platform.value,
+          label: platform.label.startsWith("itch.") ? t(platform.label) : platform.label,
+        })),
+        onChange: (value) =>
+          setFilters((prev) => ({
+            ...prev,
+            platform: value as ItchFiltersState["platform"],
+          })),
+      },
+    ],
+    toggles: [
+      {
+        id: "playable",
+        label: t("itch.playableOnly"),
+        icon: <Gamepad2 size={13} aria-hidden="true" />,
+        active: filters.platform === "web",
+        onToggle: () =>
+          setFilters((prev) => ({
+            ...prev,
+            platform: prev.platform === "web" ? "all" : "web",
+          })),
+      },
+      {
+        id: "library",
+        label: t("itch.myLibrary"),
+        icon: <Library size={13} aria-hidden="true" />,
+        active: filters.ownedOnly,
+        onToggle: () =>
+          setFilters((prev) => ({ ...prev, ownedOnly: !prev.ownedOnly })),
+      },
+    ],
+    onReset: () => setFilters(DEFAULT_ITCH_FILTERS),
   };
 }
 

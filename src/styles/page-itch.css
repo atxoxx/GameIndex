@@ -1,0 +1,582 @@
+/**
+ * itch.io game page (`/itch/:author/:game`).
+ *
+ * Same visual language as the Store detail page: a cover wash at the top, one
+ * main column of media, and a sidebar of facts/downloads. All colours and
+ * geometry come from the theme tokens so custom themes, accent colours and the
+ * density scales keep working; itch's coral is declared once as `--itch-brand`.
+ */
+
+.itch-page,
+.itch-notice {
+  --itch-brand: var(--brand-itch, #fa5c5c);
+}
+
+.itch-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+
+.itch-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-faint);
+  background: var(--color-surface);
+  isolation: isolate;
+}
+
+.itch-hero::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: -2;
+  background-image: var(--itch-cover, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(140%);
+  opacity: 0.5;
+  transform: scale(1.1);
+}
+
+.itch-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-primary) 55%, transparent) 0%,
+      var(--color-bg-primary) 92%
+    ),
+    radial-gradient(
+      120% 80% at 15% 0%,
+      color-mix(in srgb, var(--itch-brand) 18%, transparent),
+      transparent 60%
+    );
+}
+
+.itch-back {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(10px);
+  color: var(--color-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.itch-back:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.itch-hero__body {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: end;
+  padding: var(--space-2xl) var(--space-xl) var(--space-xl);
+}
+
+.itch-hero__art {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 18px 40px -18px var(--scrim-dark);
+}
+
+.itch-hero__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.itch-hero__art-fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+}
+
+.itch-hero__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.itch-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.itch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  border: 1px solid var(--color-border-faint);
+}
+
+.itch-badge--brand {
+  color: var(--scrim-text);
+  background: color-mix(in srgb, var(--itch-brand) 82%, black 18%);
+  border-color: transparent;
+}
+
+.itch-badge--play {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 32%, transparent);
+}
+
+.itch-badge--sale {
+  color: var(--scrim-text);
+  background: var(--color-warning);
+  border-color: transparent;
+}
+
+.itch-hero__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.itch-hero__author {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.itch-hero__author button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-highlight);
+  text-underline-offset: 3px;
+}
+
+.itch-hero__author button:hover {
+  color: var(--color-text-primary);
+}
+
+.itch-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+}
+
+.itch-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+.itch-rating em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+.itch-hero__price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.itch-hero__price-value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.itch-hero__price-old {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  text-decoration: line-through;
+}
+
+.itch-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+
+.itch-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.itch-main,
+.itch-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+.itch-section,
+.itch-panel {
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-faint);
+}
+
+.itch-section__title,
+.itch-panel__title {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}
+
+.itch-panel__hint {
+  margin: 0 0 var(--space-md);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
+}
+
+/* ── Media ─────────────────────────────────────────────────────────────── */
+
+.itch-shots {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding-bottom: var(--space-xs);
+  scrollbar-width: thin;
+}
+
+.itch-shot {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--color-border-faint);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  cursor: zoom-in;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.itch-shot:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-highlight);
+}
+
+.itch-shot img {
+  display: block;
+  height: 150px;
+  width: auto;
+  object-fit: cover;
+}
+
+.itch-trailer {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-text-inverse);
+}
+
+.itch-trailer iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ── Description (sanitised third-party HTML) ──────────────────────────── */
+
+.itch-description {
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.itch-description :is(p, ul, ol, blockquote, table, figure) {
+  margin: 0 0 var(--space-md);
+}
+
+.itch-description :is(h1, h2, h3, h4) {
+  margin: var(--space-lg) 0 var(--space-sm);
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  line-height: 1.25;
+}
+
+.itch-description h1 {
+  font-size: var(--text-xl);
+}
+
+.itch-description h2 {
+  font-size: var(--text-lg);
+}
+
+.itch-description h3,
+.itch-description h4 {
+  font-size: var(--text-md);
+}
+
+.itch-description a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.itch-description img,
+.itch-description iframe {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.itch-description blockquote {
+  padding-left: var(--space-md);
+  border-left: 3px solid var(--color-border-highlight);
+  color: var(--color-text-tertiary);
+}
+
+.itch-description :is(ul, ol) {
+  padding-left: 1.4em;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.itch-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  margin: 0;
+}
+
+.itch-info__row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  border-top: 1px solid var(--color-border-faint);
+  font-size: var(--text-2xs);
+}
+
+.itch-info__row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.itch-info dt {
+  color: var(--color-text-tertiary);
+}
+
+.itch-info dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.itch-uploads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.itch-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
+}
+
+.itch-upload__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  min-width: 0;
+}
+
+.itch-upload__name {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itch-upload__meta {
+  font-size: var(--text-2xs);
+  color: var(--color-text-tertiary);
+}
+
+.itch-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.itch-tag {
+  padding: var(--space-3xs) var(--space-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-faint);
+}
+
+/* ── States ────────────────────────────────────────────────────────────── */
+
+.itch-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 320px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+}
+
+.itch-state h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.itch-state p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.itch-state__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.itch-state__spinner {
+  animation: itch-spin 900ms linear infinite;
+  color: var(--color-accent);
+}
+
+@keyframes itch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Sign-in notice on the deals tab ───────────────────────────────────── */
+
+.itch-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--itch-brand) 28%, transparent);
+  background: color-mix(in srgb, var(--itch-brand) 8%, var(--color-surface));
+}
+
+.itch-notice__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+}
+
+.itch-notice__text strong {
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .itch-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .itch-side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .itch-hero__body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-2xl) var(--space-md) var(--space-md);
+  }
+
+  .itch-hero__art {
+    max-width: 220px;
+  }
+
+  .itch-shot img {
+    height: 116px;
+  }
+}

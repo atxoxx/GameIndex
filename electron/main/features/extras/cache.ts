@@ -103,6 +103,12 @@ export const EXTRA_TTL = {
   playtesterDetail: 60 * 60_000,
   /** Playtester category sitemap. */
   playtesterCategories: 6 * 60 * 60_000,
+  /** itch.io browse/search pages (scraped, rate limited by the store). */
+  itchFeed: 10 * 60_000,
+  /** itch.io game pages (price/rating/tags change slowly). */
+  itchDetail: 30 * 60_000,
+  /** itch.io owned-games list from the signed-in session. */
+  itchLibrary: 5 * 60_000,
   /** IGDB relation graphs (metered upstream). */
   igdbRelations: 6 * 60 * 60_000,
   /** IGDB collection members. */

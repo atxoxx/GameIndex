@@ -35,6 +35,7 @@ import {
   wishlistGroups,
   type DealFilterContext,
 } from "./dealsFilters";
+import { useItchFeed } from "./useItchFeed";
 
 interface FeedState<T> {
   data: T | null;
@@ -47,7 +48,7 @@ export interface DealsFeed<T> extends FeedState<T> {
 }
 
 /** Sources the page can fetch. "overview" fans out to all four. */
-export type DealsSource = "deals" | "gamepass" | "giveaways" | "playtester";
+export type DealsSource = "deals" | "gamepass" | "giveaways" | "playtester" | "itch";
 
 function errorMessage(err: unknown, fallback: string): string {
   if (typeof err === "string") return err;
@@ -190,6 +191,10 @@ export function useDealsPageController() {
     t("deals.errorPlaytester"),
   );
 
+  // itch.io paginates server-side, so it owns its own first-page + load-more
+  // state (and its own persisted filter document).
+  const itch = useItchFeed(activeTab === "itch", t("itch.errorFeed"));
+
   // ── Playtester pagination ────────────────────────────────────────────────
   const [ptExtra, setPtExtra] = useState<PlaytesterGame[]>([]);
   const [ptMore, setPtMore] = useState(false);
@@ -318,9 +323,10 @@ export function useDealsPageController() {
       if (source === "deals") deals.reload();
       else if (source === "gamepass") gamepass.reload();
       else if (source === "giveaways") giveaways.reload();
+      else if (source === "itch") itch.reload();
       else playtester.reload();
     },
-    [deals, gamepass, giveaways, playtester],
+    [deals, gamepass, giveaways, playtester, itch],
   );
 
   const reloadAll = useCallback(() => {
@@ -328,7 +334,8 @@ export function useDealsPageController() {
     gamepass.reload();
     giveaways.reload();
     playtester.reload();
-  }, [deals, gamepass, giveaways, playtester]);
+    if (activeTab === "itch") itch.reload();
+  }, [deals, gamepass, giveaways, playtester, itch, activeTab]);
 
   return {
     activeTab,
@@ -338,12 +345,14 @@ export function useDealsPageController() {
       gamepass: gpFilters,
       giveaways: giveawayFilters,
       playtester: ptFilters,
+      itch: itch.filters,
     },
     setFilters: {
       deals: setDealFilters,
       gamepass: setGpFilters,
       giveaways: setGiveawayFilters,
       playtester: setPtFilters,
+      itch: itch.setFilters,
     },
     feeds: {
       deals: {
@@ -369,6 +378,17 @@ export function useDealsPageController() {
         hasMore: ptHasMore,
         loadingMore: ptLoadingMore,
         loadMore: loadMorePlaytester,
+      },
+      itch: {
+        items: itch.games,
+        total: itch.total,
+        loading: itch.loading,
+        loadingMore: itch.loadingMore,
+        error: itch.error,
+        hasMore: itch.hasMore,
+        authenticated: itch.authenticated,
+        loadMore: itch.loadMore,
+        reload: itch.reload,
       },
     },
     rails,

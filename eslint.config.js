@@ -23,6 +23,9 @@ const COLOR_DATA_FILES = [
   "src/pages/settings/AccentPreview.tsx",
   "src/pages/settings/backupUtils.ts",
   "src/components/BootstrapErrorBoundary.tsx",
+  // The itch.io player window paints a standalone error document and the
+  // window background; there is no stylesheet context to take tokens from.
+  "electron/main/features/itch/player.ts",
   "src/types/emulator.ts",
   "src/pages/deals/dealsConstants.ts",
   "src/components/weblinks/sources.ts",

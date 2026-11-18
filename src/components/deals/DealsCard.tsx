@@ -3,7 +3,7 @@ import { Check, Copy, ExternalLink, Heart, Tag } from "lucide-react";
 import type { ViewDensity } from "../../types/game";
 import { useDealsArt } from "./useDealsArt";
 
-export type DealsCardKind = "deal" | "gamepass" | "giveaway" | "playtester";
+export type DealsCardKind = "deal" | "gamepass" | "giveaway" | "playtester" | "itch";
 
 export interface DealsCardAction {
   label: string;

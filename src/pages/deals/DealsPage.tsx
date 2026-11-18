@@ -4,6 +4,7 @@ import {
   CircleDollarSign,
   Gamepad2,
   Gift,
+  Joystick,
   LayoutDashboard,
   MonitorPlay,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   dealsToolbar,
   gamePassToolbar,
   giveawaysToolbar,
+  itchToolbar,
   playtesterToolbar,
 } from "./dealsToolbars";
 import DealsToolbar from "../../components/deals/DealsToolbar";
@@ -30,6 +32,7 @@ import DealsPanel from "../../components/deals/DealsPanel";
 import GamePassPanel from "../../components/deals/GamePassPanel";
 import GiveawaysPanel from "../../components/deals/GiveawaysPanel";
 import PlaytesterPanel from "../../components/deals/PlaytesterPanel";
+import ItchPanel from "../../components/deals/ItchPanel";
 import DealDetailModal, {
   type ModalDealTarget,
 } from "../../components/deals/DealDetailModal";
@@ -123,6 +126,8 @@ export default function DealsPage() {
           playtesterFacets,
           t,
         );
+      case "itch":
+        return itchToolbar(filters.itch, setFilters.itch, t);
       default:
         return null;
     }
@@ -132,10 +137,12 @@ export default function DealsPage() {
     setFilters.gamepass,
     setFilters.giveaways,
     setFilters.playtester,
+    setFilters.itch,
     filters.deals,
     filters.gamepass,
     filters.giveaways,
     filters.playtester,
+    filters.itch,
     giveawayStores,
     playtesterFacets,
     t,
@@ -150,7 +157,9 @@ export default function DealsPage() {
           ? feeds.giveaways
           : activeTab === "playtester"
             ? feeds.playtester
-            : null;
+            : activeTab === "itch"
+              ? feeds.itch
+              : null;
 
   const searchValue =
     activeTab === "deals"
@@ -159,7 +168,9 @@ export default function DealsPage() {
         ? filters.gamepass.searchQuery
         : activeTab === "giveaways"
           ? filters.giveaways.searchQuery
-          : filters.playtester.searchQuery;
+          : activeTab === "itch"
+            ? filters.itch.query
+            : filters.playtester.searchQuery;
 
   const setSearch = (value: string) => {
     if (activeTab === "deals") {
@@ -168,10 +179,28 @@ export default function DealsPage() {
       setFilters.gamepass((prev) => ({ ...prev, searchQuery: value }));
     } else if (activeTab === "giveaways") {
       setFilters.giveaways((prev) => ({ ...prev, searchQuery: value }));
+    } else if (activeTab === "itch") {
+      setFilters.itch((prev) => ({ ...prev, query: value }));
     } else {
       setFilters.playtester((prev) => ({ ...prev, searchQuery: value }));
     }
   };
+
+  const signInToItch = useCallback(async () => {
+    try {
+      await invoke("itch_start_login");
+      controller.reloadSource("itch");
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : t("itch.signInFailed"),
+        "error",
+      );
+    }
+  }, [controller, showToast, t]);
 
   const tabs: {
     id: SubTab;
@@ -208,6 +237,18 @@ export default function DealsPage() {
       label: t("deals.overviewPlaytests"),
       count: feeds.playtester.loading ? null : feeds.playtester.total,
       icon: MonitorPlay,
+    },
+    {
+      id: "itch",
+      label: t("itch.tab"),
+      // itch reports a six-digit catalogue total; a badge reading "1,804,720"
+      // is noise, so large catalogues show the loaded page instead.
+      count: feeds.itch.loading
+        ? null
+        : feeds.itch.total > 999
+          ? feeds.itch.items.length
+          : feeds.itch.total,
+      icon: Joystick,
     },
   ];
 
@@ -375,6 +416,25 @@ export default function DealsPage() {
               onInspect={setSelectedPlaytester}
               onReload={feeds.playtester.reload}
               onResetFilters={toolbar?.onReset ?? (() => undefined)}
+            />
+          )}
+
+          {activeTab === "itch" && (
+            <ItchPanel
+              games={feeds.itch.items}
+              total={feeds.itch.total}
+              loading={feeds.itch.loading}
+              error={feeds.itch.error}
+              density={density}
+              hasMore={feeds.itch.hasMore}
+              loadingMore={feeds.itch.loadingMore}
+              ownedOnly={filters.itch.ownedOnly}
+              authenticated={feeds.itch.authenticated}
+              onLoadMore={feeds.itch.loadMore}
+              onOpenUrl={handleOpenUrl}
+              onReload={feeds.itch.reload}
+              onResetFilters={toolbar?.onReset ?? (() => undefined)}
+              onSignIn={signInToItch}
             />
           )}
         </div>

@@ -16,7 +16,8 @@ export type SubTab =
   | "deals"
   | "gamepass"
   | "giveaways"
-  | "playtester";
+  | "playtester"
+  | "itch";
 
 export type DealsSortOption =
   | "discount_desc"
@@ -465,4 +466,5 @@ export const SUB_TABS: SubTab[] = [
   "gamepass",
   "giveaways",
   "playtester",
+  "itch",
 ];
