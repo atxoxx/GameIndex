@@ -26,7 +26,12 @@ const BUDGETS = {
   // electron-vite production builds). The gate catches a lost lazy-split or an
   // accidental eager import, not a few weeks of new strings.
   locale: 850_000,
-  total: 11_000_000, // all JS combined
+  // All JS combined. The Electron build ships the VR mods browser as two
+  // lazy chunks (VrModsTab ~2.75 MB + vr-mods.details ~1.17 MB) that the
+  // Tauri-era 11 MB calibration predates, so the ceiling moves to 16 MB:
+  // enough headroom for normal churn, still tight enough to fail on a lost
+  // lazy-split (~14.7 MB now).
+  total: 16_000_000,
 };
 
 const LOCALE_PREFIXES = ["de-", "fr-", "es-", "ru-", "zh-CN-"];
