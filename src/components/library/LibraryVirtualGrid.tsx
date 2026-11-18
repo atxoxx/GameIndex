@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Game, LibraryDensity } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
@@ -201,7 +201,7 @@ function renderGroupIcon(groupBy: LibraryGroupBy, id: string): ReactNode {
   );
 }
 
-export default function LibraryVirtualGrid({
+function LibraryVirtualGrid({
   items,
   density,
   isBigScreen,
@@ -706,3 +706,8 @@ export default function LibraryVirtualGrid({
     </div>
   );
 }
+
+// Every prop from LibraryPage is memoised (items, resetKey, renderItem) or a
+// primitive, so unrelated page state — filters drawer, context menu, modal,
+// selected game — used to rebuild all visible card elements for nothing.
+export default memo(LibraryVirtualGrid);

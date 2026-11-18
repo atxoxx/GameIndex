@@ -419,12 +419,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The snapshot is read from a ref so the store object's identity stays
+  // stable: `useSyncExternalStore` consumers subscribe once instead of
+  // tearing down and re-subscribing on every 30 s heartbeat. The effect above
+  // still notifies them whenever the underlying map actually changes, so
+  // semantics are unchanged.
+  const liveElapsedRef = useRef(sessions.liveElapsed);
+  liveElapsedRef.current = sessions.liveElapsed;
   const liveElapsedValue = useMemo<LiveElapsedValue>(
     () => ({
       subscribe: subscribeLiveElapsed,
-      getSnapshot: () => sessions.liveElapsed,
+      getSnapshot: () => liveElapsedRef.current,
     }),
-    [subscribeLiveElapsed, sessions.liveElapsed]
+    [subscribeLiveElapsed]
   );
 
   // ── Running id narrow subscriptions ─────────────────────────────
@@ -445,12 +452,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const runningIdsRef = useRef(sessions.runningGameIds);
+  runningIdsRef.current = sessions.runningGameIds;
   const runningIdsValue = useMemo<RunningIdsValue>(
     () => ({
       subscribe: subscribeRunningIds,
-      getSnapshot: () => sessions.runningGameIds,
+      getSnapshot: () => runningIdsRef.current,
     }),
-    [subscribeRunningIds, sessions.runningGameIds]
+    [subscribeRunningIds]
   );
 
   // ── Launch: launchGame / forceCloseGame / splash timers ─────────

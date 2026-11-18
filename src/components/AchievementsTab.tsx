@@ -24,6 +24,8 @@ import {
   groupAchievementsByDate,
 } from "./achievements/achievementUtils";
 import AchievementItemCard from "./achievements/AchievementItemCard";
+// Owned by this lazy tab (the library-wide AchievementsPage imports it itself).
+import "../styles/achievements.css";
 import AchievementItemRow from "./achievements/AchievementItemRow";
 import AchievementTimelineGroup from "./achievements/AchievementTimelineGroup";
 import AchievementTabHero from "./achievements/tab/AchievementTabHero";

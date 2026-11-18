@@ -31,7 +31,6 @@ import { useSteamAppId } from "../hooks/useSteamAppId";
 import { type Game, gameDisplayName } from "../types/game";
 import CrackWatchCard from "../components/CrackWatchCard";
 import ProtonDBCard from "../components/ProtonDBCard";
-import ModsTab from "../components/mods/ModsTab";
 import GameRelationsCard from "../components/GameRelationsCard";
 import {
   GameHero,
@@ -61,16 +60,9 @@ import {
   GAME_RAIL_GROUPS,
 } from "../components/game";
 import { readPersistedLookupFound } from "../components/game/mapLookupStorage";
-import SaveBackupTab from "../components/game/SaveBackupTab";
 import { GameTabSkeleton } from "../components/game/tabs";
 import { useGameNotes } from "../hooks/useGameNotes";
 import { useGameMaps } from "../hooks/useGameMaps";
-import "../styles/activity.css";
-import "../styles/achievements.css";
-import "../styles/reviews.css";
-import "../styles/game-news.css";
-import "../styles/mapgenie.css";
-import "../styles/weblinks.css";
 import "../styles/game-tabs.css";
 
 import { useAchievements } from "../context/AchievementContext";
@@ -107,6 +99,10 @@ const GameActivityTab = lazy(() =>
     default: module.GameActivityTab,
   })),
 );
+// Mods pulls in the whole mod workspace graph and Saves the save manager
+// (together ~200 KB of route-specific CSS); neither paints on the overview.
+const ModsTab = lazy(() => import("../components/mods/ModsTab"));
+const SaveBackupTab = lazy(() => import("../components/game/SaveBackupTab"));
 // The per-game editor (154 KB: metadata, compatibility, artwork, launch
 // rules) opens only from Edit actions, so it must not ride along with the
 // detail page the user just clicked.
@@ -833,17 +829,19 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
       )}
 
       {effectiveTab === "mods" && (
-        <ModsTab
-          game={game}
-          onModsSized={(info) =>
-            updateGame(game.id, {
-              modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
-              modsFolder: info.folder,
-              modsDetectedAt:
-                info.totalBytes > 0 ? new Date().toISOString() : undefined,
-            })
-          }
-        />
+        <Suspense fallback={<GameTabSkeleton count={4} height={200} />}>
+          <ModsTab
+            game={game}
+            onModsSized={(info) =>
+              updateGame(game.id, {
+                modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
+                modsFolder: info.folder,
+                modsDetectedAt:
+                  info.totalBytes > 0 ? new Date().toISOString() : undefined,
+              })
+            }
+          />
+        </Suspense>
       )}
 
       {effectiveTab === "news" && (
@@ -853,7 +851,9 @@ function GameDetail({ game, hideBackLink = false }: { game: Game; hideBackLink?:
       )}
 
       {effectiveTab === "saves" && (
-        <SaveBackupTab gameId={game.id} gameName={gameDisplayName(game)} />
+        <Suspense fallback={<GameTabSkeleton count={4} height={200} />}>
+          <SaveBackupTab gameId={game.id} gameName={gameDisplayName(game)} />
+        </Suspense>
       )}
 
       {effectiveTab === "dlc" && (

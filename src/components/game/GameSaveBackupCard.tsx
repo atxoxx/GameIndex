@@ -7,7 +7,7 @@ import { useSaves } from "../../context/SavesContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { Badge, Button, ConfirmModal } from "../ui";
 import type { SaveBackup } from "../../types/saves";
-import { formatRelative } from "./SaveBackupTab";
+import { formatRelative } from "../../utils/savesTime";
 
 interface GameSaveBackupCardProps {
   gameId: string;

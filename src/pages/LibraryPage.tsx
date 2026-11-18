@@ -287,6 +287,13 @@ export default function LibraryPage() {
     [activeShelfId, filters.playStatus, filters.status, setActiveShelf, setPlayStatus, setStatus]
   );
 
+  // Stable so LibraryStatBand's memoised `items` holds across unrelated
+  // LibraryPage renders (an inline arrow rebuilt it on every keystroke).
+  const handleToggleInstalled = useCallback(
+    () => applyScope("installed"),
+    [applyScope]
+  );
+
   const handleSelectShelf = useCallback(
     (id: string) => {
       if (activeShelfId === id) {
@@ -424,7 +431,7 @@ export default function LibraryPage() {
             <LibraryStatBand
               games={games}
               installedCount={counts.installed}
-              onToggleInstalled={() => applyScope("installed")}
+              onToggleInstalled={handleToggleInstalled}
             />
           </div>
         </PageWidget>

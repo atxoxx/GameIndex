@@ -57,6 +57,8 @@ import ReviewsSavedQuotes from "./ReviewsSavedQuotes";
 import ReviewsFilterPopover from "./ReviewsFilterPopover";
 import { useReviewQuotes } from "./useReviewQuotes";
 import { excerptDraft, reviewDraft, reviewKeyOf } from "./reviewQuoteUtils";
+// Owned by this lazy tab — the detail page's overview never needs these rules.
+import "../../styles/reviews.css";
 
 const REVIEW_SOURCE_ACCENTS = {
   "--review-source-steam": "#1b9ae0",

@@ -40,6 +40,9 @@ import {
   clusterLeads,
   matchesNewsCategory,
 } from "./news/gameNewsBriefingData";
+// Owned by this lazy tab; loading it with the news chunk keeps the detail
+// page's first paint free of ~50 KB of reader styles.
+import "../../styles/game-news.css";
 
 /** How many Steam news items to request per page of the feed. */
 const STEAM_PAGE_SIZE = 20;

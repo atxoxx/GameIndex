@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { markBootStart } from "./utils/bootPerf";
+import { deferToIdle } from "./utils/idle";
 import {
   installCrashReporter,
   recordBreadcrumb,
@@ -28,9 +29,9 @@ import "./styles/download.css";
 //
 // friendsStorage is imported dynamically (not statically) so the
 // nostr-tools stack (~190 KB) never lands in the startup bundle: it is
-// split into its own async chunk that only loads in the background after
-// bootstrap, and on the rare occasion the user opens the Friends page
-// before it has landed, `getNostrKeys` degrades to the session fallback.
+// split into its own async chunk that loads once the shell is idle; on the
+// rare occasion the user opens the Friends page before it has landed,
+// `getNostrKeys` degrades to the session fallback.
 markBootStart();
 
 // Install global JS error/unhandled-rejection handlers before anything else
@@ -98,12 +99,15 @@ async function bootstrap() {
     return;
   }
 
-  // Fire-and-forget: hydrate the Nostr key cache when reachable, but never
-  // gate first paint on it. Any failure is non-fatal and flows through the
-  // legacy/placeholder fallback path.
-  void import("./pages/friendsStorage")
-    .then((m) => m.initNostrKeys())
-    .catch(() => {});
+  // Deferred to idle so this ~190 KB chunk does not compete with the App
+  // chunk for parse time while the shell is starting. FriendsSyncProvider
+  // performs the same init on mount, so this is only an early head start —
+  // opening Friends before it lands still uses the documented session fallback.
+  deferToIdle(() => {
+    void import("./pages/friendsStorage")
+      .then((m) => m.initNostrKeys())
+      .catch(() => {});
+  }, 2500);
   const { default: App } = await import("./App");
   ReactDOM.createRoot(root).render(
     <React.StrictMode>

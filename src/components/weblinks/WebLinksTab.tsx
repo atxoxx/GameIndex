@@ -21,6 +21,7 @@ import WebLinksBigScreen from "./WebLinksBigScreen";
 import WebLinksHub from "./WebLinksHub";
 import { useWebLinksBrowser } from "./useWebLinksBrowser";
 import { readLastSource, writeLastSource } from "./weblinksStorage";
+import "../../styles/weblinks.css";
 import {
   FIXED_SOURCES,
   MY_LINKS_KEY,

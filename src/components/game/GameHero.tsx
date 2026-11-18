@@ -772,6 +772,7 @@ export default function GameHero({
         src={posterSrc!}
         alt={displayName}
         className="game-hero__poster-img"
+        decoding="async"
         onError={() => {
           // Drop a broken cover for the SteamGridDB grid before giving up on
           // the poster entirely.

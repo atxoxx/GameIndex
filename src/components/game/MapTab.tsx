@@ -20,6 +20,7 @@ import { IconExternalLink, IconMap } from "./icons";
 import { Button } from "../ui";
 import { GameTabShell } from "./tabs";
 import type { MapSourceResult } from "../../types/game";
+import "../../styles/mapgenie.css";
 
 interface MapTabProps {
   sources: MapSourceResult[];
