@@ -7,6 +7,7 @@ import { Button } from "../ui";
 import type { Game } from "../../types/game";
 import type { GameMod } from "../../types/mods";
 import type { useMo2 } from "../../hooks/useMo2";
+import { formatDate } from "../../utils/localeFormat";
 
 export interface ModPreset {
   id: string;
@@ -51,7 +52,7 @@ export default function ModPresetsModal({
   onApplyPreset,
   mo2,
 }: ModPresetsModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [presets, setPresets] = useState<ModPreset[]>([]);
   const [nameInput, setNameInput] = useState("");
@@ -158,7 +159,7 @@ export default function ModPresetsModal({
   };
 
   const handleImport = () => {
-    const input = prompt(t("mods.presets.namePlaceholder"));
+    const input = prompt(t("mods.presets.importPrompt"));
     if (!input) return;
     try {
       const parsed = JSON.parse(input) as ModPreset;
@@ -238,10 +239,10 @@ export default function ModPresetsModal({
             <h3 id="mods-presets-title">{t("mods.presets.title")}</h3>
             <p className="mods-modal-subtitle">{t("mods.presets.subtitle")}</p>
           </div>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>} type="button"  onClick={onClose} aria-label={t("common.close")}></Button>
+            </svg>} type="button" onClick={onClose} title={t("common.close")} aria-label={t("common.close")}></Button>
         </div>
 
         {/* Tab Switcher if MO2 is detected */}
@@ -342,10 +343,10 @@ export default function ModPresetsModal({
                         </div>
                         <span className="mods-preset-meta">
                           {isActive
-                            ? `${mo2.details?.activeModCount ?? 0} ${t("mods.enabledCount", {
+                            ? t("mods.enabledCount", {
                                 enabled: String(mo2.details?.activeModCount ?? 0),
                                 total: String(mo2.details?.totalModCount ?? 0),
-                              })}`
+                              })
                             : t("mods.presets.inactiveProfile")}
                         </span>
                       </div>
@@ -371,8 +372,9 @@ export default function ModPresetsModal({
                             onClick={() => void handleDeleteMo2Profile(p)}
                             disabled={mo2Busy}
                             title={t("mods.presets.delete")}
+                            aria-label={t("mods.presets.delete")}
                           >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <polyline points="3 6 5 6 21 6" />
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>
@@ -438,7 +440,7 @@ export default function ModPresetsModal({
                             {t("mods.enabledCount", {
                               enabled: String(activeCount),
                               total: String(Object.keys(p.modStates).length),
-                            })} · {new Date(p.createdAt).toLocaleDateString()}
+                            })} · {p.createdAt ? formatDate(p.createdAt, language) : "—"}
                           </span>
                         </div>
                         <div className="mods-preset-actions">
@@ -455,8 +457,9 @@ export default function ModPresetsModal({
                             size="sm"
                             onClick={() => handleExport(p)}
                             title={t("mods.presets.export")}
+                            aria-label={t("mods.presets.export")}
                           >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                             </svg>
@@ -466,8 +469,9 @@ export default function ModPresetsModal({
                             size="sm"
                             onClick={() => handleDelete(p)}
                             title={t("mods.presets.delete")}
+                            aria-label={t("mods.presets.delete")}
                           >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <polyline points="3 6 5 6 21 6" />
                               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                             </svg>

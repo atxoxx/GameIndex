@@ -51,7 +51,7 @@ export default function ModFileInspector({ mod }: ModFileInspectorProps) {
     navigator.clipboard
       .writeText(path)
       .then(() => showToast(t("mods.pathCopied"), "info"))
-      .catch(() => showToast(t("mods.installFailed", { error: "Clipboard" }), "error"));
+      .catch(() => showToast(t("common.copyFailed"), "error"));
   };
 
   return (
@@ -63,7 +63,7 @@ export default function ModFileInspector({ mod }: ModFileInspectorProps) {
           className={`mods-files-toggle ${isOpen ? "active" : ""}`}
           onClick={handleToggle}
         >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             {isOpen ? (
               <>
                 <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z" />
@@ -105,10 +105,17 @@ export default function ModFileInspector({ mod }: ModFileInspectorProps) {
                   <li
                     key={f}
                     className="mods-file-item"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleCopyFile(f)}
-                    title={t("mods.pathCopied")}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      handleCopyFile(f);
+                    }}
+                    title={t("mods.copyPath")}
                   >
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-text-muted)", flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-text-muted)", flexShrink: 0 }} aria-hidden="true">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                     </svg>

@@ -141,9 +141,10 @@ export default function SnapshotsTab({
               type="button"
               className="saves-rail__clear"
               onClick={() => setSearch("")}
+              title={t("saves.rail.clearSearch")}
               aria-label={t("saves.rail.clearSearch")}
             >
-              <X size={13} />
+              <X size={13} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -233,17 +234,21 @@ export default function SnapshotsTab({
         <div className="saves-empty saves-empty--page">
           <p className="saves-empty__title">{t("saves.snapshots.noneTitle")}</p>
           <p className="saves-empty__text">{t("saves.snapshots.noneText")}</p>
-          <Button variant="primary" size="sm" onClick={onBackupAll}>
-            {t("saves.action.backupAll")}
-          </Button>
+          <div className="saves-empty__actions">
+            <Button variant="primary" size="sm" onClick={onBackupAll}>
+              {t("saves.action.backupAll")}
+            </Button>
+          </div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="saves-empty saves-empty--page">
           <p className="saves-empty__title">{t("saves.snapshots.emptyFilter")}</p>
           <p className="saves-empty__text">{t("saves.snapshots.emptyFilterText")}</p>
-          <Button variant="tertiary" size="sm" onClick={clearFilters}>
-            {t("saves.rail.clearFilters")}
-          </Button>
+          <div className="saves-empty__actions">
+            <Button variant="tertiary" size="sm" onClick={clearFilters}>
+              {t("saves.rail.clearFilters")}
+            </Button>
+          </div>
         </div>
       ) : (
         <>

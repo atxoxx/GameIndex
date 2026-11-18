@@ -28,7 +28,7 @@ export default function DiscoverHistoryView({
   onRemove,
   onNavigateBrowse,
 }: DiscoverHistoryViewProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [filter, setFilter] = useState("");
 
@@ -120,7 +120,7 @@ export default function DiscoverHistoryView({
                   </span>
                 )}
                 <span className="mods-discover-history-date">
-                  {formatRemoteDate(String(item.installedAt))}
+                  {formatRemoteDate(String(item.installedAt), language)}
                 </span>
                 {item.installedPath && (
                   <span className="mods-discover-history-path" title={item.installedPath}>

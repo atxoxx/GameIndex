@@ -193,7 +193,7 @@ export default function SnapshotDrawer({
             title={t("saves.drawer.close")}
             aria-label={t("saves.drawer.close")}
           >
-            <X size={17} />
+            <X size={17} aria-hidden="true" />
           </button>
         </header>
 
@@ -231,9 +231,10 @@ export default function SnapshotDrawer({
                     type="button"
                     className="saves-drawer__search-clear"
                     onClick={() => setQuery("")}
+                    title={t("saves.drawer.clearSearch")}
                     aria-label={t("saves.drawer.clearSearch")}
                   >
-                    <X size={13} />
+                    <X size={13} aria-hidden="true" />
                   </button>
                 )}
               </div>

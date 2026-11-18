@@ -13,7 +13,7 @@ interface ModInstallModalProps {
   modsRoot?: string;
   isOpen: boolean;
   onClose: () => void;
-  onScan: () => Promise<unknown>;
+  onScan: () => Promise<{ mods: unknown[] } | null | undefined>;
 }
 
 export default function ModInstallModal({
@@ -37,17 +37,17 @@ export default function ModInstallModal({
         title: t("mods.installMod"),
         filters: [
           {
-            name: "Mod Files & Archives",
+            name: t("mods.install.filterModFiles"),
             extensions: ["zip", "7z", "rar", "pak", "dll", "esp", "esm", "esl", "txt"],
           },
-          { name: "All Files", extensions: ["*"] },
+          { name: t("mods.install.filterAllFiles"), extensions: ["*"] },
         ],
       });
 
       if (!picked) return;
       
       if (!modsRoot) {
-        showToast(t("mods.installFailed", { error: "No mods folder selected" }), "error");
+        showToast(t("mods.installFailed", { error: t("mods.install.noFolderSelected") }), "error");
         return;
       }
       const files = typeof picked === "string" ? [picked] : picked;
@@ -80,8 +80,10 @@ export default function ModInstallModal({
   const handleRescanAndClose = async () => {
     setBusy(true);
     try {
-      await onScan();
-      showToast(t("mods.scanComplete", { count: "..." }), "success");
+      const result = await onScan();
+      if (result) {
+        showToast(t("mods.scanComplete", { count: String(result.mods.length) }), "success");
+      }
       onClose();
     } catch (e) {
       showToast(String(e), "error");
@@ -104,13 +106,14 @@ export default function ModInstallModal({
             <h3 id="mods-install-title">{t("mods.installMod")}</h3>
             <p className="mods-modal-subtitle">{gameDisplayName(game)}</p>
           </div>
-          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <Button variant="ghost" size="sm" iconOnly leftIcon={<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>}
             type="button"
             
             onClick={onClose}
+            title={t("common.close")}
             aria-label={t("common.close")}
           ></Button>
         </div>
@@ -120,9 +123,7 @@ export default function ModInstallModal({
             <div className="mods-install-step-num">1</div>
             <div className="mods-install-step-content">
               <h4>{t("mods.installModHint")}</h4>
-              <p>
-                Drop or extract your mod archives (<code>.zip</code>, <code>.7z</code>, <code>.rar</code>, <code>.pak</code>, <code>.dll</code>, <code>.esp</code>) into the active game mods directory.
-              </p>
+              <p>{t("mods.install.dropHint")}</p>
               {modsRoot && (
                 <div className="mods-install-path-box">
                   <code>{modsRoot}</code>
@@ -138,9 +139,7 @@ export default function ModInstallModal({
             <div className="mods-install-step-num">2</div>
             <div className="mods-install-step-content">
               <h4>{t("mods.rescan")}</h4>
-              <p>
-                Once files are placed into the folder, click Scan to automatically detect new plugins, BepInEx DLLs, and Unreal paks.
-              </p>
+              <p>{t("mods.install.rescanHint")}</p>
             </div>
           </div>
         </div>

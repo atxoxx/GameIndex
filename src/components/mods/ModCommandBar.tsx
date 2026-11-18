@@ -223,7 +223,7 @@ export default function ModCommandBar({
 
   return (
     <div className="mods-cmdbar">
-      <div className="mods-cmdbar__filters" role="tablist" aria-label={t("mods.filter.all")}>
+      <div className="mods-cmdbar__filters" role="tablist" aria-label={t("mods.filters")}>
         {filterTabs.map((tab) => (
           <button
             key={tab.id}
@@ -237,8 +237,8 @@ export default function ModCommandBar({
             }`}
             onClick={() => onFilterTabChange(tab.id)}
           >
-            {tab.id === "updates" && <ArrowUpCircle size={12} />}
-            {tab.id === "enabled" && <CheckCircle2 size={12} />}
+            {tab.id === "updates" && <ArrowUpCircle size={12} aria-hidden="true" />}
+            {tab.id === "enabled" && <CheckCircle2 size={12} aria-hidden="true" />}
             {tab.label}
             <span className="mods-cmdbar__filter-count">{tab.count}</span>
           </button>
@@ -246,7 +246,7 @@ export default function ModCommandBar({
       </div>
 
       <div className="mods-cmdbar__search">
-        <Search size={15} className="mods-cmdbar__search-icon" />
+        <Search size={15} className="mods-cmdbar__search-icon" aria-hidden="true" />
         <input
           type="text"
           placeholder={t("mods.searchPlaceholder")}
@@ -260,8 +260,9 @@ export default function ModCommandBar({
             className="mods-cmdbar__search-clear"
             onClick={() => onSearchChange("")}
             title={t("common.clearSearch")}
+            aria-label={t("common.clearSearch")}
           >
-            <X size={13} />
+            <X size={13} aria-hidden="true" />
           </button>
         )}
       </div>

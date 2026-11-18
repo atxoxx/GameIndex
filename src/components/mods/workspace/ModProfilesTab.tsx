@@ -19,6 +19,7 @@ import { useGames } from "../../../context/GameContext";
 import { Button, ConfirmModal, Panel } from "../../ui";
 import { getGamePresets } from "../ModPresetsModal";
 import { gameDisplayName, type Game } from "../../../types/game";
+import { formatDate } from "../../../utils/localeFormat";
 import type { GameModsPayload, ModProfile } from "../../../types/mods";
 
 interface ProfilesTabProps {
@@ -26,17 +27,8 @@ interface ProfilesTabProps {
   onChanged: () => void;
 }
 
-function fmtDate(ms: number): string {
-  if (!ms) return "—";
-  return new Date(ms).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export default function ModProfilesTab({ game, onChanged }: ProfilesTabProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const { games } = useGames();
   const navigate = useNavigate();
@@ -177,7 +169,7 @@ export default function ModProfilesTab({ game, onChanged }: ProfilesTabProps) {
           <h3>{t("mods.profiles.title")}</h3>
           <p>{t("mods.profiles.desc")}</p>
         </div>
-        <div className="mods-profiles-scope" role="tablist">
+        <div className="mods-profiles-scope" role="tablist" aria-label={t("mods.profiles.title")}>
           <button
             type="button"
             role="tab"
@@ -266,7 +258,8 @@ export default function ModProfilesTab({ game, onChanged }: ProfilesTabProps) {
                       {gameName(profile.gameId)} · {t("mods.profiles.state", { enabled, total })}
                     </span>
                     <span className="mods-profiles-date">
-                      <CalendarDays size={11} /> {fmtDate(profile.updatedAt)}
+                      <CalendarDays size={11} aria-hidden="true" />{" "}
+                      {profile.updatedAt ? formatDate(profile.updatedAt, language) : "—"}
                     </span>
                   </div>
                   <div className="mods-profiles-actions">

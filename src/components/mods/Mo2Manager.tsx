@@ -108,9 +108,15 @@ const Mo2ModRow = memo(function Mo2ModRow({
             {mod.name}
           </span>
           {mod.version && <span className="mo2-version-tag">v{mod.version}</span>}
-          {mod.isUnmanaged && <span className="mo2-unmanaged-tag">DLC/Core</span>}
+          {mod.isUnmanaged && (
+            <span className="mo2-unmanaged-tag">{t("mods.mo2.unmanagedTag")}</span>
+          )}
         </div>
-        {mod.author && <span className="mo2-author-line">by {mod.author}</span>}
+        {mod.author && (
+          <span className="mo2-author-line">
+            {t("mods.mo2.byAuthor", { author: mod.author })}
+          </span>
+        )}
       </div>
 
       {/* Right side: Size & Nexus Link */}

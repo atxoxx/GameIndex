@@ -1,6 +1,7 @@
 // Presentation helpers for the Discover browser.
 
 import type { ModSourceId } from "../../../types/mods";
+import { formatDate } from "../../../utils/localeFormat";
 
 export function formatCount(n?: number): string {
   if (n == null) return "—";
@@ -33,9 +34,10 @@ function parseDate(raw?: string): Date | null {
 }
 
 /** Normalize a timestamp into a localized date string. */
-export function formatRemoteDate(raw?: string): string | null {
+export function formatRemoteDate(raw?: string, locale?: string): string | null {
   const date = parseDate(raw);
-  return date ? date.toLocaleDateString() : null;
+  if (!date) return null;
+  return formatDate(date, locale, { year: "numeric", month: "numeric", day: "numeric" });
 }
 
 /**

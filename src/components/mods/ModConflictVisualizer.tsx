@@ -88,7 +88,7 @@ export default function ModConflictVisualizer({
         </ul>
         {conflicts.length > 50 && (
           <div className="mods-conflict-more">
-            +{conflicts.length - 50} more file collisions
+            {t("mods.conflictsMore", { count: conflicts.length - 50 })}
           </div>
         )}
       </div>

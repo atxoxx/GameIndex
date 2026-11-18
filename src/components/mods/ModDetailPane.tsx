@@ -283,6 +283,7 @@ export default function ModDetailPane({
             <textarea
               className="mods-notes-textarea"
               placeholder={t("mods.notesPlaceholder")}
+              aria-label={t("mods.notes")}
               value={notesDraft}
               onChange={(e) => setNotesDraft(e.target.value)}
               rows={3}

@@ -160,8 +160,9 @@ export default function GameRail({
                 className="mods-rail__search-clear"
                 onClick={() => onSearchChange("")}
                 title={t("common.clearSearch")}
+                aria-label={t("common.clearSearch")}
               >
-                <X size={13} />
+                <X size={13} aria-hidden="true" />
               </button>
             )}
           </div>

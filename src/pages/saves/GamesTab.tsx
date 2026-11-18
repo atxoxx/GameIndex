@@ -150,14 +150,16 @@ export default function GamesTab({
       <div className="saves-empty saves-empty--page">
         <p className="saves-empty__title">{t("saves.page.noGamesTitle")}</p>
         <p className="saves-empty__text">{t("saves.page.noGamesText")}</p>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onScan}
-          isLoading={scanning}
-        >
-          {t("saves.action.scanLibrary")}
-        </Button>
+        <div className="saves-empty__actions">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onScan}
+            isLoading={scanning}
+          >
+            {t("saves.action.scanLibrary")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -179,9 +181,10 @@ export default function GamesTab({
               type="button"
               className="saves-rail__clear"
               onClick={() => setSearch("")}
+              title={t("saves.rail.clearSearch")}
               aria-label={t("saves.rail.clearSearch")}
             >
-              <X size={13} />
+              <X size={13} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -243,9 +246,11 @@ export default function GamesTab({
                 onBackupGames(selectedEntries);
               }}
             >
-              {bulk
-                ? t("saves.rail.bulkProgress", { done: bulk.done, total: bulk.total })
-                : t("saves.rail.backupSelected", { count: selectedEntries.length })}
+              <span aria-live="polite">
+                {bulk
+                  ? t("saves.rail.bulkProgress", { done: bulk.done, total: bulk.total })
+                  : t("saves.rail.backupSelected", { count: selectedEntries.length })}
+              </span>
             </Button>
           )}
         </div>
@@ -260,16 +265,18 @@ export default function GamesTab({
           <div className="saves-empty saves-empty--compact">
             <p className="saves-empty__title">{t("saves.rail.emptyTitle")}</p>
             <p className="saves-empty__text">{t("saves.rail.emptyText")}</p>
-            <Button
-              variant="tertiary"
-              size="sm"
-              onClick={() => {
-                setSearch("");
-                setFilter("all");
-              }}
-            >
-              {t("saves.rail.clearFilters")}
-            </Button>
+            <div className="saves-empty__actions">
+              <Button
+                variant="tertiary"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setFilter("all");
+                }}
+              >
+                {t("saves.rail.clearFilters")}
+              </Button>
+            </div>
           </div>
         ) : (
           <ul className="saves-rail__list" aria-label={t("saves.page.yourGames")}>
@@ -343,25 +350,33 @@ export default function GamesTab({
       </div>
 
       <div className="saves-pane-wrap">
-        <GameSavePane
-          entry={selectedGame}
-          health={health}
-          progress={progress}
-          busyGameId={busyGameId}
-          onBackup={onBackup}
-          onRescan={onRescan}
-          onOpenGamePage={onOpenGamePage}
-          onViewHistory={onViewHistory}
-          onToggleLocation={onToggleLocation}
-          onOpenLocation={onOpenLocation}
-          onRemoveLocation={onRemoveLocation}
-          onLocationAdded={onLocationAdded}
-          onOpenSnapshot={onOpenSnapshot}
-          onRestore={onRestore}
-          onOpenBackupFolder={onOpenBackupFolder}
-          onDeleteSnapshot={onDeleteSnapshot}
-          onDeleteGameSnapshots={onDeleteGameSnapshots}
-        />
+        {loading ? (
+          <div className="saves-pane" aria-busy="true">
+            <Skeleton width="240px" height="1.8em" />
+            <Skeleton width="100%" height="72px" />
+            <Skeleton width="100%" height="180px" />
+          </div>
+        ) : (
+          <GameSavePane
+            entry={selectedGame}
+            health={health}
+            progress={progress}
+            busyGameId={busyGameId}
+            onBackup={onBackup}
+            onRescan={onRescan}
+            onOpenGamePage={onOpenGamePage}
+            onViewHistory={onViewHistory}
+            onToggleLocation={onToggleLocation}
+            onOpenLocation={onOpenLocation}
+            onRemoveLocation={onRemoveLocation}
+            onLocationAdded={onLocationAdded}
+            onOpenSnapshot={onOpenSnapshot}
+            onRestore={onRestore}
+            onOpenBackupFolder={onOpenBackupFolder}
+            onDeleteSnapshot={onDeleteSnapshot}
+            onDeleteGameSnapshots={onDeleteGameSnapshots}
+          />
+        )}
       </div>
     </div>
   );

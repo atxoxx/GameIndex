@@ -22,6 +22,7 @@ import { useToast } from "../../context/ToastContext";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { usePersistedState } from "../../hooks/usePersistedState";
+import { formatNumber } from "../../utils/localeFormat";
 import { Button, ConfirmModal } from "../ui";
 import ContextMenu, { type ContextMenuItem } from "../ui/ContextMenu";
 import ModCommandBar from "./ModCommandBar";
@@ -53,7 +54,7 @@ export default function ModManager({
   onStats,
   hideMo2Switcher = false,
 }: ModManagerProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const {
@@ -841,8 +842,11 @@ export default function ModManager({
 
           {scanning && (
             <div className="mods-scan-progress" role="status" aria-live="polite">
-              {scanProgress.phase || t("mods.scanning")} · {scanProgress.filesExamined} files ·{" "}
-              {scanProgress.modsFound} mods
+              {scanProgress.phase || t("mods.scanning")} ·{" "}
+              {t("mods.scanProgress", {
+                files: formatNumber(scanProgress.filesExamined, language),
+                mods: formatNumber(scanProgress.modsFound, language),
+              })}
             </div>
           )}
 

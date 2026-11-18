@@ -94,7 +94,7 @@ export default function SnapshotRow({
           title={t("saves.action.openBackup")}
           aria-label={t("saves.action.openBackup")}
         >
-          <FolderOpen size={15} />
+          <FolderOpen size={15} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -103,7 +103,7 @@ export default function SnapshotRow({
           title={t("saves.action.deleteBackup")}
           aria-label={t("saves.action.deleteBackup")}
         >
-          <Trash2 size={15} />
+          <Trash2 size={15} aria-hidden="true" />
         </button>
       </div>
     </li>

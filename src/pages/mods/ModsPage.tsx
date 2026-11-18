@@ -280,9 +280,11 @@ export default function ModsPage() {
           </div>
           <h3>{t("mods.noGames")}</h3>
           <p>{t("mods.noGamesHint")}</p>
-          <Button variant="secondary" size="sm" onClick={() => navigate("/library")}>
-            {t("nav.library")}
-          </Button>
+          <div className="mods-empty-actions">
+            <Button variant="secondary" size="sm" onClick={() => navigate("/library")}>
+              {t("nav.library")}
+            </Button>
+          </div>
         </div>
       ) : (
         <div className={`mods-page__split${isRailCollapsed ? " is-rail-collapsed" : ""}`}>

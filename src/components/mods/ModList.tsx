@@ -103,6 +103,7 @@ export default function ModList({
               checked={allSelected}
               onChange={onToggleSelectAll}
               title={allSelected ? t("mods.deselectAll") : t("mods.selectAll")}
+              aria-label={allSelected ? t("mods.deselectAll") : t("mods.selectAll")}
             />
           </label>
           <span className="mods-list-header__title">{t("mods.loadOrder")}</span>
@@ -142,7 +143,7 @@ export default function ModList({
         </div>
       )}
 
-      <div className="mods-list" role="listbox" aria-label={t("mods.loadOrder")}>
+      <div className="mods-list" role="listbox" aria-multiselectable="true" aria-label={t("mods.loadOrder")}>
         {sortedMods.map((mod) => {
           const hasConflict = conflictsByMod.has(mod.id);
           const orderIndex = mods.indexOf(mod);

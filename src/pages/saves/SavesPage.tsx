@@ -339,8 +339,13 @@ export default function SavesPage() {
   if (!ready) {
     return (
       <div className="saves-page page">
+        <PageHeader
+          eyebrow={t("nav.saves")}
+          title={t("saves.page.title")}
+          description={t("saves.page.desc")}
+          icon={<Archive size={22} />}
+        />
         <div className="saves-page__skeleton">
-          <Skeleton width="280px" height="2.4em" />
           <Skeleton width="100%" height="120px" />
         </div>
       </div>

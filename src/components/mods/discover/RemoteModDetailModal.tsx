@@ -149,7 +149,7 @@ export default function RemoteModDetailModal({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(summary.url);
-      showToast(t("common.copiedToClipboard", { label: "Link" }), "info");
+      showToast(t("common.copiedToClipboard", { label: t("mods.discover.linkLabel") }), "info");
     } catch {
       showToast(t("common.copyFailed"), "error");
     }
