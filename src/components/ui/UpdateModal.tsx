@@ -5,6 +5,7 @@ import { ReleaseNotesView } from "./ReleaseNotesView";
 import { useUpdate, formatBytes, formatEta, installModeHintKey, installModeLabelKey, isPluginManaged } from "../../context/UpdateContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { parseReleaseNotes } from "../../utils/releaseNotes";
+import { formatDate } from "../../utils/localeFormat";
 
 /**
  * UpdateModal — the Software Update dialog.
@@ -37,7 +38,7 @@ export function UpdateModal() {
     skipVersion,
     snoozeUpdate,
   } = useUpdate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const changelogBlocks = useMemo(
     () => (updateInfo?.body ? parseReleaseNotes(updateInfo.body) : []),
@@ -77,7 +78,13 @@ export function UpdateModal() {
     if (!updateInfo?.date) return null;
     const date = new Date(updateInfo.date);
     if (Number.isNaN(date.getTime())) return null;
-    return t("updater.releasedOn", { date: date.toLocaleDateString() });
+    return t("updater.releasedOn", {
+      date: formatDate(date, language, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      }),
+    });
   })();
 
   const primaryLabel = isReady

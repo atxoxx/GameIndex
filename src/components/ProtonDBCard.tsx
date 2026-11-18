@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ProtonDBStatus, ProtonDBTier } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
+import { formatNumber } from "../utils/localeFormat";
 
 interface ProtonDBCardProps {
   /** Steam appid, e.g. 730 for CS2. When undefined the card is hidden. */
@@ -93,7 +94,7 @@ async function fetchProtonDB(appId: number): Promise<ProtonDBStatus> {
 }
 
 export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showDeckVerified } = useSettings();
   const [data, setData] = useState<ProtonDBStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -178,7 +179,7 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
           <div className="pdb-meta-row">
             <span className="pdb-meta-label">{t("protondb.reports")}</span>
             <span className="pdb-meta-val">
-              {data.total != null ? data.total.toLocaleString() : "—"}
+              {data.total != null ? formatNumber(data.total, language) : "—"}
             </span>
           </div>
           {typeof data.score === "number" && (

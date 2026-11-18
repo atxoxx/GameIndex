@@ -7,6 +7,7 @@ import { ReleaseNotesView } from "./ReleaseNotesView";
 import { Skeleton } from "./Skeleton";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
+import { formatDate } from "../../utils/localeFormat";
 import {
   GITHUB_RELEASES_PAGE,
   countCommits,
@@ -29,7 +30,7 @@ export interface ChangelogModalProps {
 type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const appVersion = useAppVersion();
 
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -150,7 +151,13 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
             release.tag.replace(/^v/i, "") === normalizedVersion;
           const date = release.publishedAt ? new Date(release.publishedAt) : null;
           const dateLabel =
-            date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : null;
+            date && !Number.isNaN(date.getTime())
+              ? formatDate(date, language, {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                })
+              : null;
 
           return (
             <article

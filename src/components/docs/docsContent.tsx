@@ -8,6 +8,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 import { ALL_SUBCATEGORIES } from "./docsData";
 
 export * from "./docsData";
@@ -174,6 +175,7 @@ function renderBulletItems(items: BulletItem[]): ReactNode {
 
 function CodeSnippet({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useLanguage();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -187,11 +189,11 @@ function CodeSnippet({ code }: { code: string }) {
         type="button"
         className="doc-code-copy"
         onClick={handleCopy}
-        aria-label="Copy code"
-        title="Copy code"
+        aria-label={copied ? t("common.copied") : t("common.copy")}
+        title={copied ? t("common.copied") : t("common.copy")}
       >
         {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-        <span>{copied ? "Copied" : "Copy"}</span>
+        <span>{copied ? t("common.copied") : t("common.copy")}</span>
       </button>
       <pre>
         <code>{code}</code>

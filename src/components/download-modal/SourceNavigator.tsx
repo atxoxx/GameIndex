@@ -3,6 +3,8 @@ import {
   sourceInitials,
   type SourceNavEntry,
 } from "./sourceNavigation";
+import { useLanguage } from "../../context/LanguageContext";
+import { formatNumber } from "../../utils/localeFormat";
 import "../../styles/download-modal-sources.css";
 
 /**
@@ -27,6 +29,7 @@ export function SourceNavigator({
   ariaLabel?: string;
 }) {
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
+  const { language } = useLanguage();
 
   // Keep the selected tab visible when the active source changes (or the
   // rail narrows), without ever scrolling the modal/page itself.
@@ -113,7 +116,7 @@ export function SourceNavigator({
                 )}
               </span>
               <span className="dlm-sources-label">{entry.label}</span>
-              <span className="dlm-sources-count">{count.toLocaleString()}</span>
+              <span className="dlm-sources-count">{formatNumber(count, language)}</span>
             </button>
           );
         })}

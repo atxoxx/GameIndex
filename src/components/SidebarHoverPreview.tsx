@@ -6,6 +6,7 @@ import type { Game } from "../types/game";
 import { PLAY_STATUS_DETAILS, gameDisplayName } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 import { useGameCardArt } from "../hooks/useGameCardArt";
+import { formatDate } from "../utils/localeFormat";
 
 /**
  * Relative-time helper. e.g. "just now", "5m ago", "3h ago",
@@ -15,7 +16,11 @@ import { useGameCardArt } from "../hooks/useGameCardArt";
  * Returns "Never" for undefined / non-finite / zero timestamps so
  * the row stays legible without a conditional on every caller.
  */
-function formatRelative(unixMs: number | undefined, t: (k: string, v?: Record<string, string | number>) => string): string {
+function formatRelative(
+  unixMs: number | undefined,
+  t: (k: string, v?: Record<string, string | number>) => string,
+  locale?: string,
+): string {
   if (!unixMs || !Number.isFinite(unixMs)) return t("sidebarHover.never");
   const delta = Math.max(0, Date.now() - unixMs);
   const s = Math.floor(delta / 1000);
@@ -27,10 +32,7 @@ function formatRelative(unixMs: number | undefined, t: (k: string, v?: Record<st
   const d = Math.floor(h / 24);
   if (d < 60) return t("sidebarHover.daysAgo", { count: d });
   try {
-    return new Date(unixMs).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
+    return formatDate(unixMs, locale, { month: "short", day: "numeric" });
   } catch {
     return t("sidebarHover.daysAgo", { count: d });
   }
@@ -296,7 +298,7 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
     { game, pos, onPointerEnter, onPointerLeave },
     ref
   ) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const navigate = useNavigate();
 
     const { displayUrl, handleError } = useGameCardArt({
@@ -312,7 +314,7 @@ const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCa
           : null;
     const year = parseYear(game.releaseDate);
     const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
-    const lastPlayed = formatRelative(game.lastPlayed, t);
+    const lastPlayed = formatRelative(game.lastPlayed, t, language);
     const developer = game.developer || "—";
     const anchorKey = cssEscape(game.id);
 

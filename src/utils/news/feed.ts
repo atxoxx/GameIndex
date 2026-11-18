@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { NewsArticle, SavedArticle } from "../../types/news";
+import { formatDate } from "../localeFormat";
 
 /**
  * True only when a working Tauri IPC bridge is present.
@@ -293,15 +294,18 @@ ${body}
 }
 
 /** Export bookmarked articles as a Markdown digest. */
-export function exportSavedArticlesMarkdown(articles: SavedArticle[]): string {
-  const dateStr = new Date().toLocaleDateString(undefined, {
+export function exportSavedArticlesMarkdown(
+  articles: SavedArticle[],
+  locale?: string,
+): string {
+  const dateStr = formatDate(new Date(), locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
   let md = `# GameIndex Saved News Digest\n\n*Exported on ${dateStr} — ${articles.length} bookmarked article(s)*\n\n---\n\n`;
   for (const article of articles) {
-    const time = article.pubDate ? new Date(article.pubDate).toLocaleDateString() : "";
+    const time = article.pubDate ? formatDate(article.pubDate, locale) : "";
     md += `### [${article.title}](${article.link})\n`;
     md += `**Source:** ${article.sourceName}${time ? ` | **Date:** ${time}` : ""}\n\n`;
     if (article.description) md += `> ${article.description}\n\n`;
