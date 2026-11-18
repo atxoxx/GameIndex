@@ -17,7 +17,7 @@ jobs:
           - platform: "windows-latest"
             package: "dist:win"
             artifact_target: "win32"
-          - platform: "ubuntu-latest"
+          - platform: "ubuntu-22.04"
             package: "dist:linux"
             artifact_target: "linux"
 
@@ -30,7 +30,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v5
         with:
-          node-version: lts/*
+          node-version: 22
           cache: npm
 
       - name: install dependencies
@@ -134,7 +134,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v5
         with:
-          node-version: lts/*
+          node-version: 22
 
       - name: resolve release tag
         id: meta
