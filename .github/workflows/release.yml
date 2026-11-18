@@ -119,7 +119,7 @@ jobs:
 
   # electron-updater consumes latest*.yml, not the Tauri latest.json. Publish
   # those files to a rolling channel release so the Electron feed has a stable
-  # URL while the versioned release stays a human-reviewed draft.
+  # URL, then publish the versioned release once both platform builds succeeded.
   finalize-release:
     needs: build
     if: ${{ needs.build.result == 'success' }}
@@ -210,6 +210,9 @@ jobs:
                 fi
               done
             gh release upload "$channel" "$assets"/* --clobber
+            # Both platform jobs succeeded (finalize depends on the whole
+            # matrix), so the draft is complete: publish it and mark it latest.
+            gh release edit "$tag" --draft=false --latest
           else
             echo "::warning::No updater artifacts found on $tag"
           fi
