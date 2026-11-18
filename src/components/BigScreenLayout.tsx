@@ -21,7 +21,7 @@
 //   • LB/RB step through the primary sections at shell priority; a page
 //     cycler (tabs) mounted at page priority still wins.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BigScreenTopBar from "./bigscreen/shell/BigScreenTopBar";
 import BigScreenNav from "./bigscreen/shell/BigScreenNav";
@@ -388,7 +388,11 @@ export default function BigScreenLayout() {
 
       <main ref={mainRef} className="bs-main" aria-label="Big Screen content">
         <div ref={frameRef} className="bs-frame bigscreen-page-enter">
-          <Outlet />
+          {/* Content-only boundary: a slow page chunk must not unmount the TV
+              shell (nav, footer, controller focus registry). */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 

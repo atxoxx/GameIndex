@@ -66,8 +66,9 @@ import WindowReveal from "./components/WindowReveal";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
 import PageLayoutBridge from "./components/PageLayoutBridge";
 import { GameAccentSync } from "./components/GameAccentSync";
-import { Skeleton } from "./components/ui/Skeleton";
+import PageLoadingFallback from "./components/PageLoadingFallback";
 import { scheduleIdleRoutePreloading } from "./utils/routePreload";
+import { scheduleCorePrefetch } from "./utils/preloads";
 import "./App.css";
 import "./store.css";
 import "./styles/sidebar-v2.css";
@@ -99,34 +100,11 @@ function AppShellLayout() {
         <Sidebar />
       </div>
       <div className="app-main">
-        <MainContent />
-      </div>
-    </div>
-  );
-}
-
-/**
- * PageLoadingFallback — skeleton shown while a lazy page chunk downloads
- * and parses. Replaces the previous blank <Suspense fallback={null}>
- * so navigation never flashes an empty page area: the shell (topnav +
- * sidebar) stays mounted and the content region shows a neutral grid
- * of shimmer placeholders instead of nothing.
- */
-function PageLoadingFallback() {
-  return (
-    <div className="page-fallback" aria-busy="true" role="status">
-      <div className="page-fallback__header">
-        <Skeleton width="260px" height="2.4em" />
-        <Skeleton width="150px" height="1.3em" />
-      </div>
-      <div className="page-fallback__grid">
-        {Array.from({ length: 12 }, (_, i) => (
-          <div key={i} className="page-fallback__tile">
-            <Skeleton shape="rect" width="100%" height="130px" />
-            <Skeleton width="82%" />
-            <Skeleton width="58%" />
-          </div>
-        ))}
+        {/* Keep the shell mounted while a page chunk loads: the Suspense
+            boundary lives around the content, not around the whole route tree. */}
+        <Suspense fallback={<PageLoadingFallback />}>
+          <MainContent />
+        </Suspense>
       </div>
     </div>
   );
@@ -163,11 +141,15 @@ function AppShell() {
   // gets no idle callbacks and should not spend CPU on page code.
   useEffect(() => {
     let cancel = () => {};
+    let cancelCore = () => {};
     let started = false;
     const start = () => {
       if (started || document.hidden) return;
       started = true;
       cancel = scheduleIdleRoutePreloading();
+      // Dialogs are the other half of perceived speed: the command palette and
+      // the download/editor modals should already be parsed when first asked.
+      cancelCore = scheduleCorePrefetch();
     };
     const onVisible = () => {
       if (!document.hidden) start();
@@ -184,6 +166,7 @@ function AppShell() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
       cancel();
+      cancelCore();
     };
   }, []);
 
