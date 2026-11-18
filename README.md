@@ -8,7 +8,7 @@
 
 <p>GameIndex is a local-first desktop launcher for Windows and Linux. It gathers Steam, GOG, Epic, Rockstar, Ubisoft, Humble and DRM-free installs into a single library, then keeps the rest of PC gaming in the same window: sessions, achievements, saves, mods, emulators, storage and deals.</p>
 
-[![CI](https://github.com/atxoxx/GameIndex/actions/workflows/ci.yml/badge.svg?branch=electron)](https://github.com/atxoxx/GameIndex/actions/workflows/ci.yml)
+[![CI](https://github.com/atxoxx/GameIndex/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atxoxx/GameIndex/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f)](#license)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-2f81f7)](#requirements)
 [![Status](https://img.shields.io/badge/status-active%20development-yellow)](#roadmap)
@@ -24,7 +24,7 @@
 
 </div>
 
-> **Project status:** GameIndex is an actively developed, opinionated personal project. Expect rough edges and breaking changes between releases. The Electron desktop shell in this branch has no published installer yet - see [Download and install](#download-and-install) for the public build and the artifacts this branch produces.
+> **Project status:** GameIndex is an actively developed, opinionated personal project. Expect rough edges and breaking changes between releases. `main` is the Electron app; the old `electron` branch is deprecated and kept only as a mirror. Release builds are produced from plain `v<version>` tags on `main` - see [Download and install](#download-and-install) for the current public build and the artifacts the release workflow produces.
 
 ---
 
@@ -40,8 +40,8 @@
   - [Managing your install](#managing-your-install)
   - [Make it yours](#make-it-yours)
 - [Download and install](#download-and-install)
-  - [Public v2.4.0 build](#public-v240-build)
-  - [Electron build from this branch](#electron-build-from-this-branch)
+  - [Legacy Tauri build (v2.4.0)](#legacy-tauri-build-v240)
+  - [Electron builds](#electron-builds)
   - [Requirements](#requirements)
   - [First run](#first-run)
 - [Documentation](#documentation)
@@ -118,7 +118,7 @@ A few principles shape the app:
 
 ## Features
 
-Everything below is implemented in this branch unless a bullet is marked **beta** or **planned**. External data depends on the services and API keys described in [API keys](#api-keys).
+Everything below is implemented in the app unless a bullet is marked **beta** or **planned**. External data depends on the services and API keys described in [API keys](#api-keys).
 
 ### Library
 
@@ -183,7 +183,7 @@ Everything below is implemented in this branch unless a bullet is marked **beta*
 
 ## Download and install
 
-### Public v2.4.0 build
+### Legacy Tauri build (v2.4.0)
 
 The installers in the [v2.4.0 release](https://github.com/atxoxx/GameIndex/releases/tag/v2.4.0) were built before the Electron migration. They are working builds of the same app and use the plain `GameIndex_<version>` names. A newer `v2.4.0-tauri` re-release carries the same version under `GameIndex_tauri_<version>` names.
 
@@ -194,9 +194,9 @@ The installers in the [v2.4.0 release](https://github.com/atxoxx/GameIndex/relea
 | **Linux** | [`GameIndex_2.4.0_amd64.AppImage`](https://github.com/atxoxx/GameIndex/releases/download/v2.4.0/GameIndex_2.4.0_amd64.AppImage) | Make it executable (`chmod +x`) and run it. |
 | **Linux** | [`GameIndex_2.4.0_amd64.deb`](https://github.com/atxoxx/GameIndex/releases/download/v2.4.0/GameIndex_2.4.0_amd64.deb) | `sudo apt install ./GameIndex_2.4.0_amd64.deb` on Debian/Ubuntu derivatives. |
 
-### Electron build from this branch
+### Electron builds
 
-The Electron shell has not been tagged or published yet, so there is currently no `_electron_` installer on the releases page. When a `v<version>-electron` tag is pushed, the release workflow attaches:
+The Electron app lives on `main`. Pushing a plain `v<version>` tag that matches `package.json` builds Windows and Linux installers and attaches them to a draft GitHub release:
 
 | Platform | Artifact |
 |---|---|
@@ -205,11 +205,11 @@ The Electron shell has not been tagged or published yet, so there is currently n
 | **Linux** | `GameIndex_electron_<version>_amd64.AppImage` |
 | **Linux** | `GameIndex_electron_<version>_amd64.deb` |
 
-Until then, [build it from source](#build-from-source). The packaged Electron app shows its version in the header and updates through the `electron-latest` release feed.
+The release is not created for tags on other branches, for `v*-electron`/`v*-tauri` legacy tags, or when the tag and `package.json` version disagree. Until the next Electron release is published, [build it from source](#build-from-source). The packaged app shows its version in the header and updates through the `electron-latest` release feed.
 
 ### Requirements
 
-- **Windows 10 or 11, x64.** The v2.4.0 installer uses the Microsoft Edge WebView2 runtime, which ships with Windows 11 and installs with the setup if missing. The Electron build bundles Chromium and does not need WebView2.
+- **Windows 10 or 11, x64.** The legacy v2.4.0 Tauri installer uses the Microsoft Edge WebView2 runtime, which ships with Windows 11 and installs with the setup if missing. The Electron build bundles Chromium and does not need WebView2.
 - **A modern x64 Linux distribution.** Use the AppImage or install the `.deb`. Linux support works but still has rough edges, especially around Wayland overlays and video capture - see the [Linux guide](./docs/linux-wine-proton.md).
 - **No macOS build.** A DMG target exists in `electron-builder.yml`, but no CI job builds or publishes it and it is not supported.
 - **API keys.** Official installers bake in the keys for IGDB, OpenCritic, Discord and SteamGridDB. A local build without keys still runs; the affected features explain which variable is missing.
@@ -362,7 +362,7 @@ Inside that directory, `db/` holds the SQLite domains (for example `games.db`, `
 
 ### Is there an Electron installer?
 
-Not yet. The Electron shell is source-only until a `v<version>-electron` tag is released. The [public v2.4.0 build](#public-v240-build) is the installer from the main branch. You can build this branch with `npm run dist:win` or `npm run dist:linux`.
+Not yet. The Electron app is on `main`, and installers appear on the next plain `v<version>` release whose tag matches `package.json`. The [legacy v2.4.0 Tauri build](#legacy-tauri-build-v240) is still available. You can build `main` with `npm run dist:win` or `npm run dist:linux`.
 
 ### Windows says the publisher is unknown
 
@@ -423,7 +423,7 @@ GameIndex is a personal project, but contributions, bug reports and careful feat
 
 ## Roadmap
 
-The full, living list is in [`todo.md`](./todo.md). These are the items that still matter for this branch:
+The full, living list is in [`todo.md`](./todo.md). These are the items that still matter for `main`:
 
 | Status | Item |
 |---|---|

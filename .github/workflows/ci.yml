@@ -1,13 +1,12 @@
 name: CI
 
 on:
-  # `main` is the released mirror of `electron`; the same commit only needs one
-  # push run, so it is tested on electron. PRs into either branch and manual
-  # dispatches are still validated.
+  # `main` is the canonical Electron branch; the old `electron` branch is
+  # deprecated and no longer built. Manual dispatch remains available.
   push:
-    branches: [electron]
+    branches: [main]
   pull_request:
-    branches: [main, electron]
+    branches: [main]
   workflow_dispatch:
 
 jobs:

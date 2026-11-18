@@ -3,7 +3,7 @@ name: "Release Electron App"
 on:
   push:
     tags:
-      - "v*-electron"
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -36,15 +36,40 @@ jobs:
       - name: install dependencies
         run: npm ci
 
-      # Both the tag and the artifact version come from package.json: on
-      # workflow_dispatch github.ref_name is a branch, not a release tag.
+      # Releases are produced from plain `v<version>` tags on main. The tag must
+      # match package.json and its commit must be on main; manual dispatches are
+      # only allowed from main. This keeps the deprecated electron branch (and
+      # legacy v*-electron / v*-tauri tags) from publishing builds.
       - name: resolve release tag
         id: meta
         shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version must be plain x.y.z (got $version)"
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [ "$GITHUB_REF_NAME" != "$tag" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($tag)."
+              exit 1
+            fi
+          elif [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::Manual releases must be dispatched from main."
+            exit 1
+          elif git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists. Bump package.json or push a new tag."
+            exit 1
+          fi
+          git fetch origin main --quiet
+          commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::$commit is not on main; release builds are main-only."
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v${version}-electron" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: typecheck
         run: npm run typecheck
@@ -78,7 +103,7 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: "GameIndex Electron v${{ steps.meta.outputs.version }}"
+          name: "GameIndex v${{ steps.meta.outputs.version }}"
           draft: true
           generate_release_notes: true
           files: |
@@ -97,7 +122,7 @@ jobs:
   # URL while the versioned release stays a human-reviewed draft.
   finalize-release:
     needs: build
-    if: ${{ !cancelled() }}
+    if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -113,10 +138,34 @@ jobs:
 
       - name: resolve release tag
         id: meta
+        shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version must be plain x.y.z (got $version)"
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [ "$GITHUB_REF_NAME" != "$tag" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($tag)."
+              exit 1
+            fi
+          elif [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::Manual releases must be dispatched from main."
+            exit 1
+          elif git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists. Bump package.json or push a new tag."
+            exit 1
+          fi
+          git fetch origin main --quiet
+          commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::$commit is not on main; release builds are main-only."
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v${version}-electron" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: publish updater channel
         env:
@@ -134,8 +183,8 @@ jobs:
           gh release view "$channel" >/dev/null 2>&1 || \
             gh release create "$channel" \
               --prerelease \
-              --title "GameIndex Electron updates" \
-              --notes "Rolling electron-updater feed for the Electron build."
+              --title "GameIndex updates" \
+              --notes "Rolling electron-updater feed for GameIndex."
 
           # Surface the versioned release's notes in the update modal.
           notes="$(gh release view "$tag" --json body --jq '.body // ""')"
