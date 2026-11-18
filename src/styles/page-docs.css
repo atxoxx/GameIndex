@@ -24,7 +24,7 @@
 .docs-page {
   position: relative;
   width: 100%;
-  max-width: 1600px;
+  max-width: var(--content-max, 1720px);
   margin: 0 auto;
   padding: var(--space-xl) var(--space-xl) var(--space-4xl);
   box-sizing: border-box;

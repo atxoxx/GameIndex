@@ -13,8 +13,8 @@
   --ports-project-select-chevron: 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 10px;
+  gap: var(--space-2xs);
+  margin-top: var(--space-sm);
   position: relative;
   width: fit-content;
   max-width: var(--ports-project-select-max-width);
@@ -22,7 +22,7 @@
 
 .vrmod-item-select > span {
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -32,13 +32,13 @@
   appearance: none;
   width: 100%;
   height: var(--ports-project-select-height);
-  padding: 0 26px 0 10px;
+  padding: 0 var(--space-xl) 0 var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 6px);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 
@@ -58,15 +58,15 @@
 /* Shown while the lazily imported details chunk loads. */
 .vrmod-details-skeleton {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: var(--space-sm);
+  padding: var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md, 6px);
 }
 
 .vrmod-details-skeleton span {
-  height: 12px;
-  border-radius: 4px;
+  height: var(--space-md);
+  border-radius: var(--radius-xs);
   background: linear-gradient(
     90deg,
     var(--color-bg-secondary) 25%,
@@ -102,9 +102,9 @@
 .vrmod-details > div {
   display: grid;
   grid-template-columns: minmax(8rem, 34%) minmax(0, 1fr);
-  gap: 12px;
-  padding: 8px 12px;
-  font-size: 0.82rem;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -131,6 +131,6 @@
 @media (max-width: 520px) {
   .vrmod-details > div {
     grid-template-columns: 1fr;
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 }
